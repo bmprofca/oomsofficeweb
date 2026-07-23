@@ -9,11 +9,15 @@ import {
   FiLayers,
   FiLoader,
   FiSearch,
+  FiUser,
   FiUsers,
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
+import axios from 'axios';
 import Modal from '../../components/common/Modal';
 import CustomSelect from '../../components/CustomSelect';
+import API_BASE_URL from '../../utils/api-controller';
+import getHeaders from '../../utils/get-headers';
 import { formatMemberSelectedLabel } from '../task-create/SearchablePickField';
 import {
   buildEffectiveFrom,
@@ -410,6 +414,8 @@ export const FirmFormModal = ({
   defaultFirmId = '',
   addTitle,
   editTitle,
+  /** When true (branch assignment page), allow Firm | Group toggle on add. */
+  allowGroupSelection = false,
 }) => {
   const [form, setForm] = useState({
     service_id: '',
@@ -422,7 +428,9 @@ export const FirmFormModal = ({
     ca: '',
     agent: '',
   });
+  const [selectionMode, setSelectionMode] = useState('firm'); // 'firm' | 'group'
   const [selectedFirm, setSelectedFirm] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [staffMembers, setStaffMembers] = useState([]);
   const [caMembers, setCaMembers] = useState([]);
   const [agentMembers, setAgentMembers] = useState([]);
@@ -430,6 +438,9 @@ export const FirmFormModal = ({
   const [effectiveFromFields, setEffectiveFromFields] = useState(() =>
     getDefaultEffectiveFromFields('monthly'),
   );
+
+  const canUseGroup = allowGroupSelection && mode === 'add';
+  const isGroupMode = canUseGroup && selectionMode === 'group';
 
   const selectedFormService = useMemo(
     () => services.find((item) => item.service_id === form.service_id) || null,
@@ -506,6 +517,42 @@ export const FirmFormModal = ({
     });
   }, [clientUsername, presetFirmOptions]);
 
+  const loadGroupOptions = useCallback(async (search, page = 1) => {
+    const headers = getHeaders();
+    if (!headers) return { options: [], hasMore: false };
+
+    const limit = 30;
+    const response = await axios.get(`${API_BASE_URL}/group/list`, {
+      headers,
+      params: {
+        search: String(search || '').trim(),
+        page: String(page),
+        limit: String(limit),
+      },
+    });
+
+    const list = Array.isArray(response.data?.data) ? response.data.data : [];
+    const pagination = response.data?.pagination || {};
+    const options = list.map((group) => {
+      const firmCount = Number(group.firm_count) || 0;
+      const name = group.name || group.group_id;
+      return {
+        value: group.group_id,
+        label: `${name} (${firmCount} firm${firmCount === 1 ? '' : 's'})`,
+        firm_count: firmCount,
+        isDisabled: firmCount <= 0,
+        remark: group.remark || '',
+      };
+    });
+
+    const hasMore =
+      pagination.is_last_page === false ||
+      pagination.has_more === true ||
+      (Number(pagination.page || page) < Number(pagination.total_pages || 1));
+
+    return { options, hasMore };
+  }, []);
+
   const selectedTaxRateOption = useMemo(
     () => taxRateOptions.find((option) => option.value === String(form.tax_rate)) || null,
     [taxRateOptions, form.tax_rate],
@@ -556,6 +603,9 @@ export const FirmFormModal = ({
 
   useEffect(() => {
     if (!isOpen) return;
+
+    setSelectionMode('firm');
+    setSelectedGroup(null);
 
     if (mode === 'edit' && initialFirm) {
       const editService = services.find((item) => item.service_id === initialFirm.service_id) || services[0];
@@ -667,7 +717,21 @@ export const FirmFormModal = ({
     const due_date = Number(form.due_date);
     const visibility_offset = Number(form.visibility_offset);
 
-    if (!form.service_id || !form.firm_id) {
+    if (!form.service_id) {
+      toast.error('Service is required');
+      return;
+    }
+
+    if (isGroupMode) {
+      if (!selectedGroup?.value) {
+        toast.error('Select a group');
+        return;
+      }
+      if ((selectedGroup.firm_count ?? 0) <= 0) {
+        toast.error('Selected group has no firms');
+        return;
+      }
+    } else if (!form.firm_id) {
       toast.error('Service and firm are required');
       return;
     }
@@ -704,12 +768,20 @@ export const FirmFormModal = ({
       effective_from,
       ca: form.ca ? [form.ca] : [],
       agent: form.agent ? [form.agent] : [],
+      selection_mode: isGroupMode ? 'group' : 'firm',
+      group_id: isGroupMode ? selectedGroup.value : undefined,
+      group_name: isGroupMode ? selectedGroup.label : undefined,
+      group_firm_count: isGroupMode ? selectedGroup.firm_count : undefined,
     });
   };
 
   const modalTitle = mode === 'add'
-    ? (addTitle || 'Add compliance firm')
+    ? (addTitle || (isGroupMode ? 'Assign group to compliance' : 'Add compliance firm'))
     : (editTitle || 'Edit compliance firm');
+
+  const submitLabel = mode === 'add'
+    ? (isGroupMode ? 'Assign group' : 'Add firm')
+    : 'Save changes';
 
   return (
     <Modal
@@ -738,7 +810,7 @@ export const FirmFormModal = ({
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
           >
             {saving ? <FiLoader className="w-4 h-4 animate-spin" /> : <FiBriefcase className="w-4 h-4" />}
-            {mode === 'add' ? 'Add firm' : 'Save changes'}
+            {submitLabel}
           </button>
         </div>
       )}
@@ -758,9 +830,59 @@ export const FirmFormModal = ({
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-800 m-0">Service & firm</p>
-                  <p className="text-xs text-gray-500 m-0">Choose the compliance service and client firm</p>
+                  <p className="text-xs text-gray-500 m-0">
+                    {canUseGroup
+                      ? 'Choose a compliance service, then assign a firm or an entire group'
+                      : 'Choose the compliance service and client firm'}
+                  </p>
                 </div>
               </div>
+
+              {canUseGroup ? (
+                <div
+                  className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.5"
+                  role="tablist"
+                  aria-label="Select firm or group"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!isGroupMode}
+                    disabled={saving}
+                    onClick={() => {
+                      setSelectionMode('firm');
+                      setSelectedGroup(null);
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      !isGroupMode
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    } disabled:opacity-50`}
+                  >
+                    <FiUser className="h-3.5 w-3.5" />
+                    Firm
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isGroupMode}
+                    disabled={saving}
+                    onClick={() => {
+                      setSelectionMode('group');
+                      setSelectedFirm(null);
+                      setForm((prev) => ({ ...prev, firm_id: '' }));
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      isGroupMode
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    } disabled:opacity-50`}
+                  >
+                    <FiUsers className="h-3.5 w-3.5" />
+                    Group
+                  </button>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <CustomSelect
@@ -776,21 +898,39 @@ export const FirmFormModal = ({
                   isClearable={false}
                 />
 
-                <CustomSelect
-                  label="Firm"
-                  required
-                  loadOptions={loadFirmOptions}
-                  value={selectedFirmOption}
-                  onChange={(option) => {
-                    setSelectedFirm(option || null);
-                    setForm((prev) => ({ ...prev, firm_id: option?.value || '' }));
-                  }}
-                  placeholder={clientUsername ? 'Select client firm' : 'Select firm'}
-                  searchPlaceholder="Search by firm name or PAN..."
-                  noOptionsMessage={clientUsername ? 'No firms for this client' : 'No firms available'}
-                  isDisabled={saving}
-                  isClearable={false}
-                />
+                {isGroupMode ? (
+                  <CustomSelect
+                    label="Group"
+                    required
+                    loadOptions={loadGroupOptions}
+                    value={selectedGroup}
+                    onChange={(option) => setSelectedGroup(option || null)}
+                    placeholder="Select group"
+                    searchPlaceholder="Search groups..."
+                    noOptionsMessage="No groups available"
+                    isDisabled={saving}
+                    isClearable={false}
+                    isOptionDisabled={(option) =>
+                      Boolean(option?.isDisabled) || Number(option?.firm_count) <= 0
+                    }
+                  />
+                ) : (
+                  <CustomSelect
+                    label="Firm"
+                    required
+                    loadOptions={loadFirmOptions}
+                    value={selectedFirmOption}
+                    onChange={(option) => {
+                      setSelectedFirm(option || null);
+                      setForm((prev) => ({ ...prev, firm_id: option?.value || '' }));
+                    }}
+                    placeholder={clientUsername ? 'Select client firm' : 'Select firm'}
+                    searchPlaceholder="Search by firm name or PAN..."
+                    noOptionsMessage={clientUsername ? 'No firms for this client' : 'No firms available'}
+                    isDisabled={saving}
+                    isClearable={false}
+                  />
+                )}
 
                 {selectedFormService ? (
                   <EffectiveFromField

@@ -21,12 +21,28 @@ function isScrollLockEngaged() {
     return manualLockCount > 0 || autoLockActive;
 }
 
+function normalizeSavedOverflow(value) {
+    // Another layer may have already set overflow:hidden before we lock.
+    // Never restore that — it would leave the page permanently unscrollable.
+    if (!value || value === 'hidden') return '';
+    return value;
+}
+
+function restoreOverflow(el, saved) {
+    if (!el) return;
+    if (saved) {
+        el.style.overflow = saved;
+    } else {
+        el.style.removeProperty('overflow');
+    }
+}
+
 function applyLockState() {
     const locked = isScrollLockEngaged();
     if (locked && !applied) {
         applied = true;
-        savedHtmlOverflow = document.documentElement.style.overflow;
-        savedBodyOverflow = document.body.style.overflow;
+        savedHtmlOverflow = normalizeSavedOverflow(document.documentElement.style.overflow);
+        savedBodyOverflow = normalizeSavedOverflow(document.body.style.overflow);
         savedBodyPaddingRight = document.body.style.paddingRight;
         const sbw = getScrollbarWidth();
         document.documentElement.classList.add('modal-scroll-lock');
@@ -38,9 +54,16 @@ function applyLockState() {
     } else if (!locked && applied) {
         applied = false;
         document.documentElement.classList.remove('modal-scroll-lock');
-        document.documentElement.style.overflow = savedHtmlOverflow;
-        document.body.style.overflow = savedBodyOverflow;
-        document.body.style.paddingRight = savedBodyPaddingRight;
+        restoreOverflow(document.documentElement, savedHtmlOverflow);
+        restoreOverflow(document.body, savedBodyOverflow);
+        if (savedBodyPaddingRight) {
+            document.body.style.paddingRight = savedBodyPaddingRight;
+        } else {
+            document.body.style.removeProperty('padding-right');
+        }
+        savedHtmlOverflow = '';
+        savedBodyOverflow = '';
+        savedBodyPaddingRight = '';
     }
 }
 
@@ -67,6 +90,27 @@ export function setAutoBodyScrollLock(active) {
 
 export function isBodyScrollLocked() {
     return isScrollLockEngaged();
+}
+
+/** Force-clear auto + manual locks (recovery / page transitions). */
+export function forceUnlockBodyScroll() {
+    manualLockCount = 0;
+    autoLockActive = false;
+    if (applied) {
+        applied = false;
+        document.documentElement.classList.remove('modal-scroll-lock');
+        document.documentElement.style.removeProperty('overflow');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+        savedHtmlOverflow = '';
+        savedBodyOverflow = '';
+        savedBodyPaddingRight = '';
+    } else {
+        document.documentElement.classList.remove('modal-scroll-lock');
+        document.documentElement.style.removeProperty('overflow');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
 }
 
 function isScrollableEl(el) {
@@ -116,6 +160,8 @@ attachGlobalListeners();
 /** Full-viewport fixed layer (typical modal backdrop). */
 export function elementLooksLikeModalOverlay(el) {
     if (!(el instanceof HTMLElement)) return false;
+    // Ignore inert / non-interactive layers (toasts, tooltips, decorative portals).
+    if (el.getAttribute('aria-hidden') === 'true') return false;
     const s = getComputedStyle(el);
     if (s.display === 'none' || s.visibility === 'hidden') return false;
     if (parseFloat(s.opacity) < 0.01) return false;

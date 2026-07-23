@@ -8,7 +8,6 @@ import {
     FiAlertCircle,
     FiUsers,
     FiDollarSign,
-    FiCreditCard,
     FiShoppingBag,
     FiGift,
     FiEye,
@@ -174,6 +173,17 @@ const QuickStatsDetailsPage = () => {
     const navigate = useNavigate();
     const locationState = location.state || {};
 
+    // Today payment / receive now open the finance register pages
+    useEffect(() => {
+        if (type === 'today-received') {
+            navigate('/finance/voucher/received?today=true', { replace: true });
+            return;
+        }
+        if (type === 'today-payment') {
+            navigate('/finance/voucher/payment?today=true', { replace: true });
+        }
+    }, [type, navigate]);
+
     // Sidebar state
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -296,8 +306,6 @@ const QuickStatsDetailsPage = () => {
             case 'pending-billing': return 'pending_billing';
             case 'creditors': return 'creditors';
             case 'debtors': return 'debtors';
-            case 'today-received': return 'today_received';
-            case 'today-payment': return 'today_payment';
             case 'today-birthday': return 'today_birthday';
             default: return type;
         }
@@ -382,6 +390,9 @@ const QuickStatsDetailsPage = () => {
     }, [type]);
 
     useEffect(() => {
+        if (type === 'today-received' || type === 'today-payment') {
+            return;
+        }
         fetchDetails(1, pagination.limit);
     }, [type, debouncedSearch, debouncedBalanceAfter]);
 
@@ -570,8 +581,6 @@ const QuickStatsDetailsPage = () => {
             case 'pending-billing': return 'Pending Billing';
             case 'creditors': return 'Creditors List';
             case 'debtors': return 'Debtors List';
-            case 'today-received': return "Today's Receipts";
-            case 'today-payment': return "Today's Payments";
             case 'today-birthday': return "Today's Birthdays";
             default: return locationState.title || 'Details';
         }
@@ -582,8 +591,6 @@ const QuickStatsDetailsPage = () => {
             case 'pending-billing': return 'List of all pending billing invoices';
             case 'creditors': return 'List of all creditors with outstanding balances';
             case 'debtors': return 'List of all debtors with receivable balances';
-            case 'today-received': return 'All payments received today';
-            case 'today-payment': return 'All payments made today';
             case 'today-birthday': return 'Clients celebrating birthday today';
             default: return 'Detailed information';
         }
@@ -594,8 +601,6 @@ const QuickStatsDetailsPage = () => {
             case 'pending-billing': return <FiShoppingBag className="w-6 h-6" />;
             case 'creditors': return <FiUsers className="w-6 h-6" />;
             case 'debtors': return <FiDollarSign className="w-6 h-6" />;
-            case 'today-received': return <FiDollarSign className="w-6 h-6" />;
-            case 'today-payment': return <FiCreditCard className="w-6 h-6" />;
             case 'today-birthday': return <FiGift className="w-6 h-6" />;
             default: return <FiUsers className="w-6 h-6" />;
         }
@@ -606,8 +611,6 @@ const QuickStatsDetailsPage = () => {
             case 'pending-billing': return 'from-indigo-500 to-purple-600';
             case 'creditors': return 'from-cyan-500 to-blue-600';
             case 'debtors': return 'from-red-500 to-pink-600';
-            case 'today-received': return 'from-green-500 to-emerald-600';
-            case 'today-payment': return 'from-orange-500 to-amber-600';
             case 'today-birthday': return 'from-purple-500 to-violet-600';
             default: return 'from-indigo-500 to-purple-600';
         }
@@ -1198,6 +1201,10 @@ const QuickStatsDetailsPage = () => {
 
     if (type === 'debtors' || type === 'creditors') {
         return renderBalanceListPage(type);
+    }
+
+    if (type === 'today-received' || type === 'today-payment') {
+        return null;
     }
 
     return (

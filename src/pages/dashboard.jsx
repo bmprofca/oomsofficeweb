@@ -56,7 +56,7 @@ import SalesOverviewWidget from "../DashboardComponents/SalesOverviewWidget";
 import DashboardCustomizeDrawer from "../DashboardComponents/DashboardCustomizeDrawer";
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = "7";
-const QUICK_STATS_VERSION = "3";
+const QUICK_STATS_VERSION = "4";
 const ADDITIONAL_STATS_VERSION = "3";
 
 const hasValidBranchInStorage = () => {
@@ -75,9 +75,11 @@ const migrateQuickStatsLinks = (cards) => {
     "/view-billing": "/billing",
     "/view-creditors": "/quick-stats/creditors",
     "/view-debtors": "/quick-stats/debtors",
-    "/view-received": "/quick-stats/today-received",
-    "/view-payments": "/quick-stats/today-payment",
+    "/view-received": "/finance/voucher/received?today=true",
+    "/view-payments": "/finance/voucher/payment?today=true",
     "/view-birthday-today": "/quick-stats/today-birthday",
+    "/quick-stats/today-received": "/finance/voucher/received?today=true",
+    "/quick-stats/today-payment": "/finance/voucher/payment?today=true",
   };
 
   return cards.map((card) => ({
@@ -197,7 +199,7 @@ const getDefaultQuickStatsCards = () => [
     icon: FiDollarSign,
     color: "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
     gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-    link: "/quick-stats/today-received",
+    link: "/finance/voucher/received?today=true",
     showCount: true,
     showAmount: true,
     isCurrency: true,
@@ -209,7 +211,7 @@ const getDefaultQuickStatsCards = () => [
     icon: FiCreditCard,
     color: "bg-gradient-to-br from-orange-500 to-amber-600 text-white",
     gradient: "linear-gradient(135deg, #f97316 0%, #f59e0b 100%)",
-    link: "/quick-stats/today-payment",
+    link: "/finance/voucher/payment?today=true",
     showCount: true,
     showAmount: true,
     isCurrency: true,
@@ -336,7 +338,7 @@ const getDefaultAdditionalStatsCards = () => [
     icon: FiHome,
     color: "bg-gradient-to-br from-orange-500 to-amber-600 text-white",
     gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
-    link: "/staff/office-assistance/group-firms",
+    link: "/staff/office-assistance/groups",
     isCurrency: false,
   },
   {
@@ -455,7 +457,9 @@ const Dashboard = () => {
         card.link === "/view-debtors" ||
         card.link === "/view-received" ||
         card.link === "/view-payments" ||
-        card.link === "/view-birthday-today",
+        card.link === "/view-birthday-today" ||
+        card.link === "/quick-stats/today-received" ||
+        card.link === "/quick-stats/today-payment",
     );
 
     let finalCards = cards;

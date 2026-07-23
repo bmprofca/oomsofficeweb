@@ -51,6 +51,7 @@ import AssignedStaffList from "../../components/Modals/AssignedStaffList";
 import TaskStatusChange from "../../components/Modals/TaskStatusChange";
 import StartWorkingModal from "../../components/Modals/StartWorkingModal";
 import MultiSelectInput from "../../components/MultiSelectInput";
+import CustomSelect from "../../components/CustomSelect";
 
 /** Task-table typography baseline — see context/typography.md & TaskTable.js */
 const TABLE_HEAD_ROW =
@@ -606,9 +607,7 @@ export const ComplianceTaskBoard = ({
 
   const [services, setServices] = useState([]);
   const [serviceId, setServiceId] = useState("");
-  const [complianceYear, setComplianceYear] = useState(
-    getCurrentComplianceYear(),
-  );
+  const [complianceYear, setComplianceYear] = useState(null);
   const [compliancePeriod, setCompliancePeriod] = useState("");
   const [periodOptions, setPeriodOptions] = useState(null);
   const [selectedFirmId, setSelectedFirmId] = useState(firmIdProp || "");
@@ -685,6 +684,85 @@ export const ComplianceTaskBoard = ({
       return `${start}-${start + 1}`;
     });
   }, []);
+
+  const yearSelectOptions = useMemo(
+    () => [
+      { value: null, label: "All" },
+      ...yearOptions.map((year) => ({ value: year, label: year })),
+    ],
+    [yearOptions],
+  );
+
+  const serviceSelectOptions = useMemo(
+    () => [
+      { value: "", label: "All services" },
+      ...branchServices.map((service) => ({
+        value: service.service_id,
+        label: getServiceLabel(service),
+      })),
+    ],
+    [branchServices],
+  );
+
+  const firmSelectOptions = useMemo(
+    () => [{ value: "", label: "All firms" }, ...firmOptions],
+    [firmOptions],
+  );
+
+  const periodFilterEnabled = Boolean(periodSelectEnabled && complianceYear);
+
+  const periodSelectOptions = useMemo(() => {
+    const placeholderLabel = !complianceYear
+      ? "Select a year first"
+      : !serviceId
+        ? "Select a service first"
+        : !periodSelectEnabled
+          ? "All periods in year (yearly service)"
+          : "All periods in year";
+    return [
+      { value: "", label: placeholderLabel },
+      ...(periodFilterEnabled
+        ? periodChoices.map((period) => ({
+            value: period.value,
+            label: period.label || period.value,
+          }))
+        : []),
+    ];
+  }, [
+    complianceYear,
+    serviceId,
+    periodSelectEnabled,
+    periodFilterEnabled,
+    periodChoices,
+  ]);
+
+  const selectedYearOption = useMemo(
+    () =>
+      yearSelectOptions.find((option) => option.value === complianceYear) ||
+      yearSelectOptions[0],
+    [yearSelectOptions, complianceYear],
+  );
+
+  const selectedServiceOption = useMemo(
+    () =>
+      serviceSelectOptions.find((option) => option.value === serviceId) ||
+      serviceSelectOptions[0],
+    [serviceSelectOptions, serviceId],
+  );
+
+  const selectedPeriodOption = useMemo(
+    () =>
+      periodSelectOptions.find((option) => option.value === compliancePeriod) ||
+      periodSelectOptions[0],
+    [periodSelectOptions, compliancePeriod],
+  );
+
+  const selectedFirmOption = useMemo(
+    () =>
+      firmSelectOptions.find((option) => option.value === selectedFirmId) ||
+      firmSelectOptions[0],
+    [firmSelectOptions, selectedFirmId],
+  );
 
   const canForceGetOut = useCallback(
     () => isBranchAdmin() || check("task_get_in"),
@@ -777,7 +855,7 @@ export const ComplianceTaskBoard = ({
     try {
       const res = await fetchComplianceTaskList({
         service_id: serviceId,
-        compliance_year: complianceYear,
+        compliance_year: complianceYear || "",
         compliance_period:
           serviceId && complianceYear && compliancePeriod
             ? compliancePeriod
@@ -1159,7 +1237,9 @@ export const ComplianceTaskBoard = ({
               <button
                 type="button"
                 onClick={() =>
-                  navigate("/staff/office-assistance/compliance/firm-assignment")
+                  navigate(
+                    "/staff/office-assistance/compliance/firm-assignment",
+                  )
                 }
                 className="inline-flex items-center gap-1.5 shrink-0 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-lg transition-colors"
               >
@@ -1194,71 +1274,70 @@ export const ComplianceTaskBoard = ({
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Service
               </label>
-              <select
-                value={serviceId}
-                onChange={(e) => {
-                  setServiceId(e.target.value);
+              <CustomSelect
+                options={serviceSelectOptions}
+                value={selectedServiceOption}
+                onChange={(option) => {
+                  setServiceId(option?.value || "");
                   setCompliancePeriod("");
                   setPeriodOptions(null);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                className={TOOLBAR_INPUT}
-              >
-                <option value="">All services</option>
-                {branchServices.map((service) => (
-                  <option key={service.service_id} value={service.service_id}>
-                    {getServiceLabel(service)}
-                  </option>
-                ))}
-              </select>
+                placeholder="All services"
+                searchPlaceholder="Search services..."
+                noOptionsMessage="No services found"
+                isClearable={false}
+              />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Compliance year
               </label>
-              <select
-                value={complianceYear}
-                onChange={(e) => {
-                  setComplianceYear(e.target.value);
+              <CustomSelect
+                options={yearSelectOptions}
+                value={selectedYearOption}
+                onChange={(option) => {
+                  const nextYear =
+                    option?.value == null || option?.value === ""
+                      ? null
+                      : option.value;
+                  setComplianceYear(nextYear);
+                  if (!nextYear) setCompliancePeriod("");
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                className={TOOLBAR_INPUT}
-              >
-                {yearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
+                placeholder="All"
+                searchPlaceholder="Search year..."
+                noOptionsMessage="No years found"
+                isClearable={false}
+              />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Period
               </label>
-              <select
-                value={compliancePeriod}
-                onChange={(e) => {
-                  setCompliancePeriod(e.target.value);
+              <CustomSelect
+                options={periodSelectOptions}
+                value={selectedPeriodOption}
+                onChange={(option) => {
+                  setCompliancePeriod(option?.value || "");
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                disabled={!periodSelectEnabled}
-                className={`${TOOLBAR_INPUT} disabled:opacity-60`}
-              >
-                <option value="">
-                  {!serviceId
-                    ? "Select a service first"
-                    : !periodSelectEnabled
-                      ? "All periods in year (yearly service)"
-                      : "All periods in year"}
-                </option>
-                {periodChoices.map((period) => (
-                  <option key={period.value} value={period.value}>
-                    {period.label || period.value}
-                  </option>
-                ))}
-              </select>
+                placeholder={
+                  !complianceYear
+                    ? "Select a year first"
+                    : !serviceId
+                      ? "Select a service first"
+                      : !periodSelectEnabled
+                        ? "All periods in year (yearly service)"
+                        : "All periods in year"
+                }
+                searchPlaceholder="Search period..."
+                noOptionsMessage="No periods found"
+                isDisabled={!periodFilterEnabled}
+                isClearable={false}
+              />
             </div>
 
             {isClientScoped ? (
@@ -1266,21 +1345,18 @@ export const ComplianceTaskBoard = ({
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Firm
                 </label>
-                <select
-                  value={selectedFirmId}
-                  onChange={(e) => {
-                    setSelectedFirmId(e.target.value);
+                <CustomSelect
+                  options={firmSelectOptions}
+                  value={selectedFirmOption}
+                  onChange={(option) => {
+                    setSelectedFirmId(option?.value || "");
                     setPagination((prev) => ({ ...prev, page: 1 }));
                   }}
-                  className={TOOLBAR_INPUT}
-                >
-                  <option value="">All firms</option>
-                  {firmOptions.map((firm) => (
-                    <option key={firm.value} value={firm.value}>
-                      {firm.label}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All firms"
+                  searchPlaceholder="Search firms..."
+                  noOptionsMessage="No firms found"
+                  isClearable={false}
+                />
               </div>
             ) : null}
 
@@ -1329,8 +1405,15 @@ export const ComplianceTaskBoard = ({
               {compliancePeriod
                 ? ` · Period: ${compliancePeriod}`
                 : serviceId
-                  ? " · All periods in selected year"
+                  ? complianceYear
+                    ? " · All periods in selected year"
+                    : " · All periods through current year"
                   : ""}
+            </p>
+          ) : complianceYear == null ? (
+            <p className="text-xs text-gray-500 m-0">
+              Showing compliance through current year from each firm&apos;s
+              effective from date
             </p>
           ) : null}
         </div>

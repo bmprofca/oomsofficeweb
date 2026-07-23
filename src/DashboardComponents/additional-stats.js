@@ -140,7 +140,7 @@ const DEFAULT_CARDS = [
     id: "total-firms",
     title: "Total Firms",
     value: "total_firms",
-    link: "/staff/office-assistance/group-firms",
+    link: "/staff/office-assistance/groups",
   },
   {
     id: "total-services",

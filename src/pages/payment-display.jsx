@@ -38,6 +38,28 @@ const ACTIONS_MENU_HEIGHT = 140;
 
 const EMPTY_STATS = { count: 0, amount: 0 };
 
+const toLocalIsoDate = (date = new Date()) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+const getInitialDateRange = () => {
+    const preferToday =
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('today') === 'true';
+    const today = new Date();
+    const todayIso = toLocalIsoDate(today);
+    if (preferToday) {
+        return { fromDate: todayIso, toDate: todayIso };
+    }
+    return {
+        fromDate: toLocalIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+        toDate: todayIso,
+    };
+};
+
 const formatDisplayDate = (dateString) => {
     if (!dateString) return '—';
     const raw = String(dateString).trim().slice(0, 10);
@@ -560,11 +582,8 @@ const ViewPayments = () => {
     });
     const [listLoading, setListLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [fromDate, setFromDate] = useState(() => {
-        const today = new Date();
-        return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    });
-    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [fromDate, setFromDate] = useState(() => getInitialDateRange().fromDate);
+    const [toDate, setToDate] = useState(() => getInitialDateRange().toDate);
     const [payments, setPayments] = useState([]);
     const [paymentFormModal, setPaymentSendModal] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);

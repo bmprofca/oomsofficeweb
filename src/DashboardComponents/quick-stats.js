@@ -81,13 +81,13 @@ const DEFAULT_CARDS = [
     id: "today-received",
     title: "Today Received",
     value: "today_received",
-    link: "/quick-stats/today-received",
+    link: "/finance/voucher/received?today=true",
   },
   {
     id: "today-payment",
     title: "Today Payment",
     value: "today_payment",
-    link: "/quick-stats/today-payment",
+    link: "/finance/voucher/payment?today=true",
   },
   {
     id: "today-birthday",

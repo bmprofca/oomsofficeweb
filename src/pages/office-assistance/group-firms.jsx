@@ -1,1764 +1,1084 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { FiUsers, FiCheckCircle, FiSearch, FiMoreVertical, FiEye, FiXCircle, FiEdit, FiTrash2, FiUpload, FiSettings, FiX } from 'react-icons/fi';
-import { Header, Sidebar } from '../../components/header';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
+import {
+  FiPlus,
+  FiEye,
+  FiTrash2,
+  FiSearch,
+  FiRefreshCw,
+  FiUsers,
+  FiMoreVertical,
+  FiUpload,
+  FiPhone,
+  FiMail,
+} from "react-icons/fi";
+import { AnimatePresence, motion } from "framer-motion";
+import axios from "axios";
+import { toast } from "react-hot-toast";
+import { Header, Sidebar } from "../../components/header";
+import TablePagination from "../../components/TablePagination";
+import { ViewportTooltip } from "../../components/ViewportTooltip";
+import FirmsDetailsModal from "../../components/Modals/FirmsDetailsModal";
+import {
+  GroupFirmsAddModal,
+  GroupFirmsDeleteModal,
+  GroupFirmsBulkDeleteModal,
+} from "../../components/Modals/GroupFirmsModals";
+import BulkImportFirmsModal from "../../components/Modals/BulkImportFirmsModal";
 import getHeaders from "../../utils/get-headers";
-import API_BASE_URL from '../../utils/api-controller';
-import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
+import API_BASE_URL from "../../utils/api-controller";
+import { useUserPermissions } from "../../utils/permission-helper";
+
+/** Task-table typography baseline — see context/typography.md */
+const TABLE_HEAD_ROW =
+  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+const TABLE_TH =
+  "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
+const TABLE_ROW =
+  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors group";
+const TABLE_TD = "px-3 py-3 min-w-0 text-left align-middle";
+const TOOLBAR_ROW =
+  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50";
+const TOOLBAR_INPUT =
+  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-gray-400";
+const CELL_BODY = "text-sm font-medium text-gray-700";
+const CELL_INDEX = "text-[11px] font-bold text-gray-800";
+const CELL_TITLE =
+  "font-semibold text-gray-800 text-sm hover:text-indigo-600 transition-colors";
+const CELL_META = "text-xs text-gray-400";
+
+const COL_COUNT = 7;
+
+const formatBalance = (balance, canViewFees) => {
+  if (!canViewFees) {
+    return <span className="blur-[3.5px] select-none">₹99,999</span>;
+  }
+  const amount = Number(balance || 0);
+  return `${amount < 0 ? "-" : ""}₹${Math.abs(amount).toLocaleString()}`;
+};
+
+const SkeletonRow = ({ cols = COL_COUNT }) => (
+  <tr className="animate-pulse">
+    {Array.from({ length: cols }).map((_, i) => (
+      <td key={i} className="px-3 py-3">
+        <div
+          className="h-3.5 bg-gray-200 rounded-full"
+          style={{ width: `${55 + (i % 3) * 18}px` }}
+        />
+      </td>
+    ))}
+  </tr>
+);
+
+/** Same animated checkbox as TaskTable.js */
+const AnimatedCheckbox = ({
+  checked,
+  indeterminate = false,
+  onChange,
+  ariaLabel,
+}) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = indeterminate;
+    }
+  }, [indeterminate, checked]);
+
+  const isActive = checked || indeterminate;
+
+  return (
+    <label className="relative inline-flex items-center cursor-pointer group">
+      <input
+        ref={inputRef}
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={onChange}
+        aria-label={ariaLabel}
+      />
+      <motion.span
+        className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${
+          isActive
+            ? "bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200"
+            : "bg-white border-gray-300 group-hover:border-indigo-400"
+        }`}
+        animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
+        transition={{ duration: 0.18 }}
+      >
+        <AnimatePresence initial={false} mode="wait">
+          {indeterminate ? (
+            <motion.span
+              key="dash"
+              className="block w-2 h-0.5 bg-white rounded-full"
+              initial={{ opacity: 0, scaleX: 0.4 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              exit={{ opacity: 0, scaleX: 0.4 }}
+              transition={{ duration: 0.12 }}
+            />
+          ) : checked ? (
+            <motion.svg
+              key="check"
+              viewBox="0 0 12 12"
+              className="w-3 h-3 text-white"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.15 }}
+            >
+              <path
+                d="M2.5 6l2.2 2.2 4.8-4.8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </motion.svg>
+          ) : null}
+        </AnimatePresence>
+      </motion.span>
+    </label>
+  );
+};
+
+const MENU_Z = 99999;
+const MENU_GAP = 8;
+const MENU_PAD = 8;
+
+
+/* ─── 3-dot action menu (portal · tooltip.md) ──────────────────── */
+const ActionMenu = ({ items }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const calcPos = useCallback(() => {
+    const btn = btnRef.current;
+    const menu = menuRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const mH = menu?.offsetHeight || 140;
+    const mW = menu?.offsetWidth || 144;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const candidates = [
+      { top: r.top - mH - MENU_GAP, left: r.right - mW },
+      { top: r.bottom + MENU_GAP, left: r.right - mW },
+      { top: r.top, left: r.right + MENU_GAP },
+      { top: r.top, left: r.left - mW - MENU_GAP },
+    ];
+
+    const fits = (p) =>
+      p.top >= MENU_PAD &&
+      p.left >= MENU_PAD &&
+      p.top + mH <= vh - MENU_PAD &&
+      p.left + mW <= vw - MENU_PAD;
+
+    const chosen = candidates.find(fits) || candidates[1];
+    setPos({
+      top: Math.min(Math.max(MENU_PAD, chosen.top), vh - MENU_PAD - mH),
+      left: Math.min(Math.max(MENU_PAD, chosen.left), vw - MENU_PAD - mW),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const raf = requestAnimationFrame(() => calcPos());
+    return () => cancelAnimationFrame(raf);
+  }, [open, calcPos]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (
+        !btnRef.current?.contains(e.target) &&
+        !menuRef.current?.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onClose = () => setOpen(false);
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onClose, true);
+    window.addEventListener("resize", calcPos);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("resize", calcPos);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, calcPos]);
+
+  return (
+    <>
+      <ViewportTooltip label="Actions">
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
+          className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="Actions"
+        >
+          <FiMoreVertical className="w-3.5 h-3.5" />
+        </button>
+      </ViewportTooltip>
+
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open ? (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.12 }}
+                style={{
+                  position: "fixed",
+                  top: pos.top,
+                  left: pos.left,
+                  zIndex: MENU_Z,
+                }}
+                className="w-36 bg-white border border-gray-200 rounded-xl shadow-xl py-1 overflow-hidden"
+              >
+                {items.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    disabled={item.disabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.disabled) return;
+                      setOpen(false);
+                      item.onClick?.();
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
+                      item.danger
+                        ? "text-red-600 hover:bg-red-50"
+                        : "text-gray-700 hover:bg-gray-50"
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </>
+  );
+};
 
 const GroupFirms = () => {
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [isMinimized, setIsMinimized] = useState(() => {
-        const saved = localStorage.getItem('sidebarMinimized');
-        return saved ? JSON.parse(saved) : false;
-    });
+  const { groupId } = useParams();
+  const navigate = useNavigate();
+  const { check } = useUserPermissions();
+  const canViewFees = check("task_fees_view");
 
-    // Main states
-    const [loading, setLoading] = useState(false);
-    const [firms, setFirms] = useState([]);
-    const [filteredFirms, setFilteredFirms] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [firmIds, setFirmIds] = useState(['']);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("sidebarMinimized")) || false;
+    } catch {
+      return false;
+    }
+  });
 
-    // Action states - NEW
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [activeDropdownFirmId, setActiveDropdownFirmId] = useState(null);
-    const [showViewModal, setShowViewModal] = useState(false);
-    const [selectedFirm, setSelectedFirm] = useState(null);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [firmToDelete, setFirmToDelete] = useState(null);
-    const [deleteLoading, setDeleteLoading] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [editFirm, setEditFirm] = useState(null);
-    const [groupDetails, setGroupDetails] = useState(null);
-    const [isBulkMode, setIsBulkMode] = useState(false);
-    const [selectedFirms, setSelectedFirms] = useState([]);
-    const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [firms, setFirms] = useState([]);
+  const [groupDetails, setGroupDetails] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-    // Import states
-    const [showImportModal, setShowImportModal] = useState(false);
-    const [importFile, setImportFile] = useState(null);
-    const [importing, setImporting] = useState(false);
-    const [previewData, setPreviewData] = useState(null);
-    const [importError, setImportError] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedFirm, setSelectedFirm] = useState(null);
+  const [firmToDelete, setFirmToDelete] = useState(null);
+  const [selectedFirms, setSelectedFirms] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
-    const defaultMappings = {
-        name: '',
-        mobile: '',
-        email: '',
-        pan_number: '',
-        gender: '',
-        date_of_birth: '',
-        state: '',
-        district: '',
-        city: '',
-        pincode: '',
-        care_of: '',
-        guardian_name: '',
-        firm_name: '',
-        firm_type: '',
-        gst: '',
-        firm_pan: '',
-        opening_balance: '',
-        opening_balance_type: '',
-        opening_balance_date: ''
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const searchTimer = useRef(null);
+  const abortRef = useRef(null);
+  const pageRef = useRef(page);
+  const limitRef = useRef(limit);
+  const searchRef = useRef(searchTerm);
+  const selectAllAcrossPagesRef = useRef(false);
+
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+  useEffect(() => {
+    limitRef.current = limit;
+  }, [limit]);
+  useEffect(() => {
+    searchRef.current = searchTerm;
+  }, [searchTerm]);
+  useEffect(() => {
+    selectAllAcrossPagesRef.current = selectAllAcrossPages;
+  }, [selectAllAcrossPages]);
+
+  useEffect(() => {
+    if (selectAllAcrossPages) {
+      setSelectAll(true);
+      return;
+    }
+    setSelectAll(
+      firms.length > 0 && firms.every((f) => selectedFirms.includes(f.firm_id)),
+    );
+  }, [firms, selectedFirms, selectAllAcrossPages]);
+
+  useEffect(() => {
+    localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
+  }, [isMinimized]);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.removeProperty("overflow");
     };
+  }, [mobileMenuOpen]);
 
-    const [columnMappings, setColumnMappings] = useState({ ...defaultMappings });
-    const [fileHeaders, setFileHeaders] = useState([]);
 
-    const resetImportModal = () => {
-        setShowImportModal(false);
-        setImportFile(null);
-        setPreviewData(null);
-        setImportError(null);
-        setFileHeaders([]);
-        setColumnMappings({ ...defaultMappings });
+  const mapFirm = (firmData) => {
+    const f = firmData.firm || {};
+    const isActive = f.is_active === true || String(f.status) === "1";
+    return {
+      firm_id: f.firm_id,
+      name: f.firm_name || "—",
+      gstin: f.gst || "",
+      file_no: f.file_no || "",
+      status: isActive ? "active" : "inactive",
+      created_date: firmData.create_date || null,
+      modify_date: firmData.modify_date || null,
+      unique_id: firmData.unique_id,
+      create_by: firmData.create_by || null,
+      modify_by: firmData.modify_by || null,
+      firm_type: f.firm_type || "",
+      pan: f.pan || "",
+      username: f.username || firmData.client?.username || "",
+      client_name: firmData.client?.name || "",
+      care_of: firmData.client?.care_of || "",
+      guardian_name: firmData.client?.guardian_name || "",
+      mobile: firmData.client?.mobile || "",
+      email: firmData.client?.email || "",
+      country_code: firmData.client?.country_code || "",
+      balance: Number(firmData.client?.balance) || 0,
+      /** Shape expected by FirmsDetailsModal / FirmViewDetails */
+      modalFirm: {
+        firm_id: f.firm_id,
+        firm_name: f.firm_name,
+        firm_type: f.firm_type,
+        username: f.username,
+        status: isActive,
+        file_no: f.file_no,
+        pan: f.pan,
+        gst: f.gst,
+        tan: f.tan,
+        vat: f.vat,
+        cin: f.cin,
+        create_date: firmData.create_date,
+        modify_date: firmData.modify_date,
+        create_by: firmData.create_by,
+        modify_by: firmData.modify_by,
+        address: {
+          address_line_1: f.address_line_1,
+          address_line_2: f.address_line_2,
+          city: f.city,
+          district: f.district,
+          state: f.state,
+          country: f.country,
+          pincode: f.pincode,
+        },
+      },
     };
+  };
 
-    // Load SheetJS CDN script dynamically when modal opens
-    useEffect(() => {
-        if (showImportModal && !window.XLSX) {
-            const script = document.createElement("script");
-            script.src = "https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js";
-            script.async = true;
-            script.onload = () => {
-                console.log("SheetJS loaded successfully");
-            };
-            document.body.appendChild(script);
-            return () => {
-                document.body.removeChild(script);
-            };
-        }
-    }, [showImportModal]);
+  const fetchGroupFirms = useCallback(
+    async ({ search = "", pageNo = 1, pageLimit = 20 } = {}) => {
+      if (!groupId) return;
 
+      if (abortRef.current) abortRef.current.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-
-    const [searchParams] = useSearchParams();
-    const groupId = searchParams.get('group_id');
-
-    // Modal helper functions
-    const addFirmIdField = () => setFirmIds([...firmIds, '']);
-    const removeFirmIdField = (index) => {
-        if (firmIds.length > 1) {
-            setFirmIds(firmIds.filter((_, i) => i !== index));
-        }
-    };
-    const updateFirmId = (index, value) => {
-        const newFirmIds = [...firmIds];
-        newFirmIds[index] = value;
-        setFirmIds(newFirmIds);
-    };
-
-    const downloadSampleCSV = () => {
-        const headers = [
-            'Client Name', 'Mobile', 'Email', 'PAN', 'Gender', 'DOB', 'State', 'District', 'City', 'Pincode',
-            'Care Of', 'Guardian', 'Firm Name', 'Business Type', 'GSTIN', 'Firm PAN',
-            'Opening Balance', 'Opening Balance Type', 'Opening Balance Date'
-        ];
-
-        const row1 = [
-            'Alice Smith', '9876543210', 'alice@example.com', 'ABCDE1234F', 'female', '1993-04-12',
-            'West Bengal', 'Cooch Behar', 'Cooch Behar', '736134', 'S/O', 'Robert Smith',
-            'Alice Smith', 'Individual', '19ABCDE1234F1Z5', 'ABCDE1234F', '500', 'credit', '2026-06-02'
-        ];
-
-        const row2 = [
-            'John Doe', '9998887776', 'john.doe@example.com', 'WXYZS9876Q', 'male', '1988-11-23',
-            'Delhi', 'New Delhi', 'New Delhi', '110001', 'S/O', 'Arthur Doe',
-            'Doe Consulting', 'Proprietorship', '07WXYZS9876Q1Z9', 'WXYZS9876Q', '1200', 'debit', '2026-06-02'
-        ];
-
-        const csvContent = [
-            headers.join(','),
-            row1.join(','),
-            row2.join(',')
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'sample_clients_import.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    const downloadBlankTemplate = () => {
-        const headers = [
-            'Client Name', 'Mobile', 'Email', 'PAN', 'Gender', 'DOB', 'State', 'District', 'City', 'Pincode',
-            'Care Of', 'Guardian', 'Firm Name', 'Business Type', 'GSTIN', 'Firm PAN',
-            'Opening Balance', 'Opening Balance Type', 'Opening Balance Date'
-        ];
-
-        const csvContent = headers.join(',') + '\n';
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'blank_clients_template.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    // Dropdown toggle function - NEW
-    const toggleDropdown = (firmId) => {
-        if (activeDropdownFirmId === firmId) {
-            setActiveDropdownFirmId(null);
-            setIsDropdownOpen(false);
-        } else {
-            setActiveDropdownFirmId(firmId);
-            setIsDropdownOpen(true);
-        }
-    };
-
-    // Close dropdowns on outside click - NEW
-    useEffect(() => {
-        const handleClickOutside = () => {
-            setIsDropdownOpen(false);
-            setActiveDropdownFirmId(null);
-        };
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, []);
-
-    const fetchGroupFirmsData = async (search = '', page = 1, limit = 20) => {
-        if (!groupId) return;
-
-        setLoading(true);
-        try {
-            const headers = getHeaders();
-            console.log("headers=> " + JSON.stringify(headers));
-            console.log(groupId)
-            const response = await axios.get(`${API_BASE_URL}/group/group-firms/list`, {
-                headers,
-                params: {
-                    group_id: groupId,
-                    page: page.toString(),
-                    limit: limit.toString(),
-                    ...(search && { search })
-                }
-            });
-
-            if (response.data.success) {
-                const groupData = response.data.data.group;
-                setGroupDetails(groupData);
-                const mappedFirms = response.data.data.firms.map(firmData => ({
-                    firm_id: firmData.firm.firm_id,
-                    name: firmData.firm.firm_name,
-                    gstin: firmData.firm.gst || '',
-                    status: firmData.firm.status === '1' ? 'active' : 'inactive',
-                    created_date: firmData.create_date ?
-                        new Date(firmData.create_date).toISOString().split('T')[0] : '',
-                    unique_id: firmData.unique_id
-                }));
-
-                setFirms(mappedFirms);
-                setFilteredFirms(mappedFirms);
-            } else {
-                setFirms([]);
-                setFilteredFirms([]);
-            }
-        } catch (error) {
-            console.error('Fetch Firms Error:', error);
-            setFirms([]);
-            setFilteredFirms([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Create firms - FIXED working version
-    const handleCreateSubmit = async (e) => {
-        e.preventDefault();
-
-        const validFirmIds = firmIds.filter(id => id.trim()).map(id => id.trim());
-
-        if (validFirmIds.length === 0) {
-            alert('At least one firm ID is required');
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const headers = getHeaders();
-
-            const response = await axios.post(`${API_BASE_URL}/group/add-firm`, {
-                group_id: groupId,
-                firm_ids: validFirmIds
-            }, { headers });
-
-            if (response.data.success) {
-                fetchGroupFirmsData(searchTerm);
-                setShowCreateModal(false);
-                setFirmIds(['']);
-            } else {
-                alert('Failed: ' + (response.data.message || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Create error:', error);
-            alert('Failed: ' + (error.response?.data?.message || error.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleEdit = (firm) => {
-        setEditFirm(firm);
-        setShowEditModal(true);
-        setIsDropdownOpen(false);
-        setActiveDropdownFirmId(null);
-    };
-
-
-    // NEW: Open Delete Modal (replace handleDelete)
-    const handleDeleteClick = (firm) => {
-        setFirmToDelete(firm);
-        setShowDeleteModal(true);
-        setIsDropdownOpen(false);
-        setActiveDropdownFirmId(null);
-    };
-
-    // NEW: Confirm Delete
-    const handleConfirmDelete = async () => {
-        if (!firmToDelete) return;
-
-        setDeleteLoading(true);
-        try {
-            const headers = getHeaders();
-            const response = await axios.delete(`${API_BASE_URL}/group/group-firms/remove`, {
-                headers,
-                data: {  // Send body with DELETE request
-                    group_id: groupId,
-                    firm_ids: [firmToDelete.firm_id]
-                }
-            });
-
-            if (response.data.success) {
-                fetchGroupFirmsData(searchTerm);
-                setShowDeleteModal(false);
-                setFirmToDelete(null);
-
-                // Optional: Show success message with details from backend
-                console.log('Firms removed:', response.data.data?.firms_removed);
-            } else {
-                window.alert('Failed: ' + (response.data.message || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Delete error:', error);
-            window.alert('Failed: ' + (error.response?.data?.message || error.message));
-        } finally {
-            setDeleteLoading(false);
-        }
-    };
-
-
-
-    // NEW: Cancel Delete
-    const handleCancelDelete = () => {
-        setShowDeleteModal(false);
-        setFirmToDelete(null);
-    };
-
-    // NEW: Handle View firm details
-    const handleView = (firm) => {
-        setSelectedFirm(firm);
-        setShowViewModal(true);
-        setIsDropdownOpen(false);
-        setActiveDropdownFirmId(null);
-    };
-
-
-    // Toggle header checkbox (Select All)
-    const handleSelectAll = () => {
-        if (selectedFirms.length === filteredFirms.length) {
-            setSelectedFirms([]);
-        } else {
-            const allIds = filteredFirms.map(f => f.firm_id);
-            setSelectedFirms(allIds);
-        }
-    };
-
-    // Toggle single firm checkbox
-    const handleSelectFirm = (firmId) => {
-        setSelectedFirms(prev =>
-            prev.includes(firmId)
-                ? prev.filter(id => id !== firmId)
-                : [...prev, firmId]
+      setLoading(true);
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/group/group-firms/list`,
+          {
+            headers: getHeaders(),
+            signal: controller.signal,
+            params: {
+              group_id: groupId,
+              page: String(pageNo),
+              limit: String(pageLimit),
+              ...(search.trim() ? { search: search.trim() } : {}),
+            },
+          },
         );
-    };
 
-    const handleBulkDelete = async () => {
-        try {
-            const headers = getHeaders();
+        if (response.data?.success) {
+          const groupData = response.data.data?.group || null;
+          const rows = Array.isArray(response.data.data?.firms)
+            ? response.data.data.firms.map(mapFirm)
+            : [];
+          const pagination = response.data.pagination || {};
 
-            const response = await fetch(
-                `${API_BASE_URL}/group/group-firms/remove`,
-                {
-                    method: "DELETE",
-                    headers,
-                    body: JSON.stringify({
-                        group_id: groupDetails?.group_id,
-                        firm_ids: selectedFirms
-                    })
-                }
-            );
-
-            const data = await response.json();
-
-            if (data.success) {
-                setSelectedFirms([]);
-                setIsBulkMode(false);
-                setShowBulkDeleteModal(false);
-                fetchGroupFirmsData(searchTerm);
-            }
-
-        } catch (error) {
-            console.error("Bulk delete error:", error);
-        }
-    };
-
-    const parseFile = (file) => {
-        if (!window.XLSX) {
-            setImportError("Spreadsheet parser library is loading. Please try again in a few seconds.");
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = window.XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-
-                // Get raw rows
-                const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-                if (rows.length === 0) {
-                    setImportError("The selected file is empty.");
-                    return;
-                }
-
-                const headers = rows[0].map(h => String(h || '').trim());
-                setFileHeaders(headers);
-
-                // Auto-detect columns based on aliases
-                const newMappings = { ...defaultMappings };
-
-                const aliasMap = {
-                    name: ['client name', 'name', 'full name', 'fullname'],
-                    mobile: ['mobile', 'phone', 'mobile number', 'mobile_no', 'contact'],
-                    email: ['email', 'email address', 'e-mail', 'mail'],
-                    pan_number: ['pan', 'pan number', 'pan_no', 'client_pan'],
-                    gender: ['gender', 'sex'],
-                    date_of_birth: ['dob', 'date of birth', 'date_of_birth', 'birth date'],
-                    state: ['state'],
-                    district: ['district'],
-                    city: ['city', 'town', 'village', 'city/town/village'],
-                    pincode: ['pincode', 'pin', 'zipcode', 'postal code'],
-                    care_of: ['care of', 'care_of', 'c/o'],
-                    guardian_name: ['guardian', 'guardian name', 'guardian_name'],
-                    firm_name: ['firm', 'firm name', 'company name', 'business name'],
-                    firm_type: ['business type', 'firm type', 'company type'],
-                    gst: ['gst', 'gstin', 'gst number'],
-                    firm_pan: ['firm pan', 'business pan'],
-                    opening_balance: ['opening balance', 'balance', 'opening_bal'],
-                    opening_balance_type: ['opening balance type', 'type', 'bal_type'],
-                    opening_balance_date: ['opening balance date', 'bal_date']
-                };
-
-                Object.keys(aliasMap).forEach(key => {
-                    const matchedHeader = headers.find(h => {
-                        const cleanH = h.toLowerCase().trim();
-                        return aliasMap[key].includes(cleanH) || cleanH.includes(key.replace('_', ''));
-                    });
-                    if (matchedHeader) {
-                        newMappings[key] = matchedHeader;
-                    }
-                });
-
-                setColumnMappings(newMappings);
-            } catch (err) {
-                console.error("Error parsing file:", err);
-                setImportError("Failed to parse the file. Please ensure it is a valid Excel or CSV file.");
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImportFile(file);
-            setPreviewData(null);
-            setImportError(null);
-            setFileHeaders([]);
-            setColumnMappings({ ...defaultMappings });
-            parseFile(file);
-        }
-    };
-
-    const handleImportPreview = async () => {
-        if (!importFile) return;
-
-        // Check if all required fields are mapped
-        const required = {
-            name: 'Client Name',
-            mobile: 'Mobile',
-            email: 'Email',
-            pan_number: 'PAN',
-            gender: 'Gender',
-            date_of_birth: 'DOB',
-            state: 'State',
-            district: 'District',
-            city: 'City',
-            pincode: 'Pincode'
-        };
-
-        const missing = [];
-        Object.keys(required).forEach(key => {
-            if (!columnMappings[key]) {
-                missing.push(required[key]);
-            }
-        });
-
-        if (missing.length > 0) {
-            setImportError(`Please map all required columns before proceeding. Missing: ${missing.join(', ')}`);
-            return;
-        }
-
-        setImporting(true);
-        setImportError(null);
-        setPreviewData(null);
-
-        try {
-            const formData = new FormData();
-            formData.append('group_id', groupId);
-            formData.append('file', importFile);
-
-            const filteredMappings = {};
-            Object.keys(columnMappings).forEach(key => {
-                if (columnMappings[key]) {
-                    filteredMappings[key] = columnMappings[key];
-                }
-            });
-            formData.append('column_mapping', JSON.stringify(filteredMappings));
-
-            const response = await axios.post(`${API_BASE_URL}/group/import?preview=true`, formData, {
-                headers: {
-                    ...getHeaders(),
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            if (response.data.success) {
-                setPreviewData(response.data.data);
-            } else {
-                setImportError(response.data.message || 'Validation failed');
-            }
-        } catch (error) {
-            console.error('Preview error:', error);
-            if (error.response?.data?.errors) {
-                setPreviewData({
-                    errors: error.response.data.errors,
-                    invalid_count: error.response.data.errors.length,
-                    total_rows: error.response.data.errors.length,
-                    valid_count: 0
-                });
-            } else {
-                setImportError(error.response?.data?.message || error.message || 'Failed to parse import file');
-            }
-        } finally {
-            setImporting(false);
-        }
-    };
-
-    const handleImportCommit = async () => {
-        if (!importFile) return;
-
-        // Check if all required fields are mapped
-        const required = {
-            name: 'Client Name',
-            mobile: 'Mobile',
-            email: 'Email',
-            pan_number: 'PAN',
-            gender: 'Gender',
-            date_of_birth: 'DOB',
-            state: 'State',
-            district: 'District',
-            city: 'City',
-            pincode: 'Pincode'
-        };
-
-        const missing = [];
-        Object.keys(required).forEach(key => {
-            if (!columnMappings[key]) {
-                missing.push(required[key]);
-            }
-        });
-
-        if (missing.length > 0) {
-            setImportError(`Please map all required columns before proceeding. Missing: ${missing.join(', ')}`);
-            return;
-        }
-
-        setImporting(true);
-        setImportError(null);
-
-        try {
-            const formData = new FormData();
-            formData.append('group_id', groupId);
-            formData.append('file', importFile);
-
-            const filteredMappings = {};
-            Object.keys(columnMappings).forEach(key => {
-                if (columnMappings[key]) {
-                    filteredMappings[key] = columnMappings[key];
-                }
-            });
-            formData.append('column_mapping', JSON.stringify(filteredMappings));
-
-            const response = await axios.post(`${API_BASE_URL}/group/import`, formData, {
-                headers: {
-                    ...getHeaders(),
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            if (response.data.success) {
-                alert(response.data.message || 'Bulk import completed successfully');
-                setShowImportModal(false);
-                setImportFile(null);
-                setPreviewData(null);
-                setFileHeaders([]);
-                setColumnMappings({ ...defaultMappings });
-                fetchGroupFirmsData(searchTerm);
-            } else {
-                setImportError(response.data.message || 'Import failed');
-            }
-        } catch (error) {
-            console.error('Import error:', error);
-            if (error.response?.data?.errors) {
-                setPreviewData({
-                    errors: error.response.data.errors,
-                    invalid_count: error.response.data.errors.length,
-                    total_rows: error.response.data.errors.length,
-                    valid_count: 0
-                });
-            } else {
-                setImportError(error.response?.data?.message || error.message || 'Failed to complete import');
-            }
-        } finally {
-            setImporting(false);
-        }
-    };
-
-
-    // Effects
-    useEffect(() => {
-        localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
-    }, [isMinimized]);
-
-    useEffect(() => {
-        if (mobileMenuOpen) {
-            document.body.style.overflow = 'hidden';
+          setGroupDetails(groupData);
+          setFirms(rows);
+          setTotal(Number(pagination.total) || rows.length);
+          setTotalPages(
+            Math.max(
+              1,
+              Number(pagination.total_pages) ||
+                Math.ceil(
+                  (Number(pagination.total) || rows.length) / pageLimit,
+                ) ||
+                1,
+            ),
+          );
+          setPage(Number(pagination.page) || pageNo);
         } else {
-            document.body.style.overflow = 'auto';
+          setFirms([]);
+          setTotal(0);
+          setTotalPages(1);
+          toast.error(response.data?.message || "Failed to load firms");
         }
-        return () => {
-            document.body.style.overflow = 'auto';
-        };
-    }, [mobileMenuOpen]);
-
-    useEffect(() => {
-        if (groupId) {
-            fetchGroupFirmsData();
+      } catch (error) {
+        if (
+          axios.isCancel?.(error) ||
+          error?.code === "ERR_CANCELED" ||
+          error?.name === "CanceledError" ||
+          error?.name === "AbortError"
+        ) {
+          return;
         }
-    }, []);
+        setFirms([]);
+        setTotal(0);
+        setTotalPages(1);
+        toast.error(error.response?.data?.message || "Error loading firms");
+      } finally {
+        if (abortRef.current === controller) {
+          setLoading(false);
+        }
+      }
+    },
+    [groupId],
+  );
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (searchTerm.trim()) {
-                fetchGroupFirmsData(searchTerm);
-            }
-        }, 1000);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    const summary = {
-        totalFirms: filteredFirms.length,
-        activeFirms: filteredFirms.filter(firm => firm.status === 'active').length,
+  useEffect(() => {
+    if (!groupId) {
+      navigate("/staff/office-assistance/groups", { replace: true });
+      return undefined;
+    }
+    fetchGroupFirms({ search: "", pageNo: 1, pageLimit: limit });
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+      clearTimeout(searchTimer.current);
     };
+    // initial load only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
 
-    const formatDate = (dateString) => {
-        if (!dateString) return '—';
-        const date = new Date(dateString);
-        return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-GB');
-    };
+  const clearSelection = () => {
+    setSelectedFirms([]);
+    setSelectAll(false);
+    setSelectAllAcrossPages(false);
+  };
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-blue-50">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    setLoading(true);
+    setPage(1);
+    clearSelection();
+    if (abortRef.current) abortRef.current.abort();
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      fetchGroupFirms({
+        search: value,
+        pageNo: 1,
+        pageLimit: limitRef.current,
+      });
+    }, 400);
+  };
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    <div className="h-full flex flex-col">
-                        {/* Stats Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            {/* Group Name Card */}
-                            {groupDetails && (
-                                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-indigo-100 text-sm font-medium mb-1">Group Name</p>
-                                            <h3 className="text-2xl font-bold">{groupDetails.group_name}</h3>
-                                            <p className="text-indigo-200 text-xs mt-1">{groupDetails.group_remark}</p>
-                                        </div>
-                                        <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                                            <FiUsers className="w-6 h-6" />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage);
+    fetchGroupFirms({
+      search: searchRef.current,
+      pageNo: nextPage,
+      pageLimit: limitRef.current,
+    });
+  };
 
-                            {/* Total Firms */}
-                            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-600 mb-1">Total Firms</p>
-                                        <h3 className="text-3xl font-bold text-gray-900">{summary.totalFirms}</h3>
-                                    </div>
-                                    <div className="p-3 bg-indigo-100 rounded-xl">
-                                        <FiUsers className="w-7 h-7 text-indigo-600" />
-                                    </div>
-                                </div>
-                            </div>
+  const handleLimitChange = (nextLimit) => {
+    setLimit(nextLimit);
+    setPage(1);
+    fetchGroupFirms({
+      search: searchRef.current,
+      pageNo: 1,
+      pageLimit: nextLimit,
+    });
+  };
 
-                            {/* Active Firms */}
-                            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-600 mb-1">Active Firms</p>
-                                        <h3 className="text-3xl font-bold text-emerald-600">{summary.activeFirms}</h3>
-                                    </div>
-                                    <div className="p-3 bg-emerald-100 rounded-xl">
-                                        <FiCheckCircle className="w-7 h-7 text-emerald-600" />
-                                    </div>
-                                </div>
-                            </div>
+  const handleRefresh = () => {
+    fetchGroupFirms({
+      search: searchRef.current,
+      pageNo: pageRef.current,
+      pageLimit: limitRef.current,
+    });
+  };
 
-                            {/* Group Status */}
-                            {groupDetails && (
-                                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-gray-600 mb-1">Group Status</p>
-                                            <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold ${groupDetails.is_active
-                                                ? 'bg-emerald-100 text-emerald-800'
-                                                : 'bg-red-100 text-red-800'
-                                                }`}>
-                                                {groupDetails.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </div>
-                                        <div className={`p-3 rounded-xl ${groupDetails.is_active
-                                            ? 'bg-emerald-100'
-                                            : 'bg-red-100'
-                                            }`}>
-                                            {groupDetails.is_active ? (
-                                                <FiCheckCircle className="w-7 h-7 text-emerald-600" />
-                                            ) : (
-                                                <FiXCircle className="w-7 h-7 text-red-600" />
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+  const handleCreateSubmit = async (validFirmIds) => {
+    if (!Array.isArray(validFirmIds) || validFirmIds.length === 0) {
+      toast.error("Select at least one firm");
+      return;
+    }
 
+    setSaving(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/group/group-firms/add-firms`,
+        { group_id: groupId, firm_ids: validFirmIds },
+        { headers: getHeaders() },
+      );
+      if (response.data?.success) {
+        toast.success(response.data.message || "Firms added");
+        setShowCreateModal(false);
+        fetchGroupFirms({
+          search: searchRef.current,
+          pageNo: 1,
+          pageLimit: limitRef.current,
+        });
+      } else {
+        toast.error(response.data?.message || "Failed to add firms");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error adding firms");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-                        {/* Main Table Card */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full overflow-hidden">
-                            {/* Header with Add Button */}
-                            <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                    <div>
-                                        <h5 className="text-xl font-bold text-slate-800">
-                                            {groupDetails?.group_name || 'Group Firms List'}
-                                            <span className="text-sm font-normal text-slate-500 ml-2">
-                                                ({groupDetails?.group_remark || 'GST Group'})
-                                            </span>
-                                        </h5>
+  const handleConfirmDelete = async () => {
+    if (!firmToDelete?.firm_id) return;
+    setSaving(true);
+    try {
+      const response = await axios.delete(
+        `${API_BASE_URL}/group/group-firms/remove`,
+        {
+          headers: getHeaders(),
+          data: { group_id: groupId, firm_ids: [firmToDelete.firm_id] },
+        },
+      );
+      if (response.data?.success) {
+        toast.success(response.data.message || "Firm removed");
+        setFirmToDelete(null);
+        const nextPage =
+          firms.length <= 1 && pageRef.current > 1
+            ? pageRef.current - 1
+            : pageRef.current;
+        fetchGroupFirms({
+          search: searchRef.current,
+          pageNo: nextPage,
+          pageLimit: limitRef.current,
+        });
+      } else {
+        toast.error(response.data?.message || "Failed to remove firm");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error removing firm");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                            <input
-                                                type="text"
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                                placeholder="Search firms..."
-                                                className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-                                            />
-                                        </div>
-                                        <motion.button
-                                            onClick={() => {
-                                                setShowImportModal(true);
-                                                setImportFile(null);
-                                                setPreviewData(null);
-                                                setImportError(null);
-                                            }}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm hover:shadow-lg"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                            </svg>
-                                            Bulk Import
-                                        </motion.button>
-                                        <motion.button
-                                            onClick={() => setShowCreateModal(true)}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm hover:shadow-lg"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                            </svg>
-                                            Add Firms
-                                        </motion.button>
-                                    </div>
-                                </div>
-                            </div>
+  const handleBulkDelete = async () => {
+    if (!selectAllAcrossPages && selectedFirms.length === 0) return;
+    setSaving(true);
+    try {
+      const payload = selectAllAcrossPages
+        ? {
+            group_id: groupId,
+            is_all: true,
+            ...(searchRef.current.trim()
+              ? { search: searchRef.current.trim() }
+              : {}),
+          }
+        : { group_id: groupId, firm_ids: selectedFirms };
 
-                            {/* Table Content */}
-                            <div className="flex-1 flex flex-col overflow-hidden">
-                                {/* Table Header */}
-                                <div className="grid grid-cols-12 gap-2 px-5 py-3 border-b border-gray-200">
+      const response = await axios.delete(
+        `${API_BASE_URL}/group/group-firms/remove`,
+        {
+          headers: getHeaders(),
+          data: payload,
+        },
+      );
+      if (response.data?.success) {
+        toast.success(response.data.message || "Firms removed");
+        setShowBulkDeleteModal(false);
+        clearSelection();
+        fetchGroupFirms({
+          search: searchRef.current,
+          pageNo: 1,
+          pageLimit: limitRef.current,
+        });
+      } else {
+        toast.error(response.data?.message || "Bulk delete failed");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error removing firms");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-                                    {/* Header Checkbox */}
-                                    <div className="col-span-1 flex items-center justify-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedFirms.length === filteredFirms.length && filteredFirms.length > 0}
-                                            onChange={() => {
-                                                setIsBulkMode(true);
-                                                handleSelectAll();
-                                            }}
-                                            className="w-4 h-4"
-                                        />
-                                    </div>
+  const handleSelectAll = (e) => {
+    const checked = e.target.checked;
+    if (checked) {
+      setSelectedFirms(firms.map((f) => f.firm_id).filter(Boolean));
+      setSelectAll(true);
+    } else {
+      setSelectedFirms([]);
+      setSelectAll(false);
+    }
+    setSelectAllAcrossPages(false);
+  };
 
-                                    <div className="col-span-4 text-xs font-semibold text-gray-700 uppercase text-center">
-                                        Firm Name
-                                    </div>
-                                    <div className="col-span-2 text-xs font-semibold text-gray-700 uppercase text-center">
-                                        Status
-                                    </div>
-                                    <div className="col-span-3 text-xs font-semibold text-gray-700 uppercase text-center">
-                                        GSTIN
-                                    </div>
-                                    <div className="col-span-2 text-xs font-semibold text-gray-700 uppercase text-center">
-                                        Actions
-                                    </div>
-                                </div>
+  const handleSelectFirm = (firmId) => (e) => {
+    const nextChecked = e.target.checked;
+    const pageIds = firms.map((f) => f.firm_id).filter(Boolean);
+    let base = selectAllAcrossPages ? pageIds : selectedFirms;
 
+    if (selectAllAcrossPages) setSelectAllAcrossPages(false);
 
-                                {/* Table Body */}
-                                <div className="flex-1 overflow-y-auto">
-                                    {loading ? (
-                                        <div className="p-12 text-center">
-                                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-                                            <p className="text-gray-500">Loading firms...</p>
-                                        </div>
-                                    ) : filteredFirms.length === 0 ? (
-                                        <div className="text-center py-12">
-                                            <FiUsers className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                                            <p className="text-gray-500 text-lg font-medium mb-2">
-                                                {firms.length === 0 ? 'No firms in this group' : 'No matching firms found'}
-                                            </p>
-                                            <p className="text-gray-400 text-sm">Try adjusting your search criteria</p>
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y divide-gray-100">
-                                            {filteredFirms.map((firm, index) => (
-                                                <motion.div
-                                                    key={firm.firm_id}
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    className="grid grid-cols-12 gap-2 px-5 py-4 hover:bg-gray-50 transition-colors group"
-                                                >
-                                                    <div className="col-span-1 flex items-center justify-center gap-2">
+    if (nextChecked) {
+      base = base.includes(firmId) ? base : [...base, firmId];
+    } else {
+      base = base.filter((id) => id !== firmId);
+    }
+    setSelectedFirms(base);
+    setSelectAll(
+      pageIds.length > 0 && pageIds.every((id) => base.includes(id)),
+    );
+  };
 
-                                                        {isBulkMode && (
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedFirms.includes(firm.firm_id)}
-                                                                onChange={() => handleSelectFirm(firm.firm_id)}
-                                                                className="w-4 h-4"
-                                                            />
-                                                        )}
+  const indexOffset = (page - 1) * limit;
+  const groupName = groupDetails?.group_name || "Group Firms";
+  const pageFirmIds = firms.map((f) => f.firm_id).filter(Boolean);
+  const effectiveSelectedIds = selectAllAcrossPages
+    ? pageFirmIds
+    : selectedFirms;
+  const selectedCount = selectAllAcrossPages ? total : selectedFirms.length;
+  const headerChecked = selectAllAcrossPages || selectAll;
+  const headerIndeterminate =
+    !selectAllAcrossPages &&
+    selectedFirms.length > 0 &&
+    selectedFirms.length < firms.length;
 
-                                                        <span className="w-8 h-8 bg-gray-100 text-gray-700 font-semibold rounded-lg flex items-center justify-center text-xs">
-                                                            {index + 1}
-                                                        </span>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
 
-                                                    </div>
-
-                                                    <div className="col-span-4 flex items-center">
-                                                        <div className="font-semibold text-sm text-gray-800 truncate">
-                                                            {firm.name}
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-span-2 flex items-center justify-center">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${firm.status === 'active'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                            }`}>
-                                                            {firm.status === 'active' ? 'Active' : 'Inactive'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="col-span-3 flex items-center justify-center">
-                                                        <span className="text-xs text-gray-600 truncate max-w-[120px]">
-                                                            {firm.gstin || '—'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="col-span-2 flex items-center justify-center">
-                                                        <div className="dropdown-container relative">
-                                                            <motion.button
-                                                                className="p-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all duration-200 group-hover:bg-indigo-100/50"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    toggleDropdown(firm.firm_id);
-                                                                }}
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
-                                                            >
-                                                                <FiMoreVertical className="w-5 h-5" />
-                                                            </motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && activeDropdownFirmId === firm.firm_id && (
-                                                                    <motion.div
-                                                                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                                        transition={{ duration: 0.15 }}
-                                                                        className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
-                                                                    >
-                                                                        <div className="py-1">
-                                                                            {/* Edit Button */}
-                                                                            <button
-                                                                                onClick={() => handleEdit(firm)}
-                                                                                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-all duration-200"
-                                                                            >
-                                                                                <FiEdit className="w-4 h-4 mr-3 text-indigo-500" />
-                                                                                Edit Group
-                                                                            </button>
-
-                                                                            {/* Divider */}
-                                                                            <div className="w-full h-px bg-gray-200 my-1"></div>
-
-                                                                            {/* Delete Button */}
-                                                                            <button
-                                                                                onClick={() => handleDeleteClick(firm)}  // CHANGED: handleDeleteClick instead of handleDelete
-                                                                                className="flex items-center w-full px-4 py-3 text-sm text-red-700 hover:bg-red-50 hover:text-red-800 transition-all duration-200"
-                                                                            >
-                                                                                <FiXCircle className="w-4 h-4 mr-3" />
-                                                                                Delete
-                                                                            </button>
-
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
-                                                        </div>
-                                                        {/* View Button */}
-                                                        <button
-                                                            onClick={() => handleView(firm)}
-                                                            className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200"
-                                                        >
-                                                            <FiEye className="w-4 h-4 mr-3 text-blue-500" />
-                                                        </button>
-                                                    </div>
-                                                </motion.div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Footer */}
-                                    <div className="border-t border-gray-200 bg-gray-50 px-5 py-3">
-                                        {isBulkMode && selectedFirms.length > 0 ? (
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm font-medium text-gray-700">
-                                                    {selectedFirms.length} firm(s) selected
-                                                </span>
-
-                                                <div className="flex gap-3">
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsBulkMode(false);
-                                                            setSelectedFirms([]);
-                                                        }}
-                                                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm"
-                                                    >
-                                                        Cancel
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => setShowBulkDeleteModal(true)}
-                                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
-                                                    >
-                                                        Delete Selected
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="text-sm text-gray-600">
-                                                Showing <span className="font-semibold">{filteredFirms.length}</span> of{" "}
-                                                <span className="font-semibold">{firms.length}</span> firms
-                                            </div>
-                                        )}
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+      <div
+        className={`pt-16 transition-all duration-300 ease-in-out ${
+          isMinimized ? "md:pl-20" : "md:pl-[260px]"
+        }`}
+      >
+        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className={`${TOOLBAR_ROW} flex-nowrap`}>
+              <div className="flex items-center gap-2 shrink-0 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                  <FiUsers className="w-4 h-4 text-indigo-600" />
                 </div>
+                <div className="min-w-0">
+                  <h1 className="text-base font-bold text-gray-800 leading-tight truncate max-w-[10rem] sm:max-w-[16rem] md:max-w-xs">
+                    {groupName}
+                  </h1>
+                  {groupDetails?.group_remark ? (
+                    <p className="text-[11px] text-gray-500 truncate max-w-[10rem] sm:max-w-[16rem] md:max-w-xs">
+                      {groupDetails.group_remark}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 ml-auto min-w-0">
+                {selectedCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkDeleteModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shrink-0"
+                  >
+                    <FiTrash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">
+                      Delete ({selectedCount.toLocaleString()})
+                    </span>
+                  </button>
+                ) : null}
+                <div className="relative w-32 sm:w-44 md:w-56 min-w-0">
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search firms…"
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className={TOOLBAR_INPUT}
+                  />
+                </div>
+                <ViewportTooltip label="Refresh">
+                  <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-300 bg-white"
+                    aria-label="Refresh"
+                  >
+                    <FiRefreshCw
+                      className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+                    />
+                  </button>
+                </ViewportTooltip>
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 bg-white hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                >
+                  <FiUpload className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Bulk Import</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shrink-0"
+                >
+                  <FiPlus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Add Firms</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
+              </div>
             </div>
 
-            {/* Create Modal */}
-            <AnimatePresence>
-                {showCreateModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-                        >
-                            <h3 className="text-xl font-bold text-gray-800 mb-6">Add Firms to Group</h3>
-
-                            <form onSubmit={handleCreateSubmit}>
-                                <div className="mb-8">
-                                    <label className="block text-sm font-semibold text-gray-700 mb-4">
-                                        Firm IDs * (one per line)
-                                    </label>
-                                    <div className="space-y-3 max-h-64 overflow-y-auto">
-                                        {firmIds.map((firmId, index) => (
-                                            <div key={index} className="flex items-end gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={firmId}
-                                                    onChange={(e) => updateFirmId(index, e.target.value)}
-                                                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white outline-none transition-all"
-                                                    placeholder="e.g., kxclx47hi9c6h362w4r1ml837u2qjxxij566y16g2v8"
-                                                />
-                                                {firmIds.length > 1 && (
-                                                    <motion.button
-                                                        type="button"
-                                                        onClick={() => removeFirmIdField(index)}
-                                                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all"
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.95 }}
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </motion.button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <motion.button
-                                        type="button"
-                                        onClick={addFirmIdField}
-                                        className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 border-2 border-dashed border-emerald-200 text-emerald-700 rounded-xl text-sm font-medium hover:bg-emerald-100 transition-all"
-                                        whileHover={{ scale: 1.02 }}
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                        Add Another Firm ID
-                                    </motion.button>
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        Enter existing firm IDs to add to this group
-                                    </p>
-                                </div>
-
-                                <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                                    <motion.button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowCreateModal(false);
-                                            setFirmIds(['']);
-                                        }}
-                                        className="px-6 py-2.5 text-gray-700 hover:text-gray-900 rounded-xl text-sm font-medium transition-all border border-gray-300 hover:bg-gray-100"
-                                        whileHover={{ scale: 1.02 }}
-                                    >
-                                        Cancel
-                                    </motion.button>
-                                    <motion.button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                        whileHover={{ scale: 1.02 }}
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                </svg>
-                                                Adding...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                                Add Firms
-                                            </>
-                                        )}
-                                    </motion.button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
+            {selectAll && total > firms.length ? (
+              <div className="border-b border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs text-indigo-800">
+                {selectAllAcrossPages ? (
+                  <>
+                    All {total.toLocaleString()} firms are selected.{" "}
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="font-semibold underline hover:text-indigo-950"
+                    >
+                      Clear selection
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    All {firms.length.toLocaleString()} firms on this page are
+                    selected.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setSelectAllAcrossPages(true)}
+                      className="font-semibold underline hover:text-indigo-950"
+                    >
+                      Select all {total.toLocaleString()} firms
+                    </button>
+                  </>
                 )}
-            </AnimatePresence>
+              </div>
+            ) : null}
 
-            {/* Edit Modal */}
-            <AnimatePresence>
-                {showEditModal && editFirm && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
-                        >
-                            <h3 className="text-xl font-bold text-gray-800 mb-6">Edit Firm in Group</h3>
-                            <div className="space-y-4 mb-8">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Firm Name</label>
-                                    <p className="text-lg font-semibold text-gray-900">{editFirm.name}</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Current Status</label>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${editFirm.status === 'active'
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-red-100 text-red-800'
-                                        }`}>
-                                        {editFirm.status === 'active' ? 'Active' : 'Inactive'}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                                <motion.button
-                                    onClick={() => setShowEditModal(false)}
-                                    className="px-6 py-2.5 text-gray-700 hover:text-gray-900 rounded-xl text-sm font-medium transition-all border border-gray-300 hover:bg-gray-100"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    Cancel
-                                </motion.button>
-                                <motion.button
-                                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl transition-all"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    Save Changes
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* View Modal - NEW */}
-            <AnimatePresence>
-                {showViewModal && selectedFirm && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-purple-200 max-h-[90vh] overflow-y-auto"
-                        >
-                            {/* Header */}
-                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-t-3xl p-6 pb-4 text-white relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-purple-600/20"></div>
-                                <div className="relative z-10 flex items-start justify-between">
-                                    <div>
-                                        <h3 className="text-2xl font-bold">Group Details</h3>
-                                        <p className="text-purple-100 text-sm mt-1">Firm Information</p>
-                                    </div>
-                                    <motion.button
-                                        onClick={() => setShowViewModal(false)}
-                                        className="p-2 hover:bg-white/20 rounded-2xl transition-all"
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </motion.button>
-                                </div>
-                            </div>
-
-                            {/* Content */}
-                            <div className="p-6 space-y-6">
-                                {/* Group Name Row */}
-                                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-100">
-                                    <div className="w-12 h-12 bg-white/50 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30">
-                                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                        </svg>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">Firm Name</label>
-                                        <p className="text-lg font-bold text-gray-900 truncate">{selectedFirm.name}</p>
-                                    </div>
-                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-gray-200">
-                                        <span className="text-xs font-semibold text-gray-700">CA</span>
-                                    </div>
-                                </div>
-
-                                {/* Stats Row */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
-                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Firms Count</label>
-                                        <p className="text-2xl font-bold text-gray-900">1</p>
-                                    </div>
-                                    <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
-                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Status</label>
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 border border-green-200">
-                                            Active
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Remarks */}
-                                <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl border-2 border-dashed border-yellow-200">
-                                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Remark</label>
-                                    <p className="text-sm text-gray-800 bg-white px-4 py-3 rounded-xl border border-gray-200 font-medium">
-                                        {selectedFirm.gstin || 'CA Group'}
-                                    </p>
-                                </div>
-
-                                {/* Dates */}
-                                <div className="grid grid-cols-2 gap-4 pt-2">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Created</label>
-                                        <p className="text-sm font-medium text-gray-900">{formatDate(selectedFirm.created_date) || '21/02/2026'}</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Updated</label>
-                                        <p className="text-sm font-medium text-gray-900">{formatDate(selectedFirm.created_date) || '21/02/2026'}</p>
-                                    </div>
-                                </div>
-
-                                {/* Firm ID */}
-                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200">
-                                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Firm ID</label>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-200">
-                                        <p className="text-sm font-mono text-gray-800 break-all">{selectedFirm.firm_id}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="px-6 pb-6 pt-4 border-t border-gray-200 bg-gray-50/50 rounded-b-3xl">
-                                <motion.button
-                                    onClick={() => setShowViewModal(false)}
-                                    className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all text-sm"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    Close
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-
-            {/* Delete Confirmation Modal */}
-            <AnimatePresence>
-                {showDeleteModal && firmToDelete && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
-                        >
-                            <div className="text-center mb-6">
-                                <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                    <FiXCircle className="w-8 h-8 text-red-500" />
-                                </div>
-                                <h3 className="text-xl font-bold text-gray-800 mb-2">Remove Firm?</h3>
-                                <p className="text-gray-600">
-                                    Are you sure you want to remove <strong>"{firmToDelete.name}"</strong> from this group?
-                                </p>
-                            </div>
-
-                            <div className="flex justify-between gap-3 pt-6 border-t border-gray-200">
-                                <motion.button
-                                    onClick={handleCancelDelete}
-                                    disabled={deleteLoading}
-                                    className="px-6 py-2.5 text-gray-700 hover:text-gray-900 rounded-xl text-sm font-medium transition-all border border-gray-300 hover:bg-gray-100"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    Cancel
-                                </motion.button>
-                                <motion.button
-                                    onClick={handleConfirmDelete}
-                                    disabled={deleteLoading}
-                                    className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    {deleteLoading ? (
-                                        <>
-                                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                            </svg>
-                                            Removing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FiTrash2 className="w-4 h-4" />
-                                            Remove Firm
-                                        </>
-                                    )}
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Delete bulk Confirmation Modal */}
-            <AnimatePresence>
-                {showBulkDeleteModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                                Confirm Bulk Delete
-                            </h3>
-
-                            <p className="text-sm text-gray-600 mb-6">
-                                Are you sure you want to remove{" "}
-                                <span className="font-semibold">
-                                    {selectedFirms.length}
-                                </span>{" "}
-                                firm(s) from this group?
-                            </p>
-
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    onClick={() => setShowBulkDeleteModal(false)}
-                                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm"
-                                >
-                                    Cancel
-                                </button>
-
-                                <button
-                                    onClick={handleBulkDelete}
-                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
-                                >
-                                    Delete
-                                </button>
-                            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed min-w-[820px]">
+                <thead>
+                  <tr className={TABLE_HEAD_ROW}>
+                    <th className={`${TABLE_TH} w-10`}>
+                      <AnimatedCheckbox
+                        checked={headerChecked}
+                        indeterminate={headerIndeterminate}
+                        onChange={handleSelectAll}
+                        ariaLabel="Select all firms"
+                      />
+                    </th>
+                    <th className={`${TABLE_TH} w-12`}>#</th>
+                    <th className={`${TABLE_TH} w-[24%]`}>Firm</th>
+                    <th className={`${TABLE_TH} w-[22%]`}>Client</th>
+                    <th className={`${TABLE_TH} w-[20%]`}>Contact</th>
+                    <th className={`${TABLE_TH} w-28`}>Balance</th>
+                    <th className={`${TABLE_TH} w-24`}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: Math.min(limit, 8) }).map((_, i) => (
+                      <SkeletonRow key={`skel-${i}`} />
+                    ))
+                  ) : firms.length === 0 ? (
+                    <tr>
+                      <td colSpan={COL_COUNT}>
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-400 px-4">
+                          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                            <FiUsers className="w-5 h-5" />
+                          </div>
+                          <p className="text-sm font-medium text-gray-500">
+                            No firms found
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {searchTerm.trim()
+                              ? "Try a different search term"
+                              : "Add firms to this group to get started"}
+                          </p>
                         </div>
-                    </div>
-                )}
-
-                {showImportModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"
-                        >
-                            {/* Modal Header */}
-                            <div className="border-b border-gray-150 p-6 flex justify-between items-center bg-slate-50/50">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900">Bulk Import Clients & Firms</h3>
-                                    <p className="text-xs text-gray-500 mt-1">Import new or map existing clients and firms via spreadsheet</p>
-                                </div>
-                                <button
-                                    onClick={resetImportModal}
-                                    className="p-2 hover:bg-gray-100 rounded-xl transition-all"
-                                >
-                                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    firms.map((firm, index) => (
+                      <tr key={firm.firm_id} className={TABLE_ROW}>
+                        <td className={TABLE_TD}>
+                          <AnimatedCheckbox
+                            checked={
+                              selectAllAcrossPages ||
+                              effectiveSelectedIds.includes(firm.firm_id)
+                            }
+                            onChange={handleSelectFirm(firm.firm_id)}
+                            ariaLabel={`Select ${firm.name}`}
+                          />
+                        </td>
+                        <td className={TABLE_TD}>
+                          <span className={CELL_INDEX}>
+                            {indexOffset + index + 1}
+                          </span>
+                        </td>
+                        <td className={TABLE_TD}>
+                          <div className="min-w-0 overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedFirm(firm);
+                                setShowViewModal(true);
+                              }}
+                              className={`${CELL_TITLE} text-left truncate block max-w-full`}
+                              title={firm.name || undefined}
+                            >
+                              {firm.name || "—"}
+                            </button>
+                            <div
+                              className={`mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 ${CELL_META}`}
+                            >
+                              <span className="font-mono truncate">
+                                PAN: {firm.pan || "—"}
+                              </span>
+                              <span className="text-gray-300">·</span>
+                              <span className="truncate">
+                                File: {firm.file_no || "—"}
+                              </span>
                             </div>
+                          </div>
+                        </td>
+                        <td className={TABLE_TD}>
+                          <div className="min-w-0 overflow-hidden">
+                            {firm.username ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/client/profile/${encodeURIComponent(firm.username)}`,
+                                  )
+                                }
+                                className={`${CELL_TITLE} text-left truncate block max-w-full`}
+                                title={firm.client_name || firm.username}
+                              >
+                                {firm.client_name || "—"}
+                              </button>
+                            ) : (
+                              <p className={`${CELL_BODY} truncate`}>
+                                {firm.client_name || "—"}
+                              </p>
+                            )}
+                            <p className={`${CELL_META} mt-0.5 truncate`}>
+                              {firm.guardian_name || firm.care_of
+                                ? `${firm.care_of || "C/O"}: ${firm.guardian_name || "—"}`
+                                : "—"}
+                            </p>
+                          </div>
+                        </td>
+                        <td className={TABLE_TD}>
+                          <div className="min-w-0 overflow-hidden space-y-0.5">
+                            <p
+                              className={`flex items-center gap-1.5 ${CELL_BODY} truncate`}
+                            >
+                              <FiPhone className="w-3 h-3 text-gray-400 shrink-0" />
+                              <span className="truncate">
+                                {firm.mobile || "—"}
+                              </span>
+                            </p>
+                            <p
+                              className={`flex items-center gap-1.5 ${CELL_META} truncate`}
+                            >
+                              <FiMail className="w-3 h-3 text-gray-400 shrink-0" />
+                              <span className="truncate">
+                                {firm.email || "—"}
+                              </span>
+                            </p>
+                          </div>
+                        </td>
+                        <td className={TABLE_TD}>
+                          {firm.username ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  `/client/profile/${encodeURIComponent(firm.username)}/ledger`,
+                                )
+                              }
+                              className={`text-xs font-semibold tabular-nums hover:underline ${
+                                (firm.balance || 0) < 0
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                              }`}
+                              title="View ledger"
+                            >
+                              {formatBalance(firm.balance, canViewFees)}
+                            </button>
+                          ) : (
+                            <span
+                              className={`text-xs font-semibold tabular-nums ${
+                                (firm.balance || 0) < 0
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                              }`}
+                            >
+                              {formatBalance(firm.balance, canViewFees)}
+                            </span>
+                          )}
+                        </td>
+                        <td className={TABLE_TD}>
+                          <ActionMenu
+                            items={[
+                              {
+                                label: "View",
+                                icon: <FiEye className="w-3.5 h-3.5" />,
+                                onClick: () => {
+                                  setSelectedFirm(firm);
+                                  setShowViewModal(true);
+                                },
+                              },
+                              {
+                                label: "Delete",
+                                icon: <FiTrash2 className="w-3.5 h-3.5" />,
+                                danger: true,
+                                onClick: () => setFirmToDelete(firm),
+                              },
+                            ]}
+                          />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-                            {/* Modal Content */}
-                            <div className="p-6 flex-1 overflow-y-auto space-y-6">
-                                {/* Upload Box */}
-                                {!previewData && (
-                                    <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-8 text-center bg-slate-50/30 transition-all flex flex-col items-center justify-center">
-                                        <svg className="w-12 h-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <p className="text-sm font-semibold text-slate-700 mb-1">
-                                            Select spreadsheet file (.xlsx, .xls, .csv)
-                                        </p>
-                                        <p className="text-xs text-slate-400 mb-4">
-                                            Ensure column headers map to Name, Mobile, Email, and PAN
-                                        </p>
-                                        <label className="cursor-pointer px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all">
-                                            Choose File
-                                            <input
-                                                type="file"
-                                                accept=".xlsx,.xls,.csv"
-                                                onChange={handleFileChange}
-                                                className="hidden"
-                                            />
-                                        </label>
-                                        {importFile && (
-                                            <div className="mt-4 flex items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-xl text-xs font-semibold text-blue-700">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Mappings View */}
-                                {importFile && fileHeaders.length > 0 && !previewData && (
-                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 md:p-5 space-y-4 animate-fade-in">
-                                        <div>
-                                            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                <FiSettings className="w-4 h-4 text-blue-600 animate-spin-slow" />
-                                                Define Column Mappings
-                                            </h4>
-                                            <p className="text-[11px] text-slate-500 mt-1">
-                                                Map the expected client profile details to the headers in your uploaded spreadsheet. Required columns must be selected.
-                                            </p>
-                                        </div>
-
-                                        {/* Required fields */}
-                                        <div className="space-y-3 pb-2 border-b border-slate-200/60">
-                                            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Required Fields</h5>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {[
-                                                    { key: 'name', label: 'Client Name *', placeholder: '-- Map Name Column --' },
-                                                    { key: 'mobile', label: 'Mobile Number *', placeholder: '-- Map Mobile Column --' },
-                                                    { key: 'email', label: 'Email Address *', placeholder: '-- Map Email Column --' },
-                                                    { key: 'pan_number', label: 'PAN Number *', placeholder: '-- Map PAN Column --' },
-                                                    { key: 'gender', label: 'Gender *', placeholder: '-- Map Gender Column --' },
-                                                    { key: 'date_of_birth', label: 'Date of Birth *', placeholder: '-- Map DOB Column --' },
-                                                    { key: 'state', label: 'State *', placeholder: '-- Map State Column --' },
-                                                    { key: 'district', label: 'District *', placeholder: '-- Map District Column --' },
-                                                    { key: 'city', label: 'City/Town/Village *', placeholder: '-- Map City Column --' },
-                                                    { key: 'pincode', label: 'Pincode *', placeholder: '-- Map Pincode Column --' }
-                                                ].map(field => (
-                                                    <div key={field.key} className="bg-white p-2.5 border border-slate-200 rounded-lg space-y-1 shadow-sm">
-                                                        <label className="block text-[11px] font-bold text-slate-700">{field.label}</label>
-                                                        <select
-                                                            value={columnMappings[field.key] || ''}
-                                                            onChange={(e) => setColumnMappings(prev => ({
-                                                                ...prev,
-                                                                [field.key]: e.target.value
-                                                            }))}
-                                                            className={`w-full px-2 py-1 border rounded text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500 ${!columnMappings[field.key] ? 'border-amber-300 bg-amber-50/10' : 'border-slate-300'
-                                                                }`}
-                                                        >
-                                                            <option value="">{field.placeholder}</option>
-                                                            {fileHeaders.map(h => (
-                                                                <option key={h} value={h}>{h}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Optional fields */}
-                                        <div className="space-y-3 pt-1">
-                                            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Optional Fields</h5>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                                {[
-                                                    { key: 'care_of', label: 'Care Of (C/O)' },
-                                                    { key: 'guardian_name', label: 'Guardian Name' },
-                                                    { key: 'firm_name', label: 'Firm Name' },
-                                                    { key: 'firm_type', label: 'Business Type' },
-                                                    { key: 'gst', label: 'GSTIN' },
-                                                    { key: 'firm_pan', label: 'Firm PAN' },
-                                                    { key: 'opening_balance', label: 'Opening Balance' },
-                                                    { key: 'opening_balance_type', label: 'Balance Type' },
-                                                    { key: 'opening_balance_date', label: 'Balance Date' }
-                                                ].map(field => (
-                                                    <div key={field.key} className="bg-white p-2.5 border border-slate-200 rounded-lg space-y-1 shadow-sm">
-                                                        <label className="block text-[10px] font-bold text-slate-600">{field.label}</label>
-                                                        <select
-                                                            value={columnMappings[field.key] || ''}
-                                                            onChange={(e) => setColumnMappings(prev => ({
-                                                                ...prev,
-                                                                [field.key]: e.target.value
-                                                            }))}
-                                                            className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
-                                                        >
-                                                            <option value="">-- Skip Column --</option>
-                                                            {fileHeaders.map(h => (
-                                                                <option key={h} value={h}>{h}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Import instructions and templates download */}
-                                {!previewData && !importFile && (
-                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                            <div>
-                                                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                                                    Import Guidelines & Templates
-                                                </h4>
-                                                <p className="text-[10px] text-slate-400 mt-0.5">Use these templates to prepare your file</p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={downloadBlankTemplate}
-                                                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs hover:bg-slate-50 transition-colors"
-                                                >
-                                                    <FiUpload className="w-3.5 h-3.5 rotate-180" />
-                                                    Blank Template
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={downloadSampleCSV}
-                                                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs hover:bg-slate-50 transition-colors"
-                                                >
-                                                    <FiUpload className="w-3.5 h-3.5 rotate-180" />
-                                                    Demo Template
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                                            <div className="bg-white p-3.5 rounded-xl border border-slate-150 shadow-2xs">
-                                                <span className="font-bold text-slate-800 block mb-1.5 flex items-center gap-1.5">
-                                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                                    Required Headers
-                                                </span>
-                                                <ul className="list-disc pl-4 text-slate-500 space-y-1">
-                                                    <li><strong>Client Name</strong> (aliases: Name, Full Name)</li>
-                                                    <li><strong>Mobile</strong> (aliases: Phone, Contact)</li>
-                                                    <li><strong>Email</strong> (aliases: Email Address)</li>
-                                                    <li><strong>PAN</strong> (aliases: PAN Number, pan_no)</li>
-                                                </ul>
-                                            </div>
-                                            <div className="bg-white p-3.5 rounded-xl border border-slate-150 shadow-2xs">
-                                                <span className="font-bold text-slate-800 block mb-1.5 flex items-center gap-1.5">
-                                                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                                                    Optional Headers
-                                                </span>
-                                                <ul className="list-disc pl-4 text-slate-500 space-y-1">
-                                                    <li><strong>Firm</strong>: Firm Name, Business Type, GSTIN</li>
-                                                    <li><strong>Location</strong>: State, District, City, Pincode</li>
-                                                    <li><strong>Personal</strong>: DOB, Gender, Care Of, Guardian</li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Error Notification */}
-                                {importError && (
-                                    <div className="p-4 bg-red-50 border border-red-150 rounded-xl flex items-start gap-3">
-                                        <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                        </svg>
-                                        <div className="text-xs font-medium text-red-700">
-                                            {importError}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Preview Data and Summary */}
-                                {previewData && (
-                                    <div className="space-y-6">
-                                        {/* Metrics Grid */}
-                                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                                                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Total Rows</span>
-                                                <span className="text-lg font-extrabold text-slate-700">{previewData.total_rows}</span>
-                                            </div>
-                                            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
-                                                <span className="text-[10px] uppercase font-bold text-emerald-600 block mb-0.5">Valid Rows</span>
-                                                <span className="text-lg font-extrabold text-emerald-700">{previewData.valid_count}</span>
-                                            </div>
-                                            <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-center">
-                                                <span className="text-[10px] uppercase font-bold text-red-600 block mb-0.5">Invalid Rows</span>
-                                                <span className="text-lg font-extrabold text-red-700">{previewData.invalid_count}</span>
-                                            </div>
-                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-center">
-                                                <span className="text-[10px] uppercase font-bold text-blue-600 block mb-0.5">New Clients</span>
-                                                <span className="text-lg font-extrabold text-blue-700">{previewData.new_clients_count}</span>
-                                            </div>
-                                            <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-center">
-                                                <span className="text-[10px] uppercase font-bold text-purple-600 block mb-0.5">Matched</span>
-                                                <span className="text-lg font-extrabold text-purple-700">{previewData.matched_clients_count}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Validation Errors section */}
-                                        {previewData.errors && previewData.errors.length > 0 && (
-                                            <div className="border border-red-150 rounded-2xl overflow-hidden bg-red-50/20">
-                                                <div className="bg-red-50 border-b border-red-150 px-4 py-3 flex items-center gap-2">
-                                                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                    </svg>
-                                                    <h4 className="text-xs font-bold text-red-800 uppercase tracking-wide">Validation Failures</h4>
-                                                </div>
-                                                <div className="p-4 max-h-44 overflow-y-auto divide-y divide-red-100">
-                                                    {previewData.errors.map((err, eIdx) => (
-                                                        <div key={eIdx} className="py-2.5 first:pt-0 last:pb-0 text-xs flex items-start gap-3">
-                                                            <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded font-bold">
-                                                                Row {err.row}
-                                                            </span>
-                                                            <div className="flex-1">
-                                                                {err.name && <div className="font-semibold text-slate-800 mb-0.5">{err.name}</div>}
-                                                                <ul className="list-disc pl-4 text-red-700 space-y-0.5">
-                                                                    {err.errors.map((msg, mIdx) => (
-                                                                        <li key={mIdx}>{msg}</li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Matches section */}
-                                        {previewData.matches && previewData.matches.length > 0 && (
-                                            <div className="border border-purple-200 rounded-2xl overflow-hidden bg-purple-50/10">
-                                                <div className="bg-purple-50 border-b border-purple-100 px-4 py-3 flex items-center gap-2">
-                                                    <svg className="w-4 h-4 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    <h4 className="text-xs font-bold text-purple-800 uppercase tracking-wide">Matched Existing Records</h4>
-                                                </div>
-                                                <div className="p-4 max-h-44 overflow-y-auto divide-y divide-purple-100/50">
-                                                    {previewData.matches.map((m, mIdx) => (
-                                                        <div key={mIdx} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs gap-4">
-                                                            <div>
-                                                                <div className="font-bold text-slate-800">{m.name}</div>
-                                                                <div className="text-[10px] text-slate-450 mt-0.5">PAN: {m.pan_number} · Row {m.row}</div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${m.already_in_group
-                                                                    ? 'bg-slate-50 border-slate-200 text-slate-400'
-                                                                    : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}>
-                                                                    {m.already_in_group ? 'Already in Group' : 'Mapping to Group'}
-                                                                </span>
-                                                                <div className="text-[10px] text-slate-400 mt-0.5">{m.firm_name || 'Individual'}</div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Preview list */}
-                                        {previewData.preview && previewData.preview.length > 0 && (
-                                            <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                                                <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
-                                                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">New Imports Preview</h4>
-                                                </div>
-                                                <div className="p-4 max-h-44 overflow-y-auto divide-y divide-slate-100">
-                                                    {previewData.preview.map((p, pIdx) => (
-                                                        <div key={pIdx} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs gap-4">
-                                                            <div>
-                                                                <div className="font-bold text-slate-800">{p.name}</div>
-                                                                <div className="text-[10px] text-slate-450 mt-0.5">PAN: {p.pan_number} · Mobile: {p.mobile}</div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold uppercase text-[9px]">
-                                                                    New Client
-                                                                </span>
-                                                                <div className="text-[10px] text-slate-400 mt-0.5">{p.firm?.firm_name || 'Individual'}</div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Modal Footer */}
-                            <div className="border-t border-gray-150 p-6 bg-slate-50/50 flex justify-end gap-3 rounded-b-2xl">
-                                <button
-                                    onClick={resetImportModal}
-                                    disabled={importing}
-                                    className="px-5 py-2.5 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"
-                                >
-                                    Cancel
-                                </button>
-
-                                {previewData ? (
-                                    <>
-                                        <button
-                                            onClick={() => {
-                                                setPreviewData(null);
-                                                setImportFile(null);
-                                                setImportError(null);
-                                                setFileHeaders([]);
-                                                setColumnMappings({ ...defaultMappings });
-                                            }}
-                                            disabled={importing}
-                                            className="px-5 py-2.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"
-                                        >
-                                            Choose Another File
-                                        </button>
-                                        <button
-                                            onClick={handleImportCommit}
-                                            disabled={importing || (previewData.invalid_count > 0)}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                                        >
-                                            {importing ? (
-                                                <>
-                                                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                                    Importing...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                    Confirm & Commit Import
-                                                </>
-                                            )}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        onClick={handleImportPreview}
-                                        disabled={importing || !importFile}
-                                        className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        {importing ? (
-                                            <>
-                                                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                                Validating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                                Validate & Preview File
-                                            </>
-                                        )}
-                                    </button>
-                                )}
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-
-            </AnimatePresence>
-
+            {!loading && total > 0 ? (
+              <TablePagination
+                page={page}
+                limit={limit}
+                total={total}
+                totalPages={totalPages}
+                rowOptions={[10, 20, 50, 100]}
+                defaultRows={20}
+                onPageChange={handlePageChange}
+                onLimitChange={handleLimitChange}
+              />
+            ) : null}
+          </div>
         </div>
-    );
+      </div>
+
+      <GroupFirmsAddModal
+        open={showCreateModal}
+        saving={saving}
+        excludeFirmIds={firms.map((f) => f.firm_id).filter(Boolean)}
+        onClose={() => !saving && setShowCreateModal(false)}
+        onCancel={() => setShowCreateModal(false)}
+        onSubmit={handleCreateSubmit}
+      />
+
+      <FirmsDetailsModal
+        isOpen={showViewModal && Boolean(selectedFirm)}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedFirm(null);
+        }}
+        firms={selectedFirm?.modalFirm ? [selectedFirm.modalFirm] : []}
+        clientName={selectedFirm?.client_name || ""}
+      />
+
+      <GroupFirmsDeleteModal
+        firm={firmToDelete}
+        saving={saving}
+        onClose={() => !saving && setFirmToDelete(null)}
+        onCancel={() => setFirmToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
+
+      <GroupFirmsBulkDeleteModal
+        open={showBulkDeleteModal}
+        saving={saving}
+        selectedCount={selectedCount}
+        selectAllAcrossPages={selectAllAcrossPages}
+        searchTerm={searchTerm}
+        onClose={() => !saving && setShowBulkDeleteModal(false)}
+        onCancel={() => setShowBulkDeleteModal(false)}
+        onConfirm={handleBulkDelete}
+      />
+
+      <BulkImportFirmsModal
+        open={showImportModal}
+        groupId={groupId}
+        onClose={() => setShowImportModal(false)}
+        onImported={() => {
+          fetchGroupFirms({
+            search: searchRef.current,
+            pageNo: 1,
+            pageLimit: limitRef.current,
+          });
+        }}
+      />
+    </div>
+  );
 };
 
 export default GroupFirms;

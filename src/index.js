@@ -4,7 +4,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import reportWebVitals from './reportWebVitals';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
@@ -176,6 +176,21 @@ window.fetch = async function (...args) {
     // Pass network errors through transparently
     throw error;
   }
+};
+
+/** Old bookmarks: /group-firms?group_id=X → /group-firms/:groupId */
+const GroupFirmsLegacyRedirect = () => {
+  const [searchParams] = useSearchParams();
+  const groupId = searchParams.get('group_id');
+  if (groupId) {
+    return (
+      <Navigate
+        to={`/staff/office-assistance/group-firms/${encodeURIComponent(groupId)}`}
+        replace
+      />
+    );
+  }
+  return <Navigate to="/staff/office-assistance/groups" replace />;
 };
 
 // Authentication & Subscription wrapper component
@@ -609,9 +624,15 @@ root.render(
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/group-firms" element={
+            <Route path="/staff/office-assistance/group-firms/:groupId" element={
               <ProtectedRoute>
                 <GroupFirms />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/staff/office-assistance/group-firms" element={
+              <ProtectedRoute>
+                <GroupFirmsLegacyRedirect />
               </ProtectedRoute>
             } />
 

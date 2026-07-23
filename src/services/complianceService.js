@@ -332,7 +332,19 @@ export const isPeriodBeforeEffectiveFrom = ({
 };
 
 export const normalizeAssignees = (value) => {
-  if (Array.isArray(value)) return value.filter(Boolean);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (item && typeof item === 'object') {
+          return item.username || item.value || '';
+        }
+        return item;
+      })
+      .filter(Boolean);
+  }
+  if (value && typeof value === 'object') {
+    return [value.username || value.value].filter(Boolean);
+  }
   if (typeof value === 'string' && value.trim()) {
     return value.split(',').map((item) => item.trim()).filter(Boolean);
   }
@@ -519,6 +531,16 @@ export const fetchComplianceFirmDetails = async ({ id, service_id, firm_id }) =>
 export const addComplianceFirm = async (payload) => {
   const headers = withHeaders();
   const response = await axios.post(`${API_BASE_URL}/compliance/add-firm`, payload, { headers });
+  return response.data;
+};
+
+/** Bulk-assign firms (by firm_ids and/or group_id). Skips already-assigned firms. */
+export const addComplianceFirmsBulk = async (payload) => {
+  const headers = withHeaders();
+  const response = await axios.post(`${API_BASE_URL}/compliance/add-firms`, payload, {
+    headers,
+    timeout: 120000,
+  });
   return response.data;
 };
 
