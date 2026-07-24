@@ -13,6 +13,7 @@ import {
     FiClock,
     FiDollarSign,
 } from 'react-icons/fi';
+import { Building2, Loader2 } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription';
 import GateScreenLayout, {
     GateLeftPanel,
@@ -117,15 +118,52 @@ export const getCurrentPlanLabel = (subscription) => {
     return activeNames[0] || subscription.subscription_plan || 'Active plan';
 };
 
+/** Friendly transition while branch/subscription syncs — never the Premium gate. */
+export const WorkspaceSyncScreen = ({
+    title = 'Loading workspace',
+    subtitle = 'Preparing data for the selected branch…',
+}) => {
+    const branchName = localStorage.getItem('branch_name') || 'your workspace';
+
+    return (
+        <GateScreenLayout>
+            <div className="flex flex-col items-center justify-center py-10 sm:py-16 px-4 text-center">
+                <div className="relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                    <Building2 size={28} />
+                    <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
+                        <Loader2 size={14} className="animate-spin text-blue-600" />
+                    </span>
+                </div>
+                <h2 className="m-0 text-lg font-semibold text-slate-900">{title}</h2>
+                <p className="mt-2 mb-0 max-w-sm text-sm text-slate-500">{subtitle}</p>
+                <p className="mt-3 mb-0 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+                    <FiHome className="w-3.5 h-3.5" />
+                    {branchName}
+                </p>
+            </div>
+        </GateScreenLayout>
+    );
+};
+
 export const SubscriptionBlockedScreen = ({ requiredLevel }) => {
     const navigate = useNavigate();
-    const { subscription } = useSubscription();
+    const { subscription, refetch } = useSubscription();
+    const [refreshing, setRefreshing] = React.useState(false);
     const config = PLAN_CONFIG[requiredLevel] || PLAN_CONFIG.core;
     const PlanIcon = config.icon;
     const currentPlanLabel = getCurrentPlanLabel(subscription);
     const branchName = localStorage.getItem('branch_name') || 'Not selected';
     const branchId = subscription?.branch_id || localStorage.getItem('branch_id') || '';
     const planSource = 'Branch workspace plan';
+
+    const handleRefreshAccess = async () => {
+        setRefreshing(true);
+        try {
+            await refetch({ silent: true });
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const leftPanel = (
         <GateLeftPanel
@@ -190,6 +228,15 @@ export const SubscriptionBlockedScreen = ({ requiredLevel }) => {
                 </button>
                 <button
                     type="button"
+                    disabled={refreshing}
+                    onClick={handleRefreshAccess}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors disabled:opacity-60"
+                >
+                    <FiZap className="w-4 h-4" />
+                    {refreshing ? 'Checking…' : 'Refresh access'}
+                </button>
+                <button
+                    type="button"
                     onClick={() => navigate('/branch-setup?change=1')}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
@@ -202,17 +249,28 @@ export const SubscriptionBlockedScreen = ({ requiredLevel }) => {
 };
 
 export const SubscriptionProtectedRoute = ({ children, requiredLevel }) => {
-    const { hasAccess, loading } = useSubscription();
+    const {
+        hasAccess,
+        loading,
+        verifyingBranch,
+        isBranchSwitching,
+    } = useSubscription();
 
-    if (loading) {
+    // Branch switch / plan sync: never flash the Premium upgrade gate
+    if (isBranchSwitching || verifyingBranch || loading) {
         return (
-            <GateScreenLayout loading loadingMessage="Checking subscription access..." />
+            <WorkspaceSyncScreen
+                title={isBranchSwitching ? 'Switching workspace' : 'Loading workspace'}
+                subtitle={
+                    isBranchSwitching
+                        ? 'Refreshing subscription and data for the selected branch…'
+                        : 'Checking plan access for this branch…'
+                }
+            />
         );
     }
 
-    const authorized = hasAccess(requiredLevel);
-
-    if (!authorized) {
+    if (!hasAccess(requiredLevel)) {
         return <SubscriptionBlockedScreen requiredLevel={requiredLevel} />;
     }
 

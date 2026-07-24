@@ -19,9 +19,11 @@ import { toast } from 'react-hot-toast';
 import CreateBranch from './Modals/CreateBranch';
 import SwitchBranchModal from './Modals/SwitchBranchModal';
 import AttendancePunchSuccessModal from './Modals/AttendancePunchSuccessModal';
-import { useSubscription, resetSubscriptionCache } from '../hooks/useSubscription';
+import { useSubscription } from '../hooks/useSubscription';
 import { loadUserProfileFromStorage } from '../utils/user-profile-storage';
-import { applyBranchToSession, getStoredBranchRoleLabel } from '../services/branchSetupService';
+import { getStoredBranchRoleLabel } from '../services/branchSetupService';
+import { performBranchSwitch } from '../utils/branchSwitch';
+import BranchSwitchOverlay from './BranchSwitchOverlay';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -453,20 +455,16 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     navigate('/login');
   };
 
-  const handleSelectCompany = (company) => {
+  const handleSelectCompany = async (company) => {
     if (!company) return;
     setSelectedCompany(company);
     setSelectedProjectName(company.name);
+    setSwitchProjectModalOpen(false);
     try {
-      applyBranchToSession(company);
-      setUserProfile((prev) => ({
-        ...prev,
-        roleLabel: getStoredBranchRoleLabel(),
-      }));
-      resetSubscriptionCache();
-      window.location.reload();
+      await performBranchSwitch(company, { reload: true });
     } catch (error) {
       console.error('Failed to update selected branch', error);
+      toast.error(error.message || 'Failed to switch branch');
     }
   };
 
@@ -1004,6 +1002,8 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         punchOutTime={punchSuccessModal.punchOutTime}
         totalHours={punchSuccessModal.totalHours}
       />
+
+      <BranchSwitchOverlay />
     </>
   );
 };

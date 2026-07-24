@@ -1,146 +1,334 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 
-// Simple global memory cache to share subscription state across hook instances without multiple network requests
+// Shared in-memory state so multiple hook instances don't spam the network
 let globalSubscriptionState = null;
 let globalSubscriptionListeners = new Set();
 let subscriptionFetchPromise = null;
+/** True after at least one successful network fetch in this page session */
+let sessionVerified = false;
+let lastFetchedBranchId = null;
+/** True while branch switch overlay is active — never treat as "no plan" */
+let branchSwitching = false;
+let branchSwitchMeta = { branchName: '', branchId: '' };
+let branchSwitchListeners = new Set();
 
-export function resetSubscriptionCache() {
-    globalSubscriptionState = null;
-    subscriptionFetchPromise = null;
-    localStorage.removeItem('ooms_subscription_status');
-    localStorage.removeItem('ooms_subscription_timestamp');
+const EMPTY_SUBSCRIPTION = {
+    branch_id: null,
+    is_subscribed: 'no',
+    subscription_plan: 'None',
+    subscription_expires_at: null,
+    is_expired: true,
+    effective_plan_source: 'branch',
+    active_plans: [],
+    features: {
+        core: false,
+        'salary-management': false,
+        'attendance-management': false,
+        'live-chat': false,
+    },
+};
+
+const CACHE_KEY = 'ooms_subscription_status';
+const CACHE_BRANCH_KEY = 'ooms_subscription_branch_id';
+const CACHE_TS_KEY = 'ooms_subscription_timestamp';
+
+function getCurrentBranchId() {
+    return String(localStorage.getItem('branch_id') || '').trim();
 }
 
-const hasCachedSubscription = () => {
-    if (globalSubscriptionState) return true;
+function readCachedSubscription() {
     try {
-        return !!localStorage.getItem('ooms_subscription_status');
-    } catch {
-        return false;
+        const branchId = getCurrentBranchId();
+        const cachedBranch = String(localStorage.getItem(CACHE_BRANCH_KEY) || '').trim();
+        if (branchId && cachedBranch && branchId !== cachedBranch) {
+            return null;
+        }
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (!cached) return null;
+        return JSON.parse(cached);
+    } catch (e) {
+        console.error('Failed to parse cached subscription', e);
+        return null;
     }
-};
+}
+
+function hasUsableCacheForCurrentBranch() {
+    const branchId = getCurrentBranchId();
+    if (!branchId) return false;
+
+    if (globalSubscriptionState) {
+        const stateBranch = String(globalSubscriptionState.branch_id || '').trim();
+        if (stateBranch && stateBranch === branchId) return true;
+        if (!stateBranch && lastFetchedBranchId === branchId) return true;
+    }
+
+    return !!readCachedSubscription();
+}
+
+export function setBranchSwitching(active, meta = {}) {
+    branchSwitching = !!active;
+    branchSwitchMeta = active
+        ? {
+            branchName: meta.branchName || '',
+            branchId: meta.branchId || '',
+        }
+        : { branchName: '', branchId: '' };
+    branchSwitchListeners.forEach((fn) => fn(branchSwitching));
+}
+
+export function isBranchSwitching() {
+    return branchSwitching;
+}
+
+/**
+ * Clear subscription cache without broadcasting EMPTY (avoids Premium gate flash).
+ */
+export function clearSubscriptionForBranchSwitch() {
+    globalSubscriptionState = null;
+    subscriptionFetchPromise = null;
+    sessionVerified = false;
+    lastFetchedBranchId = null;
+    try {
+        localStorage.removeItem(CACHE_KEY);
+        localStorage.removeItem(CACHE_BRANCH_KEY);
+        localStorage.removeItem(CACHE_TS_KEY);
+    } catch (_) {
+        // ignore
+    }
+}
+
+export function resetSubscriptionCache() {
+    clearSubscriptionForBranchSwitch();
+    if (!branchSwitching) {
+        globalSubscriptionListeners.forEach((listener) => listener(EMPTY_SUBSCRIPTION));
+    }
+}
+
+function notifyListeners(newState) {
+    globalSubscriptionListeners.forEach((listener) => listener(newState));
+}
+
+function persistSubscription(newState) {
+    globalSubscriptionState = newState;
+    sessionVerified = true;
+    lastFetchedBranchId = String(newState?.branch_id || getCurrentBranchId() || '').trim() || null;
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(newState));
+        localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+        if (lastFetchedBranchId) {
+            localStorage.setItem(CACHE_BRANCH_KEY, lastFetchedBranchId);
+        }
+    } catch (_) {
+        // ignore quota / private mode
+    }
+    notifyListeners(newState);
+}
+
+/**
+ * Fetch status for an explicit branch (used during switch before reload).
+ */
+export async function fetchSubscriptionStatusForBranch(branchId) {
+    const username = localStorage.getItem('user_username') || localStorage.getItem('username');
+    const token = localStorage.getItem('user_token') || localStorage.getItem('token');
+    const id = String(branchId || getCurrentBranchId() || '').trim();
+    if (!username || !token || !id) return null;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/subscription/status`, {
+            method: 'GET',
+            headers: {
+                username,
+                token,
+                branch: id,
+                'Content-Type': 'application/json',
+            },
+            cache: 'no-store',
+        });
+        if (!response.ok) return null;
+        const result = await response.json();
+        if (result.success && result.data) {
+            persistSubscription(result.data);
+            return result.data;
+        }
+    } catch (err) {
+        console.error('Error fetching subscription for branch switch:', err);
+    }
+    return null;
+}
+
+/**
+ * @param {boolean} force
+ * @param {{ silent?: boolean }} options
+ */
+async function fetchSubscriptionStatus(force = false, options = {}) {
+    const { silent = true } = options;
+    const username = localStorage.getItem('user_username') || localStorage.getItem('username');
+    const token = localStorage.getItem('user_token') || localStorage.getItem('token');
+    const branchId = getCurrentBranchId();
+
+    if (!username || !token || !branchId) {
+        return null;
+    }
+
+    if (lastFetchedBranchId && lastFetchedBranchId !== branchId) {
+        sessionVerified = false;
+        globalSubscriptionState = null;
+    }
+
+    const showLoading =
+        !silent
+        && !branchSwitching
+        && !hasUsableCacheForCurrentBranch()
+        && !sessionVerified;
+
+    if (subscriptionFetchPromise && !force) {
+        return subscriptionFetchPromise;
+    }
+
+    if (showLoading) {
+        notifyLoadingListeners(true);
+    }
+
+    subscriptionFetchPromise = (async () => {
+        try {
+            const headers = getHeaders();
+            if (!headers) return null;
+
+            const response = await fetch(`${API_BASE_URL}/subscription/status`, {
+                method: 'GET',
+                headers,
+                cache: 'no-store',
+            });
+
+            if (!response.ok) {
+                console.error('Subscription status request failed:', response.status);
+                return null;
+            }
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                persistSubscription(result.data);
+                return result.data;
+            }
+            return null;
+        } catch (err) {
+            console.error('Error fetching subscription status:', err);
+            return null;
+        } finally {
+            subscriptionFetchPromise = null;
+            if (showLoading) {
+                notifyLoadingListeners(false);
+            }
+        }
+    })();
+
+    return subscriptionFetchPromise;
+}
+
+let globalLoadingListeners = new Set();
+let globalLoading = false;
+
+function notifyLoadingListeners(isLoading) {
+    globalLoading = isLoading;
+    globalLoadingListeners.forEach((listener) => listener(isLoading));
+}
+
+function subscriptionMatchesCurrentBranch(subscription) {
+    const branchId = getCurrentBranchId();
+    if (!branchId) return false;
+    const subBranch = String(subscription?.branch_id || '').trim();
+    if (!subBranch) return false;
+    return subBranch === branchId;
+}
 
 export const useSubscription = () => {
     const [subscription, setSubscription] = useState(() => {
-        // Try loading from localStorage cache for instant UI response
-        try {
-            const cached = localStorage.getItem('ooms_subscription_status');
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                if (!globalSubscriptionState) {
-                    globalSubscriptionState = parsed;
-                }
-                return parsed;
+        const cached = readCachedSubscription();
+        if (cached) {
+            if (!globalSubscriptionState) {
+                globalSubscriptionState = cached;
             }
-        } catch (e) {
-            console.error('Failed to parse cached subscription', e);
+            return cached;
         }
-        return globalSubscriptionState || {
-            branch_id: null,
-            is_subscribed: 'no',
-            subscription_plan: 'None',
-            subscription_expires_at: null,
-            is_expired: true,
-            effective_plan_source: 'branch',
-            active_plans: [],
-            features: {
-                core: false,
-                'salary-management': false,
-                'attendance-management': false,
-                'live-chat': false,
-            },
-        };
+        return globalSubscriptionState || EMPTY_SUBSCRIPTION;
     });
-    
-    const [loading, setLoading] = useState(() => !hasCachedSubscription());
 
-    const updateState = (newState) => {
-        globalSubscriptionState = newState;
-        localStorage.setItem('ooms_subscription_status', JSON.stringify(newState));
-        globalSubscriptionListeners.forEach(listener => listener(newState));
-    };
-
-    const fetchSubscriptionStatus = useCallback(async (force = false) => {
-        const username = localStorage.getItem('user_username') || localStorage.getItem('username');
-        const token = localStorage.getItem('user_token') || localStorage.getItem('token');
-
-        if (!username || !token) {
-            setLoading(false);
-            return;
-        }
-
-        if (subscriptionFetchPromise && !force) {
-            if (!hasCachedSubscription()) {
-                setLoading(true);
-            }
-            try {
-                await subscriptionFetchPromise;
-            } finally {
-                setLoading(false);
-            }
-            return;
-        }
-
-        if (!hasCachedSubscription()) {
-            setLoading(true);
-        }
-
-        subscriptionFetchPromise = (async () => {
-            try {
-                const headers = getHeaders();
-                if (!headers) return;
-
-                const response = await fetch(`${API_BASE_URL}/subscription/status`, {
-                    method: 'GET',
-                    headers,
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.success && result.data) {
-                        updateState(result.data);
-                    }
-                }
-            } catch (err) {
-                console.error('Error fetching subscription status:', err);
-            }
-        })();
-
-        try {
-            await subscriptionFetchPromise;
-        } finally {
-            subscriptionFetchPromise = null;
-            setLoading(false);
-        }
-    }, []);
+    const [loading, setLoading] = useState(
+        () => !hasUsableCacheForCurrentBranch() && !sessionVerified
+    );
+    const [switching, setSwitching] = useState(() => branchSwitching);
+    const mountedRef = useRef(true);
 
     useEffect(() => {
-        const listener = (newState) => {
+        mountedRef.current = true;
+
+        const onState = (newState) => {
             setSubscription(newState);
         };
-        globalSubscriptionListeners.add(listener);
+        const onLoading = (isLoading) => {
+            if (mountedRef.current) setLoading(isLoading);
+        };
+        const onSwitch = (active) => {
+            if (mountedRef.current) setSwitching(active);
+        };
 
-        // Fetch if no state exists yet or if it has been 1 minute since last fetch
-        const cachedTime = localStorage.getItem('ooms_subscription_timestamp');
-        const now = Date.now();
-        const cacheTTL = 60 * 1000; // 1 minute cache TTL
+        globalSubscriptionListeners.add(onState);
+        globalLoadingListeners.add(onLoading);
+        branchSwitchListeners.add(onSwitch);
 
-        if (!globalSubscriptionState || !cachedTime || (now - parseInt(cachedTime, 10) > cacheTTL)) {
-            fetchSubscriptionStatus();
-            localStorage.setItem('ooms_subscription_timestamp', now.toString());
-        }
+        const hasCache = hasUsableCacheForCurrentBranch();
+        const silent = hasCache || sessionVerified;
+        if (!silent && !branchSwitching) setLoading(true);
+
+        fetchSubscriptionStatus(true, { silent: silent || branchSwitching }).finally(() => {
+            if (mountedRef.current && !silent && !branchSwitching) setLoading(false);
+        });
+
+        let lastFocusFetch = 0;
+        const maybeRefetch = () => {
+            const now = Date.now();
+            if (now - lastFocusFetch < 5000) return;
+            lastFocusFetch = now;
+            fetchSubscriptionStatus(true, { silent: true });
+        };
+
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') {
+                maybeRefetch();
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('focus', maybeRefetch);
 
         return () => {
-            globalSubscriptionListeners.delete(listener);
+            mountedRef.current = false;
+            globalSubscriptionListeners.delete(onState);
+            globalLoadingListeners.delete(onLoading);
+            branchSwitchListeners.delete(onSwitch);
+            document.removeEventListener('visibilitychange', onVisible);
+            window.removeEventListener('focus', maybeRefetch);
         };
-    }, [fetchSubscriptionStatus]);
+    }, []);
+
+    const branchSynced = subscriptionMatchesCurrentBranch(subscription);
+    // Until status is confirmed for the *current* branch, never show Premium gate
+    const verifyingBranch =
+        switching
+        || branchSwitching
+        || !branchSynced
+        || ((loading || globalLoading) && !sessionVerified);
 
     const hasAccess = useCallback((feature) => {
         const username = localStorage.getItem('user_username') || localStorage.getItem('username') || '';
         if (username.toLowerCase() === 'admin') return true;
+
+        // Access decisions only apply once status matches the active branch
+        if (branchSwitching || switching || !subscriptionMatchesCurrentBranch(subscription)) {
+            return false;
+        }
 
         if (subscription.features && typeof subscription.features[feature] === 'boolean') {
             return subscription.features[feature];
@@ -163,16 +351,27 @@ export const useSubscription = () => {
             return activeNames.includes('BusinessPro');
         }
         return isSub;
-    }, [subscription]);
+    }, [subscription, switching]);
 
-    const refetch = useCallback(() => fetchSubscriptionStatus(true), [fetchSubscriptionStatus]);
+    const refetch = useCallback((opts = {}) => {
+        const silent = opts.silent !== false;
+        if (!silent && !hasUsableCacheForCurrentBranch()) {
+            setLoading(true);
+        }
+        return fetchSubscriptionStatus(true, { silent }).finally(() => {
+            if (!silent && mountedRef.current) setLoading(false);
+        });
+    }, []);
 
     return {
         subscription,
-        loading,
+        loading: (loading || globalLoading) && !switching,
+        verifyingBranch,
+        isBranchSwitching: switching,
+        branchSwitchMeta,
         refetch,
         hasAccess,
         isSubscribed: subscription.is_subscribed === 'yes' && !subscription.is_expired,
-        plan: subscription.subscription_plan || 'None'
+        plan: subscription.subscription_plan || 'None',
     };
 };

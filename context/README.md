@@ -6,8 +6,10 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 
 | File | When to tag |
 |------|-------------|
+| [`subscription.md`](./subscription.md) | Plan status hook, access gates, branch switch overlay (no Premium flash) |
+| [`group-firms.md`](./group-firms.md) | Group firms page, not-found UI, balance / last payment / bulk reminder |
 | [`client-profile.md`](./client-profile.md) | Client profile page shell, header balance, skeleton, DOB, ledger refresh |
-| [`payment-reminder.md`](./payment-reminder.md) | Payment reminder modal (list / debtors / profile) |
+| [`payment-reminder.md`](./payment-reminder.md) | Payment reminder modal (list / debtors / profile / group firms) |
 | [`ledger-tab.md`](./ledger-tab.md) | Client ledger tab, opening balance, INR, profile balance sync |
 | [`layout.md`](./layout.md) | Page shell width, sidebar inset, Header `setIsMinimized` |
 | [`gst-change.md`](./gst-change.md) | GST rates, fees payloads, display-only tax |
@@ -38,6 +40,8 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 
 | Client | Server |
 |--------|--------|
+| `subscription.md` | `SERVER/context/subscription.md` |
+| `group-firms.md` | `SERVER/context/group-firms.md` |
 | `client-profile.md` / `ledger-tab.md` | `SERVER/context/client-balance.md` |
 | `payment-reminder.md` | `SERVER/context/payment-reminder.md` |
 | `gst-change.md` | `SERVER/context/gst-change.md` |

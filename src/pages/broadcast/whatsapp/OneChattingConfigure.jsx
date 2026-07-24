@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import React, { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -15,19 +15,20 @@ import {
   FiPower,
   FiKey,
   FiLock,
-} from 'react-icons/fi';
-import { Header, Sidebar } from '../../../components/header';
-import OneChattingTokenModal from './OneChattingTokenModal';
-import { whatsappApi, normalizeList, normalizePagination } from './whatsappApi';
-import { useUserPermissions } from '../../../utils/permission-helper';
+  FiRefreshCw,
+} from "react-icons/fi";
+import { Header, Sidebar } from "../../../components/header";
+import OneChattingTokenModal from "./OneChattingTokenModal";
+import { whatsappApi, normalizeList, normalizePagination } from "./whatsappApi";
+import { useUserPermissions } from "../../../utils/permission-helper";
 
 const formatContact = (profile) => {
-  if (!profile) return '—';
+  if (!profile) return "—";
   const mobile = profile.mobile
-    ? `${profile.country_code || ''}${profile.mobile}`.trim()
-    : '';
+    ? `${profile.country_code || ""}${profile.mobile}`.trim()
+    : "";
   if (profile.email && mobile) return `${profile.email} · ${mobile}`;
-  return profile.email || mobile || '—';
+  return profile.email || mobile || "—";
 };
 
 const StatusBadge = ({ enabled }) =>
@@ -47,14 +48,14 @@ const OneChattingConfigure = () => {
   const { check } = useUserPermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() =>
-    JSON.parse(localStorage.getItem('sidebarMinimized') || 'false')
+    JSON.parse(localStorage.getItem("sidebarMinimized") || "false"),
   );
 
   const [loading, setLoading] = useState(false);
   const [savingMapId, setSavingMapId] = useState(null);
   const [rows, setRows] = useState([]);
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState({
     page_no: 1,
     limit: 20,
@@ -64,8 +65,10 @@ const OneChattingConfigure = () => {
   });
   const [modalRow, setModalRow] = useState(null);
   const [modalSaving, setModalSaving] = useState(false);
+  const [syncingClients, setSyncingClients] = useState(false);
 
-  const fetchData = useCallback(async (page = 1, limit = 20, searchTerm = '') => {
+  const fetchData = useCallback(
+    async (page = 1, limit = 20, searchTerm = "") => {
       setLoading(true);
       try {
         const params = { page_no: page, limit };
@@ -75,14 +78,20 @@ const OneChattingConfigure = () => {
         setRows(normalizeList(res?.data));
         setPagination(normalizePagination(res?.pagination));
       } catch (error) {
-        toast.error(error?.response?.data?.message || error.message || 'Failed to load users');
+        toast.error(
+          error?.response?.data?.message ||
+            error.message ||
+            "Failed to load users",
+        );
       } finally {
         setLoading(false);
       }
-    }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
-    localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
+    localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
   }, [isMinimized]);
 
   useEffect(() => {
@@ -101,7 +110,11 @@ const OneChattingConfigure = () => {
   };
 
   const handleDisable = async (row) => {
-    if (!window.confirm(`Disable OneChatting for ${row.profile?.name || row.username}?`)) {
+    if (
+      !window.confirm(
+        `Disable OneChatting for ${row.profile?.name || row.username}?`,
+      )
+    ) {
       return;
     }
 
@@ -111,10 +124,14 @@ const OneChattingConfigure = () => {
         map_id: row.map_id,
         enabled: false,
       });
-      toast.success('OneChatting disabled successfully');
+      toast.success("OneChatting disabled successfully");
       fetchData(pagination.page_no, pagination.limit, search);
     } catch (error) {
-      toast.error(error?.response?.data?.message || error.message || 'Failed to disable OneChatting');
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to disable OneChatting",
+      );
     } finally {
       setSavingMapId(null);
     }
@@ -124,13 +141,69 @@ const OneChattingConfigure = () => {
     setModalSaving(true);
     try {
       const res = await whatsappApi.updateDeveloperToken(payload);
-      toast.success(res?.message || 'Developer token updated successfully');
+      toast.success(res?.message || "Developer token updated successfully");
       setModalRow(null);
       fetchData(pagination.page_no, pagination.limit, search);
     } catch (error) {
-      toast.error(error?.response?.data?.message || error.message || 'Failed to update developer token');
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to update developer token",
+      );
     } finally {
       setModalSaving(false);
+    }
+  };
+
+  const handleSyncClients = async () => {
+    if (
+      !window.confirm(
+        "Sync all branch clients (with mobile numbers) to OneChatting contacts? Existing numbers will be updated.",
+      )
+    ) {
+      return;
+    }
+
+    setSyncingClients(true);
+    const toastId = toast.loading("Syncing clients to OneChatting...");
+    try {
+      const res = await whatsappApi.syncClientsToOneChatting({ wait: true });
+      const data = res?.data || {};
+      const prepared = Number(data.contacts_prepared || 0);
+      const skipped = Number(data.skipped_invalid_mobile || 0);
+      const duplicates = Number(data.duplicate_numbers_skipped || 0);
+      const batches = Number(data.chunks || data.jobs?.length || 0);
+      const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+      const timedOut = jobs.some((job) => job?.timed_out);
+
+      if (prepared === 0) {
+        toast.success(res?.message || "No clients to sync", { id: toastId });
+      } else if (timedOut) {
+        toast.success(
+          `Queued ${prepared} contacts in ${batches} batch${batches === 1 ? "" : "es"}. Some jobs are still processing.`,
+          { id: toastId, duration: 5000 },
+        );
+      } else {
+        const extra = [];
+        if (skipped) extra.push(`${skipped} invalid`);
+        if (duplicates) extra.push(`${duplicates} duplicate numbers`);
+        toast.success(
+          `Synced ${prepared} contact${prepared === 1 ? "" : "s"} in ${batches} batch${
+            batches === 1 ? "" : "es"
+          }${extra.length ? ` (${extra.join(", ")})` : ""}.`,
+          { id: toastId, duration: 5000 },
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          error?.response?.data?.msg ||
+          error.message ||
+          "Failed to sync clients",
+        { id: toastId },
+      );
+    } finally {
+      setSyncingClients(false);
     }
   };
 
@@ -155,7 +228,11 @@ const OneChattingConfigure = () => {
             disabled={isSaving}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50"
           >
-            {isSaving ? <FiLoader className="w-3.5 h-3.5 animate-spin" /> : <FiPower className="w-3.5 h-3.5" />}
+            {isSaving ? (
+              <FiLoader className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FiPower className="w-3.5 h-3.5" />
+            )}
             Disable
           </button>
         </div>
@@ -175,18 +252,34 @@ const OneChattingConfigure = () => {
     );
   };
 
-  if (!check('broadcast_config_edit')) {
+  if (!check("broadcast_config_edit")) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-        <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+        <Header
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <Sidebar
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <div
+          className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
+        >
           <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <FiLock className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
-            <p className="text-slate-500 text-sm">You do not have permission to view this page.</p>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">
+              Access Denied
+            </h3>
+            <p className="text-slate-500 text-sm">
+              You do not have permission to view this page.
+            </p>
           </div>
         </div>
       </div>
@@ -208,24 +301,36 @@ const OneChattingConfigure = () => {
         setIsMinimized={setIsMinimized}
       />
 
-      <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+      <div
+        className={`pt-16 transition-all duration-300 ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
           <nav className="flex items-center text-sm text-gray-600 mb-4">
-            <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+            <Link
+              to="/"
+              className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+            >
               <FiHome className="w-4 h-4" />
               <span>Dashboard</span>
             </Link>
             <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-            <Link to="/broadcast/whatsapp" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+            <Link
+              to="/broadcast/whatsapp"
+              className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+            >
               <FiSend className="w-4 h-4" />
               <span>Broadcast</span>
             </Link>
             <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-            <span className="text-gray-900 font-medium">OneChatting Configuration</span>
+            <span className="text-gray-900 font-medium">
+              OneChatting Configuration
+            </span>
           </nav>
 
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">OneChatting Configuration</h1>
+            <h1 className="text-2xl font-bold text-gray-800">
+              OneChatting Configuration
+            </h1>
             <p className="text-sm text-gray-500 mt-1">
               Manage developer tokens and OneChatting access for branch users
             </p>
@@ -238,29 +343,53 @@ const OneChattingConfigure = () => {
                   <FiSettings className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-gray-800">Branch Users</h2>
-                  <p className="text-xs text-gray-500">Enable or disable OneChatting per user mapping</p>
+                  <h2 className="text-base font-semibold text-gray-800">
+                    Branch Users
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Enable or disable OneChatting per user mapping
+                  </p>
                 </div>
               </div>
 
-              <form onSubmit={handleSearch} className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-64">
-                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder="Search name, username, email..."
-                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
-                  />
-                </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
                 <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg"
+                  type="button"
+                  onClick={handleSyncClients}
+                  disabled={syncingClients || loading}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
+                  title="Upsert branch clients into OneChatting contacts"
                 >
-                  Search
+                  {syncingClients ? (
+                    <FiLoader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FiRefreshCw className="w-4 h-4" />
+                  )}
+                  {syncingClients ? "Syncing..." : "Sync clients"}
                 </button>
-              </form>
+
+                <form
+                  onSubmit={handleSearch}
+                  className="flex items-center gap-2 w-full sm:w-auto"
+                >
+                  <div className="relative flex-1 sm:w-64">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search name, username, email..."
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg"
+                  >
+                    Search
+                  </button>
+                </form>
+              </div>
             </div>
 
             {loading && rows.length === 0 ? (
@@ -273,7 +402,9 @@ const OneChattingConfigure = () => {
                 <FiUsers className="w-12 h-12 text-gray-300 mb-3" />
                 <p className="font-medium text-gray-600">No users found</p>
                 <p className="text-sm text-gray-400 mt-1">
-                  {search ? 'Try a different search term' : 'No branch mappings available'}
+                  {search
+                    ? "Try a different search term"
+                    : "No branch mappings available"}
                 </p>
               </div>
             ) : (
@@ -307,17 +438,23 @@ const OneChattingConfigure = () => {
                         <tr key={row.map_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4">
                             <div className="font-medium text-sm text-gray-900">
-                              {row.profile?.name || '—'}
+                              {row.profile?.name || "—"}
                             </div>
-                            <div className="text-xs text-gray-500 font-mono">{row.username}</div>
+                            <div className="text-xs text-gray-500 font-mono">
+                              {row.username}
+                            </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{row.designation || '—'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {row.designation || "—"}
+                          </td>
                           <td className="px-6 py-4">
                             <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 capitalize">
-                              {row.type || '—'}
+                              {row.type || "—"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{formatContact(row.profile)}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {formatContact(row.profile)}
+                          </td>
                           <td className="px-6 py-4">
                             <StatusBadge enabled={row.onechatting_enabled} />
                           </td>
@@ -333,26 +470,38 @@ const OneChattingConfigure = () => {
                     <div key={row.map_id} className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium text-sm text-gray-900">{row.profile?.name || '—'}</p>
-                          <p className="text-xs text-gray-500 font-mono">{row.username}</p>
+                          <p className="font-medium text-sm text-gray-900">
+                            {row.profile?.name || "—"}
+                          </p>
+                          <p className="text-xs text-gray-500 font-mono">
+                            {row.username}
+                          </p>
                         </div>
                         <StatusBadge enabled={row.onechatting_enabled} />
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
                           <p className="text-gray-500">Designation</p>
-                          <p className="text-gray-800">{row.designation || '—'}</p>
+                          <p className="text-gray-800">
+                            {row.designation || "—"}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500">Type</p>
-                          <p className="text-gray-800 capitalize">{row.type || '—'}</p>
+                          <p className="text-gray-800 capitalize">
+                            {row.type || "—"}
+                          </p>
                         </div>
                         <div className="col-span-2">
                           <p className="text-gray-500">Contact</p>
-                          <p className="text-gray-800">{formatContact(row.profile)}</p>
+                          <p className="text-gray-800">
+                            {formatContact(row.profile)}
+                          </p>
                         </div>
                       </div>
-                      <div className="flex justify-end">{renderActions(row)}</div>
+                      <div className="flex justify-end">
+                        {renderActions(row)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -360,15 +509,24 @@ const OneChattingConfigure = () => {
                 <div className="px-4 md:px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-xs text-gray-600">
                     <div>
-                      Showing{' '}
+                      Showing{" "}
                       <span className="font-semibold text-gray-800">
-                        {pagination.total === 0 ? 0 : (pagination.page_no - 1) * pagination.limit + 1}
-                      </span>{' '}
-                      to{' '}
+                        {pagination.total === 0
+                          ? 0
+                          : (pagination.page_no - 1) * pagination.limit + 1}
+                      </span>{" "}
+                      to{" "}
                       <span className="font-semibold text-gray-800">
-                        {Math.min(pagination.page_no * pagination.limit, pagination.total)}
-                      </span>{' '}
-                      of <span className="font-semibold text-gray-800">{pagination.total}</span> users
+                        {Math.min(
+                          pagination.page_no * pagination.limit,
+                          pagination.total,
+                        )}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-semibold text-gray-800">
+                        {pagination.total}
+                      </span>{" "}
+                      users
                     </div>
                     <div className="flex items-center gap-2">
                       <span>Show</span>
@@ -397,7 +555,13 @@ const OneChattingConfigure = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => fetchData(pagination.page_no - 1, pagination.limit, search)}
+                      onClick={() =>
+                        fetchData(
+                          pagination.page_no - 1,
+                          pagination.limit,
+                          search,
+                        )
+                      }
                       disabled={pagination.page_no <= 1 || loading}
                       className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
                     >
@@ -409,8 +573,16 @@ const OneChattingConfigure = () => {
                     </span>
                     <button
                       type="button"
-                      onClick={() => fetchData(pagination.page_no + 1, pagination.limit, search)}
-                      disabled={pagination.page_no >= pagination.total_pages || loading}
+                      onClick={() =>
+                        fetchData(
+                          pagination.page_no + 1,
+                          pagination.limit,
+                          search,
+                        )
+                      }
+                      disabled={
+                        pagination.page_no >= pagination.total_pages || loading
+                      }
                       className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
                     >
                       Next
@@ -418,8 +590,16 @@ const OneChattingConfigure = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => fetchData(pagination.total_pages, pagination.limit, search)}
-                      disabled={pagination.page_no >= pagination.total_pages || loading}
+                      onClick={() =>
+                        fetchData(
+                          pagination.total_pages,
+                          pagination.limit,
+                          search,
+                        )
+                      }
+                      disabled={
+                        pagination.page_no >= pagination.total_pages || loading
+                      }
                       className="p-2 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
                     >
                       <FiChevronsRight size={14} />

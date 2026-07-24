@@ -361,18 +361,32 @@ const resolveCompliancePeriod = (row) => {
 };
 
 const getPeriodLabel = (row, periodOptions) => {
+  const year =
+    rowDates(row).compliance_year ||
+    row?.compliance_year ||
+    row?.dates?.compliance_year ||
+    null;
+  const yearLabel = year ? String(year).trim() : "";
+
   const raw = resolveCompliancePeriod(row);
   if (raw) {
     const periods = periodOptions?.periods ?? [];
     const match = periods.find(
       (item) => String(item.value) === raw || String(item.label) === raw,
     );
-    return match?.label || match?.value || raw;
+    const periodPart = match?.label || match?.value || raw;
+    if (yearLabel && !String(periodPart).includes(yearLabel)) {
+      return `${periodPart} · ${yearLabel}`;
+    }
+    return periodPart;
   }
+
   const frequency =
     periodOptions?.frequency ?? rowService(row)?.frequency ?? row?.frequency;
-  if (frequency === "yearly") return "Yearly";
-  return null;
+  if (frequency === "yearly") {
+    return yearLabel ? `Yearly · ${yearLabel}` : "Yearly";
+  }
+  return yearLabel || null;
 };
 
 const getFirmFileNo = (firm) => firm?.file_no || firm?.file_number || "";
@@ -1267,10 +1281,8 @@ export const ComplianceTaskBoard = ({
             </div>
           </div>
 
-          <div
-            className={`grid grid-cols-1 sm:grid-cols-2 ${isClientScoped ? "xl:grid-cols-6" : "xl:grid-cols-5"} gap-3 flex-1 min-w-0 w-full`}
-          >
-            <div>
+          <div className="flex flex-wrap gap-3 flex-1 min-w-0 w-full items-end">
+            <div className="min-w-[14rem] flex-[1_1_14rem] max-w-md">
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Service
               </label>
@@ -1290,7 +1302,7 @@ export const ComplianceTaskBoard = ({
               />
             </div>
 
-            <div>
+            <div className="min-w-[11rem] flex-[1_1_11rem] max-w-[14rem]">
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Compliance year
               </label>
@@ -1313,7 +1325,7 @@ export const ComplianceTaskBoard = ({
               />
             </div>
 
-            <div>
+            <div className="min-w-[13rem] flex-[1_1_13rem] max-w-sm">
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Period
               </label>
@@ -1341,7 +1353,7 @@ export const ComplianceTaskBoard = ({
             </div>
 
             {isClientScoped ? (
-              <div>
+              <div className="min-w-[14rem] flex-[1_1_14rem] max-w-md">
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Firm
                 </label>
@@ -1360,7 +1372,7 @@ export const ComplianceTaskBoard = ({
               </div>
             ) : null}
 
-            <div className="min-w-0">
+            <div className="min-w-[14rem] flex-[1_1_14rem] max-w-md">
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Status
               </label>
@@ -1383,7 +1395,7 @@ export const ComplianceTaskBoard = ({
               />
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end shrink-0 pb-0.5">
               <button
                 type="button"
                 onClick={loadTasks}
@@ -1397,25 +1409,6 @@ export const ComplianceTaskBoard = ({
               </button>
             </div>
           </div>
-
-          {selectedService ? (
-            <p className="text-xs text-gray-500 m-0">
-              {getServiceLabel(selectedService)}
-              {periodOptions?.frequency ? ` · ${periodOptions.frequency}` : ""}
-              {compliancePeriod
-                ? ` · Period: ${compliancePeriod}`
-                : serviceId
-                  ? complianceYear
-                    ? " · All periods in selected year"
-                    : " · All periods through current year"
-                  : ""}
-            </p>
-          ) : complianceYear == null ? (
-            <p className="text-xs text-gray-500 m-0">
-              Showing compliance through current year from each firm&apos;s
-              effective from date
-            </p>
-          ) : null}
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">

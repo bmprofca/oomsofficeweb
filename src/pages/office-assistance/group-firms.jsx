@@ -12,6 +12,9 @@ import {
   FiUpload,
   FiPhone,
   FiMail,
+  FiBell,
+  FiAlertCircle,
+  FiArrowLeft,
 } from "react-icons/fi";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
@@ -26,6 +29,7 @@ import {
   GroupFirmsBulkDeleteModal,
 } from "../../components/Modals/GroupFirmsModals";
 import BulkImportFirmsModal from "../../components/Modals/BulkImportFirmsModal";
+import ClientPaymentReminderModal from "../../components/Modals/ClientPaymentReminderModal";
 import getHeaders from "../../utils/get-headers";
 import API_BASE_URL from "../../utils/api-controller";
 import { useUserPermissions } from "../../utils/permission-helper";
@@ -48,7 +52,7 @@ const CELL_TITLE =
   "font-semibold text-gray-800 text-sm hover:text-indigo-600 transition-colors";
 const CELL_META = "text-xs text-gray-400";
 
-const COL_COUNT = 7;
+const COL_COUNT = 8;
 
 const formatBalance = (balance, canViewFees) => {
   if (!canViewFees) {
@@ -56,6 +60,17 @@ const formatBalance = (balance, canViewFees) => {
   }
   const amount = Number(balance || 0);
   return `${amount < 0 ? "-" : ""}₹${Math.abs(amount).toLocaleString()}`;
+};
+
+const formatPaymentDate = (value) => {
+  if (!value) return "N/A";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "N/A";
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 const SkeletonRow = ({ cols = COL_COUNT }) => (
@@ -146,7 +161,6 @@ const AnimatedCheckbox = ({
 const MENU_Z = 99999;
 const MENU_GAP = 8;
 const MENU_PAD = 8;
-
 
 /* ─── 3-dot action menu (portal · tooltip.md) ──────────────────── */
 const ActionMenu = ({ items }) => {
@@ -298,6 +312,8 @@ const GroupFirms = () => {
   });
 
   const [loading, setLoading] = useState(true);
+  const [groupLoading, setGroupLoading] = useState(true);
+  const [groupError, setGroupError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [firms, setFirms] = useState([]);
   const [groupDetails, setGroupDetails] = useState(null);
@@ -317,6 +333,11 @@ const GroupFirms = () => {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
   const [showImportModal, setShowImportModal] = useState(false);
+  const [clientPaymentReminder, setClientPaymentReminder] = useState({
+    open: false,
+    clients: [],
+  });
+  const [reminderLoading, setReminderLoading] = useState(false);
 
   const searchTimer = useRef(null);
   const abortRef = useRef(null);
@@ -359,7 +380,6 @@ const GroupFirms = () => {
     };
   }, [mobileMenuOpen]);
 
-
   const mapFirm = (firmData) => {
     const f = firmData.firm || {};
     const isActive = f.is_active === true || String(f.status) === "1";
@@ -384,6 +404,9 @@ const GroupFirms = () => {
       email: firmData.client?.email || "",
       country_code: firmData.client?.country_code || "",
       balance: Number(firmData.client?.balance) || 0,
+      last_payment_date: firmData.client?.last_payment?.date || null,
+      last_payment_period:
+        firmData.client?.last_payment?.period || "No payment",
       /** Shape expected by FirmsDetailsModal / FirmViewDetails */
       modalFirm: {
         firm_id: f.firm_id,
@@ -413,6 +436,48 @@ const GroupFirms = () => {
       },
     };
   };
+
+  const fetchGroupDetails = useCallback(async () => {
+    if (!groupId) return null;
+
+    setGroupLoading(true);
+    setGroupError(null);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/group/details/${encodeURIComponent(groupId)}`,
+        { headers: getHeaders() },
+      );
+
+      if (!response.data?.success || !response.data?.data?.group) {
+        throw new Error(response.data?.message || "Group not found");
+      }
+
+      const group = response.data.data.group;
+      setGroupDetails(group);
+      return group;
+    } catch (error) {
+      const status = error.response?.status;
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to load group details";
+      setGroupDetails(null);
+      setFirms([]);
+      setTotal(0);
+      setTotalPages(1);
+      setGroupError({
+        status: status || 500,
+        message:
+          status === 404
+            ? "This group does not exist for the selected branch."
+            : message,
+        code: error.response?.data?.code || null,
+      });
+      return null;
+    } finally {
+      setGroupLoading(false);
+    }
+  }, [groupId]);
 
   const fetchGroupFirms = useCallback(
     async ({ search = "", pageNo = 1, pageLimit = 20 } = {}) => {
@@ -445,7 +510,7 @@ const GroupFirms = () => {
             : [];
           const pagination = response.data.pagination || {};
 
-          setGroupDetails(groupData);
+          if (groupData) setGroupDetails(groupData);
           setFirms(rows);
           setTotal(Number(pagination.total) || rows.length);
           setTotalPages(
@@ -474,10 +539,20 @@ const GroupFirms = () => {
         ) {
           return;
         }
+        if (error.response?.status === 404) {
+          setGroupError({
+            status: 404,
+            message: "This group does not exist for the selected branch.",
+            code: error.response?.data?.code || "GROUP_NOT_FOUND",
+          });
+          setGroupDetails(null);
+        }
         setFirms([]);
         setTotal(0);
         setTotalPages(1);
-        toast.error(error.response?.data?.message || "Error loading firms");
+        if (error.response?.status !== 404) {
+          toast.error(error.response?.data?.message || "Error loading firms");
+        }
       } finally {
         if (abortRef.current === controller) {
           setLoading(false);
@@ -492,12 +567,23 @@ const GroupFirms = () => {
       navigate("/staff/office-assistance/groups", { replace: true });
       return undefined;
     }
-    fetchGroupFirms({ search: "", pageNo: 1, pageLimit: limit });
+
+    let cancelled = false;
+    (async () => {
+      const group = await fetchGroupDetails();
+      if (cancelled || !group) return;
+      await fetchGroupFirms({
+        search: "",
+        pageNo: 1,
+        pageLimit: limitRef.current,
+      });
+    })();
+
     return () => {
+      cancelled = true;
       if (abortRef.current) abortRef.current.abort();
       clearTimeout(searchTimer.current);
     };
-    // initial load only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
@@ -542,7 +628,9 @@ const GroupFirms = () => {
     });
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    const group = await fetchGroupDetails();
+    if (!group) return;
     fetchGroupFirms({
       search: searchRef.current,
       pageNo: pageRef.current,
@@ -697,6 +785,75 @@ const GroupFirms = () => {
     selectedFirms.length > 0 &&
     selectedFirms.length < firms.length;
 
+  const dedupeClientsByUsername = (rows) => {
+    const seen = new Set();
+    const clients = [];
+    for (const row of rows) {
+      const username = String(row?.username || "").trim();
+      if (!username || seen.has(username)) continue;
+      if (!(Number(row.balance) > 0)) continue;
+      seen.add(username);
+      clients.push({
+        username,
+        name: row.client_name || row.name || username,
+        mobile: row.mobile || "",
+        email: row.email || "",
+        country_code: row.country_code || "",
+        balance: Number(row.balance) || 0,
+      });
+    }
+    return clients;
+  };
+
+  const openBulkPaymentReminder = async () => {
+    if (selectedCount <= 0) return;
+
+    if (selectAllAcrossPages) {
+      setReminderLoading(true);
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/group/group-firms/debtor-clients`,
+          {
+            headers: getHeaders(),
+            params: {
+              group_id: groupId,
+              ...(searchRef.current.trim()
+                ? { search: searchRef.current.trim() }
+                : {}),
+            },
+          },
+        );
+        const clients = Array.isArray(response.data?.data?.clients)
+          ? response.data.data.clients
+          : [];
+        if (!clients.length) {
+          toast.error("No clients with a positive balance in this selection");
+          return;
+        }
+        setClientPaymentReminder({ open: true, clients });
+      } catch (err) {
+        toast.error(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to load clients for reminder",
+        );
+      } finally {
+        setReminderLoading(false);
+      }
+      return;
+    }
+
+    const selectedRows = firms.filter((firm) =>
+      selectedFirms.includes(firm.firm_id),
+    );
+    const clients = dedupeClientsByUsername(selectedRows);
+    if (!clients.length) {
+      toast.error("Select at least one firm whose client has a positive balance");
+      return;
+    }
+    setClientPaymentReminder({ open: true, clients });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -718,6 +875,50 @@ const GroupFirms = () => {
         }`}
       >
         <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          {groupLoading ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-16 flex flex-col items-center justify-center text-center">
+              <FiRefreshCw className="w-8 h-8 text-indigo-500 animate-spin mb-3" />
+              <p className="text-sm font-medium text-gray-700">
+                Loading group details…
+              </p>
+              <p className="text-xs text-gray-400 mt-1 font-mono">{groupId}</p>
+            </div>
+          ) : groupError ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-14 flex flex-col items-center justify-center text-center max-w-lg mx-auto">
+              <div className="w-14 h-14 rounded-full bg-red-50 border border-red-100 flex items-center justify-center mb-4">
+                <FiAlertCircle className="w-7 h-7 text-red-500" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 m-0">
+                Group not found
+              </h2>
+              <p className="text-sm text-gray-500 mt-2 mb-0 max-w-sm">
+                {groupError.message}
+              </p>
+              <p className="text-xs text-gray-400 mt-2 font-mono break-all">
+                Group ID: {groupId}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/staff/office-assistance/groups")
+                  }
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+                >
+                  <FiArrowLeft className="w-3.5 h-3.5" />
+                  Back to groups
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <FiRefreshCw className="w-3.5 h-3.5" />
+                  Try again
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className={`${TOOLBAR_ROW} flex-nowrap`}>
               <div className="flex items-center gap-2 shrink-0 min-w-0">
@@ -738,16 +939,36 @@ const GroupFirms = () => {
 
               <div className="flex items-center gap-2 shrink-0 ml-auto min-w-0">
                 {selectedCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowBulkDeleteModal(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shrink-0"
-                  >
-                    <FiTrash2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">
-                      Delete ({selectedCount.toLocaleString()})
-                    </span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={reminderLoading}
+                      onClick={openBulkPaymentReminder}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-lg transition-colors shrink-0 disabled:opacity-60"
+                    >
+                      <FiBell
+                        className={`w-3.5 h-3.5 ${reminderLoading ? "animate-pulse" : ""}`}
+                      />
+                      <span className="hidden sm:inline">
+                        {reminderLoading
+                          ? "Preparing…"
+                          : `Reminder (${selectedCount.toLocaleString()})`}
+                      </span>
+                      <span className="sm:hidden">
+                        ({selectedCount.toLocaleString()})
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkDeleteModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shrink-0"
+                    >
+                      <FiTrash2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">
+                        Delete ({selectedCount.toLocaleString()})
+                      </span>
+                    </button>
+                  </>
                 ) : null}
                 <div className="relative w-32 sm:w-44 md:w-56 min-w-0">
                   <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
@@ -821,7 +1042,7 @@ const GroupFirms = () => {
             ) : null}
 
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed min-w-[820px]">
+              <table className="w-full table-fixed min-w-[980px]">
                 <thead>
                   <tr className={TABLE_HEAD_ROW}>
                     <th className={`${TABLE_TH} w-10`}>
@@ -833,10 +1054,11 @@ const GroupFirms = () => {
                       />
                     </th>
                     <th className={`${TABLE_TH} w-12`}>#</th>
-                    <th className={`${TABLE_TH} w-[24%]`}>Firm</th>
-                    <th className={`${TABLE_TH} w-[22%]`}>Client</th>
-                    <th className={`${TABLE_TH} w-[20%]`}>Contact</th>
-                    <th className={`${TABLE_TH} w-28`}>Balance</th>
+                    <th className={`${TABLE_TH} w-[20%]`}>Firm</th>
+                    <th className={`${TABLE_TH} w-[18%]`}>Client</th>
+                    <th className={`${TABLE_TH} w-[16%]`}>Contact</th>
+                    <th className={`${TABLE_TH} w-32`}>Balance</th>
+                    <th className={`${TABLE_TH} w-36`}>Last Payment</th>
                     <th className={`${TABLE_TH} w-24`}>Action</th>
                   </tr>
                 </thead>
@@ -955,34 +1177,71 @@ const GroupFirms = () => {
                           </div>
                         </td>
                         <td className={TABLE_TD}>
-                          {firm.username ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate(
-                                  `/client/profile/${encodeURIComponent(firm.username)}/ledger`,
-                                )
-                              }
-                              className={`text-xs font-semibold tabular-nums hover:underline ${
-                                (firm.balance || 0) < 0
-                                  ? "text-red-600"
-                                  : "text-green-600"
-                              }`}
-                              title="View ledger"
-                            >
-                              {formatBalance(firm.balance, canViewFees)}
-                            </button>
-                          ) : (
-                            <span
-                              className={`text-xs font-semibold tabular-nums ${
-                                (firm.balance || 0) < 0
-                                  ? "text-red-600"
-                                  : "text-green-600"
-                              }`}
-                            >
-                              {formatBalance(firm.balance, canViewFees)}
-                            </span>
-                          )}
+                          <div className="inline-flex items-center gap-1.5">
+                            {firm.username ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/client/profile/${encodeURIComponent(firm.username)}/ledger`,
+                                  )
+                                }
+                                className={`text-xs font-semibold tabular-nums hover:underline ${
+                                  (firm.balance || 0) < 0
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }`}
+                                title="View ledger"
+                              >
+                                {formatBalance(firm.balance, canViewFees)}
+                              </button>
+                            ) : (
+                              <span
+                                className={`text-xs font-semibold tabular-nums ${
+                                  (firm.balance || 0) < 0
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }`}
+                              >
+                                {formatBalance(firm.balance, canViewFees)}
+                              </span>
+                            )}
+                            {Number(firm.balance) > 0 && firm.username ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setClientPaymentReminder({
+                                    open: true,
+                                    clients: [
+                                      {
+                                        username: firm.username,
+                                        name: firm.client_name || firm.username,
+                                        mobile: firm.mobile,
+                                        email: firm.email,
+                                        country_code: firm.country_code,
+                                        balance: firm.balance,
+                                      },
+                                    ],
+                                  })
+                                }
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                                title="Send payment reminder"
+                                aria-label={`Send payment reminder to ${firm.client_name || firm.username}`}
+                              >
+                                <FiBell className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className={TABLE_TD}>
+                          <div className="min-w-0">
+                            <p className={`${CELL_BODY} truncate`}>
+                              {formatPaymentDate(firm.last_payment_date)}
+                            </p>
+                            <p className={`${CELL_META} mt-0.5 truncate`}>
+                              {firm.last_payment_period || "No payment"}
+                            </p>
+                          </div>
                         </td>
                         <td className={TABLE_TD}>
                           <ActionMenu
@@ -1024,6 +1283,7 @@ const GroupFirms = () => {
               />
             ) : null}
           </div>
+          )}
         </div>
       </div>
 
@@ -1076,6 +1336,13 @@ const GroupFirms = () => {
             pageLimit: limitRef.current,
           });
         }}
+      />
+
+      <ClientPaymentReminderModal
+        isOpen={clientPaymentReminder.open}
+        onClose={() => setClientPaymentReminder({ open: false, clients: [] })}
+        clients={clientPaymentReminder.clients}
+        isAll={false}
       />
     </div>
   );

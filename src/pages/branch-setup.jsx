@@ -18,7 +18,8 @@ import GateScreenLayout, {
     GateSectionLabel,
 } from '../components/GateScreenLayout';
 import CreateBranch from '../components/Modals/CreateBranch';
-import { resetSubscriptionCache } from '../hooks/useSubscription';
+import { performBranchSwitch } from '../utils/branchSwitch';
+import BranchSwitchOverlay from '../components/BranchSwitchOverlay';
 import {
     acceptBranchInvitation,
     applyBranchToSession,
@@ -123,12 +124,23 @@ const BranchSetup = () => {
         navigate('/login');
     };
 
-    const finishBranchSetup = (branch) => {
-        applyBranchToSession(branch);
-        resetSubscriptionCache();
-        toast.success(`Welcome to ${branch.branch_name || branch.name}!`);
-        navigate('/', { replace: true });
-        window.location.reload();
+    const finishBranchSetup = async (branch) => {
+        const name = branch.branch_name || branch.name;
+        try {
+            toast.success(`Switching to ${name}…`);
+            await performBranchSwitch(
+                {
+                    branch_id: branch.branch_id,
+                    name,
+                    branch_name: name,
+                    owned: branch.owned,
+                    role: branch.role,
+                },
+                { reload: true }
+            );
+        } catch (err) {
+            toast.error(err.message || 'Failed to switch branch');
+        }
     };
 
     const handleSelectBranch = (branch) => {
@@ -364,6 +376,7 @@ const BranchSetup = () => {
                 onClose={() => setCreateModalOpen(false)}
                 onSuccess={finishBranchSetup}
             />
+            <BranchSwitchOverlay />
         </>
     );
 };
