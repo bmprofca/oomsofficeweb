@@ -73,6 +73,12 @@ export const whatsappApi = {
     whatsappAxios
       .post('/broadcast/whatsapp/onechatting/campaign/create', payload, { timeout: 120000 })
       .then(unwrap),
+  resolveCampaignRecipients: (payload) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/onechatting/campaign/resolve-recipients', payload, {
+        timeout: 120000,
+      })
+      .then(unwrap),
   listCampaigns: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/campaign/list', { params }).then(unwrap),
   getCampaignDetails: (params) =>

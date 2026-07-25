@@ -53,12 +53,53 @@ export function createFetchLoadOptions({
 
 export const CLIENT_LIST_QUERY_PARAMS = { page: 1, limit: 20 };
 
+/**
+ * Async loader for CustomSelect against GET /client/list.
+ * Supports search + page (infinite scroll). Call signature: (search, page) => { options, hasMore }.
+ */
 export function createClientListLoadOptions(queryParams = CLIENT_LIST_QUERY_PARAMS) {
-    return createFetchLoadOptions({
-        endpoint: '/client/list',
-        queryParams,
-        dataExtractor: (response) => response?.data || [],
-    });
+    const limit = Number(queryParams?.limit) || 20;
+    const extraParams = { ...queryParams };
+    delete extraParams.page;
+    delete extraParams.limit;
+
+    return async (search = '', page = 1) => {
+        const headers = getHeaders();
+        if (!headers) {
+            throw new Error('Authentication headers missing');
+        }
+        const base = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
+        const url = new URL('client/list', base);
+        const pageNum = Math.max(1, Number(page) || 1);
+        url.searchParams.set('page', String(pageNum));
+        url.searchParams.set('limit', String(limit));
+
+        const query = String(search ?? '').trim();
+        if (query) {
+            url.searchParams.set('search', query);
+        }
+
+        Object.entries(extraParams).forEach(([key, val]) => {
+            if (val !== undefined && val !== null && val !== '') {
+                url.searchParams.set(key, String(val));
+            }
+        });
+
+        const response = await fetch(url.toString(), { headers });
+        const json = await response.json();
+        if (!response.ok) {
+            throw new Error(json?.message || 'Failed to load clients');
+        }
+
+        const options = Array.isArray(json?.data) ? json.data : [];
+        const pagination = json?.pagination || {};
+        const hasMore =
+            pagination.is_last_page === false ||
+            (pagination.is_last_page == null &&
+                pageNum < Number(pagination.total_pages || 0));
+
+        return { options, hasMore: Boolean(hasMore) };
+    };
 }
 
 export function getClientOptionLabel(item) {

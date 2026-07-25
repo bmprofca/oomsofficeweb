@@ -272,6 +272,8 @@ export default function CustomSelect({
     isSearchable = true,
     isClearable = true,
     isDisabled = false,
+    /** When true (default for multi), selected values are omitted from the dropdown list. */
+    hideSelectedOptions,
     minSearchLength = 0,
     debounceMs = 350,
 
@@ -328,10 +330,14 @@ export default function CustomSelect({
         (option) =>
             selectedValues.some(
                 (selected) =>
-                    getOptionValue(selected) === getOptionValue(option)
+                    String(getOptionValue(selected)) ===
+                    String(getOptionValue(option))
             ),
         [getOptionValue, selectedValues]
     );
+
+    const shouldHideSelected =
+        hideSelectedOptions ?? Boolean(isMulti);
 
     const localFilteredOptions = useMemo(() => {
         if (isApiMode || !Array.isArray(options)) {
@@ -348,7 +354,19 @@ export default function CustomSelect({
         );
     }, [getOptionLabel, isApiMode, options, searchQuery]);
 
-    const visibleOptions = isApiMode ? asyncOptions : localFilteredOptions;
+    const visibleOptions = useMemo(() => {
+        const base = isApiMode ? asyncOptions : localFilteredOptions;
+        if (!shouldHideSelected) {
+            return base;
+        }
+        return base.filter((option) => !isValueSelected(option));
+    }, [
+        asyncOptions,
+        isApiMode,
+        isValueSelected,
+        localFilteredOptions,
+        shouldHideSelected,
+    ]);
 
     const enabledOptions = useMemo(
         () => visibleOptions.filter((option) => !isOptionDisabled(option)),
@@ -416,7 +434,8 @@ export default function CustomSelect({
                 const next = isValueSelected(option)
                     ? selectedValues.filter(
                           (item) =>
-                              getOptionValue(item) !== getOptionValue(option)
+                              String(getOptionValue(item)) !==
+                              String(getOptionValue(option))
                       )
                     : [...selectedValues, option];
                 emitChange(next);
@@ -457,7 +476,9 @@ export default function CustomSelect({
                 return;
             }
             const next = selectedValues.filter(
-                (item) => getOptionValue(item) !== getOptionValue(option)
+                (item) =>
+                    String(getOptionValue(item)) !==
+                    String(getOptionValue(option))
             );
             emitChange(next);
         },
@@ -653,6 +674,32 @@ export default function CustomSelect({
             setIsLoadingMore(false);
         }
     }, [isOpen]);
+
+    // If selected values are hidden and the current page is all selected,
+    // keep fetching so the menu still has selectable options.
+    useEffect(() => {
+        if (
+            !isOpen ||
+            !isApiMode ||
+            !shouldHideSelected ||
+            !hasMoreOptions ||
+            isLoading ||
+            isLoadingMore ||
+            visibleOptions.length > 0
+        ) {
+            return;
+        }
+        loadMoreAsyncOptions();
+    }, [
+        hasMoreOptions,
+        isApiMode,
+        isLoading,
+        isLoadingMore,
+        isOpen,
+        loadMoreAsyncOptions,
+        shouldHideSelected,
+        visibleOptions.length,
+    ]);
 
     useLayoutEffect(() => {
         if (!isOpen || !usePortal) {
