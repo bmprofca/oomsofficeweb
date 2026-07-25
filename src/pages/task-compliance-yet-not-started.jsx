@@ -20,10 +20,8 @@ import {
   extractApiError,
   fetchComplianceServices,
   fetchComplianceYetNotStarted,
-  getPreviousCompliancePeriod,
   getCurrentComplianceYear,
   normalizeAssignees,
-  normalizeFrequency,
 } from "../services/complianceService";
 
 const TABLE_HEAD_ROW =
@@ -277,8 +275,10 @@ const ComplianceYetNotStarted = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const initialServiceId = searchParams.get("service_id") || "";
-  const initialYear =
-    searchParams.get("compliance_year") || getCurrentComplianceYear();
+  // Default to All years (null) so the list matches dashboard YNS —
+  // periods from each firm's effective_from through the current FY.
+  const initialYearParam = searchParams.get("compliance_year");
+  const initialYear = initialYearParam || null;
   const initialPeriod = searchParams.get("compliance_period") || "";
   const initialSearch = searchParams.get("search") || "";
 
@@ -295,10 +295,6 @@ const ComplianceYetNotStarted = () => {
   const [search, setSearch] = useState(initialSearch);
   const debouncedSearch = useDebounce(search, 400);
   const [periodOptions, setPeriodOptions] = useState(null);
-  // Wait for default period when landing with service_id but no period in URL
-  const [filtersReady, setFiltersReady] = useState(
-    () => !initialServiceId || Boolean(initialPeriod),
-  );
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -350,19 +346,11 @@ const ComplianceYetNotStarted = () => {
     [services],
   );
 
-  const resolveDefaultPeriodForService = useCallback((service) => {
-    if (!service) return { period: "", year: null };
-    const frequency = normalizeFrequency(service.frequency);
-    if (frequency === "yearly") return { period: "", year: null };
-    const previous = getPreviousCompliancePeriod(service.frequency);
-    return {
-      period: previous.period || "",
-      year: previous.year || null,
-    };
-  }, []);
-
   const yearSelectOptions = useMemo(
-    () => yearOptions.map((year) => ({ value: year, label: year })),
+    () => [
+      { value: null, label: "All" },
+      ...yearOptions.map((year) => ({ value: year, label: year })),
+    ],
     [yearOptions],
   );
 
@@ -377,14 +365,17 @@ const ComplianceYetNotStarted = () => {
 
   const periodSelectEnabled = Boolean(periodOptions?.period_select_enabled);
   const periodChoices = periodOptions?.periods || [];
+  const periodFilterEnabled = Boolean(periodSelectEnabled && complianceYear);
 
   const periodSelectOptions = useMemo(
     () =>
-      periodChoices.map((period) => ({
-        value: String(period.value),
-        label: period.label || period.value,
-      })),
-    [periodChoices],
+      periodFilterEnabled
+        ? periodChoices.map((period) => ({
+            value: String(period.value),
+            label: period.label || period.value,
+          }))
+        : [],
+    [periodFilterEnabled, periodChoices],
   );
 
   const selectedServiceOption = useMemo(
@@ -398,7 +389,7 @@ const ComplianceYetNotStarted = () => {
   const selectedYearOption = useMemo(
     () =>
       yearSelectOptions.find((option) => option.value === complianceYear) ||
-      null,
+      yearSelectOptions[0],
     [yearSelectOptions, complianceYear],
   );
 
@@ -412,7 +403,10 @@ const ComplianceYetNotStarted = () => {
   const syncUrl = useCallback(
     (overrides = {}) => {
       const nextServiceId = overrides.service_id ?? serviceId;
-      const nextYear = overrides.compliance_year ?? complianceYear;
+      const nextYear =
+        overrides.compliance_year !== undefined
+          ? overrides.compliance_year
+          : complianceYear;
       const nextPeriod = overrides.compliance_period ?? compliancePeriod;
       const nextSearch = overrides.search ?? debouncedSearch;
       const params = new URLSearchParams();
@@ -451,7 +445,7 @@ const ComplianceYetNotStarted = () => {
     try {
       const res = await fetchComplianceYetNotStarted({
         service_id: serviceId,
-        compliance_year: complianceYear,
+        compliance_year: complianceYear || "",
         compliance_period:
           serviceId && complianceYear && compliancePeriod
             ? compliancePeriod
@@ -497,50 +491,13 @@ const ComplianceYetNotStarted = () => {
     loadServices();
   }, [loadServices]);
 
-  // Resolve current period from service frequency before first list fetch
   useEffect(() => {
-    if (filtersReady) return;
-    if (!serviceId) {
-      setFiltersReady(true);
-      return;
-    }
-    if (!services.length) return;
-
-    const service = services.find(
-      (item) => String(item.service_id) === String(serviceId),
-    );
-    if (!service) {
-      setFiltersReady(true);
-      return;
-    }
-
-    const defaults = resolveDefaultPeriodForService(service);
-    if (defaults.period && defaults.period !== compliancePeriod) {
-      setCompliancePeriod(defaults.period);
-    }
-    if (defaults.year && defaults.year !== complianceYear) {
-      setComplianceYear(defaults.year);
-    }
-    setFiltersReady(true);
-  }, [
-    filtersReady,
-    serviceId,
-    services,
-    compliancePeriod,
-    complianceYear,
-    resolveDefaultPeriodForService,
-  ]);
-
-  useEffect(() => {
-    if (!filtersReady) return;
     loadRows();
-  }, [loadRows, filtersReady]);
+  }, [loadRows]);
 
   useEffect(() => {
-    if (!filtersReady) return;
     syncUrl({ search: debouncedSearch });
   }, [
-    filtersReady,
     serviceId,
     complianceYear,
     compliancePeriod,
@@ -549,32 +506,14 @@ const ComplianceYetNotStarted = () => {
   ]);
 
   useEffect(() => {
-    if (!filtersReady) return;
     setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
-  }, [
-    serviceId,
-    complianceYear,
-    compliancePeriod,
-    debouncedSearch,
-    filtersReady,
-  ]);
+  }, [serviceId, complianceYear, compliancePeriod, debouncedSearch]);
 
   const handleServiceChange = (option) => {
     const next = option?.value ? String(option.value) : "";
     setServiceId(next);
     setPeriodOptions(null);
-    if (!next) {
-      setCompliancePeriod("");
-    } else {
-      const service = branchServices.find(
-        (item) => String(item.service_id) === next,
-      );
-      const defaults = resolveDefaultPeriodForService(service);
-      setCompliancePeriod(defaults.period);
-      if (defaults.year) {
-        setComplianceYear(defaults.year);
-      }
-    }
+    setCompliancePeriod("");
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
@@ -667,11 +606,15 @@ const ComplianceYetNotStarted = () => {
                   options={yearSelectOptions}
                   value={selectedYearOption}
                   onChange={(option) => {
-                    if (!option?.value) return;
-                    setComplianceYear(String(option.value));
+                    const nextYear =
+                      option?.value == null || option?.value === ""
+                        ? null
+                        : String(option.value);
+                    setComplianceYear(nextYear);
+                    if (!nextYear) setCompliancePeriod("");
                     setPagination((prev) => ({ ...prev, page: 1 }));
                   }}
-                  placeholder="Select year"
+                  placeholder="All"
                   isSearchable={false}
                   isClearable={false}
                 />
@@ -686,13 +629,15 @@ const ComplianceYetNotStarted = () => {
                     setPagination((prev) => ({ ...prev, page: 1 }));
                   }}
                   placeholder={
-                    !serviceId
-                      ? "Select a service first"
-                      : !periodSelectEnabled
-                        ? "All periods in year (yearly service)"
-                        : "All periods in year"
+                    !complianceYear
+                      ? "Select a year first"
+                      : !serviceId
+                        ? "Select a service first"
+                        : !periodSelectEnabled
+                          ? "All periods in year (yearly service)"
+                          : "All periods in year"
                   }
-                  isDisabled={!periodSelectEnabled}
+                  isDisabled={!periodFilterEnabled}
                   isClearable
                 />
 
@@ -739,7 +684,7 @@ const ComplianceYetNotStarted = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white">
-                  {loading || !filtersReady ? (
+                  {loading ? (
                     Array.from({ length: 5 }).map((_, index) => (
                       <tr key={index} className="animate-pulse">
                         <td className={TABLE_TD_FIRST}>

@@ -167,6 +167,63 @@ export const normalizeSocketAssignment = (assigning) => {
   };
 };
 
+/** Normalize assignment from permission / assign API payloads. */
+export const normalizeAssignApiState = (payload) => {
+  if (!payload || typeof payload !== 'object') return false;
+
+  if (payload.assigning && typeof payload.assigning === 'object') {
+    return normalizeSocketAssignment(payload.assigning);
+  }
+
+  if (payload.assigned === false) return false;
+
+  if (
+    payload.assigned_user ||
+    payload.assigned_to_me === true ||
+    payload.assigned === true
+  ) {
+    return {
+      is_me: Boolean(payload.assigned_to_me),
+      staff: payload.assigned_user || null,
+    };
+  }
+
+  return false;
+};
+
+export const extractAssignTeamMembers = (permission) => {
+  const assigning =
+    permission?.assigning && typeof permission.assigning === 'object'
+      ? permission.assigning
+      : {};
+  const raw =
+    assigning.team ||
+    assigning.users ||
+    assigning.members ||
+    assigning.staff ||
+    permission?.team ||
+    permission?.users ||
+    permission?.members ||
+    [];
+
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((member) => {
+      if (!member || typeof member !== 'object') return null;
+      const username = String(
+        member.username || member.user_name || member.target || '',
+      ).trim();
+      if (!username) return null;
+      return {
+        username,
+        name: member.name || member.full_name || username,
+        ...member,
+      };
+    })
+    .filter(Boolean);
+};
+
 export const clearChatUnreadCount = (chats, number) => {
   if (!number) return chats;
 

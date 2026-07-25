@@ -33,6 +33,9 @@ import {
   FiSend,
   FiStar,
   FiUser,
+  FiUserCheck,
+  FiUserMinus,
+  FiUserPlus,
   FiVideo,
   FiX,
   FiLock,
@@ -75,6 +78,8 @@ import {
 } from "../../../utils/oneChattingChatUtils";
 import {
   clearChatUnreadCount,
+  extractAssignTeamMembers,
+  normalizeAssignApiState,
   normalizeSocketAssignment,
   updateChatListForMessage,
   updateChatListLastMessageStatus,
@@ -680,6 +685,12 @@ const OneChattingLiveChat = ({
   );
   const [messages, setMessages] = useState([]);
   const [assigned, setAssigned] = useState(false);
+  const [assignPermission, setAssignPermission] = useState(null);
+  const [assignTeam, setAssignTeam] = useState([]);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignPermissionLoading, setAssignPermissionLoading] =
+    useState(false);
+  const [assignMenuOpen, setAssignMenuOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [historyPagination, setHistoryPagination] = useState({
@@ -711,6 +722,7 @@ const OneChattingLiveChat = ({
   const selectedContactRef = useRef(selectedContact);
   const messageInputRef = useRef(null);
   const attachMenuRef = useRef(null);
+  const assignMenuRef = useRef(null);
   const chatListContainerRef = useRef(null);
   const savedChatListScrollTop = useRef(0);
   const skipScrollRef = useRef(false);
@@ -955,6 +967,21 @@ const OneChattingLiveChat = ({
     if (!number || selectedContactRef.current?.number !== number) return;
 
     setAssigned(normalizeSocketAssignment(payload?.assigning));
+    // Refresh permission flags so Assign/Unassign buttons stay accurate
+    whatsappApi
+      .getChatAssignPermission({ number })
+      .then((res) => {
+        setAssignPermission(res || null);
+        const team = extractAssignTeamMembers(res);
+        if (team.length) setAssignTeam(team);
+        const fromApi = normalizeAssignApiState(res);
+        if (fromApi !== false || res?.assigned === false) {
+          setAssigned(fromApi);
+        }
+      })
+      .catch(() => {
+        // Keep socket-derived assignment if permission refresh fails
+      });
   }, []);
 
   const handleSocketCaseStatus = useCallback((payload) => {
@@ -1049,6 +1076,8 @@ const OneChattingLiveChat = ({
         if (!append) {
           setMessages([]);
           setAssigned(false);
+          setAssignPermission(null);
+          setAssignTeam([]);
         }
       } finally {
         setHistoryLoading(false);
@@ -1057,6 +1086,55 @@ const OneChattingLiveChat = ({
     },
     [storeDeveloperToken],
   );
+
+  const fetchAssignPermission = useCallback(async (number) => {
+    if (!number) {
+      setAssignPermission(null);
+      setAssignTeam([]);
+      return;
+    }
+
+    setAssignPermissionLoading(true);
+    try {
+      const res = await whatsappApi.getChatAssignPermission({ number });
+      storeDeveloperToken(res);
+      setAssignPermission(res || null);
+
+      const fromApi = normalizeAssignApiState(res);
+      if (fromApi !== false || res?.assigned === false) {
+        setAssigned(fromApi);
+      }
+
+      let team = extractAssignTeamMembers(res);
+      if (!team.length) {
+        try {
+          const tokensRes = await whatsappApi.listDeveloperTokens({
+            page_no: 1,
+            limit: 100,
+          });
+          const rows = Array.isArray(tokensRes?.data) ? tokensRes.data : [];
+          team = rows
+            .filter((row) => row?.onechatting_enabled && row?.username)
+            .map((row) => ({
+              username: row.username,
+              name: row?.profile?.name || row.username,
+            }));
+        } catch {
+          // Keep empty team; Assign to me still works with current username.
+        }
+      }
+      setAssignTeam(team);
+    } catch (error) {
+      setAssignPermission(null);
+      setAssignTeam([]);
+      // Soft-fail: history still shows assignee; actions hidden when no permission.
+      console.warn(
+        extractApiError(error, "Failed to load chat assign permission"),
+      );
+    } finally {
+      setAssignPermissionLoading(false);
+    }
+  }, [storeDeveloperToken]);
 
   useEffect(() => {
     setMessageDraft("");
@@ -1070,24 +1148,35 @@ const OneChattingLiveChat = ({
   }, [selectedContact?.number]);
 
   useEffect(() => {
-    if (!attachMenuOpen) return undefined;
+    if (!attachMenuOpen && !assignMenuOpen) return undefined;
 
     const handleOutsideClick = (event) => {
       if (
+        attachMenuOpen &&
         attachMenuRef.current &&
         !attachMenuRef.current.contains(event.target)
       ) {
         setAttachMenuOpen(false);
       }
+      if (
+        assignMenuOpen &&
+        assignMenuRef.current &&
+        !assignMenuRef.current.contains(event.target)
+      ) {
+        setAssignMenuOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [attachMenuOpen]);
+  }, [attachMenuOpen, assignMenuOpen]);
 
   useEffect(() => {
     if (!selectedContact?.number) return;
     setMessages([]);
+    setAssignPermission(null);
+    setAssignTeam([]);
+    setAssignMenuOpen(false);
     activateStickToBottom();
     canLoadOlderRef.current = false;
     lastScrollTopRef.current = 0;
@@ -1095,7 +1184,13 @@ const OneChattingLiveChat = ({
     loadingOlderRef.current = false;
     setHistoryPagination({ last_id: 0, has_more: false, total: 0 });
     fetchChatHistory(selectedContact.number, 0, false);
-  }, [selectedContact?.number, fetchChatHistory, activateStickToBottom]);
+    fetchAssignPermission(selectedContact.number);
+  }, [
+    selectedContact?.number,
+    fetchChatHistory,
+    fetchAssignPermission,
+    activateStickToBottom,
+  ]);
 
   useEffect(() => {
     if (!selectedContact?.number || historyLoading) return;
@@ -1224,6 +1319,76 @@ const OneChattingLiveChat = ({
     setMessages([]);
     setHistoryPagination({ last_id: 0, has_more: false, total: 0 });
     fetchChatHistory(selectedContact.number, 0, false);
+    fetchAssignPermission(selectedContact.number);
+  };
+
+  const handleChatAssign = async (type, targetUsername) => {
+    const number = selectedContact?.number;
+    if (!number || assignLoading) return;
+
+    if (type === "assign" && !targetUsername) {
+      toast.error("Select an agent to assign");
+      return;
+    }
+
+    setAssignLoading(true);
+    setAssignMenuOpen(false);
+    try {
+      const payload =
+        type === "assign"
+          ? { number, type: "assign", target: targetUsername }
+          : { number, type: "unassign" };
+
+      const res = await whatsappApi.chatAssign(payload);
+      storeDeveloperToken(res);
+
+      const nextAssigned = normalizeAssignApiState(res);
+      setAssigned(nextAssigned);
+      setAssignPermission((prev) => ({
+        ...(prev || {}),
+        ...(res || {}),
+        can_assign:
+          res?.can_assign ??
+          (type === "unassign" ? true : Boolean(prev?.can_assign)),
+        can_unassign:
+          res?.can_unassign ??
+          (type === "assign" && nextAssigned?.is_me
+            ? true
+            : Boolean(prev?.can_unassign)),
+      }));
+
+      toast.success(
+        type === "assign"
+          ? nextAssigned?.is_me
+            ? "Chat assigned to you"
+            : `Chat assigned to ${
+                nextAssigned?.staff?.name ||
+                nextAssigned?.staff?.username ||
+                targetUsername
+              }`
+          : "Chat unassigned",
+      );
+
+      // Refresh flags from source of truth
+      fetchAssignPermission(number);
+    } catch (error) {
+      toast.error(extractApiError(error, "Failed to update assignment"));
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handleAssignToMe = () => {
+    const me = String(localStorage.getItem("user_username") || "").trim();
+    if (!me) {
+      toast.error("Unable to resolve your username");
+      return;
+    }
+    handleChatAssign("assign", me);
+  };
+
+  const handleUnassign = () => {
+    handleChatAssign("unassign");
   };
 
   const handleToggleFullScreen = () => {
@@ -1799,6 +1964,16 @@ const OneChattingLiveChat = ({
   const showChatPanel = Boolean(selectedContact);
   const showSocketStatus = Boolean(developerToken);
   const assigneeLabel = getAssigneeLabel(assigned);
+  const canAssign = Boolean(assignPermission?.can_assign);
+  const canUnassign = Boolean(assignPermission?.can_unassign);
+  const currentUsername = String(
+    localStorage.getItem("user_username") || "",
+  ).trim();
+  const assignTeamOptions = assignTeam.filter(
+    (member) =>
+      member?.username &&
+      String(member.username).trim() !== currentUsername,
+  );
 
   if (!check('broadcast_livechat')) {
     return (
@@ -2103,9 +2278,139 @@ const OneChattingLiveChat = ({
                         {selectedContact.number}
                       </p>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-600 shrink-0 max-w-[120px] truncate">
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 max-w-[140px] truncate ${
+                        assigned === false
+                          ? "bg-amber-50 border-amber-200 text-amber-700"
+                          : assigned?.is_me
+                            ? "bg-green-50 border-green-200 text-green-700"
+                            : "bg-white border-gray-200 text-gray-600"
+                      }`}
+                      title={assigneeLabel}
+                    >
                       {assigneeLabel}
                     </span>
+
+                    {canAssign || canUnassign || assignPermissionLoading ? (
+                      <div
+                        ref={assignMenuRef}
+                        className="relative flex items-center gap-1 shrink-0"
+                      >
+                        {canAssign ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleAssignToMe}
+                              disabled={
+                                assignLoading || isChatAssignedToMe(assigned)
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 disabled:opacity-50"
+                              title={
+                                isChatAssignedToMe(assigned)
+                                  ? "Already assigned to you"
+                                  : "Assign this chat to yourself"
+                              }
+                            >
+                              {assignLoading ? (
+                                <FiLoader className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <FiUserCheck className="w-3 h-3" />
+                              )}
+                              {isChatAssignedToMe(assigned)
+                                ? "Yours"
+                                : "Assign to me"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAssignMenuOpen((open) => !open)
+                              }
+                              disabled={assignLoading}
+                              className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 border border-gray-200 bg-white disabled:opacity-50"
+                              title="Assign to teammate"
+                            >
+                              <FiUserPlus className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : null}
+
+                        {canUnassign ? (
+                          <button
+                            type="button"
+                            onClick={handleUnassign}
+                            disabled={assignLoading}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50"
+                            title="Unassign this chat"
+                          >
+                            {assignLoading ? (
+                              <FiLoader className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <FiUserMinus className="w-3 h-3" />
+                            )}
+                            Unassign
+                          </button>
+                        ) : null}
+
+                        {assignPermissionLoading &&
+                        !canAssign &&
+                        !canUnassign ? (
+                          <FiLoader className="w-3.5 h-3.5 animate-spin text-gray-400" />
+                        ) : null}
+
+                        {assignMenuOpen && canAssign ? (
+                          <div className="absolute right-0 top-full mt-1 z-30 w-56 max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+                            <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                              Assign to teammate
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleAssignToMe}
+                              disabled={assignLoading}
+                              className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-green-50 flex items-center gap-2"
+                            >
+                              <FiUserCheck className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                              <span className="truncate">
+                                Me ({currentUsername || "you"})
+                              </span>
+                            </button>
+                            {assignTeamOptions.length ? (
+                              assignTeamOptions.map((member) => (
+                                <button
+                                  key={member.username}
+                                  type="button"
+                                  onClick={() =>
+                                    handleChatAssign(
+                                      "assign",
+                                      member.username,
+                                    )
+                                  }
+                                  disabled={assignLoading}
+                                  className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <FiUser className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                  <span className="min-w-0 truncate">
+                                    <span className="font-medium">
+                                      {member.name || member.username}
+                                    </span>
+                                    {member.name &&
+                                    member.name !== member.username ? (
+                                      <span className="text-gray-400 ml-1">
+                                        @{member.username}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <p className="px-3 py-2 text-[11px] text-gray-400 m-0">
+                                No other teammates found
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
                     <button
                       type="button"
                       onClick={handleRefreshConversation}
