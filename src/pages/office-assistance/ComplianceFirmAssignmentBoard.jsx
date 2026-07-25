@@ -15,7 +15,6 @@ import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import TablePagination from '../../components/TablePagination';
 import CustomSelect from '../../components/CustomSelect';
-import { ViewportTooltip } from '../../components/ViewportTooltip';
 import AssignedStaffList from '../../components/Modals/AssignedStaffList';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
@@ -158,6 +157,7 @@ function StaffAvatarsCell({ staffs = [], ca = null, agent = null, title = '', on
   );
 }
 
+/** 3-dot action menu — portal + viewport flip (CLIENT/context/action-button.md) */
 function RowActionMenu({ items }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -222,20 +222,18 @@ function RowActionMenu({ items }) {
 
   return (
     <>
-      <ViewportTooltip label="Actions">
-        <button
-          ref={btnRef}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen((v) => !v);
-          }}
-          className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          aria-label="Actions"
-        >
-          <FiMoreVertical className="w-3.5 h-3.5" />
-        </button>
-      </ViewportTooltip>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        aria-label="Actions"
+      >
+        <FiMoreVertical className="w-3.5 h-3.5" />
+      </button>
 
       {typeof document !== 'undefined' &&
         createPortal(

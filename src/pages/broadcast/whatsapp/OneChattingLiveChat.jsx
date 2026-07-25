@@ -40,18 +40,18 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
 import { useUserPermissions } from "../../../utils/permission-helper";
-import OneChattingAttachModal from "./OneChattingAttachModal";
-import OneChattingMediaModal from "./OneChattingMediaModal";
-import OneChattingTemplateModal from "./OneChattingTemplateModal";
-import OneChattingTemplatePreview from "./OneChattingTemplatePreview";
-import { whatsappApi } from "./whatsappApi";
+import OneChattingAttachModal from "../../../components/Modals/OneChattingAttachModal";
+import OneChattingMediaModal from "../../../components/Modals/OneChattingMediaModal";
+import OneChattingTemplateModal from "../../../components/Modals/OneChattingTemplateModal";
+import OneChattingTemplatePreview from "../../../components/WhatsApp/OneChattingTemplatePreview";
+import { whatsappApi } from "../../../services/whatsappApi";
 import {
   buildReplyPayload,
   enrichSentMessage,
   extractApiError,
   normalizeRecipientNumber,
   resolveTemplateMessage,
-} from "./oneChattingSendUtils";
+} from "../../../utils/oneChattingSendUtils";
 import {
   canPreviewMedia,
   formatAudioDuration,
@@ -72,7 +72,7 @@ import {
   isPdfMedia,
   isTemplateMessage,
   WhatsAppFormattedText,
-} from "./oneChattingChatUtils";
+} from "../../../utils/oneChattingChatUtils";
 import {
   clearChatUnreadCount,
   normalizeSocketAssignment,
@@ -80,9 +80,9 @@ import {
   updateChatListLastMessageStatus,
   updateMessageStatus,
   upsertMessage,
-} from "./oneChattingSocketUtils";
-import { extractDeveloperToken } from "./developerSocket";
-import useDeveloperSocket from "./useDeveloperSocket";
+} from "../../../utils/oneChattingSocketUtils";
+import { extractDeveloperToken } from "../../../services/developerSocket";
+import useDeveloperSocket from "../../../hooks/useDeveloperSocket";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 

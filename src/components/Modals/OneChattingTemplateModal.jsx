@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { FiLoader, FiSearch, FiUpload, FiX } from 'react-icons/fi';
-import { whatsappApi } from './whatsappApi';
-import OneChattingTemplatePreview from './OneChattingTemplatePreview';
+import { whatsappApi } from '../../services/whatsappApi';
+import OneChattingTemplatePreview from '../WhatsApp/OneChattingTemplatePreview';
 import {
   buildTemplateComponents,
   buildTemplatePreviewContent,
   extractApiError,
   getTemplatePlaceholders,
   getTemplatePreviewText,
-} from './oneChattingSendUtils';
-import { uploadOneSaasFile } from './oneChattingUpload';
+} from '../../utils/oneChattingSendUtils';
+import { uploadOneSaasFile } from '../../utils/onesaas-upload';
 
 const URL_ACCEPT_BY_FORMAT = {
   IMAGE: 'image/jpeg,image/png,image/webp,image/gif',

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import {
   fetchWhatsappChannel,
   isAuthenticatedSession,
-} from './whatsappChannelStore';
+} from '../../services/whatsappChannelStore';
 
 const WhatsappChannelBootstrap = () => {
   const fetchedRef = useRef(false);

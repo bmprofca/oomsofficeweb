@@ -19,9 +19,9 @@ import {
   whatsappApi,
   WHATSAPP_CHANNEL_OPTIONS,
   WHATSAPP_SUB_TABS,
-} from "./broadcast/whatsapp/whatsappApi";
-import { setStoredWhatsappChannel } from "./broadcast/whatsapp/whatsappChannelStore";
-import { useWhatsappChannel } from "./broadcast/whatsapp/useWhatsappChannel";
+} from "../services/whatsappApi";
+import { setStoredWhatsappChannel } from "../services/whatsappChannelStore";
+import { useWhatsappChannel } from "../hooks/useWhatsappChannel";
 import { useUserPermissions } from "../utils/permission-helper";
 
 const TAB_META = {
@@ -246,18 +246,18 @@ const Broadcast = () => {
       permission: "broadcast_config_edit",
     },
     {
-      title: "Send Message",
-      description: "Send WhatsApp messages",
+      title: "Create Campaign",
+      description: "Send WhatsApp template campaigns",
       icon: <FiSend className="w-5 h-5" />,
-      link: "./whatsapp/onechatting?tab=send",
+      link: "/broadcast/whatsapp/onechatting/campaigns/create",
       color: "bg-green-100 text-green-600",
       permission: "broadcast_send",
     },
     {
-      title: "Report",
-      description: "View delivery reports",
+      title: "Campaigns",
+      description: "View campaign delivery reports",
       icon: <FiBarChart2 className="w-5 h-5" />,
-      link: "./report?tab=whatsapp",
+      link: "/broadcast/whatsapp/onechatting/campaigns",
       color: "bg-green-100 text-green-600",
       permission: ["broadcast_send", "broadcast_config_edit"],
     },

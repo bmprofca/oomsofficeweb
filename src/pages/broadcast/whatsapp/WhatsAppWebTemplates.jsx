@@ -19,9 +19,9 @@ import {
   FiLock,
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
-import { extractApiError } from './oneChattingSendUtils';
-import { uploadOneSaasFile } from './oneChattingUpload';
-import { normalizeList, normalizePagination, whatsappApi } from './whatsappApi';
+import { extractApiError } from '../../../utils/oneChattingSendUtils';
+import { uploadOneSaasFile } from '../../../utils/onesaas-upload';
+import { normalizeList, normalizePagination, whatsappApi } from '../../../services/whatsappApi';
 import { useUserPermissions } from '../../../utils/permission-helper';
 
 const TABS = [

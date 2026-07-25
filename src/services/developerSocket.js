@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import { emitDeveloperAuth, isMyProject } from './oneChattingSocketUtils';
+import { emitDeveloperAuth, isMyProject } from '../utils/oneChattingSocketUtils';
 
 export const W1CHAT_SOCKET_URL =
   process.env.REACT_APP_W1CHAT_SOCKET_URL || 'https://server.onechatting.com';

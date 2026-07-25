@@ -15,11 +15,11 @@ import {
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
 import { useUserPermissions } from '../../../utils/permission-helper';
-import OomsSystemTemplatePickerModal from './OomsSystemTemplatePickerModal';
-import { extractApiError } from './oneChattingSendUtils';
-import { formatActivityType } from './oomsSystemTemplateUtils';
-import { normalizeList, whatsappApi } from './whatsappApi';
-import { useWhatsappChannel } from './useWhatsappChannel';
+import OomsSystemTemplatePickerModal from '../../../components/Modals/OomsSystemTemplatePickerModal';
+import { extractApiError } from '../../../utils/oneChattingSendUtils';
+import { formatActivityType } from '../../../utils/oomsSystemTemplateUtils';
+import { normalizeList, whatsappApi } from '../../../services/whatsappApi';
+import { useWhatsappChannel } from '../../../hooks/useWhatsappChannel';
 
 const MappingStatusBadge = ({ isSet, templateName }) =>
   isSet ? (

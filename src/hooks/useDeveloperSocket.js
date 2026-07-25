@@ -3,7 +3,7 @@ import {
   CONNECTION_STATES,
   W1CHAT_SOCKET_URL,
   createDeveloperSocket,
-} from './developerSocket';
+} from '../services/developerSocket';
 
 const useDeveloperSocket = (developerToken, handlers = {}) => {
   const handlersRef = useRef(handlers);

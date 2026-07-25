@@ -7,9 +7,9 @@ const VIEW_PAD = 8;
 const TOOLTIP_Z = 99999;
 
 /**
- * Hover/focus tooltip portaled to `document.body` with viewport-aware placement.
- * Follows context/tooltip.md: flip order top → bottom → right → left, clamp, z-index 99999,
- * portal, scroll hide, escape, resize + content size recalc, optional arrow by placement.
+ * Hover/focus tip portaled to `document.body` with viewport-aware placement
+ * (flip top → bottom → right → left, clamp, z-index 99999, scroll hide, Escape).
+ * Do not use on table ⋮ action buttons — see context/action-button.md.
  */
 export function ViewportTooltip({ label, children, disabled = false, fullWidth = false }) {
     const [open, setOpen] = useState(false);
@@ -69,7 +69,7 @@ export function ViewportTooltip({ label, children, disabled = false, fullWidth =
         if (!open) return;
         const raf = requestAnimationFrame(() => updatePosition());
         const onResize = () => updatePosition();
-        /** context/tooltip.md §14: hide on scroll (hover tips in tables / overflow areas). */
+        /** Hide on scroll (hover tips in tables / overflow areas). */
         const onScroll = () => setOpen(false);
         window.addEventListener('resize', onResize);
         window.addEventListener('scroll', onScroll, true);

@@ -1,6 +1,6 @@
 import axios from 'axios';
-import API_BASE_URL from '../../../utils/api-controller';
-import getHeaders from '../../../utils/get-headers';
+import API_BASE_URL from '../utils/api-controller';
+import getHeaders from '../utils/get-headers';
 
 const whatsappAxios = axios.create({
   baseURL: API_BASE_URL,
@@ -69,6 +69,26 @@ export const whatsappApi = {
     whatsappAxios.put('/broadcast/whatsapp/onechatting/template-map/unset', payload).then(unwrap),
   getTemplateDetails: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/template-details', { params }).then(unwrap),
+  createCampaign: (payload) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/onechatting/campaign/create', payload, { timeout: 120000 })
+      .then(unwrap),
+  listCampaigns: (params) =>
+    whatsappAxios.get('/broadcast/whatsapp/onechatting/campaign/list', { params }).then(unwrap),
+  getCampaignDetails: (params) =>
+    whatsappAxios
+      .get('/broadcast/whatsapp/onechatting/campaign/details', { params })
+      .then(unwrap),
+  listCampaignMessages: (params) =>
+    whatsappAxios
+      .get('/broadcast/whatsapp/onechatting/campaign/messages', { params })
+      .then(unwrap),
+  deleteCampaign: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/campaign/delete', payload).then(unwrap),
+  getCampaignClientNumbers: () =>
+    whatsappAxios
+      .get('/broadcast/whatsapp/onechatting/campaign/client-numbers', { timeout: 120000 })
+      .then(unwrap),
   getWhatsAppWebHealth: () =>
     whatsappAxios.get('/broadcast/whatsapp/whatsappweb/health').then(unwrap),
   getWhatsAppWebStatus: () =>
@@ -114,10 +134,38 @@ export const whatsappApi = {
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);
-export const normalizePagination = (pagination) => ({
-  page_no: Number(pagination?.page_no || 1),
-  limit: Number(pagination?.limit || 20),
-  total: Number(pagination?.total || 0),
-  total_pages: Number(pagination?.total_pages || 1),
-  has_more: Boolean(pagination?.has_more),
-});
+
+/**
+ * Normalize API pagination. OneChatting often returns `meta` (with `has_more`)
+ * instead of a full `pagination` object — pass that via `pagination` and optional
+ * `defaults` (`page_no`, `limit`, `itemCount`) so the footer can still render.
+ */
+export const normalizePagination = (pagination, defaults = {}) => {
+  const source = pagination && typeof pagination === 'object' ? pagination : {};
+  const page_no = Math.max(
+    1,
+    Number(source.page_no ?? defaults.page_no ?? 1) || 1,
+  );
+  const limit = Math.max(
+    1,
+    Number(source.limit ?? defaults.limit ?? 20) || 20,
+  );
+  const has_more = Boolean(source.has_more ?? defaults.has_more);
+  const itemCount = Math.max(0, Number(defaults.itemCount) || 0);
+
+  let total = Number(source.total ?? source.total_records);
+  if (!Number.isFinite(total) || total < 0) total = 0;
+  if (total === 0 && (itemCount > 0 || has_more)) {
+    total = has_more
+      ? page_no * limit + 1
+      : (page_no - 1) * limit + itemCount;
+  }
+
+  let total_pages = Number(source.total_pages);
+  if (!Number.isFinite(total_pages) || total_pages < 1) {
+    total_pages = Math.max(1, Math.ceil(total / limit) || 1);
+    if (has_more && total_pages <= page_no) total_pages = page_no + 1;
+  }
+
+  return { page_no, limit, total, total_pages, has_more };
+};

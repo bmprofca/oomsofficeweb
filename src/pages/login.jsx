@@ -15,7 +15,7 @@ import {
     FiTrendingUp
 } from 'react-icons/fi';
 import { GoogleLogin } from '@react-oauth/google';
-import { fetchWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
+import { fetchWhatsappChannel } from '../services/whatsappChannelStore';
 import API_BASE_URL from '../utils/api-controller';
 import {
     saveUserSessionToStorage,

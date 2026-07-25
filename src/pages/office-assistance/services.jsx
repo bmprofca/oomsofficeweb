@@ -206,15 +206,15 @@ const ActionMenu = ({ items }) => {
 
     return (
         <>
-            <ViewportTooltip label="Actions">
-                <button
-                    ref={btnRef}
-                    onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                    <FiMenu className="w-3.5 h-3.5" />
-                </button>
-            </ViewportTooltip>
+            <button
+                ref={btnRef}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Actions"
+            >
+                <FiMenu className="w-3.5 h-3.5" />
+            </button>
 
             {createPortal(
                 <AnimatePresence>

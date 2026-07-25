@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { FiCheck, FiLoader, FiX } from 'react-icons/fi';
-import OneChattingTemplatePreview from './OneChattingTemplatePreview';
-import { extractApiError } from './oneChattingSendUtils';
+import OneChattingTemplatePreview from '../WhatsApp/OneChattingTemplatePreview';
+import { extractApiError } from '../../utils/oneChattingSendUtils';
 import {
   buildOomsSystemPreviewContent,
   formatActivityType,
   normalizeOomsSystemVariables,
-} from './oomsSystemTemplateUtils';
-import { normalizeList, whatsappApi } from './whatsappApi';
+} from '../../utils/oomsSystemTemplateUtils';
+import { normalizeList, whatsappApi } from '../../services/whatsappApi';
 
 const OomsSystemTemplatePickerModal = ({ activityType, onClose, onSaved }) => {
   const [loading, setLoading] = useState(true);

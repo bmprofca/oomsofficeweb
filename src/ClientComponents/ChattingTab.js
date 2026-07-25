@@ -1,7 +1,7 @@
 import React from 'react';
 import { FiPhone } from 'react-icons/fi';
 import OneChattingLiveChat from '../pages/broadcast/whatsapp/OneChattingLiveChat';
-import { buildWhatsAppNumber } from '../pages/broadcast/whatsapp/oneChattingSendUtils';
+import { buildWhatsAppNumber } from '../utils/oneChattingSendUtils';
 
 const ChattingTab = ({ clientData, loading = false }) => {
   const clientNumber = buildWhatsAppNumber(

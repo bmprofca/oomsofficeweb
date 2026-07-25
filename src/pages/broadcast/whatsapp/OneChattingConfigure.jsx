@@ -1,13 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import {
-  FiChevronLeft,
-  FiChevronRight,
-  FiChevronsLeft,
-  FiChevronsRight,
-  FiHome,
-  FiSend,
   FiSettings,
   FiSearch,
   FiUsers,
@@ -16,33 +11,212 @@ import {
   FiKey,
   FiLock,
   FiRefreshCw,
+  FiAlertTriangle,
+  FiMoreVertical,
 } from "react-icons/fi";
 import { Header, Sidebar } from "../../../components/header";
-import OneChattingTokenModal from "./OneChattingTokenModal";
-import { whatsappApi, normalizeList, normalizePagination } from "./whatsappApi";
+import TablePagination from "../../../components/TablePagination";
+import ConfirmActionModal from "../../../components/ConfirmActionModal";
+import OneChattingTokenModal from "../../../components/Modals/OneChattingTokenModal";
+import { whatsappApi, normalizeList, normalizePagination } from "../../../services/whatsappApi";
 import { useUserPermissions } from "../../../utils/permission-helper";
 
-const formatContact = (profile) => {
-  if (!profile) return "—";
+/** Task-table typography baseline — see CLIENT/context/typography.md */
+const TABLE_HEAD_ROW =
+  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+const TABLE_TH =
+  "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
+const TABLE_ROW =
+  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors";
+const TABLE_TD = "px-3 py-3 min-w-0 text-left align-middle";
+const CELL_INDEX = "text-[11px] font-bold text-gray-800";
+const CELL_TITLE = "font-semibold text-gray-800 text-sm";
+const CELL_META = "text-xs text-gray-400 uppercase tracking-wide";
+const CELL_BODY = "text-sm font-medium text-gray-700";
+const TOOLBAR_ROW =
+  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
+const TOOLBAR_INPUT =
+  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-gray-400";
+
+const MENU_Z = 99999;
+const MENU_GAP = 8;
+const MENU_PAD = 8;
+
+const getContactParts = (profile) => {
+  if (!profile) return { mobile: "", email: "" };
   const mobile = profile.mobile
     ? `${profile.country_code || ""}${profile.mobile}`.trim()
     : "";
-  if (profile.email && mobile) return `${profile.email} · ${mobile}`;
-  return profile.email || mobile || "—";
+  return { mobile, email: profile.email || "" };
+};
+
+const ContactCell = ({ profile }) => {
+  const { mobile, email } = getContactParts(profile);
+  if (!mobile && !email) {
+    return <p className={`${CELL_BODY} text-gray-400`}>—</p>;
+  }
+  return (
+    <div className="min-w-0 overflow-hidden">
+      {mobile ? (
+        <p className={`${CELL_BODY} truncate`}>{mobile}</p>
+      ) : null}
+      {email ? (
+        <p
+          className={`${mobile ? "text-xs text-gray-400 mt-0.5" : CELL_BODY} truncate`}
+        >
+          {email}
+        </p>
+      ) : null}
+    </div>
+  );
 };
 
 const StatusBadge = ({ enabled }) =>
   enabled ? (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
       Enabled
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
       <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
       Disabled
     </span>
   );
+
+/** 3-dot action menu — portal + viewport flip (CLIENT/context/action-button.md) */
+const ActionMenu = ({ items }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const calcPos = useCallback(() => {
+    const btn = btnRef.current;
+    const menu = menuRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const mH = menu?.offsetHeight || 120;
+    const mW = menu?.offsetWidth || 168;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const candidates = [
+      { top: r.top - mH - MENU_GAP, left: r.right - mW },
+      { top: r.bottom + MENU_GAP, left: r.right - mW },
+      { top: r.top, left: r.right + MENU_GAP },
+      { top: r.top, left: r.left - mW - MENU_GAP },
+    ];
+
+    const fits = (p) =>
+      p.top >= MENU_PAD &&
+      p.left >= MENU_PAD &&
+      p.top + mH <= vh - MENU_PAD &&
+      p.left + mW <= vw - MENU_PAD;
+
+    const chosen = candidates.find(fits) || candidates[1];
+    setPos({
+      top: Math.min(Math.max(MENU_PAD, chosen.top), vh - MENU_PAD - mH),
+      left: Math.min(Math.max(MENU_PAD, chosen.left), vw - MENU_PAD - mW),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const raf = requestAnimationFrame(() => calcPos());
+    return () => cancelAnimationFrame(raf);
+  }, [open, calcPos]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (
+        !btnRef.current?.contains(e.target) &&
+        !menuRef.current?.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onClose = () => setOpen(false);
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onClose, true);
+    window.addEventListener("resize", calcPos);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("resize", calcPos);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, calcPos]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        aria-label="Actions"
+      >
+        <FiMoreVertical className="w-4 h-4" />
+      </button>
+
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open ? (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.12 }}
+                style={{
+                  position: "fixed",
+                  top: pos.top,
+                  left: pos.left,
+                  zIndex: MENU_Z,
+                }}
+                className="w-44 bg-white border border-gray-200 rounded-xl shadow-xl py-1 overflow-hidden"
+              >
+                {items.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    disabled={item.disabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.disabled) return;
+                      setOpen(false);
+                      item.onClick?.();
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
+                      item.danger
+                        ? "text-red-600 hover:bg-red-50"
+                        : "text-gray-700 hover:bg-gray-50"
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    {item.icon ? (
+                      <item.icon className="w-3.5 h-3.5 shrink-0" />
+                    ) : null}
+                    {item.label}
+                  </button>
+                ))}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </>
+  );
+};
 
 const OneChattingConfigure = () => {
   const { check } = useUserPermissions();
@@ -66,6 +240,7 @@ const OneChattingConfigure = () => {
   const [modalRow, setModalRow] = useState(null);
   const [modalSaving, setModalSaving] = useState(false);
   const [syncingClients, setSyncingClients] = useState(false);
+  const [confirmState, setConfirmState] = useState(null);
 
   const fetchData = useCallback(
     async (page = 1, limit = 20, searchTerm = "") => {
@@ -96,11 +271,16 @@ const OneChattingConfigure = () => {
 
   useEffect(() => {
     fetchData(1, pagination.limit, search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, fetchData]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setSearch(searchInput.trim());
+  };
+
+  const handlePageChange = (page) => {
+    fetchData(page, pagination.limit, search);
   };
 
   const handleLimitChange = (newLimit) => {
@@ -109,15 +289,12 @@ const OneChattingConfigure = () => {
     fetchData(1, limit, search);
   };
 
-  const handleDisable = async (row) => {
-    if (
-      !window.confirm(
-        `Disable OneChatting for ${row.profile?.name || row.username}?`,
-      )
-    ) {
-      return;
-    }
+  const closeConfirm = () => {
+    if (syncingClients || savingMapId) return;
+    setConfirmState(null);
+  };
 
+  const runDisable = async (row) => {
     setSavingMapId(row.map_id);
     try {
       await whatsappApi.updateDeveloperToken({
@@ -125,6 +302,7 @@ const OneChattingConfigure = () => {
         enabled: false,
       });
       toast.success("OneChatting disabled successfully");
+      setConfirmState(null);
       fetchData(pagination.page_no, pagination.limit, search);
     } catch (error) {
       toast.error(
@@ -137,33 +315,7 @@ const OneChattingConfigure = () => {
     }
   };
 
-  const handleModalSubmit = async (payload) => {
-    setModalSaving(true);
-    try {
-      const res = await whatsappApi.updateDeveloperToken(payload);
-      toast.success(res?.message || "Developer token updated successfully");
-      setModalRow(null);
-      fetchData(pagination.page_no, pagination.limit, search);
-    } catch (error) {
-      toast.error(
-        error?.response?.data?.message ||
-          error.message ||
-          "Failed to update developer token",
-      );
-    } finally {
-      setModalSaving(false);
-    }
-  };
-
-  const handleSyncClients = async () => {
-    if (
-      !window.confirm(
-        "Sync all branch clients (with mobile numbers) to OneChatting contacts? Existing numbers will be updated.",
-      )
-    ) {
-      return;
-    }
-
+  const runSyncClients = async () => {
     setSyncingClients(true);
     const toastId = toast.loading("Syncing clients to OneChatting...");
     try {
@@ -194,6 +346,7 @@ const OneChattingConfigure = () => {
           { id: toastId, duration: 5000 },
         );
       }
+      setConfirmState(null);
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
@@ -207,54 +360,75 @@ const OneChattingConfigure = () => {
     }
   };
 
-  const renderActions = (row) => {
+  const handleConfirmAction = () => {
+    if (!confirmState) return;
+    if (confirmState.type === "sync") {
+      runSyncClients();
+      return;
+    }
+    if (confirmState.type === "disable" && confirmState.row) {
+      runDisable(confirmState.row);
+    }
+  };
+
+  const handleModalSubmit = async (payload) => {
+    setModalSaving(true);
+    try {
+      const res = await whatsappApi.updateDeveloperToken(payload);
+      toast.success(res?.message || "Developer token updated successfully");
+      setModalRow(null);
+      fetchData(pagination.page_no, pagination.limit, search);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to update developer token",
+      );
+    } finally {
+      setModalSaving(false);
+    }
+  };
+
+  const getActionItems = (row) => {
     const isSaving = savingMapId === row.map_id;
 
     if (row.onechatting_enabled) {
-      return (
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setModalRow(row)}
-            disabled={isSaving}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-50"
-          >
-            <FiKey className="w-3.5 h-3.5" />
-            Update Token
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDisable(row)}
-            disabled={isSaving}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50"
-          >
-            {isSaving ? (
-              <FiLoader className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <FiPower className="w-3.5 h-3.5" />
-            )}
-            Disable
-          </button>
-        </div>
-      );
+      return [
+        {
+          label: "Update Token",
+          icon: FiKey,
+          disabled: isSaving,
+          onClick: () => setModalRow(row),
+        },
+        {
+          label: "Disable",
+          icon: FiPower,
+          danger: true,
+          disabled: isSaving,
+          onClick: () => setConfirmState({ type: "disable", row }),
+        },
+      ];
     }
 
-    return (
-      <button
-        type="button"
-        onClick={() => setModalRow(row)}
-        disabled={isSaving}
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
-      >
-        <FiKey className="w-3.5 h-3.5" />
-        Enable
-      </button>
-    );
+    return [
+      {
+        label: "Enable",
+        icon: FiKey,
+        disabled: isSaving,
+        onClick: () => setModalRow(row),
+      },
+    ];
   };
+
+  const indexOffset = (pagination.page_no - 1) * pagination.limit;
+  const confirmLoading =
+    confirmState?.type === "sync"
+      ? syncingClients
+      : Boolean(confirmState?.row && savingMapId === confirmState.row.map_id);
 
   if (!check("broadcast_config_edit")) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-gray-50">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -270,14 +444,14 @@ const OneChattingConfigure = () => {
         <div
           className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
         >
-          <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FiLock className="w-8 h-8 text-slate-400" />
+          <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <FiLock className="w-5 h-5 text-gray-400" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1">
               Access Denied
             </h3>
-            <p className="text-slate-500 text-sm">
+            <p className="text-xs text-gray-400">
               You do not have permission to view this page.
             </p>
           </div>
@@ -304,87 +478,58 @@ const OneChattingConfigure = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-          <nav className="flex items-center text-sm text-gray-600 mb-4">
-            <Link
-              to="/"
-              className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-            >
-              <FiHome className="w-4 h-4" />
-              <span>Dashboard</span>
-            </Link>
-            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-            <Link
-              to="/broadcast/whatsapp"
-              className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-            >
-              <FiSend className="w-4 h-4" />
-              <span>Broadcast</span>
-            </Link>
-            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-            <span className="text-gray-900 font-medium">
-              OneChatting Configuration
-            </span>
-          </nav>
-
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">
-              OneChatting Configuration
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Manage developer tokens and OneChatting access for branch users
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
+        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className={`${TOOLBAR_ROW} flex-wrap`}>
+              <div className="flex items-center gap-2 shrink-0 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
                   <FiSettings className="w-4 h-4 text-green-600" />
                 </div>
-                <div>
-                  <h2 className="text-base font-semibold text-gray-800">
-                    Branch Users
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    Enable or disable OneChatting per user mapping
+                <div className="min-w-0">
+                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate">
+                    OneChatting Configuration
+                  </h1>
+                  <p className="text-xs text-gray-500 truncate">
+                    Manage developer tokens and OneChatting access
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+              <div className="flex items-center gap-2 shrink-0 ml-auto min-w-0 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={handleSyncClients}
+                  onClick={() => setConfirmState({ type: "sync" })}
                   disabled={syncingClients || loading}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 shrink-0"
                   title="Upsert branch clients into OneChatting contacts"
                 >
                   {syncingClients ? (
-                    <FiLoader className="w-4 h-4 animate-spin" />
+                    <FiLoader className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <FiRefreshCw className="w-4 h-4" />
+                    <FiRefreshCw className="w-3.5 h-3.5" />
                   )}
-                  {syncingClients ? "Syncing..." : "Sync clients"}
+                  <span className="hidden sm:inline">
+                    {syncingClients ? "Syncing…" : "Sync clients"}
+                  </span>
                 </button>
 
                 <form
                   onSubmit={handleSearch}
-                  className="flex items-center gap-2 w-full sm:w-auto"
+                  className="flex items-center gap-2 flex-1 sm:flex-initial min-w-0"
                 >
-                  <div className="relative flex-1 sm:w-64">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <div className="relative flex-1 sm:w-56 md:w-64 min-w-0">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder="Search name, username, email..."
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                      placeholder="Search name, email…"
+                      className={TOOLBAR_INPUT}
                     />
                   </div>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg"
+                    className="px-3 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shrink-0"
                   >
                     Search
                   </button>
@@ -393,15 +538,21 @@ const OneChattingConfigure = () => {
             </div>
 
             {loading && rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                <FiLoader className="w-8 h-8 animate-spin mb-3" />
-                <p className="text-sm">Loading users...</p>
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <FiLoader className="w-6 h-6 animate-spin mb-2" />
+                <p className="text-sm font-medium text-gray-500">
+                  Loading users…
+                </p>
               </div>
             ) : rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-                <FiUsers className="w-12 h-12 text-gray-300 mb-3" />
-                <p className="font-medium text-gray-600">No users found</p>
-                <p className="text-sm text-gray-400 mt-1">
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <FiUsers className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-medium text-gray-500">
+                  No users found
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
                   {search
                     ? "Try a different search term"
                     : "No branch mappings available"}
@@ -410,55 +561,53 @@ const OneChattingConfigure = () => {
             ) : (
               <>
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full min-w-[800px]">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          User
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Designation
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Contact
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <table className="w-full table-fixed min-w-[760px]">
+                    <thead>
+                      <tr className={TABLE_HEAD_ROW}>
+                        <th className={`${TABLE_TH} w-12`}>#</th>
+                        <th className={`${TABLE_TH} w-[28%]`}>User</th>
+                        <th className={`${TABLE_TH} w-[12%]`}>Type</th>
+                        <th className={`${TABLE_TH} w-[28%]`}>Contact</th>
+                        <th className={`${TABLE_TH} w-[14%]`}>Status</th>
+                        <th className={`${TABLE_TH} w-16 text-center`}>
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {rows.map((row) => (
-                        <tr key={row.map_id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div className="font-medium text-sm text-gray-900">
-                              {row.profile?.name || "—"}
-                            </div>
-                            <div className="text-xs text-gray-500 font-mono">
-                              {row.username}
+                    <tbody>
+                      {rows.map((row, idx) => (
+                        <tr key={row.map_id} className={TABLE_ROW}>
+                          <td className={`${TABLE_TD} ${CELL_INDEX}`}>
+                            {indexOffset + idx + 1}
+                          </td>
+                          <td className={TABLE_TD}>
+                            <div className="min-w-0 overflow-hidden">
+                              <p className={`${CELL_TITLE} truncate`}>
+                                {row.profile?.name || "—"}
+                              </p>
+                              <p className={`${CELL_META} mt-0.5 truncate`}>
+                                {row.designation || "—"}
+                              </p>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-700">
-                            {row.designation || "—"}
-                          </td>
-                          <td className="px-6 py-4">
+                          <td className={TABLE_TD}>
                             <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 capitalize">
                               {row.type || "—"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {formatContact(row.profile)}
+                          <td className={TABLE_TD}>
+                            <ContactCell profile={row.profile} />
                           </td>
-                          <td className="px-6 py-4">
+                          <td className={TABLE_TD}>
                             <StatusBadge enabled={row.onechatting_enabled} />
                           </td>
-                          <td className="px-6 py-4">{renderActions(row)}</td>
+                          <td className={`${TABLE_TD} text-center`}>
+                            {savingMapId === row.map_id ? (
+                              <FiLoader className="w-4 h-4 animate-spin text-gray-400 inline-block" />
+                            ) : (
+                              <ActionMenu items={getActionItems(row)} />
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -466,146 +615,57 @@ const OneChattingConfigure = () => {
                 </div>
 
                 <div className="md:hidden divide-y divide-gray-100">
-                  {rows.map((row) => (
-                    <div key={row.map_id} className="p-4 space-y-3">
+                  {rows.map((row, idx) => (
+                    <div key={row.map_id} className="p-3 space-y-2.5">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">
-                            {row.profile?.name || "—"}
-                          </p>
-                          <p className="text-xs text-gray-500 font-mono">
-                            {row.username}
-                          </p>
+                        <div className="min-w-0 flex gap-2 flex-1">
+                          <span className={`${CELL_INDEX} shrink-0 pt-0.5`}>
+                            {indexOffset + idx + 1}.
+                          </span>
+                          <div className="min-w-0">
+                            <p className={`${CELL_TITLE} truncate`}>
+                              {row.profile?.name || "—"}
+                            </p>
+                            <p className={`${CELL_META} truncate`}>
+                              {row.designation || "—"}
+                            </p>
+                          </div>
                         </div>
-                        <StatusBadge enabled={row.onechatting_enabled} />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <StatusBadge enabled={row.onechatting_enabled} />
+                          {savingMapId === row.map_id ? (
+                            <FiLoader className="w-4 h-4 animate-spin text-gray-400" />
+                          ) : (
+                            <ActionMenu items={getActionItems(row)} />
+                          )}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid grid-cols-2 gap-2 text-xs pl-5">
                         <div>
-                          <p className="text-gray-500">Designation</p>
-                          <p className="text-gray-800">
-                            {row.designation || "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Type</p>
-                          <p className="text-gray-800 capitalize">
+                          <p className="text-gray-400">Type</p>
+                          <p className="text-gray-700 font-medium capitalize">
                             {row.type || "—"}
                           </p>
                         </div>
                         <div className="col-span-2">
-                          <p className="text-gray-500">Contact</p>
-                          <p className="text-gray-800">
-                            {formatContact(row.profile)}
-                          </p>
+                          <p className="text-gray-400 mb-0.5">Contact</p>
+                          <ContactCell profile={row.profile} />
                         </div>
-                      </div>
-                      <div className="flex justify-end">
-                        {renderActions(row)}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="px-4 md:px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-xs text-gray-600">
-                    <div>
-                      Showing{" "}
-                      <span className="font-semibold text-gray-800">
-                        {pagination.total === 0
-                          ? 0
-                          : (pagination.page_no - 1) * pagination.limit + 1}
-                      </span>{" "}
-                      to{" "}
-                      <span className="font-semibold text-gray-800">
-                        {Math.min(
-                          pagination.page_no * pagination.limit,
-                          pagination.total,
-                        )}
-                      </span>{" "}
-                      of{" "}
-                      <span className="font-semibold text-gray-800">
-                        {pagination.total}
-                      </span>{" "}
-                      users
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span>Show</span>
-                      <select
-                        value={pagination.limit}
-                        onChange={(e) => handleLimitChange(e.target.value)}
-                        className="px-2 py-1 border border-gray-300 rounded bg-white text-gray-700 font-medium outline-none focus:ring-1 focus:ring-green-500"
-                      >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
-                      <span>per page</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => fetchData(1, pagination.limit, search)}
-                      disabled={pagination.page_no <= 1 || loading}
-                      className="p-2 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
-                    >
-                      <FiChevronsLeft size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        fetchData(
-                          pagination.page_no - 1,
-                          pagination.limit,
-                          search,
-                        )
-                      }
-                      disabled={pagination.page_no <= 1 || loading}
-                      className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
-                    >
-                      <FiChevronLeft size={14} />
-                      Prev
-                    </button>
-                    <span className="text-xs font-semibold text-green-700 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
-                      {pagination.page_no} / {pagination.total_pages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        fetchData(
-                          pagination.page_no + 1,
-                          pagination.limit,
-                          search,
-                        )
-                      }
-                      disabled={
-                        pagination.page_no >= pagination.total_pages || loading
-                      }
-                      className="inline-flex items-center gap-1 px-3 py-2 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
-                    >
-                      Next
-                      <FiChevronRight size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        fetchData(
-                          pagination.total_pages,
-                          pagination.limit,
-                          search,
-                        )
-                      }
-                      disabled={
-                        pagination.page_no >= pagination.total_pages || loading
-                      }
-                      className="p-2 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
-                    >
-                      <FiChevronsRight size={14} />
-                    </button>
-                  </div>
-                </div>
+                <TablePagination
+                  page={pagination.page_no}
+                  limit={pagination.limit}
+                  total={pagination.total}
+                  totalPages={pagination.total_pages}
+                  rowOptions={[10, 20, 50, 100]}
+                  defaultRows={20}
+                  onPageChange={handlePageChange}
+                  onLimitChange={handleLimitChange}
+                />
               </>
             )}
           </div>
@@ -618,6 +678,34 @@ const OneChattingConfigure = () => {
         onClose={() => !modalSaving && setModalRow(null)}
         onSubmit={handleModalSubmit}
         saving={modalSaving}
+      />
+
+      <ConfirmActionModal
+        isOpen={Boolean(confirmState)}
+        loading={confirmLoading}
+        onCancel={closeConfirm}
+        onConfirm={handleConfirmAction}
+        icon={FiAlertTriangle}
+        {...(confirmState?.type === "sync"
+          ? {
+              title: "Sync clients",
+              heading: "Sync clients to OneChatting?",
+              message:
+                "All branch clients with mobile numbers will be upserted as OneChatting contacts. Existing numbers will be updated.",
+              confirmLabel: syncingClients ? "Syncing…" : "Sync clients",
+              tone: "primary",
+            }
+          : {
+              title: "Disable OneChatting",
+              heading: "Disable OneChatting?",
+              message: `OneChatting access will be turned off for ${
+                confirmState?.row?.profile?.name ||
+                confirmState?.row?.username ||
+                "this user"
+              }.`,
+              confirmLabel: confirmLoading ? "Disabling…" : "Disable",
+              tone: "danger",
+            })}
       />
     </div>
   );

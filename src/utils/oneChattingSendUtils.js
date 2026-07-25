@@ -1,8 +1,12 @@
-export const extractApiError = (error, fallback = 'Request failed') =>
-  error?.response?.data?.error ||
-  error?.response?.data?.message ||
-  error?.message ||
-  fallback;
+export const extractApiError = (error, fallback = 'Request failed') => {
+  const data = error?.response?.data;
+  const raw = data?.msg ?? data?.message ?? data?.error;
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+};
 
 export const normalizeRecipientNumber = (number) =>
   String(number || '')

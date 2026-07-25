@@ -12,7 +12,7 @@ import {
 import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
-import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChannel';
+import { useWhatsappChannel } from '../hooks/useWhatsappChannel';
 import { useUserPermissions } from '../utils/permission-helper';
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';

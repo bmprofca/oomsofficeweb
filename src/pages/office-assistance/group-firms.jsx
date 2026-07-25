@@ -162,7 +162,7 @@ const MENU_Z = 99999;
 const MENU_GAP = 8;
 const MENU_PAD = 8;
 
-/* ─── 3-dot action menu (portal · tooltip.md) ──────────────────── */
+/* ─── 3-dot action menu (portal · action-button.md) ──────────────────── */
 const ActionMenu = ({ items }) => {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -233,20 +233,18 @@ const ActionMenu = ({ items }) => {
 
   return (
     <>
-      <ViewportTooltip label="Actions">
-        <button
-          ref={btnRef}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen((v) => !v);
-          }}
-          className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          aria-label="Actions"
-        >
-          <FiMoreVertical className="w-3.5 h-3.5" />
-        </button>
-      </ViewportTooltip>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        aria-label="Actions"
+      >
+        <FiMoreVertical className="w-3.5 h-3.5" />
+      </button>
 
       {typeof document !== "undefined" &&
         createPortal(

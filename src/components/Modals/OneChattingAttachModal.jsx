@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { FiCheck, FiLoader, FiUpload, FiX } from 'react-icons/fi';
-import { extractApiError } from './oneChattingSendUtils';
-import { uploadOneSaasFile } from './oneChattingUpload';
+import { extractApiError } from '../../utils/oneChattingSendUtils';
+import { uploadOneSaasFile } from '../../utils/onesaas-upload';
 
 const ATTACH_CONFIG = {
   image: {

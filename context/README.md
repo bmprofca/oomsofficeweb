@@ -17,6 +17,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`account-profile.md`](./account-profile.md) | My Profile page, `/account` APIs, contact OTP, `getAccountHeaders` |
 | [`auth-and-api.md`](./auth-and-api.md) | `getHeaders` vs `getAccountHeaders`, base URL |
 | [`search-input-icon.md`](./search-input-icon.md) | Search input placeholder/text overlapping leading `FiSearch` icon |
+| [`action-button.md`](./action-button.md) | ⋮ action buttons, dropdown menus, viewport-safe floating panels |
 
 ## Other files
 
@@ -34,7 +35,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 - `task-create.md` - Task create flow
 - `datepicker.md` - PortalDatePicker / DateRangePickerField
 - `modal.md` - Viewport-safe modal pattern
-- `typography.md` / `ui-patterns.md` / component notes (`checkbox`, `tooltip`, etc.)
+- `typography.md` / `ui-patterns.md` / component notes (`checkbox`, `action-button`, etc.)
 
 ## Pair with server
 

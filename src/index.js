@@ -8,7 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } 
 import { Toaster } from 'react-hot-toast';
 import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
-import WhatsappChannelBootstrap from './pages/broadcast/whatsapp/WhatsappChannelBootstrap';
+import WhatsappChannelBootstrap from './components/WhatsApp/WhatsappChannelBootstrap';
 import axios from 'axios';
 import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
 import BranchRequiredRoute from './components/BranchRequiredRoute';
@@ -68,6 +68,9 @@ import {
   OneChattingConfigure,
   OneChattingLiveChat,
   OneChattingTemplates,
+  OneChattingCampaigns,
+  OneChattingCampaignCreate,
+  OneChattingCampaignDetails,
   WhatsAppWebSession,
   WhatsAppWebTemplates,
   OomsSystemTemplates,
@@ -722,6 +725,24 @@ root.render(
             <Route path="/broadcast/whatsapp/onechatting/live-chat/:number?" element={
               <ProtectedRoute>
                 <OneChattingLiveChat />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/whatsapp/onechatting/campaigns" element={
+              <ProtectedRoute>
+                <OneChattingCampaigns />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/whatsapp/onechatting/campaigns/create" element={
+              <ProtectedRoute>
+                <OneChattingCampaignCreate />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/whatsapp/onechatting/campaigns/:campaignId" element={
+              <ProtectedRoute>
+                <OneChattingCampaignDetails />
               </ProtectedRoute>
             } />
 

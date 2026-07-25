@@ -13,7 +13,7 @@ import {
     FiTrendingUp
 } from 'react-icons/fi';
 import API_BASE_URL from '../utils/api-controller';
-import { fetchWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
+import { fetchWhatsappChannel } from '../services/whatsappChannelStore';
 import { saveUserSessionToStorage } from '../utils/user-profile-storage';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

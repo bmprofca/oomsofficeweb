@@ -1,6 +1,6 @@
 import React from "react";
 import { FiCornerUpLeft, FiPhone, FiPlay } from "react-icons/fi";
-import { WhatsAppFormattedText } from "./oneChattingChatUtils";
+import { WhatsAppFormattedText } from "../../utils/oneChattingChatUtils";
 
 const PREVIEW_WIDTH_CLASS = "w-full max-w-[330px]";
 const HEADER_MEDIA_CLASS =

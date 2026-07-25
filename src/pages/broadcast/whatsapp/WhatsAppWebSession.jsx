@@ -15,8 +15,8 @@ import {
   FiLock,
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
-import { extractApiError } from './oneChattingSendUtils';
-import { whatsappApi } from './whatsappApi';
+import { extractApiError } from '../../../utils/oneChattingSendUtils';
+import { whatsappApi } from '../../../services/whatsappApi';
 import { useUserPermissions } from '../../../utils/permission-helper';
 
 const STATUS_POLL_MS = 3000;

@@ -54,6 +54,9 @@ export const WhatsAppOoms = lazy(() => import('../pages/broadcast/whatsapp/ooms'
 export const OneChattingConfigure = lazy(() => import('../pages/broadcast/whatsapp/OneChattingConfigure'));
 export const OneChattingLiveChat = lazy(() => import('../pages/broadcast/whatsapp/OneChattingLiveChat'));
 export const OneChattingTemplates = lazy(() => import('../pages/broadcast/whatsapp/OneChattingTemplates'));
+export const OneChattingCampaigns = lazy(() => import('../pages/broadcast/whatsapp/OneChattingCampaigns'));
+export const OneChattingCampaignCreate = lazy(() => import('../pages/broadcast/whatsapp/OneChattingCampaignCreate'));
+export const OneChattingCampaignDetails = lazy(() => import('../pages/broadcast/whatsapp/OneChattingCampaignDetails'));
 export const WhatsAppWebSession = lazy(() => import('../pages/broadcast/whatsapp/WhatsAppWebSession'));
 export const WhatsAppWebTemplates = lazy(() => import('../pages/broadcast/whatsapp/WhatsAppWebTemplates'));
 export const OomsSystemTemplates = lazy(() => import('../pages/broadcast/whatsapp/OomsSystemTemplates'));

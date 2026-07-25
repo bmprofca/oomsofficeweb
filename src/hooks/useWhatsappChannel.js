@@ -3,7 +3,7 @@ import {
   DEFAULT_WHATSAPP_CHANNEL,
   getStoredWhatsappChannel,
   subscribeWhatsappChannel,
-} from './whatsappChannelStore';
+} from '../services/whatsappChannelStore';
 
 export const useWhatsappChannel = () =>
   useSyncExternalStore(
