@@ -81,6 +81,7 @@ import {
   extractAssignTeamMembers,
   normalizeAssignApiState,
   normalizeSocketAssignment,
+  unwrapChatAssignPermission,
   updateChatListForMessage,
   updateChatListLastMessageStatus,
   updateMessageStatus,
@@ -966,18 +967,19 @@ const OneChattingLiveChat = ({
       selectedContactRef.current?.number;
     if (!number || selectedContactRef.current?.number !== number) return;
 
-    setAssigned(normalizeSocketAssignment(payload?.assigning));
-    // Refresh permission flags so Assign/Unassign buttons stay accurate
+    const assigning = payload?.assigning || payload;
+    setAssigned(normalizeSocketAssignment(assigning));
+    const team = extractAssignTeamMembers({ assigning });
+    if (team.length) setAssignTeam(team);
+
     whatsappApi
       .getChatAssignPermission({ number })
       .then((res) => {
-        setAssignPermission(res || null);
-        const team = extractAssignTeamMembers(res);
-        if (team.length) setAssignTeam(team);
-        const fromApi = normalizeAssignApiState(res);
-        if (fromApi !== false || res?.assigned === false) {
-          setAssigned(fromApi);
-        }
+        const permission = unwrapChatAssignPermission(res) || res;
+        setAssignPermission(permission);
+        const nextTeam = extractAssignTeamMembers(permission);
+        if (nextTeam.length) setAssignTeam(nextTeam);
+        setAssigned(normalizeAssignApiState(permission));
       })
       .catch(() => {
         // Keep socket-derived assignment if permission refresh fails
@@ -1098,37 +1100,14 @@ const OneChattingLiveChat = ({
     try {
       const res = await whatsappApi.getChatAssignPermission({ number });
       storeDeveloperToken(res);
-      setAssignPermission(res || null);
-
-      const fromApi = normalizeAssignApiState(res);
-      if (fromApi !== false || res?.assigned === false) {
-        setAssigned(fromApi);
-      }
-
-      let team = extractAssignTeamMembers(res);
-      if (!team.length) {
-        try {
-          const tokensRes = await whatsappApi.listDeveloperTokens({
-            page_no: 1,
-            limit: 100,
-          });
-          const rows = Array.isArray(tokensRes?.data) ? tokensRes.data : [];
-          team = rows
-            .filter((row) => row?.onechatting_enabled && row?.username)
-            .map((row) => ({
-              username: row.username,
-              name: row?.profile?.name || row.username,
-            }));
-        } catch {
-          // Keep empty team; Assign to me still works with current username.
-        }
-      }
-      setAssignTeam(team);
+      const permission = unwrapChatAssignPermission(res) || res;
+      setAssignPermission(permission);
+      setAssigned(normalizeAssignApiState(permission));
+      setAssignTeam(extractAssignTeamMembers(permission));
     } catch (error) {
       setAssignPermission(null);
       setAssignTeam([]);
-      // Soft-fail: history still shows assignee; actions hidden when no permission.
-      console.warn(
+      toast.error(
         extractApiError(error, "Failed to load chat assign permission"),
       );
     } finally {
@@ -1331,6 +1310,52 @@ const OneChattingLiveChat = ({
       return;
     }
 
+    // Soft client guards — only block when permission API explicitly denies
+    if (type === "assign" && assignPermission) {
+      const meOoms = String(localStorage.getItem("user_username") || "").trim();
+      const meOc = String(assignPermission.me_username || "").trim();
+      const t = String(targetUsername || "").trim();
+      const isSelf =
+        Boolean(t) &&
+        (t === meOoms ||
+          t === meOc ||
+          t === "__me__" ||
+          t.toLowerCase() === "me" ||
+          t.toLowerCase() === "self");
+      const canSelf =
+        Boolean(assignPermission.can_self_assign_open) ||
+        Boolean(assignPermission.can_assign) ||
+        Boolean(assignPermission.can_assign_others);
+      const canOthers = Boolean(assignPermission.can_assign_others);
+
+      if (isSelf && !canSelf) {
+        toast.error(
+          assignPermission.reason ||
+            "You do not have permission to assign this chat",
+        );
+        return;
+      }
+      if (!isSelf && !canOthers) {
+        toast.error(
+          assignPermission.reason ||
+            "You do not have permission to assign this chat to others",
+        );
+        return;
+      }
+    }
+
+    if (
+      type === "unassign" &&
+      assignPermission &&
+      !assignPermission.can_unassign &&
+      !isChatAssignedToMe(assigned)
+    ) {
+      toast.error(
+        assignPermission.reason || "You are not assigned to this chat",
+      );
+      return;
+    }
+
     setAssignLoading(true);
     setAssignMenuOpen(false);
     try {
@@ -1344,47 +1369,51 @@ const OneChattingLiveChat = ({
 
       const nextAssigned = normalizeAssignApiState(res);
       setAssigned(nextAssigned);
-      setAssignPermission((prev) => ({
-        ...(prev || {}),
-        ...(res || {}),
-        can_assign:
-          res?.can_assign ??
-          (type === "unassign" ? true : Boolean(prev?.can_assign)),
-        can_unassign:
-          res?.can_unassign ??
-          (type === "assign" && nextAssigned?.is_me
-            ? true
-            : Boolean(prev?.can_unassign)),
-      }));
+      const team = extractAssignTeamMembers(res);
+      if (team.length) setAssignTeam(team);
 
-      toast.success(
-        type === "assign"
-          ? nextAssigned?.is_me
-            ? "Chat assigned to you"
-            : `Chat assigned to ${
-                nextAssigned?.staff?.name ||
-                nextAssigned?.staff?.username ||
-                targetUsername
-              }`
-          : "Chat unassigned",
-      );
+      const intendedSelf =
+        type === "assign" &&
+        ["__me__", "me", "self"].includes(
+          String(targetUsername || "").trim().toLowerCase(),
+        );
 
-      // Refresh flags from source of truth
-      fetchAssignPermission(number);
+      if (type === "assign" && intendedSelf && nextAssigned && !nextAssigned.is_me) {
+        toast.error(
+          `Assigned on OneChatting, but not to your token user (got ${
+            nextAssigned?.staff?.username ||
+            nextAssigned?.staff?.name ||
+            "another agent"
+          }). Check that your OneChatting username matches your account.`,
+        );
+      } else {
+        toast.success(
+          res?.msg ||
+            (type === "assign"
+              ? nextAssigned?.is_me
+                ? "Chat assigned to you"
+                : `Chat assigned to ${
+                    nextAssigned?.staff?.name ||
+                    nextAssigned?.staff?.username ||
+                    targetUsername
+                  }`
+              : "Chat unassigned"),
+        );
+      }
+
+      await fetchAssignPermission(number);
     } catch (error) {
       toast.error(extractApiError(error, "Failed to update assignment"));
+      fetchAssignPermission(number);
     } finally {
       setAssignLoading(false);
     }
   };
 
   const handleAssignToMe = () => {
-    const me = String(localStorage.getItem("user_username") || "").trim();
-    if (!me) {
-      toast.error("Unable to resolve your username");
-      return;
-    }
-    handleChatAssign("assign", me);
+    // Server also resolves OOMS → OneChatting username; prefer sending __me__
+    // so the proxy always maps via assigning.users + profile.
+    handleChatAssign("assign", "__me__");
   };
 
   const handleUnassign = () => {
@@ -1964,8 +1993,24 @@ const OneChattingLiveChat = ({
   const showChatPanel = Boolean(selectedContact);
   const showSocketStatus = Boolean(developerToken);
   const assigneeLabel = getAssigneeLabel(assigned);
+  const isAssignedToMe = isChatAssignedToMe(assigned);
+  const isUnassigned = assigned === false;
+  const canSelfAssignOpen = Boolean(assignPermission?.can_self_assign_open);
+  const canAssignOthers = Boolean(assignPermission?.can_assign_others);
   const canAssign = Boolean(assignPermission?.can_assign);
-  const canUnassign = Boolean(assignPermission?.can_unassign);
+  const canUnassign = Boolean(
+    assignPermission?.can_unassign || isAssignedToMe,
+  );
+  // Fall back to local assignment state if permission API is slow/unavailable
+  const showAssignToMe =
+    !isAssignedToMe &&
+    (canSelfAssignOpen ||
+      canAssign ||
+      canAssignOthers ||
+      isUnassigned ||
+      !assignPermission);
+  const showAssignOthers =
+    canAssignOthers || isAssignedToMe || (!assignPermission && !isUnassigned);
   const currentUsername = String(
     localStorage.getItem("user_username") || "",
   ).trim();
@@ -1974,6 +2019,10 @@ const OneChattingLiveChat = ({
       member?.username &&
       String(member.username).trim() !== currentUsername,
   );
+  const assignReason =
+    assignPermission?.reason && String(assignPermission.reason).trim()
+      ? String(assignPermission.reason).trim()
+      : "";
 
   if (!check('broadcast_livechat')) {
     return (
@@ -2278,138 +2327,149 @@ const OneChattingLiveChat = ({
                         {selectedContact.number}
                       </p>
                     </div>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 max-w-[140px] truncate ${
-                        assigned === false
-                          ? "bg-amber-50 border-amber-200 text-amber-700"
-                          : assigned?.is_me
-                            ? "bg-green-50 border-green-200 text-green-700"
-                            : "bg-white border-gray-200 text-gray-600"
-                      }`}
-                      title={assigneeLabel}
+                    <div
+                      ref={assignMenuRef}
+                      className="relative shrink-0"
                     >
-                      {assigneeLabel}
-                    </span>
-
-                    {canAssign || canUnassign || assignPermissionLoading ? (
-                      <div
-                        ref={assignMenuRef}
-                        className="relative flex items-center gap-1 shrink-0"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAssignMenuOpen((open) => !open)
+                        }
+                        disabled={assignLoading}
+                        className={`inline-flex items-center gap-1 max-w-[200px] text-[10px] px-2 py-1 rounded-full border font-medium transition-colors disabled:opacity-60 ${
+                          isUnassigned
+                            ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                            : isAssignedToMe
+                              ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}
+                        title={
+                          assignReason ||
+                          "Click to assign, transfer, or unassign"
+                        }
                       >
-                        {canAssign ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={handleAssignToMe}
-                              disabled={
-                                assignLoading || isChatAssignedToMe(assigned)
-                              }
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 disabled:opacity-50"
-                              title={
-                                isChatAssignedToMe(assigned)
-                                  ? "Already assigned to you"
-                                  : "Assign this chat to yourself"
-                              }
-                            >
-                              {assignLoading ? (
-                                <FiLoader className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <FiUserCheck className="w-3 h-3" />
-                              )}
-                              {isChatAssignedToMe(assigned)
-                                ? "Yours"
-                                : "Assign to me"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAssignMenuOpen((open) => !open)
-                              }
-                              disabled={assignLoading}
-                              className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 border border-gray-200 bg-white disabled:opacity-50"
-                              title="Assign to teammate"
-                            >
-                              <FiUserPlus className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        ) : null}
+                        {assignPermissionLoading || assignLoading ? (
+                          <FiLoader className="w-3 h-3 animate-spin shrink-0" />
+                        ) : isAssignedToMe ? (
+                          <FiUserCheck className="w-3 h-3 shrink-0" />
+                        ) : isUnassigned ? (
+                          <FiUserPlus className="w-3 h-3 shrink-0" />
+                        ) : (
+                          <FiUser className="w-3 h-3 shrink-0" />
+                        )}
+                        <span className="truncate">{assigneeLabel}</span>
+                        <FiChevronDown className="w-3 h-3 shrink-0 opacity-70" />
+                      </button>
 
-                        {canUnassign ? (
-                          <button
-                            type="button"
-                            onClick={handleUnassign}
-                            disabled={assignLoading}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50"
-                            title="Unassign this chat"
-                          >
-                            {assignLoading ? (
-                              <FiLoader className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <FiUserMinus className="w-3 h-3" />
-                            )}
-                            Unassign
-                          </button>
-                        ) : null}
+                      {assignMenuOpen ? (
+                        <div className="absolute right-0 top-full mt-1 z-40 w-60 max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+                          <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400 m-0">
+                            Chat assignment
+                          </p>
+                          <p className="px-3 pb-1.5 text-[11px] text-gray-500 m-0 border-b border-gray-100">
+                            {assigneeLabel}
+                            {assignReason ? (
+                              <span className="block text-amber-600 mt-0.5">
+                                {assignReason}
+                              </span>
+                            ) : null}
+                          </p>
 
-                        {assignPermissionLoading &&
-                        !canAssign &&
-                        !canUnassign ? (
-                          <FiLoader className="w-3.5 h-3.5 animate-spin text-gray-400" />
-                        ) : null}
-
-                        {assignMenuOpen && canAssign ? (
-                          <div className="absolute right-0 top-full mt-1 z-30 w-56 max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg py-1">
-                            <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                              Assign to teammate
-                            </p>
+                          {showAssignToMe ? (
                             <button
                               type="button"
                               onClick={handleAssignToMe}
                               disabled={assignLoading}
-                              className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-green-50 flex items-center gap-2"
+                              className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-green-50 flex items-center gap-2 disabled:opacity-50"
                             >
                               <FiUserCheck className="w-3.5 h-3.5 text-green-600 shrink-0" />
-                              <span className="truncate">
-                                Me ({currentUsername || "you"})
+                              <span className="min-w-0">
+                                <span className="font-medium block">
+                                  Assign to me
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  Claim / take this chat
+                                </span>
                               </span>
                             </button>
-                            {assignTeamOptions.length ? (
-                              assignTeamOptions.map((member) => (
-                                <button
-                                  key={member.username}
-                                  type="button"
-                                  onClick={() =>
-                                    handleChatAssign(
-                                      "assign",
-                                      member.username,
-                                    )
-                                  }
-                                  disabled={assignLoading}
-                                  className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-gray-50 flex items-center gap-2"
-                                >
-                                  <FiUser className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                  <span className="min-w-0 truncate">
-                                    <span className="font-medium">
-                                      {member.name || member.username}
-                                    </span>
-                                    {member.name &&
-                                    member.name !== member.username ? (
-                                      <span className="text-gray-400 ml-1">
-                                        @{member.username}
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                </button>
-                              ))
-                            ) : (
-                              <p className="px-3 py-2 text-[11px] text-gray-400 m-0">
-                                No other teammates found
+                          ) : null}
+
+                          {canUnassign ? (
+                            <button
+                              type="button"
+                              onClick={handleUnassign}
+                              disabled={assignLoading}
+                              className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-amber-50 flex items-center gap-2 disabled:opacity-50"
+                            >
+                              <FiUserMinus className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span className="min-w-0">
+                                <span className="font-medium block">
+                                  Unassign
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                  Release chat back to the pool
+                                </span>
+                              </span>
+                            </button>
+                          ) : null}
+
+                          {showAssignOthers ? (
+                            <>
+                              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400 m-0 border-t border-gray-100">
+                                Transfer to teammate
                               </p>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
+                              {assignTeamOptions.length ? (
+                                assignTeamOptions.map((member) => (
+                                  <button
+                                    key={member.username}
+                                    type="button"
+                                    onClick={() =>
+                                      handleChatAssign(
+                                        "assign",
+                                        member.username,
+                                      )
+                                    }
+                                    disabled={assignLoading}
+                                    className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
+                                  >
+                                    <FiUser className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                    <span className="min-w-0 truncate">
+                                      <span className="font-medium">
+                                        {member.name || member.username}
+                                      </span>
+                                      {member.name &&
+                                      member.name !== member.username ? (
+                                        <span className="text-gray-400 ml-1">
+                                          @{member.username}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </button>
+                                ))
+                              ) : (
+                                <p className="px-3 py-2 text-[11px] text-gray-400 m-0">
+                                  {assignPermissionLoading
+                                    ? "Loading teammates…"
+                                    : "No teammates available yet"}
+                                </p>
+                              )}
+                            </>
+                          ) : null}
+
+                          {!showAssignToMe &&
+                          !canUnassign &&
+                          !showAssignOthers ? (
+                            <p className="px-3 py-2 text-[11px] text-gray-500 m-0">
+                              {assignPermissionLoading
+                                ? "Checking assignment permissions…"
+                                : assignReason ||
+                                  "No assignment actions available for you on this chat."}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
 
                     <button
                       type="button"

@@ -48,9 +48,28 @@ export const whatsappApi = {
   getChatAssignPermission: (params) =>
     whatsappAxios
       .get('/broadcast/whatsapp/onechatting/chat-assign-permission', { params })
-      .then(unwrap),
+      .then((res) => {
+        const body = unwrap(res);
+        const nested =
+          body?.data &&
+          typeof body.data === 'object' &&
+          !Array.isArray(body.data) &&
+          ('can_assign' in body.data ||
+            'can_manage' in body.data ||
+            'assigning' in body.data)
+            ? body.data
+            : null;
+        if (!nested) return body;
+        return {
+          ...body,
+          ...nested,
+          assigning: nested.assigning ?? body.assigning,
+        };
+      }),
   chatAssign: (payload) =>
-    whatsappAxios.post('/broadcast/whatsapp/onechatting/chat-assign', payload).then(unwrap),
+    whatsappAxios
+      .post('/broadcast/whatsapp/onechatting/chat-assign', payload)
+      .then(unwrap),
   markAsRead: (payload) =>
     whatsappAxios.post('/broadcast/whatsapp/onechatting/mark-as-read', payload).then(unwrap),
   sendTextMessage: (payload) =>

@@ -159,7 +159,8 @@ export const updateChatListForMessage = (chats, payload, activeNumber) => {
 };
 
 export const normalizeSocketAssignment = (assigning) => {
-  if (!assigning?.assigned) return false;
+  if (!assigning || typeof assigning !== 'object') return false;
+  if (!assigning.assigned) return false;
 
   return {
     is_me: Boolean(assigning.assigned_to_me),
@@ -167,46 +168,74 @@ export const normalizeSocketAssignment = (assigning) => {
   };
 };
 
-/** Normalize assignment from permission / assign API payloads. */
-export const normalizeAssignApiState = (payload) => {
-  if (!payload || typeof payload !== 'object') return false;
+/**
+ * Flatten OneChatting chat-assign-permission payload.
+ * API shape: { error, data: { can_assign, assigning, ... } }
+ */
+export const unwrapChatAssignPermission = (response) => {
+  if (!response || typeof response !== 'object') return null;
 
-  if (payload.assigning && typeof payload.assigning === 'object') {
-    return normalizeSocketAssignment(payload.assigning);
+  const nested =
+    response.data &&
+    typeof response.data === 'object' &&
+    !Array.isArray(response.data) &&
+    ('can_assign' in response.data ||
+      'can_manage' in response.data ||
+      'can_unassign' in response.data ||
+      'assigning' in response.data ||
+      'can_assign_others' in response.data ||
+      'can_self_assign_open' in response.data)
+      ? response.data
+      : null;
+
+  const flat = nested ? { ...response, ...nested } : { ...response };
+
+  if (!flat.assigning && nested?.assigning) {
+    flat.assigning = nested.assigning;
   }
 
-  if (payload.assigned === false) return false;
+  return flat;
+};
+
+/** Normalize assignment from permission / assign / socket payloads. */
+export const normalizeAssignApiState = (payload) => {
+  const unwrapped = unwrapChatAssignPermission(payload) || payload;
+  if (!unwrapped || typeof unwrapped !== 'object') return false;
+
+  if (unwrapped.assigning && typeof unwrapped.assigning === 'object') {
+    return normalizeSocketAssignment(unwrapped.assigning);
+  }
+
+  if (unwrapped.assigned === false) return false;
 
   if (
-    payload.assigned_user ||
-    payload.assigned_to_me === true ||
-    payload.assigned === true
+    unwrapped.assigned_user ||
+    unwrapped.assigned_to_me === true ||
+    unwrapped.assigned === true
   ) {
     return {
-      is_me: Boolean(payload.assigned_to_me),
-      staff: payload.assigned_user || null,
+      is_me: Boolean(unwrapped.assigned_to_me),
+      staff: unwrapped.assigned_user || null,
     };
   }
 
   return false;
 };
 
-export const extractAssignTeamMembers = (permission) => {
+/** Team list lives on assigning.users (permission + assign responses). */
+export const extractAssignTeamMembers = (permissionOrAssign) => {
+  const unwrapped =
+    unwrapChatAssignPermission(permissionOrAssign) || permissionOrAssign || {};
   const assigning =
-    permission?.assigning && typeof permission.assigning === 'object'
-      ? permission.assigning
+    unwrapped.assigning && typeof unwrapped.assigning === 'object'
+      ? unwrapped.assigning
       : {};
-  const raw =
-    assigning.team ||
-    assigning.users ||
-    assigning.members ||
-    assigning.staff ||
-    permission?.team ||
-    permission?.users ||
-    permission?.members ||
-    [];
 
-  if (!Array.isArray(raw)) return [];
+  const raw = Array.isArray(assigning.users)
+    ? assigning.users
+    : Array.isArray(unwrapped.users)
+      ? unwrapped.users
+      : [];
 
   return raw
     .map((member) => {
@@ -218,7 +247,9 @@ export const extractAssignTeamMembers = (permission) => {
       return {
         username,
         name: member.name || member.full_name || username,
-        ...member,
+        mobile: member.mobile || '',
+        email: member.email || '',
+        status: member.status,
       };
     })
     .filter(Boolean);
