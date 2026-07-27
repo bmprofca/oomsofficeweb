@@ -186,21 +186,43 @@ const formatGroupOptionLabel = (g) => {
   return `${name} (${count} firm${count === 1 ? "" : "s"})`;
 };
 
-const loadGroupOptions = createFetchLoadOptions({
-  endpoint: "/group/list",
-  queryParams: { page: 1, limit: 100 },
-  dataExtractor: (response) =>
-    (response?.data || []).map((g) => {
-      const firmCount = getGroupFirmCount(g);
-      return {
-        value: g.group_id,
-        label: formatGroupOptionLabel(g),
-        firm_count: firmCount,
-        isDisabled: firmCount === 0,
-        group: g,
-      };
-    }),
-});
+let cachedGroupOptions = null;
+let groupOptionsPromise = null;
+
+const mapGroupOption = (g) => {
+  const firmCount = getGroupFirmCount(g);
+  return {
+    value: g.group_id,
+    label: formatGroupOptionLabel(g),
+    firm_count: firmCount,
+    isDisabled: firmCount === 0,
+    group: g,
+  };
+};
+
+const fetchGroupOptions = async ({ force = false } = {}) => {
+  if (!force && Array.isArray(cachedGroupOptions)) {
+    return cachedGroupOptions;
+  }
+  if (!force && groupOptionsPromise) {
+    return groupOptionsPromise;
+  }
+
+  groupOptionsPromise = createFetchLoadOptions({
+    endpoint: "/group/list",
+    queryParams: { page: 1, limit: 100 },
+    dataExtractor: (response) => (response?.data || []).map(mapGroupOption),
+  })("").then((options) => {
+    cachedGroupOptions = Array.isArray(options) ? options : [];
+    return cachedGroupOptions;
+  });
+
+  try {
+    return await groupOptionsPromise;
+  } finally {
+    groupOptionsPromise = null;
+  }
+};
 
 const renderGroupOption = (option) => {
   const count = getGroupFirmCount(option);
@@ -253,6 +275,8 @@ const OneChattingCampaignCreate = () => {
   const [audienceType, setAudienceType] = useState("client");
   const [selectAllClients, setSelectAllClients] = useState(false);
   const [selectedClients, setSelectedClients] = useState([]);
+  const [groupOptions, setGroupOptions] = useState(() => cachedGroupOptions || []);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(TASK_STATUS_OPTIONS[0]);
@@ -286,6 +310,42 @@ const OneChattingCampaignCreate = () => {
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
+
+  const loadGroups = useCallback(
+    async ({ force = false, silent = false } = {}) => {
+      if (silent && Array.isArray(cachedGroupOptions)) {
+        setGroupOptions(cachedGroupOptions);
+        return cachedGroupOptions;
+      }
+
+      if (!silent) {
+        setGroupsLoading(true);
+      }
+
+      try {
+        const options = await fetchGroupOptions({ force });
+        setGroupOptions(options);
+        return options;
+      } catch (error) {
+        if (!silent) {
+          toast.error(extractApiError(error, "Failed to load groups"));
+        }
+        setGroupOptions([]);
+        return [];
+      } finally {
+        if (!silent) {
+          setGroupsLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (audienceType !== "group") return;
+    if (groupOptions.length || groupsLoading) return;
+    loadGroups();
+  }, [audienceType, groupOptions.length, groupsLoading, loadGroups]);
 
   const templateOptions = useMemo(
     () =>
@@ -334,8 +394,8 @@ const OneChattingCampaignCreate = () => {
       return {
         audience_type: "group",
         group_ids: selectedGroups
-          .map((g) => Number(g.value ?? g.group_id))
-          .filter((id) => Number.isFinite(id) && id > 0),
+          .map((g) => g?.value ?? g?.group_id ?? g?.group?.group_id)
+          .filter((id) => id !== undefined && id !== null && String(id).trim()),
       };
     }
     return {
@@ -782,7 +842,7 @@ const OneChattingCampaignCreate = () => {
                       </label>
                       <CustomSelect
                         isMulti
-                        loadOptions={loadGroupOptions}
+                        options={groupOptions}
                         value={selectedGroups}
                         onChange={(next) =>
                           setSelectedGroups(
@@ -799,8 +859,13 @@ const OneChattingCampaignCreate = () => {
                         placeholder="Search and select groups…"
                         searchPlaceholder="Search groups…"
                         noOptionsMessage="No groups found"
-                        isDisabled={saving}
+                        isDisabled={saving || groupsLoading}
                       />
+                      {groupsLoading ? (
+                        <p className={`${CELL_SUB} mt-1`}>
+                          Loading groups...
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
 

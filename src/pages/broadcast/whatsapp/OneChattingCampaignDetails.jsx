@@ -51,6 +51,24 @@ const MESSAGE_STATUS_OPTIONS = [
   { value: "failed", label: "Failed" },
 ];
 
+const formatHumanDateTime = (value) => {
+  if (!value) return "—";
+  const raw = String(value).trim();
+  if (!raw) return "—";
+
+  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return raw;
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+};
+
 const SkeletonRow = ({ cols = 6 }) => (
   <tr className="animate-pulse border-b border-gray-100">
     {Array.from({ length: cols }).map((_, i) => (
@@ -62,6 +80,13 @@ const SkeletonRow = ({ cols = 6 }) => (
       </td>
     ))}
   </tr>
+);
+
+const StatCardSkeleton = () => (
+  <div className="animate-pulse rounded-xl border border-gray-200 bg-white p-4">
+    <div className="h-3 w-16 rounded bg-gray-200" />
+    <div className="mt-3 h-8 w-20 rounded bg-gray-200" />
+  </div>
 );
 
 const StatusBadge = ({ status }) => {
@@ -88,11 +113,13 @@ const StatusBadge = ({ status }) => {
 };
 
 const StatChip = ({ label, value }) => (
-  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 min-w-[5.5rem]">
+  <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 min-w-0 shadow-sm">
     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide m-0">
       {label}
     </p>
-    <p className="text-sm font-semibold text-gray-800 m-0 mt-0.5">{value}</p>
+    <p className="text-2xl font-bold text-gray-900 m-0 mt-2 leading-none">
+      {value}
+    </p>
   </div>
 );
 
@@ -213,6 +240,27 @@ const OneChattingCampaignDetails = () => {
   const indexOffset = (pagination.page_no - 1) * pagination.limit;
   const recipients = campaign?.recipients || {};
   const cost = campaign?.cost;
+  const statCards = [
+    { label: "Total", value: recipients.total ?? "—" },
+    { label: "Pending", value: recipients.pending ?? "—" },
+    { label: "Sent", value: recipients.sent ?? "—" },
+    { label: "Delivered", value: recipients.delivered ?? "—" },
+    { label: "Read", value: recipients.read ?? "—" },
+    { label: "Failed", value: recipients.failed ?? "—" },
+    ...(cost
+      ? [
+          {
+            label: "Cost used",
+            value:
+              cost.used != null
+                ? String(cost.used)
+                : cost.total != null
+                  ? String(cost.total)
+                  : "—",
+          },
+        ]
+      : []),
+  ];
 
   if (!check("broadcast_send")) {
     return (
@@ -289,11 +337,6 @@ const OneChattingCampaignDetails = () => {
                       ? "Loading…"
                       : campaign?.name || "Campaign details"}
                   </h1>
-                  {campaign?.campaign_id ? (
-                    <p className={`${CELL_META} truncate`}>
-                      {campaign.campaign_id}
-                    </p>
-                  ) : null}
                 </div>
               </div>
 
@@ -328,10 +371,22 @@ const OneChattingCampaignDetails = () => {
               </div>
             </div>
 
-            <div className="p-4 md:p-5 space-y-4">
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-4 md:p-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 via-white to-white">
               {detailLoading ? (
-                <div className="flex items-center justify-center py-10 text-gray-400">
-                  <FiLoader className="w-6 h-6 animate-spin" />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-7 w-20 rounded-full bg-gray-200 animate-pulse" />
+                    <div className="h-4 w-48 rounded bg-gray-200 animate-pulse" />
+                    <div className="h-4 w-40 rounded bg-gray-200 animate-pulse" />
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <StatCardSkeleton key={i} />
+                    ))}
+                  </div>
                 </div>
               ) : !campaign ? (
                 <div className={EMPTY_WRAP}>
@@ -341,61 +396,56 @@ const OneChattingCampaignDetails = () => {
                   </p>
                 </div>
               ) : (
-                <>
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                     <StatusBadge status={campaign.status} />
                     <span className={CELL_BODY}>
                       {campaign.template?.template_name || "—"}
                     </span>
                     {campaign.template?.category ? (
                       <span className={CELL_META}>
-                        · {campaign.template.category}
+                        {campaign.template.category}
+                      </span>
+                    ) : null}
+                    {campaign.create_date ? (
+                      <span className={CELL_META}>
+                        Created {formatHumanDateTime(campaign.create_date)}
+                      </span>
+                    ) : null}
+                    {campaign.send_date ? (
+                      <span className={CELL_META}>
+                        Sent {formatHumanDateTime(campaign.send_date)}
                       </span>
                     ) : null}
                     {campaign.schedule_date ? (
                       <span className={CELL_META}>
-                        · Schedule {campaign.schedule_date}
+                        Scheduled {formatHumanDateTime(campaign.schedule_date)}
                       </span>
                     ) : null}
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <StatChip label="Total" value={recipients.total ?? "—"} />
-                    <StatChip
-                      label="Pending"
-                      value={recipients.pending ?? "—"}
-                    />
-                    <StatChip label="Sent" value={recipients.sent ?? "—"} />
-                    <StatChip
-                      label="Delivered"
-                      value={recipients.delivered ?? "—"}
-                    />
-                    <StatChip label="Read" value={recipients.read ?? "—"} />
-                    <StatChip
-                      label="Failed"
-                      value={recipients.failed ?? "—"}
-                    />
-                    {cost ? (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+                    {statCards.map((item) => (
                       <StatChip
-                        label="Cost used"
-                        value={
-                          cost.used != null
-                            ? String(cost.used)
-                            : cost.total != null
-                              ? String(cost.total)
-                              : "—"
-                        }
+                        key={item.label}
+                        label={item.label}
+                        value={item.value}
                       />
-                    ) : null}
+                    ))}
                   </div>
-                </>
+                </div>
               )}
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
-              <h2 className="text-sm font-bold text-gray-800 m-0">Messages</h2>
+              <div>
+                <h2 className="text-sm font-bold text-gray-800 m-0">
+                  Message statistics
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5 m-0">
+                  Recipient delivery progress and message-level details
+                </p>
+              </div>
               <div className="w-full sm:w-44 ml-auto shrink-0">
                 <CustomSelect
                   options={MESSAGE_STATUS_OPTIONS}
@@ -472,7 +522,7 @@ const OneChattingCampaignDetails = () => {
                                 row.send_date ? CELL_BODY : CELL_EMPTY
                               }
                             >
-                              {row.send_date || "—"}
+                              {formatHumanDateTime(row.send_date)}
                             </p>
                           </td>
                           <td className={TABLE_TD}>
@@ -481,7 +531,7 @@ const OneChattingCampaignDetails = () => {
                                 row.create_date ? CELL_BODY : CELL_EMPTY
                               }
                             >
-                              {row.create_date || "—"}
+                              {formatHumanDateTime(row.create_date)}
                             </p>
                           </td>
                           <td className={TABLE_TD}>

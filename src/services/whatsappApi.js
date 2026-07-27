@@ -70,6 +70,12 @@ export const whatsappApi = {
     whatsappAxios
       .post('/broadcast/whatsapp/onechatting/chat-assign', payload)
       .then(unwrap),
+  downloadChatMedia: ({ url, filename }) =>
+    whatsappAxios.get('/broadcast/whatsapp/onechatting/media-download', {
+      params: { url, filename },
+      responseType: 'blob',
+      timeout: 120000,
+    }),
   markAsRead: (payload) =>
     whatsappAxios.post('/broadcast/whatsapp/onechatting/mark-as-read', payload).then(unwrap),
   sendTextMessage: (payload) =>

@@ -250,6 +250,7 @@ export const extractAssignTeamMembers = (permissionOrAssign) => {
         mobile: member.mobile || '',
         email: member.email || '',
         status: member.status,
+        is_me: Boolean(member.is_me),
       };
     })
     .filter(Boolean);

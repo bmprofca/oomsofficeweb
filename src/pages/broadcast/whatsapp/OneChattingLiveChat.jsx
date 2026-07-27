@@ -2011,13 +2011,8 @@ const OneChattingLiveChat = ({
       !assignPermission);
   const showAssignOthers =
     canAssignOthers || isAssignedToMe || (!assignPermission && !isUnassigned);
-  const currentUsername = String(
-    localStorage.getItem("user_username") || "",
-  ).trim();
   const assignTeamOptions = assignTeam.filter(
-    (member) =>
-      member?.username &&
-      String(member.username).trim() !== currentUsername,
+    (member) => member?.username && !member.is_me,
   );
   const assignReason =
     assignPermission?.reason && String(assignPermission.reason).trim()
@@ -2433,15 +2428,14 @@ const OneChattingLiveChat = ({
                                     disabled={assignLoading}
                                     className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
                                   >
-                                    <FiUser className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                    <span className="min-w-0 truncate">
-                                      <span className="font-medium">
+                                    <FiUser className="w-3.5 h-3.5 text-gray-400 shrink-0 self-start mt-0.5" />
+                                    <span className="min-w-0 flex-1">
+                                      <span className="font-medium block truncate leading-snug">
                                         {member.name || member.username}
                                       </span>
-                                      {member.name &&
-                                      member.name !== member.username ? (
-                                        <span className="text-gray-400 ml-1">
-                                          @{member.username}
+                                      {member.mobile ? (
+                                        <span className="text-[10px] text-gray-500 block truncate font-mono leading-snug mt-0.5">
+                                          {member.mobile}
                                         </span>
                                       ) : null}
                                     </span>
