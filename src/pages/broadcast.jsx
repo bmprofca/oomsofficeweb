@@ -202,14 +202,6 @@ const Broadcast = () => {
   // WhatsApp OOMS Cards data
   const whatsappOomsCards = [
     {
-      title: "Send Message",
-      description: "Send WhatsApp messages",
-      icon: <FiSend className="w-5 h-5" />,
-      link: "./whatsapp/ooms?tab=send",
-      color: "bg-green-100 text-green-600",
-      permission: "broadcast_send",
-    },
-    {
       title: "Template",
       description: "Manage WhatsApp templates",
       icon: <FiFileText className="w-5 h-5" />,
@@ -630,7 +622,7 @@ const Broadcast = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 md:px-8">
+        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

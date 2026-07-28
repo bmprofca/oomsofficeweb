@@ -1358,7 +1358,7 @@ const ViewStaff = () => {
                                                         <div className="flex flex-col items-start">
                                                             {isAccepted ? (
                                                                 <Link
-                                                                    to={`/staff/view/profile?username=${staffMember.username}`}
+                                                                    to={`/staff/view/profile/${staffMember.username}/profile`}
                                                                     className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-sm no-underline"
                                                                     style={{ textDecoration: 'none' }}
                                                                 >
@@ -1420,7 +1420,7 @@ const ViewStaff = () => {
                                                     <td className="text-center p-3 align-middle">
                                                         {isAccepted ? (
                                                             <Link
-                                                                to={`/staff/view/profile/ledger?username=${staffMember.username}`}
+                                                                to={`/staff/view/profile/${staffMember.username}/ledger`}
                                                                 style={{ textDecoration: 'none' }}
                                                                 className="inline-block"
                                                             >
@@ -1675,15 +1675,15 @@ const ViewStaff = () => {
                                     <div className="py-1">
                                         {isActiveMemberAccepted ? (
                                             <>
-                                                <Link to={`/staff/view/profile/profile?username=${activeMember.username}`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
+                                                <Link to={`/staff/view/profile/${activeMember.username}/profile`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
                                                     <div className="p-1 bg-indigo-50 rounded mr-2"><FiUser className="w-3 h-3 text-indigo-500" /></div>
                                                     <div className="font-medium text-left">Profile</div>
                                                 </Link>
-                                                <Link to={`/staff/view/profile/attendance?username=${activeMember.username}`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
+                                                <Link to={`/staff/view/profile/${activeMember.username}/attendance`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
                                                     <div className="p-1 bg-blue-50 rounded mr-2"><FiUserCheck className="w-3 h-3 text-blue-500" /></div>
                                                     <div className="font-medium text-left">Attendance</div>
                                                 </Link>
-                                                <Link to={`/staff/view/profile/ledger?username=${activeMember.username}`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
+                                                <Link to={`/staff/view/profile/${activeMember.username}/ledger`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
                                                     <div className="p-1 bg-blue-50 rounded mr-2"><FiCreditCard className="w-3 h-3 text-blue-600" /></div>
                                                     <div className="font-medium text-left">Ledger</div>
                                                 </Link>

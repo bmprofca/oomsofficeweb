@@ -21,6 +21,11 @@ import AssignedStaffList from '../components/Modals/AssignedStaffList';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import { taskGetIn, taskGetOut } from '../services/taskService';
+import { getTaskCompliancePeriodLabel } from '../utils/taskCompliancePeriod';
+import {
+    getTaskCompleteDateValue,
+    isTaskCompleteStatus,
+} from '../utils/taskCompleteDate';
 
 /** Matches `task-display` status filter options */
 const STATUS_OPTIONS = [
@@ -889,13 +894,21 @@ const TaskTab = ({
                 }
                 case 'fees': {
                     const feesAmount = task.charges?.fees || task.fees || 0;
+                    const periodLabel = getTaskCompliancePeriodLabel(task);
                     return (
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                            {check('task_fees_view') ? (
-                                `₹${Number(feesAmount).toLocaleString()}`
-                            ) : (
-                                <span className="blur-[3.5px] select-none">₹99,999</span>
-                            )}
+                        <div className="flex flex-col items-start gap-1">
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                {check('task_fees_view') ? (
+                                    `₹${Number(feesAmount).toLocaleString()}`
+                                ) : (
+                                    <span className="blur-[3.5px] select-none">₹99,999</span>
+                                )}
+                            </div>
+                            {periodLabel ? (
+                                <span className="text-xs text-gray-500 leading-snug">
+                                    {periodLabel}
+                                </span>
+                            ) : null}
                         </div>
                     );
                 }
@@ -1070,6 +1083,11 @@ const TaskTab = ({
                                             task.status === 'cancel' ? 'bg-red-100 text-red-700' :
                                                 'bg-gray-100 text-gray-700';
                     const inOutState = getTaskInOutState(task);
+                    const completeDateRaw = getTaskCompleteDateValue(task);
+                    const completeDateLabel =
+                        isTaskCompleteStatus(task.status) && completeDateRaw
+                            ? formatDate(completeDateRaw)
+                            : null;
                     return (
                         <div className="flex flex-col items-start gap-1">
                             <button
@@ -1080,6 +1098,14 @@ const TaskTab = ({
                             >
                                 {safeGetString(getStatusText(task.status))}
                             </button>
+                            {completeDateLabel ? (
+                                <span
+                                    className="text-xs text-gray-500 leading-snug"
+                                    title={`Completed: ${completeDateLabel}`}
+                                >
+                                    {completeDateLabel}
+                                </span>
+                            ) : null}
                             {inOutState.badge ? (
                                 <span
                                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${inOutState.mode === 'self'

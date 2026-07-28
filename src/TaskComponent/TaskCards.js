@@ -2,6 +2,10 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiBriefcase, FiCalendar, FiDollarSign, FiPhone, FiEye, FiEdit, FiTrash2, FiCheckCircle, FiArrowLeft, FiArrowRight, FiUser, FiMail, FiClock, FiLoader } from 'react-icons/fi';
 import { checkPermissionSync } from '../utils/permission-helper';
+import {
+    getTaskCompleteDateValue,
+    isTaskCompleteStatus,
+} from '../utils/taskCompleteDate';
 
 const TaskCards = ({ 
     tasks, 
@@ -298,11 +302,23 @@ const TaskCards = ({
 
                                         {/* Status & Working badge */}
                                         <div className="pt-2 border-t border-gray-100 space-y-1.5">
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-[10px] font-medium text-gray-600">Status:</span>
-                                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusColor(task.status)}`}>
-                                                    {formatStatus(task.status)}
+                                            <div className="flex flex-col items-start gap-0.5">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[10px] font-medium text-gray-600">Status:</span>
+                                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusColor(task.status)}`}>
+                                                        {formatStatus(task.status)}
+                                                    </div>
                                                 </div>
+                                                {(() => {
+                                                    const completeDateRaw = getTaskCompleteDateValue(task);
+                                                    if (!isTaskCompleteStatus(task.status) || !completeDateRaw || !formatDate) return null;
+                                                    const label = formatDate(completeDateRaw);
+                                                    return (
+                                                        <span className="text-[10px] text-gray-500 leading-snug" title={`Completed: ${label}`}>
+                                                            {label}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </div>
                                             {inOutState.badge && (
                                                 <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold ${

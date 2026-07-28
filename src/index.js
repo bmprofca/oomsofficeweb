@@ -226,7 +226,9 @@ const ProtectedRoute = ({ children }) => {
   }
   // 3. Staff profile tabs gated by feature
   else if (pathname.startsWith('/staff/view/profile/')) {
-    const tab = pathname.split('/').filter(Boolean).pop();
+    const segments = pathname.split('/').filter(Boolean);
+    // /staff/view/profile/:username/:tab → tab is last segment when present
+    const tab = segments.length >= 4 ? segments[3] : null;
     if (['salary', 'payslip'].includes(tab)) {
       requiredLevel = 'salary-management';
     } else if (tab === 'attendance') {
@@ -535,7 +537,13 @@ root.render(
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/view/profile/:tab?" element={
+            <Route path="/staff/view/profile/:username" element={
+              <ProtectedRoute>
+                <ViewStaffProfile />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/staff/view/profile/:username/:tab" element={
               <ProtectedRoute>
                 <ViewStaffProfile />
               </ProtectedRoute>

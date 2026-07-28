@@ -374,13 +374,16 @@ const ViewFileIndex = () => {
     };
 
     const getUserProfileLink = (user) => {
+        const usertype = user.usertype || 'user';
+        if (usertype === 'employee') {
+            return `/staff/view/profile/${encodeURIComponent(user.username)}/profile`;
+        }
         const baseUrls = {
             user: 'view-client-profile',
             ca: 'view-ca-profile',
             agent: 'view-agent-profile',
-            employee: 'view-stuff-profile'
         };
-        return `/${baseUrls[user.usertype || 'user']}/${user.username}`;
+        return `/${baseUrls[usertype]}/${user.username}`;
     };
 
     const formatDate = (dateString) => {

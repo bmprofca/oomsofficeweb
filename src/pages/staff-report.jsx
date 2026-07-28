@@ -576,7 +576,7 @@ const StaffReport = () => {
                                 className="flex cursor-pointer items-center gap-3 transition-opacity hover:opacity-80"
                                 onClick={() =>
                                   navigate(
-                                    `/staff/view/profile/task?username=${staff.username}`,
+                                    `/staff/view/profile/${staff.username}/task`,
                                   )
                                 }
                               >

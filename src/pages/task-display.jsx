@@ -46,6 +46,11 @@ import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import { useUserPermissions, checkPermissionSync } from '../utils/permission-helper';
 import { taskGetIn, taskGetOut } from '../services/taskService';
+import { getTaskCompliancePeriodLabel } from '../utils/taskCompliancePeriod';
+import {
+    getTaskCompleteDateValue,
+    isTaskCompleteStatus,
+} from '../utils/taskCompleteDate';
 
 const getLoggedInUsername = () =>
     localStorage.getItem('user_username') || localStorage.getItem('username') || '';
@@ -70,7 +75,7 @@ const DEFAULT_SELECTED_STATUSES = ['in process', 'pending from client', 'pending
 
 // Persist list view state (filters + pagination + row data) so browser Back
 // restores the same page/UI without an immediate API reset.
-const TASK_LIST_STATE_KEY = 'taskListViewState';
+const TASK_LIST_STATE_KEY = 'taskListViewState_v2';
 const TASK_LIST_SCROLL_ID = 'task-table-scroll';
 
 const buildTaskListFingerprint = (filters = {}, pagination = {}) =>
@@ -798,6 +803,20 @@ const TaskDisplay = () => {
     useEffect(() => {
         if (skipNextAutoFetchRef.current) {
             skipNextAutoFetchRef.current = false;
+            // Back-nav restores cached rows; refresh if compliance period fields are missing.
+            const needsComplianceRefresh = (tasks || []).some((task) => {
+                const isCompliance =
+                    String(task?.task_type || '').toLowerCase() === 'compliance' ||
+                    task?.is_recurring === true;
+                if (!isCompliance) return false;
+                const year = task?.dates?.compliance_year ?? task?.compliance_year;
+                const period = task?.dates?.compliance_period ?? task?.compliance_period;
+                return (year == null || String(year).trim() === '') &&
+                    (period == null || String(period).trim() === '');
+            });
+            if (needsComplianceRefresh) {
+                fetchTasks();
+            }
             return;
         }
         fetchTasks();
@@ -822,13 +841,40 @@ const TaskDisplay = () => {
     const getVisibleColumnConfig = () => {
         const visibleColumns = columnConfig.filter(col => !hiddenColumns[col.id]);
 
-        return visibleColumns.map(col => ({
-            ...col,
-            items: col.items.filter(item =>
+        return visibleColumns.map(col => {
+            let items = (col.items || []).filter(item =>
                 !hiddenFields[`${col.id}_${item.id}`] &&
-                !STAFF_TABLE_META_FIELD_IDS.has(item.id)
-            )
-        }));
+                !STAFF_TABLE_META_FIELD_IDS.has(item.id) &&
+                item.id !== 'compliance_period'
+            );
+
+            // Always surface compliance period after fees in the Task column
+            // (even when fees is hidden via column settings).
+            const isTaskColumn =
+                col.name === 'Task' ||
+                col.name === 'Task Details' ||
+                items.some((item) => item.id === 'service_name' || item.id === 'fees');
+
+            if (isTaskColumn) {
+                const feesIdx = items.findIndex((item) => item.id === 'fees');
+                const serviceIdx = items.findIndex((item) => item.id === 'service_name');
+                const insertAt =
+                    feesIdx >= 0
+                        ? feesIdx + 1
+                        : serviceIdx >= 0
+                          ? serviceIdx + 1
+                          : -1;
+                if (insertAt >= 0) {
+                    items = [
+                        ...items.slice(0, insertAt),
+                        { id: 'compliance_period', label: 'Period' },
+                        ...items.slice(insertAt),
+                    ];
+                }
+            }
+
+            return { ...col, items };
+        });
     };
 
     const getStaffColumnId = () =>
@@ -1452,7 +1498,8 @@ const TaskDisplay = () => {
             case 'service_name': {
                 const serviceName = task.service?.name || task.service_name || '-';
                 const isCompliance =
-                    String(task.task_type || '').toLowerCase() === 'compliance';
+                    String(task.task_type || '').toLowerCase() === 'compliance' ||
+                    task?.is_recurring === true;
                 return (
                     <button
                         onClick={() => navigate(`/task/${task.task_id}`)}
@@ -1470,7 +1517,7 @@ const TaskDisplay = () => {
                     </button>
                 );
             }
-            case 'fees':
+            case 'fees': {
                 const feesAmount = task.charges?.fees || task.fees || 0;
                 return (
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -1481,6 +1528,16 @@ const TaskDisplay = () => {
                         )}
                     </div>
                 );
+            }
+            case 'compliance_period': {
+                const periodLabel = getTaskCompliancePeriodLabel(task);
+                if (!periodLabel) return null;
+                return (
+                    <span className="text-xs text-gray-500 leading-snug">
+                        {periodLabel}
+                    </span>
+                );
+            }
             case 'due_date': {
                 const dueDateValue = task.dates?.due_date ? formatDate(task.dates.due_date) : '-';
                 const dueTitle = task.dates?.due_date ? `Due Date: ${dueDateValue}` : 'Due Date';
@@ -1654,6 +1711,11 @@ const TaskDisplay = () => {
                                         'bg-gray-100 text-gray-700';
 
                 const statusText = getStatusText(task.status);
+                const completeDateRaw = getTaskCompleteDateValue(task);
+                const completeDateLabel =
+                    isTaskCompleteStatus(task.status) && completeDateRaw
+                        ? formatDate(completeDateRaw)
+                        : null;
 
                 return (
                     <div className="flex flex-col items-start gap-1">
@@ -1665,6 +1727,14 @@ const TaskDisplay = () => {
                         >
                             {safeGetString(statusText)}
                         </button>
+                        {completeDateLabel ? (
+                            <span
+                                className="text-xs text-gray-500 leading-snug"
+                                title={`Completed: ${completeDateLabel}`}
+                            >
+                                {completeDateLabel}
+                            </span>
+                        ) : null}
                         {(() => {
                             const inOutState = getTaskInOutState(task);
                             if (!inOutState.badge) return null;

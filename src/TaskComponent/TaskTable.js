@@ -372,10 +372,11 @@ const TaskTable = ({
 
                 <div className="space-y-2 mt-2">
                     {/* Dynamically render ALL column items for mobile - LEFT ALIGNED */}
-                    {columnConfig.map(column => (
-                        column.items && column.items.map((item, idx) => (
-                            <div key={item.id} className="w-full text-left">
-                                {renderCellContent(
+                    {columnConfig.map(column => {
+                        const mobileItems = (column.items || [])
+                            .map((item) => ({
+                                item,
+                                content: renderCellContent(
                                     task,
                                     item.id,
                                     handleGetInOut,
@@ -387,13 +388,19 @@ const TaskTable = ({
                                     setActiveRowDropdown,
                                     activeRowDropdown,
                                     toggleRowDropdown
-                                )}
-                                {idx < column.items.length - 1 && column.items.length > 1 && (
+                                ),
+                            }))
+                            .filter(({ content }) => content != null);
+
+                        return mobileItems.map(({ item, content }, idx) => (
+                            <div key={item.id} className="w-full text-left">
+                                {content}
+                                {idx < mobileItems.length - 1 && mobileItems.length > 1 && (
                                     <div className="border-b border-gray-100 my-1"></div>
                                 )}
                             </div>
-                        ))
-                    ))}
+                        ));
+                    })}
                 </div>
             </motion.div>
         );
@@ -401,7 +408,25 @@ const TaskTable = ({
 
     const renderDynamicColumns = (task) => columnConfig.map((column) => {
         const hasMenuItem = column.items && column.items.some((item) => item.id === 'menu');
-        const itemCount = column.items?.length || 0;
+        const renderedItems = (column.items || [])
+            .map((item) => ({
+                item,
+                content: renderCellContent(
+                    task,
+                    item.id,
+                    handleGetInOut,
+                    navigate,
+                    openStatusModal,
+                    openUsersModal,
+                    openClientDetailsModal,
+                    handleEditTask,
+                    setActiveRowDropdown,
+                    activeRowDropdown,
+                    toggleRowDropdown
+                ),
+            }))
+            .filter(({ content }) => content != null);
+        const itemCount = renderedItems.length;
 
         return (
             <div
@@ -411,21 +436,9 @@ const TaskTable = ({
                 }`}
             >
                 <div className={`flex flex-col items-start justify-start gap-2 ${hasMenuItem ? 'relative items-center justify-center min-h-[2rem]' : ''}`}>
-                    {column.items && column.items.map((item, idx) => (
+                    {renderedItems.map(({ item, content }, idx) => (
                         <div key={item.id} className={`w-full ${hasMenuItem ? 'flex items-center justify-center text-center' : 'text-left'}`}>
-                            {renderCellContent(
-                                task,
-                                item.id,
-                                handleGetInOut,
-                                navigate,
-                                openStatusModal,
-                                openUsersModal,
-                                openClientDetailsModal,
-                                handleEditTask,
-                                setActiveRowDropdown,
-                                activeRowDropdown,
-                                toggleRowDropdown
-                            )}
+                            {content}
                             {idx < itemCount - 1 && itemCount > 1 && (
                                 <div className="border-b border-gray-100 my-1" />
                             )}

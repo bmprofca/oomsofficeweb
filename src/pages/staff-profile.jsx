@@ -199,13 +199,27 @@ const BreakStatusPopup = ({ isOpen, onClose, breakStartTime, onBreakEnd, staffNa
     );
 };
 
+const STAFF_PROFILE_TABS = [
+    'profile',
+    'attendance',
+    'expense',
+    'bonus-fine',
+    'salary',
+    'ledger',
+    'loan',
+    'performance',
+    'entry-report',
+    'task',
+    'payslip',
+];
+
 const StaffProfile = () => {
     const navigate = useNavigate();
-    const { tab } = useParams();
+    const { username: usernameParam, tab } = useParams();
     const location = useLocation();
     const { hasAccess } = useSubscription();
 
-    const [username, setUsername] = useState(null);
+    const username = usernameParam || null;
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -299,38 +313,49 @@ const StaffProfile = () => {
     });
     const [tasks, setTasks] = useState([]);
 
-    // Extract username from URL query params on component mount
+    // Legacy query URLs → /staff/view/profile/{username}/{tab}
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
-        const usernameParam = searchParams.get('username');
+        const queryUsername = searchParams.get('username');
+        if (!queryUsername) return;
 
-        if (usernameParam) {
-            setUsername(usernameParam);
-            console.log('Username from URL:', usernameParam);
-        } else {
-            const savedUsername = localStorage.getItem('selectedStaffUsername');
-            if (savedUsername) {
-                setUsername(savedUsername);
-            } else {
-                setError('No username provided');
-                setLoading(false);
-            }
+        const legacyTab = STAFF_PROFILE_TABS.includes(usernameParam) ? usernameParam : (tab || 'profile');
+        navigate(`/staff/view/profile/${encodeURIComponent(queryUsername)}/${legacyTab}`, { replace: true });
+    }, [location.search, usernameParam, tab, navigate]);
+
+    // Missing / invalid username
+    useEffect(() => {
+        if (!usernameParam) {
+            setError('No username provided');
+            setLoading(false);
+            return;
         }
-    }, [location]);
+        // Path segment is actually a tab from an old URL without query — wait for legacy redirect
+        if (STAFF_PROFILE_TABS.includes(usernameParam) && new URLSearchParams(location.search).get('username')) {
+            return;
+        }
+        setError(null);
+        localStorage.setItem('selectedStaffUsername', usernameParam);
+    }, [usernameParam, location.search]);
 
     // Update active tab when URL changes
     useEffect(() => {
-        if (tab) {
+        if (tab && STAFF_PROFILE_TABS.includes(tab)) {
             setActiveTab(tab);
         }
     }, [tab]);
 
-    // Handle default tab
+    // Default tab when only username is in the path
     useEffect(() => {
-        if (!tab && username) {
-            navigate(`/staff/view/profile/profile?username=${username}`, { replace: true });
+        if (username && !tab && !STAFF_PROFILE_TABS.includes(username)) {
+            navigate(`/staff/view/profile/${encodeURIComponent(username)}/profile`, { replace: true });
         }
     }, [tab, navigate, username]);
+
+    // Persist sidebar minimize state
+    useEffect(() => {
+        localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
+    }, [isMinimized]);
 
     // Persist tabs minimized state
     useEffect(() => {
@@ -350,10 +375,9 @@ const StaffProfile = () => {
 
     // Fetch staff profile data when username is available
     useEffect(() => {
-        if (username) {
+        if (username && !STAFF_PROFILE_TABS.includes(username)) {
             fetchStaffProfile();
-            fetchBreakStatus(); // Fetch break status when page opens
-            localStorage.setItem('selectedStaffUsername', username);
+            fetchBreakStatus();
         }
     }, [username]);
 
@@ -744,13 +768,13 @@ const handleEndBreak = async () => {
         const currentTab = profileTabs.find((tabItem) => tabItem.id === activeTab);
         if (currentTab?.subscriptionFeature && !hasAccess(currentTab.subscriptionFeature) && username) {
             setActiveTab('profile');
-            navigate(`/staff/view/profile/profile?username=${username}`, { replace: true });
+            navigate(`/staff/view/profile/${encodeURIComponent(username)}/profile`, { replace: true });
         }
     }, [activeTab, hasAccess, username, navigate]);
 
     const handleTabChange = (tabId) => {
         setActiveTab(tabId);
-        navigate(`/staff/view/profile/${tabId}?username=${username}`);
+        navigate(`/staff/view/profile/${encodeURIComponent(username)}/${tabId}`);
         setShowSettings(false);
     };
 
@@ -829,7 +853,7 @@ const handleEndBreak = async () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-2 sm:px-4 md:px-8 py-4 md:py-6">
                     <div className="animate-pulse">
                         <div className="flex items-center gap-2 mb-4">
                             <div className="h-4 bg-gray-200 rounded w-16"></div>
@@ -890,7 +914,7 @@ const handleEndBreak = async () => {
                 />
 
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                    <div className="w-full px-2 sm:px-4 md:px-8 py-4 md:py-6">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -957,7 +981,7 @@ const handleEndBreak = async () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-2 sm:px-4 md:px-8 py-4 md:py-6">
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}

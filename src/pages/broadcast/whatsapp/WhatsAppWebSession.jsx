@@ -92,7 +92,6 @@ const WhatsAppWebSession = () => {
   const [sessionStatus, setSessionStatus] = useState(null);
 
   const [loginMethod, setLoginMethod] = useState("qr");
-  const [webhookUrl, setWebhookUrl] = useState("");
   const [phone, setPhone] = useState("");
   const [creatingSession, setCreatingSession] = useState(false);
   const [requestingPairing, setRequestingPairing] = useState(false);
@@ -213,10 +212,7 @@ const WhatsAppWebSession = () => {
     setQrCode(null);
     setPairingCode(null);
     try {
-      const payload = {};
-      if (webhookUrl.trim()) payload.webhookUrl = webhookUrl.trim();
-
-      await whatsappApi.createWhatsAppWebSession(payload);
+      await whatsappApi.createWhatsAppWebSession({});
       toast.success("Session created. Scan the QR code with WhatsApp.");
       await fetchStatus(true);
       await fetchQr();
@@ -243,7 +239,6 @@ const WhatsAppWebSession = () => {
     setPairingCode(null);
     try {
       const payload = { pairingCodeEnabled: true };
-      if (webhookUrl.trim()) payload.webhookUrl = webhookUrl.trim();
 
       await whatsappApi.createWhatsAppWebSession(payload);
       setRequestingPairing(true);
@@ -510,23 +505,6 @@ const WhatsAppWebSession = () => {
                               Pairing code
                             </button>
                           </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Webhook URL{" "}
-                            <span className="text-gray-400 font-normal">
-                              (optional)
-                            </span>
-                          </label>
-                          <input
-                            type="url"
-                            value={webhookUrl}
-                            onChange={(e) => setWebhookUrl(e.target.value)}
-                            placeholder="https://your-app.com/webhook/whatsapp"
-                            disabled={busy}
-                            className={FIELD_INPUT}
-                          />
                         </div>
 
                         {loginMethod === "pairing" ? (

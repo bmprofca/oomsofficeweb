@@ -53,7 +53,7 @@ const CHANNELS = [
   },
 ];
 
-const ClientPaymentReminderModal = ({
+const ClientBirthdayReminderModal = ({
   isOpen,
   onClose,
   onSuccess,
@@ -85,7 +85,7 @@ const ClientPaymentReminderModal = ({
     () => reminderClients.map((item) => String(item.username).trim()),
     [reminderClients],
   );
-  const recipientKey = isAll ? "all-clients" : usernames.join("|");
+  const recipientKey = isAll ? "all-birthdays" : usernames.join("|");
 
   useEffect(() => {
     if (!isOpen || (!isAll && usernames.length === 0)) return undefined;
@@ -98,7 +98,7 @@ const ClientPaymentReminderModal = ({
         const response = await axios.get(
           `${API_BASE_URL}/utils/notification-availability`,
           {
-            params: { type: "payment_reminder" },
+            params: { type: "birthday_reminder" },
             headers: getHeaders(),
           },
         );
@@ -173,17 +173,13 @@ const ClientPaymentReminderModal = ({
   };
 
   const handleSend = async () => {
-    if (
-      (!isAll && usernames.length === 0) ||
-      selectedChannels.length === 0 ||
-      sending
-    )
+    if ((!isAll && usernames.length === 0) || selectedChannels.length === 0 || sending)
       return;
     setSending(true);
     setSendResults(null);
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/client/payment-reminder`,
+        `${API_BASE_URL}/client/birthday-reminder`,
         {
           ...(isAll ? { is_all: true } : { usernames }),
           channels: selectedChannels,
@@ -192,7 +188,7 @@ const ClientPaymentReminderModal = ({
       );
       const data = response.data?.data;
       if (response.data?.success) {
-        toast.success(response.data.message || "Payment reminder sent");
+        toast.success(response.data.message || "Birthday reminder sent");
         setSendResults(null);
         if (typeof onSuccess === "function") onSuccess(data);
         onClose();
@@ -200,11 +196,11 @@ const ClientPaymentReminderModal = ({
         setSendResults(
           data?.details?.length === 1 ? data.details[0]?.channels || {} : null,
         );
-        toast.error(response.data?.message || "Payment reminder failed");
+        toast.error(response.data?.message || "Birthday reminder failed");
       }
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Failed to send payment reminder",
+        error.response?.data?.message || "Failed to send birthday reminder",
       );
     } finally {
       setSending(false);
@@ -231,7 +227,7 @@ const ClientPaymentReminderModal = ({
         >
           <motion.button
             type="button"
-            aria-label="Close payment reminder modal"
+            aria-label="Close birthday reminder modal"
             className="absolute inset-0 bg-black bg-opacity-50 pointer-events-auto"
             onClick={handleClose}
           />
@@ -244,24 +240,24 @@ const ClientPaymentReminderModal = ({
             transition={{ duration: 0.2 }}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="client-payment-reminder-title"
+            aria-labelledby="client-birthday-reminder-title"
           >
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex justify-between items-center shrink-0">
+            <div className="bg-gradient-to-r from-rose-600 to-pink-600 text-white px-6 py-4 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                   <FiSend className="w-5 h-5" />
                 </div>
                 <h2
-                  id="client-payment-reminder-title"
+                  id="client-birthday-reminder-title"
                   className="text-lg font-bold"
                 >
-                  Payment Reminder
+                  Birthday Reminder
                 </h2>
               </div>
               <motion.button
                 onClick={handleClose}
                 disabled={sending}
-                className="text-white hover:text-purple-200 transition-colors p-2 rounded-lg hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="text-white hover:text-rose-200 transition-colors p-2 rounded-lg hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
@@ -280,12 +276,12 @@ const ClientPaymentReminderModal = ({
                   </h3>
                   <p className="text-xs text-slate-500">
                     {isAll
-                      ? "All clients with a debit balance"
+                      ? "All clients with birthday today"
                       : `${usernames.length} client${usernames.length === 1 ? "" : "s"} selected`}
                   </p>
                 </div>
                 {!loadingAvailability && (
-                  <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                  <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
                     {availableCount} available
                   </span>
                 )}
@@ -379,8 +375,8 @@ const ClientPaymentReminderModal = ({
               {!loadingAvailability && availableCount === 0 && (
                 <div className="mt-3 flex gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                   <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  No payment-reminder channel is configured. Enable a channel
-                  and add its payment reminder template first.
+                  No birthday-reminder channel is configured. Enable a channel
+                  and add its birthday template first.
                 </div>
               )}
             </div>
@@ -403,12 +399,12 @@ const ClientPaymentReminderModal = ({
                     loadingAvailability ||
                     selectedChannels.length === 0
                   }
-                  className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
+                  className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
                     sending ||
                     loadingAvailability ||
                     selectedChannels.length === 0
                       ? "opacity-50 cursor-not-allowed"
-                      : "hover:from-purple-700 hover:to-purple-800"
+                      : "hover:from-rose-700 hover:to-pink-700"
                   }`}
                   whileHover={
                     sending ||
@@ -447,4 +443,4 @@ const ClientPaymentReminderModal = ({
   );
 };
 
-export default ClientPaymentReminderModal;
+export default ClientBirthdayReminderModal;

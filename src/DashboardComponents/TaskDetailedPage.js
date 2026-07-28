@@ -38,6 +38,11 @@ import API_BASE_URL from '../utils/api-controller';
 import { useUserPermissions } from '../utils/permission-helper';
 import { taskGetIn, taskGetOut } from '../services/taskService';
 import { optionByValue } from '../utils/customSelectHelpers';
+import { getTaskCompliancePeriodLabel } from '../utils/taskCompliancePeriod';
+import {
+  getTaskCompleteDateValue,
+  isTaskCompleteStatus,
+} from '../utils/taskCompleteDate';
 import {
   loadListViewCache,
   saveListViewCache,
@@ -366,6 +371,7 @@ const mapReportTaskToDisplayTask = (row) => {
     service: {
       service_id: row.service?.service_id,
       name: row.service?.service_name || row.service?.name,
+      frequency: row.service?.frequency || null,
     },
     client: {
       username: row.client?.username,
@@ -393,7 +399,14 @@ const mapReportTaskToDisplayTask = (row) => {
       create_date: details.create_date,
       complete_date: details.complete_date,
       target_date: details.target_date,
+      compliance_year:
+        details.compliance_year || row.compliance_year || null,
+      compliance_period:
+        details.compliance_period || row.compliance_period || null,
     },
+    compliance_year: details.compliance_year || row.compliance_year || null,
+    compliance_period:
+      details.compliance_period || row.compliance_period || null,
     staffs,
     _raw: row,
   };
@@ -1176,13 +1189,21 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       }
       case 'fees': {
         const feesAmount = task.charges?.fees || 0;
+        const periodLabel = getTaskCompliancePeriodLabel(task);
         return (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-            {check('task_fees_view') ? (
-              `₹${Number(feesAmount).toLocaleString()}`
-            ) : (
-              <span className="blur-[3.5px] select-none">₹99,999</span>
-            )}
+          <div className="flex flex-col items-start gap-1">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {check('task_fees_view') ? (
+                `₹${Number(feesAmount).toLocaleString()}`
+              ) : (
+                <span className="blur-[3.5px] select-none">₹99,999</span>
+              )}
+            </div>
+            {periodLabel ? (
+              <span className="text-xs text-gray-500 leading-snug">
+                {periodLabel}
+              </span>
+            ) : null}
           </div>
         );
       }
@@ -1262,7 +1283,12 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
           </div>
         );
       }
-      case 'status':
+      case 'status': {
+        const completeDateRaw = getTaskCompleteDateValue(task);
+        const completeDateLabel =
+          isTaskCompleteStatus(task.status) && completeDateRaw
+            ? formatDate(completeDateRaw)
+            : null;
         return (
           <div className="flex flex-col items-start gap-1">
             <button
@@ -1274,6 +1300,14 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
             >
               {getStatusText(task.status)}
             </button>
+            {completeDateLabel ? (
+              <span
+                className="text-xs text-gray-500 leading-snug"
+                title={`Completed: ${completeDateLabel}`}
+              >
+                {completeDateLabel}
+              </span>
+            ) : null}
             {(() => {
               const inOutState = getTaskInOutState(task);
               if (!inOutState.badge) return null;
@@ -1292,6 +1326,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
             })()}
           </div>
         );
+      }
       case 'menu':
         return (
           <div className="relative flex items-center justify-center w-full">

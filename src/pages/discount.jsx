@@ -55,7 +55,7 @@ const getDiscountPartyProfilePath = (row) => {
         case 'agent':
             return `/settings/agent-profile/${encoded}/profile`;
         case 'staff':
-            return `/staff/view/profile/profile?username=${encoded}`;
+            return `/staff/view/profile/${encoded}/profile`;
         default:
             return null;
     }

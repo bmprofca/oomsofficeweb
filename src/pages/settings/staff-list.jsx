@@ -1571,7 +1571,7 @@ const StaffList = () => {
                             onClick={() => {
                                 setActiveRowDropdown(null);
                                 actionAnchorRef.current = null;
-                                navigate(`/view-stuff-profile?username=${activeStaffForMenu.username}`);
+                                navigate(`/staff/view/profile/${encodeURIComponent(activeStaffForMenu.username)}/profile`);
                             }}
                             className="flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
                         >

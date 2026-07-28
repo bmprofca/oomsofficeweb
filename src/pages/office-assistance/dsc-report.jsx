@@ -579,11 +579,13 @@ const ViewDSCRegister = () => {
 
 
     const getUserProfileLink = (user) => {
+        if (user.user_type === 'employee') {
+            return `/staff/view/profile/${encodeURIComponent(user.username)}/profile`;
+        }
         const baseUrls = {
             user: '/view-client-profile',
             ca: '/view-ca-profile',
             agent: '/view-agent-profile',
-            employee: '/view-stuff-profile'
         };
         return `${baseUrls[user.user_type]}?username=${user.username}`;
     };

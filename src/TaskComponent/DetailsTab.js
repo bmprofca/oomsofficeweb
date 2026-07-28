@@ -90,7 +90,7 @@ const StaffProfileName = ({ user, fallback = '—' }) => {
     }
     return (
         <Link
-            to={`/staff/view/profile/task?username=${encodeURIComponent(username)}`}
+            to={`/staff/view/profile/${encodeURIComponent(username)}/task`}
             className={`mt-1 inline-block text-sm ${PROFILE_LINK_CLASS}`}
         >
             {name}
