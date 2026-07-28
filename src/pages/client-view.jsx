@@ -56,6 +56,7 @@ import axios from "axios";
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import TablePagination from "../components/TablePagination";
+import useDebounce from "../components/useDebounce";
 import ExportModal from "../ClientComponents/ExportModal";
 import toast from "react-hot-toast";
 import { useUserPermissions } from "../utils/permission-helper";
@@ -457,6 +458,9 @@ const ClientFetchError = ({ message, onRetry }) => (
 );
 
 const getFetchErrorMessage = (error) => {
+  if (axios.isCancel?.(error) || error?.code === "ERR_CANCELED") {
+    return null;
+  }
   if (
     error?.code === "ECONNABORTED" ||
     String(error?.message || "")
@@ -1147,7 +1151,8 @@ const ViewClients = () => {
 
   // Fetch clients with API pagination
   const fetchClients = useCallback(
-    async (page = 1, limit = 20) => {
+    async (page = 1, limit = 20, options = {}) => {
+      const { signal, search = searchQuery } = options;
       const headers = getHeaders();
       if (!headers) {
         setFetchError(
@@ -1163,7 +1168,7 @@ const ViewClients = () => {
         setFetchError(null);
 
         const params = new URLSearchParams({
-          search: searchQuery,
+          search: search || "",
           page: page.toString(),
           limit: limit.toString(),
           ...(selectedStatus && { status: selectedStatus }),
@@ -1173,10 +1178,13 @@ const ViewClients = () => {
         const response = await axios.get(
           `${API_BASE_URL}/client/list?${params}`,
           {
-            headers: headers,
-            timeout: 10000,
+            headers,
+            timeout: 60000,
+            signal,
           },
         );
+
+        if (signal?.aborted) return;
 
         if (response.data) {
           let clientsData = [];
@@ -1263,6 +1271,15 @@ const ViewClients = () => {
           setFetchError("Invalid response from server. Please try again.");
         }
       } catch (error) {
+        if (
+          signal?.aborted ||
+          axios.isCancel?.(error) ||
+          error?.code === "ERR_CANCELED" ||
+          error?.name === "CanceledError" ||
+          error?.name === "AbortError"
+        ) {
+          return;
+        }
         console.error("Error fetching clients:", error);
         setClients([]);
         setPagination({
@@ -1272,12 +1289,33 @@ const ViewClients = () => {
           total_pages: 1,
           is_last_page: true,
         });
-        setFetchError(getFetchErrorMessage(error));
+        const message = getFetchErrorMessage(error);
+        if (message) setFetchError(message);
       } finally {
-        setLoading(false);
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
       }
     },
     [searchQuery, selectedStatus, selectedGroup],
+  );
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
+  const clientsAbortRef = useRef(null);
+
+  const requestClients = useCallback(
+    (page = 1, limit = 20, search = debouncedSearchQuery) => {
+      if (clientsAbortRef.current) {
+        clientsAbortRef.current.abort();
+      }
+      const controller = new AbortController();
+      clientsAbortRef.current = controller;
+      return fetchClients(page, limit, {
+        signal: controller.signal,
+        search,
+      });
+    },
+    [fetchClients, debouncedSearchQuery],
   );
 
   useEffect(() => {
@@ -1309,17 +1347,23 @@ const ViewClients = () => {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
-    fetchClients(1, pagination.limit);
-  }, [searchQuery, selectedStatus, selectedGroup]);
+    requestClients(1, pagination.limit, debouncedSearchQuery);
+    return () => {
+      if (clientsAbortRef.current) {
+        clientsAbortRef.current.abort();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchQuery, selectedStatus, selectedGroup, requestClients]);
 
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > pagination.total_pages) return;
-    fetchClients(newPage, pagination.limit);
+    requestClients(newPage, pagination.limit);
   };
 
   const handleLimitChange = (newLimit) => {
     setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
-    fetchClients(1, newLimit);
+    requestClients(1, newLimit);
   };
 
   const availableFields = [
@@ -2647,7 +2691,7 @@ const ViewClients = () => {
                                 <button
                                   onClick={() => {
                                     setShowFilterDropdown(false);
-                                    fetchClients(1, pagination.limit);
+                                    requestClients(1, pagination.limit);
                                   }}
                                   className="w-full px-2 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                                 >
@@ -2805,7 +2849,7 @@ const ViewClients = () => {
                   loading={loading}
                   fetchError={fetchError}
                   onRetryFetch={() =>
-                    fetchClients(pagination.page, pagination.limit)
+                    requestClients(pagination.page, pagination.limit)
                   }
                   toggleRowDropdown={toggleRowDropdown}
                   activeRowDropdown={activeRowDropdown}
@@ -2830,7 +2874,7 @@ const ViewClients = () => {
                   loading={loading}
                   fetchError={fetchError}
                   onRetryFetch={() =>
-                    fetchClients(pagination.page, pagination.limit)
+                    requestClients(pagination.page, pagination.limit)
                   }
                   toggleRowDropdown={toggleRowDropdown}
                   activeRowDropdown={activeRowDropdown}

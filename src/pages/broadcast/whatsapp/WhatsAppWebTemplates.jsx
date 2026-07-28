@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   FiChevronLeft,
@@ -9,11 +8,10 @@ import {
   FiEdit2,
   FiEye,
   FiFileText,
-  FiHome,
+  FiLink,
   FiLoader,
   FiPlus,
   FiRefreshCw,
-  FiSend,
   FiUpload,
   FiX,
   FiLock,
@@ -23,6 +21,30 @@ import { extractApiError } from '../../../utils/oneChattingSendUtils';
 import { uploadOneSaasFile } from '../../../utils/onesaas-upload';
 import { normalizeList, normalizePagination, whatsappApi } from '../../../services/whatsappApi';
 import { useUserPermissions } from '../../../utils/permission-helper';
+
+/** Task-table typography baseline — see CLIENT/context/typography.md */
+const TABLE_HEAD_ROW =
+  'bg-gradient-to-r from-gray-50 to-white border-b border-gray-200';
+const TABLE_TH =
+  'px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap';
+const TABLE_ROW =
+  'border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors';
+const TABLE_TD = 'px-3 py-3 min-w-0 text-left align-middle';
+const CELL_TITLE = 'font-semibold text-gray-800 text-sm';
+const CELL_BODY = 'text-sm font-medium text-gray-700';
+const CELL_META = 'text-xs text-gray-400';
+const CELL_EMPTY = 'text-sm text-gray-400';
+const SECTION_LABEL =
+  'text-[11px] font-bold text-gray-700 uppercase tracking-wide';
+const TOOLBAR_ROW =
+  'flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white';
+const TOOLBAR_BTN = 'px-3 py-2 text-sm font-medium rounded-lg';
+const FIELD_INPUT =
+  'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 placeholder:text-gray-400';
+const EMPTY_WRAP =
+  'flex flex-col items-center justify-center py-12 text-gray-500 px-4';
+const EMPTY_TITLE = 'text-sm font-medium text-gray-500';
+const EMPTY_SUBTITLE = 'text-xs text-gray-400 mt-1';
 
 const TABS = [
   { id: 'mapping', label: 'Static Templates' },
@@ -86,7 +108,7 @@ const TemplateStatusBadge = ({ status }) => {
 
   return (
     <span
-      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+      className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
         isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
       }`}
     >
@@ -96,27 +118,36 @@ const TemplateStatusBadge = ({ status }) => {
 };
 
 const TemplateTypeBadge = ({ type }) => (
-  <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 capitalize">
+  <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 capitalize">
     {type || 'text'}
   </span>
 );
 
 const MappingStatusBadge = ({ isSet }) =>
   isSet ? (
-    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+    <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
       Mapped
     </span>
   ) : (
-    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+    <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
       Not mapped
     </span>
   );
 
 const formatDate = (value) => {
   if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+  const raw = String(value).trim();
+  if (!raw) return '—';
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 };
 
 const normalizeVariables = (variables) => {
@@ -1110,16 +1141,15 @@ const WhatsAppWebTemplates = () => {
   };
 
   const renderMappingTab = () => {
-    const inputClass =
-      'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 font-mono';
+    const inputClass = `${FIELD_INPUT} font-mono`;
 
     return (
       <div className="flex flex-col lg:flex-row min-h-[560px]">
         <div className="lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50">
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-2">
+          <div className="px-3 md:px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-semibold text-gray-800 m-0">System templates</p>
-              <p className="text-xs text-gray-500 m-0 mt-0.5">
+              <p className={`${CELL_TITLE} m-0`}>System templates</p>
+              <p className={`${CELL_META} m-0 mt-0.5`}>
                 {mappedCount} of {mappingRows.length} active
               </p>
             </div>
@@ -1127,7 +1157,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={fetchTemplateMappings}
               disabled={mappingLoading}
-              className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-white disabled:opacity-50"
+              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-white disabled:opacity-50"
               title="Refresh"
             >
               <FiRefreshCw className={`w-4 h-4 ${mappingLoading ? 'animate-spin' : ''}`} />
@@ -1140,9 +1170,10 @@ const WhatsAppWebTemplates = () => {
                 <div key={index} className="h-14 rounded-lg bg-gray-200 animate-pulse" />
               ))
             ) : mappingRows.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8 m-0 px-2">
-                No system templates found.
-              </p>
+              <div className={EMPTY_WRAP}>
+                <p className={EMPTY_TITLE}>No system templates found</p>
+                <p className={EMPTY_SUBTITLE}>Refresh to load mapping slots</p>
+              </div>
             ) : (
               mappingRows.map((item) => {
                 const isSelected = item.name === selectedMappingName;
@@ -1328,7 +1359,7 @@ const WhatsAppWebTemplates = () => {
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3 m-0">
+                  <p className={`${SECTION_LABEL} mb-3 m-0`}>
                     Preview
                   </p>
                   <div className="rounded-xl bg-[#e5ddd5] p-4 flex justify-center">
@@ -1348,24 +1379,19 @@ const WhatsAppWebTemplates = () => {
 
   const renderListTab = () => (
     <>
-      <div className="px-6 py-4 border-b border-gray-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <FiFileText className="w-4 h-4 text-green-600" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-gray-800">Template List</h2>
-            <p className="text-xs text-gray-500">
-              {pagination.total} template{pagination.total === 1 ? '' : 's'} found
-            </p>
-          </div>
+      <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
+        <div className="min-w-0">
+          <h2 className={`${CELL_TITLE} m-0`}>Template library</h2>
+          <p className={`${CELL_META} m-0 mt-0.5`}>
+            {pagination.total} template{pagination.total === 1 ? '' : 's'} found
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
           >
             {TYPE_OPTIONS.map((option) => (
               <option key={option.value || 'all-types'} value={option.value}>
@@ -1376,7 +1402,7 @@ const WhatsAppWebTemplates = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value || 'all-status'} value={option.value}>
@@ -1395,7 +1421,7 @@ const WhatsAppWebTemplates = () => {
               )
             }
             disabled={listLoading}
-            className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
             title="Refresh"
           >
             <FiRefreshCw className={`w-4 h-4 ${listLoading ? 'animate-spin' : ''}`} />
@@ -1404,44 +1430,40 @@ const WhatsAppWebTemplates = () => {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Template
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Type
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Variables
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Modified
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+        <table className="w-full table-fixed min-w-[860px]">
+          <thead>
+            <tr className={TABLE_HEAD_ROW}>
+              <th className={`${TABLE_TH} w-[28%]`}>Template</th>
+              <th className={`${TABLE_TH} w-[12%]`}>Type</th>
+              <th className={`${TABLE_TH} w-[22%]`}>Variables</th>
+              <th className={`${TABLE_TH} w-[12%]`}>Status</th>
+              <th className={`${TABLE_TH} w-[14%]`}>Modified</th>
+              <th className={`${TABLE_TH} w-[12%] text-right`}>Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody>
             {listLoading ? (
-              Array.from({ length: 5 }).map((_, index) => (
-                <tr key={index} className="animate-pulse">
+              Array.from({ length: 8 }).map((_, index) => (
+                <tr key={index} className="animate-pulse border-b border-gray-100">
                   {Array.from({ length: 6 }).map((__, cellIndex) => (
-                    <td key={cellIndex} className="px-6 py-4">
-                      <div className="h-4 bg-gray-200 rounded w-full max-w-[180px]" />
+                    <td key={cellIndex} className={TABLE_TD}>
+                      <div
+                        className="h-3 bg-gray-200 rounded"
+                        style={{ width: `${55 + (cellIndex % 3) * 18}px` }}
+                      />
                     </td>
                   ))}
                 </tr>
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500">
-                  No templates found.
+                <td colSpan={6} className="px-3 py-12">
+                  <div className={EMPTY_WRAP}>
+                    <p className={EMPTY_TITLE}>No templates found</p>
+                    <p className={EMPTY_SUBTITLE}>
+                      Create a template or adjust filters
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -1449,25 +1471,25 @@ const WhatsAppWebTemplates = () => {
                 const variables = normalizeVariables(item.variables_json);
 
                 return (
-                  <tr key={item.template_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-medium text-gray-900 m-0">
+                  <tr key={item.template_id} className={TABLE_ROW}>
+                    <td className={TABLE_TD}>
+                      <p className={`${CELL_TITLE} truncate m-0`}>
                         {item.template_name}
                       </p>
-                      <p className="text-xs text-gray-500 m-0 mt-0.5 line-clamp-2 font-mono">
+                      <p className={`${CELL_META} m-0 mt-0.5 line-clamp-2 font-mono`}>
                         {getContentPreview(item)}
                       </p>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={TABLE_TD}>
                       <TemplateTypeBadge type={item.template_type} />
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={TABLE_TD}>
                       {variables.length ? (
-                        <div className="flex flex-wrap gap-1 max-w-xs">
+                        <div className="flex flex-wrap gap-1">
                           {variables.slice(0, 4).map((variable) => (
                             <span
                               key={variable}
-                              className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-100 text-gray-600"
+                              className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono bg-gray-100 text-gray-600"
                             >
                               {`{{${variable}}}`}
                             </span>
@@ -1479,16 +1501,18 @@ const WhatsAppWebTemplates = () => {
                           ) : null}
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">—</span>
+                        <span className={CELL_EMPTY}>—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={TABLE_TD}>
                       <TemplateStatusBadge status={item.status} />
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                      {formatDate(item.modify_date || item.create_date)}
+                    <td className={TABLE_TD}>
+                      <p className={`${CELL_BODY} whitespace-nowrap m-0`}>
+                        {formatDate(item.modify_date || item.create_date)}
+                      </p>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={`${TABLE_TD} text-right`}>
                       <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
@@ -1517,8 +1541,8 @@ const WhatsAppWebTemplates = () => {
       </div>
 
       {!listLoading && pagination.total_pages > 1 ? (
-        <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="px-3 md:px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <span>Rows per page</span>
             <select
               value={pagination.limit}
@@ -1538,7 +1562,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={() => goToPage(1)}
               disabled={pagination.page_no <= 1}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-40"
+              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
             >
               <FiChevronsLeft className="w-4 h-4" />
             </button>
@@ -1546,18 +1570,18 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={() => goToPage(pagination.page_no - 1)}
               disabled={pagination.page_no <= 1}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-40"
+              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
             >
               <FiChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-3 text-sm text-gray-600">
+            <span className="px-3 text-sm font-medium text-gray-700">
               Page {pagination.page_no} of {pagination.total_pages}
             </span>
             <button
               type="button"
               onClick={() => goToPage(pagination.page_no + 1)}
               disabled={pagination.page_no >= pagination.total_pages}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-40"
+              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
             >
               <FiChevronRight className="w-4 h-4" />
             </button>
@@ -1565,7 +1589,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={() => goToPage(pagination.total_pages)}
               disabled={pagination.page_no >= pagination.total_pages}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-40"
+              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
             >
               <FiChevronsRight className="w-4 h-4" />
             </button>
@@ -1577,16 +1601,32 @@ const WhatsAppWebTemplates = () => {
 
   if (!check('broadcast_config_edit')) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-        <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-          <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FiLock className="w-8 h-8 text-slate-400" />
+      <div className="min-h-screen bg-gray-50">
+        <Header
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <Sidebar
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <div
+          className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}
+        >
+          <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <FiLock className="w-5 h-5 text-gray-400" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
-            <p className="text-slate-500 text-sm">You do not have permission to view this page.</p>
+            <h3 className="text-sm font-medium text-gray-500 mb-1">
+              Access Denied
+            </h3>
+            <p className="text-xs text-gray-400 mt-1">
+              You do not have permission to manage WhatsApp Web templates.
+            </p>
           </div>
         </div>
       </div>
@@ -1611,64 +1651,83 @@ const WhatsAppWebTemplates = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-          <nav className="flex items-center text-sm text-gray-600 mb-4">
-            <Link
-              to="/"
-              className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-            >
-              <FiHome className="w-4 h-4" />
-              <span>Dashboard</span>
-            </Link>
-            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-            <Link
-              to="/broadcast/whatsapp"
-              className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-            >
-              <FiSend className="w-4 h-4" />
-              <span>Broadcast</span>
-            </Link>
-            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-            <span className="text-gray-900 font-medium">WhatsApp Web Templates</span>
-          </nav>
+        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
+              <div className="flex items-center gap-2 shrink-0 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                  {activeTab === 'mapping' ? (
+                    <FiLink className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <FiFileText className="w-4 h-4 text-green-600" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate m-0">
+                    WhatsApp Web Templates
+                  </h1>
+                  <p className={`${CELL_META} m-0 mt-0.5`}>
+                    Static system templates and broadcast library
+                  </p>
+                </div>
+              </div>
 
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">WhatsApp Web Templates</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Configure static system-event templates and manage broadcast template library
-              </p>
-            </div>
-            {activeTab === 'list' ? (
-              <button
-                type="button"
-                onClick={() => setFormModal({ mode: 'create' })}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shrink-0"
-              >
-                <FiPlus className="w-4 h-4" />
-                Create template
-              </button>
-            ) : null}
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 pt-4 border-b border-gray-200">
-              <nav className="-mb-px flex space-x-6 overflow-x-auto">
+              <nav className="flex items-center gap-1 shrink-0">
                 {TABS.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                    className={`${TOOLBAR_BTN} transition-colors ${
                       activeTab === tab.id
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'bg-green-50 text-green-700'
+                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                     }`}
                   >
                     {tab.label}
                   </button>
                 ))}
               </nav>
+
+              <div className="flex items-center gap-2 ml-auto shrink-0">
+                {activeTab === 'list' ? (
+                  <button
+                    type="button"
+                    onClick={() => setFormModal({ mode: 'create' })}
+                    className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 text-white bg-green-600 hover:bg-green-700`}
+                  >
+                    <FiPlus className="w-3.5 h-3.5" />
+                    Create template
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={
+                    activeTab === 'mapping'
+                      ? fetchTemplateMappings
+                      : () =>
+                          fetchTemplates(
+                            pagination.page_no,
+                            pagination.limit,
+                            statusFilter,
+                            typeFilter,
+                          )
+                  }
+                  disabled={
+                    activeTab === 'mapping' ? mappingLoading : listLoading
+                  }
+                  className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  title="Refresh"
+                >
+                  <FiRefreshCw
+                    className={`w-4 h-4 ${
+                      (activeTab === 'mapping' ? mappingLoading : listLoading)
+                        ? 'animate-spin'
+                        : ''
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             {activeTab === 'mapping' ? renderMappingTab() : renderListTab()}

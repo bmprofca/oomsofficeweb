@@ -9,10 +9,17 @@ let subscriptionFetchPromise = null;
 /** True after at least one successful network fetch in this page session */
 let sessionVerified = false;
 let lastFetchedBranchId = null;
+/** Timestamp of last successful /subscription/status response */
+let lastSuccessfulFetchAt = 0;
 /** True while branch switch overlay is active — never treat as "no plan" */
 let branchSwitching = false;
 let branchSwitchMeta = { branchName: '', branchId: '' };
 let branchSwitchListeners = new Set();
+
+/** Single shared focus/visibility refresh (not per hook instance) */
+let focusListenersBound = false;
+let lastFocusRefetchAt = 0;
+const FOCUS_REFETCH_THROTTLE_MS = 30_000;
 
 const EMPTY_SUBSCRIPTION = {
     branch_id: null,
@@ -90,6 +97,8 @@ export function clearSubscriptionForBranchSwitch() {
     subscriptionFetchPromise = null;
     sessionVerified = false;
     lastFetchedBranchId = null;
+    lastSuccessfulFetchAt = 0;
+    lastFocusRefetchAt = 0;
     try {
         localStorage.removeItem(CACHE_KEY);
         localStorage.removeItem(CACHE_BRANCH_KEY);
@@ -113,6 +122,7 @@ function notifyListeners(newState) {
 function persistSubscription(newState) {
     globalSubscriptionState = newState;
     sessionVerified = true;
+    lastSuccessfulFetchAt = Date.now();
     lastFetchedBranchId = String(newState?.branch_id || getCurrentBranchId() || '').trim() || null;
     try {
         localStorage.setItem(CACHE_KEY, JSON.stringify(newState));
@@ -160,10 +170,10 @@ export async function fetchSubscriptionStatusForBranch(branchId) {
 
 /**
  * @param {boolean} force
- * @param {{ silent?: boolean }} options
+ * @param {{ silent?: boolean, reason?: string }} options
  */
 async function fetchSubscriptionStatus(force = false, options = {}) {
-    const { silent = true } = options;
+    const { silent = true, reason = 'default' } = options;
     const username = localStorage.getItem('user_username') || localStorage.getItem('username');
     const token = localStorage.getItem('user_token') || localStorage.getItem('token');
     const branchId = getCurrentBranchId();
@@ -175,6 +185,33 @@ async function fetchSubscriptionStatus(force = false, options = {}) {
     if (lastFetchedBranchId && lastFetchedBranchId !== branchId) {
         sessionVerified = false;
         globalSubscriptionState = null;
+        lastSuccessfulFetchAt = 0;
+    }
+
+    // Always coalesce in-flight requests — never fan out parallel /status calls
+    if (subscriptionFetchPromise) {
+        return subscriptionFetchPromise;
+    }
+
+    // Soft skip: non-force callers reuse session state when already verified for branch
+    if (
+        !force
+        && sessionVerified
+        && lastFetchedBranchId === branchId
+        && globalSubscriptionState
+    ) {
+        return globalSubscriptionState;
+    }
+
+    // Soft skip for background/focus refreshes when we already have fresh data
+    if (
+        reason === 'focus'
+        && sessionVerified
+        && lastFetchedBranchId === branchId
+        && lastSuccessfulFetchAt
+        && Date.now() - lastSuccessfulFetchAt < FOCUS_REFETCH_THROTTLE_MS
+    ) {
+        return globalSubscriptionState;
     }
 
     const showLoading =
@@ -182,10 +219,6 @@ async function fetchSubscriptionStatus(force = false, options = {}) {
         && !branchSwitching
         && !hasUsableCacheForCurrentBranch()
         && !sessionVerified;
-
-    if (subscriptionFetchPromise && !force) {
-        return subscriptionFetchPromise;
-    }
 
     if (showLoading) {
         notifyLoadingListeners(true);
@@ -225,6 +258,35 @@ async function fetchSubscriptionStatus(force = false, options = {}) {
     })();
 
     return subscriptionFetchPromise;
+}
+
+function maybeRefetchOnFocus() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+    }
+
+    const now = Date.now();
+    if (now - lastFocusRefetchAt < FOCUS_REFETCH_THROTTLE_MS) {
+        return;
+    }
+    lastFocusRefetchAt = now;
+    fetchSubscriptionStatus(true, { silent: true, reason: 'focus' });
+}
+
+/**
+ * One shared listener for the whole app — multiple useSubscription() mounts
+ * must not each attach window focus / visibility handlers.
+ */
+function ensureFocusRefreshListeners() {
+    if (focusListenersBound || typeof window === 'undefined') return;
+    focusListenersBound = true;
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            maybeRefetchOnFocus();
+        }
+    });
+    window.addEventListener('focus', maybeRefetchOnFocus);
 }
 
 let globalLoadingListeners = new Set();
@@ -282,34 +344,21 @@ export const useSubscription = () => {
         const silent = hasCache || sessionVerified;
         if (!silent && !branchSwitching) setLoading(true);
 
-        fetchSubscriptionStatus(true, { silent: silent || branchSwitching }).finally(() => {
+        // Coalesced: N mounts → at most 1 in-flight network call
+        fetchSubscriptionStatus(true, {
+            silent: silent || branchSwitching,
+            reason: 'mount',
+        }).finally(() => {
             if (mountedRef.current && !silent && !branchSwitching) setLoading(false);
         });
 
-        let lastFocusFetch = 0;
-        const maybeRefetch = () => {
-            const now = Date.now();
-            if (now - lastFocusFetch < 5000) return;
-            lastFocusFetch = now;
-            fetchSubscriptionStatus(true, { silent: true });
-        };
-
-        const onVisible = () => {
-            if (document.visibilityState === 'visible') {
-                maybeRefetch();
-            }
-        };
-
-        document.addEventListener('visibilitychange', onVisible);
-        window.addEventListener('focus', maybeRefetch);
+        ensureFocusRefreshListeners();
 
         return () => {
             mountedRef.current = false;
             globalSubscriptionListeners.delete(onState);
             globalLoadingListeners.delete(onLoading);
             branchSwitchListeners.delete(onSwitch);
-            document.removeEventListener('visibilitychange', onVisible);
-            window.removeEventListener('focus', maybeRefetch);
         };
     }, []);
 
@@ -358,7 +407,7 @@ export const useSubscription = () => {
         if (!silent && !hasUsableCacheForCurrentBranch()) {
             setLoading(true);
         }
-        return fetchSubscriptionStatus(true, { silent }).finally(() => {
+        return fetchSubscriptionStatus(true, { silent, reason: 'manual' }).finally(() => {
             if (!silent && mountedRef.current) setLoading(false);
         });
     }, []);

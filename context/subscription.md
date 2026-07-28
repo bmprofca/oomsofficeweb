@@ -27,11 +27,14 @@ SubscriptionProtectedRoute / header feature gates
 - **Always revalidate** from API on mount (and throttled on tab focus) — **silent** when cache exists (no full-screen “Checking…” flash).
 - Show loading UI only when there is **no usable cache** for the current branch.
 - Access decisions require `subscription.branch_id === localStorage.branch_id`.
+- **One in-flight request** for `/subscription/status` — all hook mounts share / join the same promise (never parallel fan-out).
+- **One module-level** `visibilitychange` + `window` `focus` listener (not per `useSubscription()` instance). Focus revalidate is throttled (~30s) and skipped when a recent successful fetch already exists.
 
 ### Do not
 
 - Trust a long TTL without network revalidate (admin / other browser can change plans).
 - Broadcast empty “no plan” while switching branches (causes Premium gate flash).
+- Attach focus/visibility listeners inside every hook instance (causes N duplicate calls when N components use the hook).
 
 ---
 
