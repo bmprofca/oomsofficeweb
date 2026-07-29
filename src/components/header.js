@@ -21,9 +21,26 @@ import SwitchBranchModal from './Modals/SwitchBranchModal';
 import AttendanceModal from './Modals/AttendanceModal';
 import { useSubscription } from '../hooks/useSubscription';
 import { loadUserProfileFromStorage } from '../utils/user-profile-storage';
-import { getStoredBranchRoleLabel } from '../services/branchSetupService';
+import { getStoredBranchRoleLabel, resolveBranchRole } from '../services/branchSetupService';
 import { performBranchSwitch } from '../utils/branchSwitch';
 import BranchSwitchOverlay from './BranchSwitchOverlay';
+
+function isStoredBranchAdmin() {
+  try {
+    const branchId = localStorage.getItem('branch_id');
+    const branchesJson = localStorage.getItem('user_branches');
+    const branches = branchesJson ? JSON.parse(branchesJson) : [];
+    const activeBranch = Array.isArray(branches)
+      ? branches.find((branch) => String(branch.branch_id) === String(branchId))
+      : null;
+    if (activeBranch) {
+      return resolveBranchRole(activeBranch) === 'admin';
+    }
+  } catch (error) {
+    console.error('Failed to resolve branch admin role', error);
+  }
+  return String(localStorage.getItem('branch_role') || '').toLowerCase() === 'admin';
+}
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -471,6 +488,16 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   ];
 
   const branchLabel = selectedProjectName || selectedCompany?.name || 'Select Branch';
+  const showAttendanceMenu = useMemo(() => {
+    if (selectedCompany) {
+      return resolveBranchRole(selectedCompany) !== 'admin';
+    }
+    return !isStoredBranchAdmin();
+  }, [selectedCompany, selectedProjectName]);
+
+  useEffect(() => {
+    if (!showAttendanceMenu) setAttendanceModalOpen(false);
+  }, [showAttendanceMenu]);
 
   const updateProfilePanelPosition = useCallback(() => {
     if (!profileTriggerRef.current) return;
@@ -703,18 +730,20 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                     </div>
 
                     <div className="p-2">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
-                        onClick={() => {
-                          setProfileDropdownOpen(false);
-                          setAttendanceModalOpen(true);
-                        }}
-                      >
-                        <FiClock className="h-4 w-4 shrink-0 text-teal-500" />
-                        Attendance
-                      </button>
+                      {showAttendanceMenu ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                          onClick={() => {
+                            setProfileDropdownOpen(false);
+                            setAttendanceModalOpen(true);
+                          }}
+                        >
+                          <FiClock className="h-4 w-4 shrink-0 text-teal-500" />
+                          Attendance
+                        </button>
+                      ) : null}
 
                       <button
                         type="button"
@@ -780,12 +809,14 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         }}
       />
 
-      <AttendanceModal
-        isOpen={attendanceModalOpen}
-        onClose={() => setAttendanceModalOpen(false)}
-        branchName={branchLabel}
-        branchId={selectedCompany?.branch_id || localStorage.getItem('branch_id') || ''}
-      />
+      {showAttendanceMenu ? (
+        <AttendanceModal
+          isOpen={attendanceModalOpen}
+          onClose={() => setAttendanceModalOpen(false)}
+          branchName={branchLabel}
+          branchId={selectedCompany?.branch_id || localStorage.getItem('branch_id') || ''}
+        />
+      ) : null}
 
       <CreateBranch
         isOpen={branchSetupOpen}

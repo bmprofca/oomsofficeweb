@@ -18,7 +18,7 @@ toast + close modal
 ```
 
 **Modal:** [`src/components/Modals/AttendanceModal.jsx`](../src/components/Modals/AttendanceModal.jsx)  
-**Open from:** [`src/components/header.js`](../src/components/header.js) — profile dropdown item **Attendance** (no inline punch controls).
+**Open from:** [`src/components/header.js`](../src/components/header.js) — profile dropdown item **Attendance**, only for non-admin branch role (`resolveBranchRole(...) !== 'admin'` / `branch_role !== 'admin'`). Branch owners (`owned` → role `admin`) do not see it.
 
 ---
 

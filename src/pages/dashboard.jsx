@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Sidebar, Header } from "../components/header";
 import {
   FiTrendingUp,
@@ -350,8 +345,7 @@ const formatCurrency = (amount) =>
     maximumFractionDigits: 0,
   }).format(amount);
 
-const formatNumber = (number) =>
-  new Intl.NumberFormat("en-IN").format(number);
+const formatNumber = (number) => new Intl.NumberFormat("en-IN").format(number);
 
 /** Stable shell — must live outside Dashboard so sidebar/drawer state does not remount widgets. */
 const WidgetWrapper = React.memo(
