@@ -10,6 +10,7 @@ import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { checkPermissionSync } from '../utils/permission-helper';
 import MultiSelectInput from '../components/MultiSelectInput';
+import TablePagination from '../components/TablePagination';
 import FirmGroupsManageModal from '../components/Modals/FirmGroupsManageModal';
 import {
     FirmModalShell,
@@ -227,6 +228,12 @@ const FirmsTab = ({ clientUsername }) => {
     const [savingFirm, setSavingFirm] = useState(false);
     const [savingGroups, setSavingGroups] = useState(false);
     const [meta, setMeta] = useState({ total: 0, active: 0, inactive: 0 });
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: 20,
+        filtered: 0,
+        total_pages: 1,
+    });
     const [statesAndDistricts, setStatesAndDistricts] = useState([]);
     const [businessTypeOptions, setBusinessTypeOptions] = useState(DEFAULT_FIRM_TYPES);
     const [statesLoading, setStatesLoading] = useState(true);
@@ -266,6 +273,8 @@ const FirmsTab = ({ clientUsername }) => {
 
     const fetchFirms = useCallback(async ({
         search = debouncedSearch,
+        page = pagination.page,
+        limit = pagination.limit,
     } = {}) => {
         if (!clientUsername) return;
 
@@ -276,6 +285,8 @@ const FirmsTab = ({ clientUsername }) => {
             setLoading(true);
             const params = new URLSearchParams({
                 username: clientUsername,
+                page: String(page),
+                limit: String(limit),
             });
             if (String(search || '').trim()) params.set('search', String(search).trim());
 
@@ -293,6 +304,19 @@ const FirmsTab = ({ clientUsername }) => {
                     active: Number(nextMeta.active) || 0,
                     inactive: Number(nextMeta.inactive) || 0,
                 });
+                setPagination((prev) => ({
+                    ...prev,
+                    page: Number(nextMeta.page) || page,
+                    limit: Number(nextMeta.limit) || limit,
+                    filtered: Number(nextMeta.filtered) || firmsData.length,
+                    total_pages: Math.max(1, Number(nextMeta.total_pages) || 1),
+                }));
+
+                const totalPages = Math.max(1, Number(nextMeta.total_pages) || 1);
+                const resolvedPage = Number(nextMeta.page) || page;
+                if (resolvedPage > totalPages) {
+                    setPagination((prev) => ({ ...prev, page: totalPages }));
+                }
             }
         } catch (error) {
             console.error('Error fetching firms:', error);
@@ -300,7 +324,7 @@ const FirmsTab = ({ clientUsername }) => {
         } finally {
             setLoading(false);
         }
-    }, [clientUsername, debouncedSearch]);
+    }, [clientUsername, debouncedSearch, pagination.page, pagination.limit]);
 
     useEffect(() => {
         if (clientUsername) fetchFirms();
@@ -313,7 +337,9 @@ const FirmsTab = ({ clientUsername }) => {
     useEffect(() => {
         clearTimeout(searchTimer.current);
         searchTimer.current = setTimeout(() => {
-            setDebouncedSearch(searchTerm.trim());
+            const next = searchTerm.trim();
+            setDebouncedSearch(next);
+            setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
         }, 400);
         return () => clearTimeout(searchTimer.current);
     }, [searchTerm]);
@@ -643,13 +669,13 @@ const FirmsTab = ({ clientUsername }) => {
     const editDistrictOptions = statesAndDistricts.find((item) => item.name === editFirmData.state)?.districts || [];
 
     const FirmsSkeleton = () => (
-        <>
-            <div className="space-y-3 md:hidden">
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="space-y-3 p-3 md:hidden">
                 {Array.from({ length: 4 }).map((_, index) => (
-                    <div key={index} className="animate-pulse rounded-xl border border-slate-200 bg-white p-4">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                            <div className="flex items-start gap-3 min-w-0 flex-1">
-                                <div className="h-10 w-10 rounded-lg bg-slate-200 shrink-0" />
+                    <div key={index} className="animate-pulse rounded-lg border border-gray-200 bg-white p-3">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                                <div className="h-10 w-10 shrink-0 rounded-lg bg-slate-200" />
                                 <div className="flex-1 space-y-2">
                                     <div className="h-3.5 w-2/3 rounded bg-slate-200" />
                                     <div className="h-3 w-1/3 rounded bg-slate-100" />
@@ -657,7 +683,7 @@ const FirmsTab = ({ clientUsername }) => {
                             </div>
                             <div className="h-8 w-8 rounded-lg bg-slate-100" />
                         </div>
-                        <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="mb-3 grid grid-cols-2 gap-2">
                             <div className="h-8 rounded-md bg-slate-100" />
                             <div className="h-8 rounded-md bg-slate-100" />
                         </div>
@@ -665,36 +691,42 @@ const FirmsTab = ({ clientUsername }) => {
                     </div>
                 ))}
             </div>
-            <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="hidden md:block">
+                <div className="border-b border-gray-200 bg-slate-50 px-3 py-3">
                     <div className="grid grid-cols-[48px_1.4fr_0.9fr_0.9fr_0.7fr_1.2fr_64px] gap-3">
                         {Array.from({ length: 7 }).map((_, i) => (
-                            <div key={i} className="h-3 rounded bg-slate-200 animate-pulse" />
+                            <div key={i} className="h-3 animate-pulse rounded bg-slate-200" />
                         ))}
                     </div>
                 </div>
                 {Array.from({ length: 6 }).map((_, index) => (
                     <div
                         key={index}
-                        className="grid grid-cols-[48px_1.4fr_0.9fr_0.9fr_0.7fr_1.2fr_64px] gap-3 border-b border-slate-100 px-3 py-3.5 last:border-b-0 animate-pulse"
+                        className="grid animate-pulse grid-cols-[48px_1.4fr_0.9fr_0.9fr_0.7fr_1.2fr_64px] gap-3 border-b border-gray-100 px-3 py-3.5 last:border-b-0"
                     >
                         <div className="h-3 w-4 rounded bg-slate-200" />
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="h-8 w-8 rounded-lg bg-slate-200 shrink-0" />
+                        <div className="flex min-w-0 items-center gap-2.5">
+                            <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-200" />
                             <div className="flex-1 space-y-1.5">
                                 <div className="h-3.5 w-3/4 rounded bg-slate-200" />
                                 <div className="h-3 w-1/2 rounded bg-slate-100" />
                             </div>
                         </div>
-                        <div className="h-3 w-20 rounded bg-slate-200 self-center" />
-                        <div className="h-3 w-16 rounded bg-slate-200 self-center" />
-                        <div className="h-5 w-14 rounded-full bg-slate-200 self-center" />
-                        <div className="h-5 w-24 rounded-full bg-slate-100 self-center" />
-                        <div className="h-7 w-7 rounded-lg bg-slate-100 justify-self-end" />
+                        <div className="h-3 w-20 self-center rounded bg-slate-200" />
+                        <div className="h-3 w-16 self-center rounded bg-slate-200" />
+                        <div className="h-5 w-14 self-center rounded-full bg-slate-200" />
+                        <div className="h-5 w-24 self-center rounded-full bg-slate-100" />
+                        <div className="h-7 w-7 justify-self-end rounded-lg bg-slate-100" />
                     </div>
                 ))}
             </div>
-        </>
+            <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                    <div className="h-9 w-40 animate-pulse rounded-lg bg-slate-200" />
+                </div>
+            </div>
+        </div>
     );
 
     return (
@@ -766,134 +798,150 @@ const FirmsTab = ({ clientUsername }) => {
                 ) : null}
             </div>
 
-            <div className="p-4 sm:p-5">
+            <div className="p-3 sm:px-4 sm:pb-4 sm:pt-3">
                 {loading ? (
                     <FirmsSkeleton />
-                ) : firms.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-14 text-center">
-                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
-                            <FiBriefcase className="h-6 w-6 text-slate-400" />
-                        </div>
-                        <h3 className="m-0 text-sm font-semibold text-slate-800">
-                            {debouncedSearch ? 'No matching firms' : 'No firms yet'}
-                        </h3>
-                        <p className="m-0 mt-1 text-xs text-slate-500">
-                            {debouncedSearch
-                                ? 'Try a different search term'
-                                : 'Add a firm to get started'}
-                        </p>
-                    </div>
                 ) : (
-                    <>
-                        {/* Mobile cards */}
-                        <div className="space-y-3 md:hidden">
-                            {firms.map((firm, index) => (
-                                <motion.div
-                                    key={firm.firm_id || index}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: Math.min(index * 0.03, 0.25) }}
-                                    className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm"
-                                >
-                                    <div className="mb-3 flex items-start justify-between gap-3">
-                                        <div className="flex min-w-0 items-start gap-3">
-                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
-                                                <FiBriefcase className="h-4 w-4" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <h4 className="m-0 truncate text-sm font-semibold text-slate-800">
-                                                    {firm.firm_name || 'Unnamed Firm'}
-                                                </h4>
-                                                <p className="m-0 mt-0.5 truncate text-xs capitalize text-slate-500">
-                                                    {firm.firm_type || '—'}
-                                                </p>
-                                                <span className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
-                                                    {firm.status ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <ActionMenu items={firmActionItems(firm)} />
-                                    </div>
-                                    <div className="mb-2.5 grid grid-cols-2 gap-1.5 text-xs">
-                                        <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                                            <span className="font-medium text-slate-500">PAN: </span>
-                                            <span className="font-semibold text-slate-800">{firm.pan || '—'}</span>
-                                        </div>
-                                        <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                                            <span className="font-medium text-slate-500">File: </span>
-                                            <span className="font-semibold text-slate-800">{firm.file_no || '—'}</span>
-                                        </div>
-                                    </div>
-                                    {renderGroupChips(firm)}
-                                </motion.div>
-                            ))}
-                        </div>
-
-                        {/* Desktop table */}
-                        <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full table-fixed">
-                                    <thead>
-                                        <tr className="border-b border-slate-200 bg-slate-50/90">
-                                            <th className="w-[5%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">#</th>
-                                            <th className="w-[28%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Firm</th>
-                                            <th className="w-[14%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">PAN</th>
-                                            <th className="w-[12%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">File No</th>
-                                            <th className="w-[10%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Status</th>
-                                            <th className="w-[23%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Groups</th>
-                                            <th className="w-[8%] px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-slate-600">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {firms.map((firm, index) => (
-                                            <tr
-                                                key={firm.firm_id || index}
-                                                className="border-b border-slate-100 last:border-b-0 hover:bg-indigo-50/30 transition-colors"
-                                            >
-                                                <td className="px-3 py-3 align-middle text-xs font-bold text-slate-600">
-                                                    {index + 1}
-                                                </td>
-                                                <td className="px-3 py-3 align-middle min-w-0">
-                                                    <div className="flex min-w-0 items-center gap-2.5">
-                                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
-                                                            <FiBriefcase className="h-3.5 w-3.5" />
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="m-0 truncate text-sm font-semibold text-slate-800">
-                                                                {firm.firm_name || 'Unnamed Firm'}
-                                                            </p>
-                                                            <p className="m-0 mt-0.5 truncate text-xs capitalize text-slate-500">
-                                                                {firm.firm_type || '—'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-3 align-middle text-sm font-semibold tabular-nums text-slate-800">
-                                                    {firm.pan || '—'}
-                                                </td>
-                                                <td className="px-3 py-3 align-middle text-sm font-medium tabular-nums text-slate-700">
-                                                    {firm.file_no || '—'}
-                                                </td>
-                                                <td className="px-3 py-3 align-middle">
-                                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
-                                                        {firm.status ? 'Active' : 'Inactive'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-3 align-middle">
-                                                    {renderGroupChips(firm)}
-                                                </td>
-                                                <td className="px-3 py-3 align-middle">
-                                                    <div className="flex justify-end">
-                                                        <ActionMenu items={firmActionItems(firm)} />
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                        {firms.length === 0 ? (
+                            <div className="px-4 py-14 text-center">
+                                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-200">
+                                    <FiBriefcase className="h-6 w-6 text-slate-400" />
+                                </div>
+                                <h3 className="m-0 text-sm font-semibold text-slate-800">
+                                    {debouncedSearch ? 'No matching firms' : 'No firms yet'}
+                                </h3>
+                                <p className="m-0 mt-1 text-xs text-slate-500">
+                                    {debouncedSearch
+                                        ? 'Try a different search term'
+                                        : 'Add a firm to get started'}
+                                </p>
                             </div>
-                        </div>
-                    </>
+                        ) : (
+                            <>
+                                {/* Mobile cards */}
+                                <div className="space-y-3 p-3 md:hidden">
+                                    {firms.map((firm, index) => (
+                                        <motion.div
+                                            key={firm.firm_id || index}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: Math.min(index * 0.03, 0.25) }}
+                                            className="rounded-lg border border-gray-200 bg-white p-3.5"
+                                        >
+                                            <div className="mb-3 flex items-start justify-between gap-3">
+                                                <div className="flex min-w-0 items-start gap-3">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                                                        <FiBriefcase className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h4 className="m-0 truncate text-sm font-semibold text-slate-800">
+                                                            {firm.firm_name || 'Unnamed Firm'}
+                                                        </h4>
+                                                        <p className="m-0 mt-0.5 truncate text-xs capitalize text-slate-500">
+                                                            {firm.firm_type || '—'}
+                                                        </p>
+                                                        <span className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                                                            {firm.status ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <ActionMenu items={firmActionItems(firm)} />
+                                            </div>
+                                            <div className="mb-2.5 grid grid-cols-2 gap-1.5 text-xs">
+                                                <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                                    <span className="font-medium text-slate-500">PAN: </span>
+                                                    <span className="font-semibold text-slate-800">{firm.pan || '—'}</span>
+                                                </div>
+                                                <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                                    <span className="font-medium text-slate-500">File: </span>
+                                                    <span className="font-semibold text-slate-800">{firm.file_no || '—'}</span>
+                                                </div>
+                                            </div>
+                                            {renderGroupChips(firm)}
+                                        </motion.div>
+                                    ))}
+                                </div>
+
+                                {/* Desktop table */}
+                                <div className="hidden overflow-x-auto md:block">
+                                    <table className="min-w-full table-fixed">
+                                        <thead>
+                                            <tr className="border-b border-gray-200 bg-slate-50/90">
+                                                <th className="w-[5%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">#</th>
+                                                <th className="w-[28%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Firm</th>
+                                                <th className="w-[14%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">PAN</th>
+                                                <th className="w-[12%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">File No</th>
+                                                <th className="w-[10%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Status</th>
+                                                <th className="w-[23%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Groups</th>
+                                                <th className="w-[8%] px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-slate-600">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {firms.map((firm, index) => (
+                                                <tr
+                                                    key={firm.firm_id || index}
+                                                    className="border-b border-gray-100 last:border-b-0 hover:bg-indigo-50/30 transition-colors"
+                                                >
+                                                    <td className="px-3 py-3 align-middle text-xs font-bold text-slate-600">
+                                                        {(pagination.page - 1) * pagination.limit + index + 1}
+                                                    </td>
+                                                    <td className="min-w-0 px-3 py-3 align-middle">
+                                                        <div className="flex min-w-0 items-center gap-2.5">
+                                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                                                                <FiBriefcase className="h-3.5 w-3.5" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="m-0 truncate text-sm font-semibold text-slate-800">
+                                                                    {firm.firm_name || 'Unnamed Firm'}
+                                                                </p>
+                                                                <p className="m-0 mt-0.5 truncate text-xs capitalize text-slate-500">
+                                                                    {firm.firm_type || '—'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-3 align-middle text-sm font-semibold tabular-nums text-slate-800">
+                                                        {firm.pan || '—'}
+                                                    </td>
+                                                    <td className="px-3 py-3 align-middle text-sm font-medium tabular-nums text-slate-700">
+                                                        {firm.file_no || '—'}
+                                                    </td>
+                                                    <td className="px-3 py-3 align-middle">
+                                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                                                            {firm.status ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-3 py-3 align-middle">
+                                                        {renderGroupChips(firm)}
+                                                    </td>
+                                                    <td className="px-3 py-3 align-middle">
+                                                        <div className="flex justify-end">
+                                                            <ActionMenu items={firmActionItems(firm)} />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
+
+                        <TablePagination
+                            page={pagination.page}
+                            limit={pagination.limit}
+                            total={pagination.filtered}
+                            totalPages={pagination.total_pages}
+                            defaultRows={20}
+                            onPageChange={(page) =>
+                                setPagination((prev) => ({ ...prev, page }))
+                            }
+                            onLimitChange={(limit) =>
+                                setPagination((prev) => ({ ...prev, page: 1, limit }))
+                            }
+                        />
+                    </div>
                 )}
             </div>
 

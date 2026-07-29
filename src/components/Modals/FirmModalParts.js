@@ -63,7 +63,7 @@ export function FirmModalShell({
 
     const bodyClass = bodyScroll
         ? SCROLL_BODY
-        : 'min-h-0 flex-1 overflow-hidden px-5 py-4';
+        : 'min-h-0 flex-1 overflow-hidden px-4 py-3 flex flex-col';
 
     return createPortal(
         <AnimatePresence>

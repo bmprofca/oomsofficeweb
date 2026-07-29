@@ -76,7 +76,7 @@ Client **Firms** tab (`src/ClientComponents/FirmsTab.js`) can add/remove firms o
 
 | Action | API |
 |--------|-----|
-| List memberships | Included on `GET /client/details/firms/list?username=&search=` → each firm has `groups: [{ group_id, group_name, is_active }]`. Firms tab loads all statuses. |
+| List memberships | Included on `GET /client/details/firms/list?username=&search=&page=&limit=` → each firm has `groups: [{ group_id, group_name, is_active }]`. Paginated (`page`, `limit`; default 20). Meta includes `filtered`, `total_pages`. |
 | Branch groups picker | `GET /group/list?page=1&limit=200` (active only) |
 | Sync firm groups | `POST /group/group-firms/set-firm-groups` `{ firm_id, group_ids: [group_id, …] }` — adds missing + soft-deletes removed |
 | Add | `POST /group/group-firms/add-firms` `{ group_id, firm_ids: [firm_id] }` |
