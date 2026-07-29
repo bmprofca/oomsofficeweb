@@ -63,3 +63,5 @@ Supports either `clients` array or legacy single `client` prop.
 - Open reminder for `balance <= 0`
 - Use `isAll: true` for group-firms bulk reminder (that would remind the whole branch)
 - Re-add old inline / confirm email-only reminder modals on client list or debtors
+
+Related: birthday wishes use the same modal/availability pattern — see [`birthday-reminder.md`](./birthday-reminder.md).

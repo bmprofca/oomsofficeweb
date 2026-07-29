@@ -1819,17 +1819,21 @@ const QuickStatsDetailsPage = () => {
                                             <h1 className="text-base md:text-lg font-bold text-gray-800 m-0 leading-tight truncate">
                                                 {getPageTitle()}
                                             </h1>
-                                            <p className="text-gray-500 text-xs m-0 mt-0.5">
-                                                {getPageDescription()}
-                                            </p>
-                                            {pagination.total > 0 ? (
-                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                    <span
-                                                        className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${accent.countBadge}`}
-                                                    >
-                                                        Total: {formatNumber(pagination.total)}
-                                                    </span>
-                                                </div>
+                                            {!isBirthday ? (
+                                                <>
+                                                    <p className="text-gray-500 text-xs m-0 mt-0.5">
+                                                        {getPageDescription()}
+                                                    </p>
+                                                    {pagination.total > 0 ? (
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                            <span
+                                                                className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${accent.countBadge}`}
+                                                            >
+                                                                Total: {formatNumber(pagination.total)}
+                                                            </span>
+                                                        </div>
+                                                    ) : null}
+                                                </>
                                             ) : null}
                                         </div>
                                     </div>
