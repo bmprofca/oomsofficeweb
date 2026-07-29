@@ -76,7 +76,7 @@ const BonusFineTab = ({ bonusFine, setBonusFine, variants }) => {
         
         setLoading(true);
         try {
-            let url = `${API_BASE_URL}/attendance/admin/adjustments?username=${username}`;
+            let url = `${API_BASE_URL}/salary/admin/adjustments?username=${username}`;
             if (filterType !== 'all') {
                 url += `&adjustment_type=${filterType}`;
             }
@@ -194,7 +194,7 @@ const BonusFineTab = ({ bonusFine, setBonusFine, variants }) => {
                 payload.is_recurring = formData.is_recurring;
             }
             
-            const url = `${API_BASE_URL}/attendance/admin/add-adjustment`;
+            const url = `${API_BASE_URL}/salary/admin/add-adjustment`;
             const method = 'POST';
             
             const response = await fetch(url, {
@@ -231,7 +231,7 @@ const BonusFineTab = ({ bonusFine, setBonusFine, variants }) => {
         }
         
         try {
-            const response = await fetch(`${API_BASE_URL}/attendance/admin/delete-adjustment/${id}`, {
+            const response = await fetch(`${API_BASE_URL}/salary/admin/delete-adjustment/${id}`, {
                 method: 'DELETE',
                 headers: getHeaders()
             });

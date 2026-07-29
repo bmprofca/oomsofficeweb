@@ -7,7 +7,7 @@ import {
   FiPlus, FiBell, FiUser, FiSettings, FiHelpCircle,
   FiLogOut, FiPieChart, FiMessageSquare, FiUsers, FiRepeat,
   FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiSearch, FiPhone,
-  FiLogIn, FiLogOut as FiLogOutIcon, FiClock
+  FiClock,
 } from 'react-icons/fi';
 import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
@@ -18,7 +18,7 @@ import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';
 import CreateBranch from './Modals/CreateBranch';
 import SwitchBranchModal from './Modals/SwitchBranchModal';
-import AttendancePunchSuccessModal from './Modals/AttendancePunchSuccessModal';
+import AttendanceModal from './Modals/AttendanceModal';
 import { useSubscription } from '../hooks/useSubscription';
 import { loadUserProfileFromStorage } from '../utils/user-profile-storage';
 import { getStoredBranchRoleLabel } from '../services/branchSetupService';
@@ -369,22 +369,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const notificationsTriggerRef = useRef(null);
   const notificationsPanelRef = useRef(null);
   const [profilePanelStyle, setProfilePanelStyle] = useState({ top: 0, right: 0 });
-  const [attendanceStatus, setAttendanceStatus] = useState({
-    is_staff: false,
-    can_punch_in: false,
-    can_punch_out: false,
-    today: null,
-  });
-  const [attendanceLoading, setAttendanceLoading] = useState(false);
-  const [punchActionLoading, setPunchActionLoading] = useState(null);
-  const [punchSuccessModal, setPunchSuccessModal] = useState({
-    isOpen: false,
-    type: 'punch-in',
-    message: '',
-    punchInTime: null,
-    punchOutTime: null,
-    totalHours: null,
-  });
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
 
   const navigate = useNavigate();
   const [walletBalance, setWalletBalance] = useState(0);
@@ -479,137 +464,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     return 'U';
   };
 
-  const getLoggedInUsername = () =>
-    localStorage.getItem('user_username') || localStorage.getItem('username') || '';
-
-  const loadTodayAttendanceStatus = useCallback(async (options = {}) => {
-    const { silent = false } = options;
-    const headers = getHeaders();
-    if (!headers?.username && !headers?.token) return;
-
-    if (!silent) setAttendanceLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/attendance/today-status`, { headers });
-      const result = await res.json();
-      if (result.success && result.data) {
-        setAttendanceStatus({
-          is_staff: !!result.data.is_staff,
-          can_punch_in: !!result.data.can_punch_in,
-          can_punch_out: !!result.data.can_punch_out,
-          today: result.data.today || null,
-        });
-      } else {
-        setAttendanceStatus({
-          is_staff: false,
-          can_punch_in: false,
-          can_punch_out: false,
-          today: null,
-        });
-      }
-    } catch (error) {
-      console.error('Failed to load attendance status', error);
-    } finally {
-      if (!silent) setAttendanceLoading(false);
-    }
-  }, []);
-
-  const runPunchAction = useCallback(async (action) => {
-    const username = getLoggedInUsername();
-    if (!username) {
-      toast.error('Unable to identify logged-in user');
-      return;
-    }
-
-    const headers = getHeaders();
-    if (!headers) {
-      toast.error('Session expired. Please sign in again.');
-      return;
-    }
-
-    const submitPunch = async (latitude = null, longitude = null) => {
-      setPunchActionLoading(action);
-      try {
-        const res = await fetch(`${API_BASE_URL}/attendance/${action}`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ username, latitude, longitude }),
-        });
-        const result = await res.json();
-        if (!res.ok || !result.success) {
-          throw new Error(result.message || `Failed to ${action.replace('-', ' ')}`);
-        }
-
-        if (action === 'punch-in') {
-          const punchInTime = result.data?.punch_in_time || new Date().toISOString();
-          setAttendanceStatus((prev) => ({
-            ...prev,
-            can_punch_in: false,
-            can_punch_out: true,
-            today: {
-              ...(prev.today || {}),
-              punch_in_time: punchInTime,
-              punch_out_time: null,
-            },
-          }));
-          setProfileDropdownOpen(false);
-          setPunchSuccessModal({
-            isOpen: true,
-            type: 'punch-in',
-            message: result.message || 'Punch in recorded successfully.',
-            punchInTime,
-            punchOutTime: null,
-            totalHours: null,
-          });
-        } else {
-          const punchInTime = result.data?.punch_in || result.data?.punch_in_time || attendanceStatus.today?.punch_in_time;
-          const punchOutTime = result.data?.punch_out || result.data?.punch_out_time || new Date().toISOString();
-          setAttendanceStatus((prev) => ({
-            ...prev,
-            can_punch_in: false,
-            can_punch_out: false,
-            today: {
-              ...(prev.today || {}),
-              punch_in_time: punchInTime,
-              punch_out_time: punchOutTime,
-            },
-          }));
-          setProfileDropdownOpen(false);
-          setPunchSuccessModal({
-            isOpen: true,
-            type: 'punch-out',
-            message: result.message || 'Punch out recorded successfully.',
-            punchInTime,
-            punchOutTime,
-            totalHours: result.data?.total_hours ?? null,
-          });
-        }
-
-        await loadTodayAttendanceStatus({ silent: true });
-      } catch (error) {
-        toast.error(error.message || `Failed to ${action.replace('-', ' ')}`);
-      } finally {
-        setPunchActionLoading(null);
-      }
-    };
-
-    if (!navigator.geolocation) {
-      await submitPunch();
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => submitPunch(position.coords.latitude, position.coords.longitude),
-      () => submitPunch(),
-      { timeout: 10000, maximumAge: 60000 },
-    );
-  }, [loadTodayAttendanceStatus, attendanceStatus.today?.punch_in_time]);
-
-  useEffect(() => {
-    if (!profileDropdownOpen) return undefined;
-    loadTodayAttendanceStatus();
-    return undefined;
-  }, [profileDropdownOpen, loadTodayAttendanceStatus]);
-
   const profileItems = [
     { title: 'My Profile', icon: FiUser, path: '/my-profile' },
     { title: 'Settings', icon: FiSettings, path: '/settings' },
@@ -617,26 +471,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   ];
 
   const branchLabel = selectedProjectName || selectedCompany?.name || 'Select Branch';
-
-  const attendanceButtonState = useMemo(() => {
-    if (!attendanceStatus.is_staff) {
-      return { canPunchIn: false, canPunchOut: false, hasOpenPunch: false, isDayComplete: false };
-    }
-
-    const hasOpenPunch = Boolean(
-      attendanceStatus.today?.punch_in_time && !attendanceStatus.today?.punch_out_time,
-    );
-    const isDayComplete = Boolean(
-      attendanceStatus.today?.punch_in_time && attendanceStatus.today?.punch_out_time,
-    );
-
-    return {
-      canPunchIn: !hasOpenPunch && !isDayComplete && attendanceStatus.can_punch_in,
-      canPunchOut: hasOpenPunch || attendanceStatus.can_punch_out,
-      hasOpenPunch,
-      isDayComplete,
-    };
-  }, [attendanceStatus]);
 
   const updateProfilePanelPosition = useCallback(() => {
     if (!profileTriggerRef.current) return;
@@ -871,6 +705,19 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                     <div className="p-2">
                       <button
                         type="button"
+                        role="menuitem"
+                        className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          setAttendanceModalOpen(true);
+                        }}
+                      >
+                        <FiClock className="h-4 w-4 shrink-0 text-teal-500" />
+                        Attendance
+                      </button>
+
+                      <button
+                        type="button"
                         className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700 md:hidden"
                         onClick={() => {
                           setProfileDropdownOpen(false);
@@ -901,49 +748,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                           </NavLink>
                         );
                       })}
-
-                      {attendanceStatus.is_staff ? (
-                        <div className="mt-2 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5">
-                          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            <FiClock className="h-3.5 w-3.5" />
-                            Attendance
-                          </div>
-                          {attendanceLoading ? (
-                            <p className="px-1 py-1 text-xs text-slate-500">Loading status...</p>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                type="button"
-                                disabled={!attendanceButtonState.canPunchIn || punchActionLoading !== null}
-                                onClick={() => runPunchAction('punch-in')}
-                                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <FiLogIn className="h-3.5 w-3.5" />
-                                {punchActionLoading === 'punch-in' ? 'Punching in...' : 'Punch In'}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={!attendanceButtonState.canPunchOut || punchActionLoading !== null}
-                                onClick={() => runPunchAction('punch-out')}
-                                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-2.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <FiLogOutIcon className="h-3.5 w-3.5" />
-                                {punchActionLoading === 'punch-out' ? 'Punching out...' : 'Punch Out'}
-                              </button>
-                            </div>
-                          )}
-                          {attendanceButtonState.hasOpenPunch && !attendanceLoading ? (
-                            <p className="mt-2 px-1 text-[11px] leading-snug text-slate-500">
-                              You are punched in for today.
-                            </p>
-                          ) : null}
-                          {attendanceButtonState.isDayComplete && !attendanceLoading ? (
-                            <p className="mt-2 px-1 text-[11px] leading-snug text-slate-500">
-                              Attendance completed for today.
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
                     </div>
 
                     <div className="border-t border-slate-100 p-2">
@@ -976,6 +780,13 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         }}
       />
 
+      <AttendanceModal
+        isOpen={attendanceModalOpen}
+        onClose={() => setAttendanceModalOpen(false)}
+        branchName={branchLabel}
+        branchId={selectedCompany?.branch_id || localStorage.getItem('branch_id') || ''}
+      />
+
       <CreateBranch
         isOpen={branchSetupOpen}
         onClose={() => setBranchSetupOpen(false)}
@@ -988,19 +799,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
           });
           setBranchSetupOpen(false);
         }}
-      />
-
-      <AttendancePunchSuccessModal
-        isOpen={punchSuccessModal.isOpen}
-        onClose={() => {
-          setPunchSuccessModal((prev) => ({ ...prev, isOpen: false }));
-          loadTodayAttendanceStatus({ silent: true });
-        }}
-        type={punchSuccessModal.type}
-        message={punchSuccessModal.message}
-        punchInTime={punchSuccessModal.punchInTime}
-        punchOutTime={punchSuccessModal.punchOutTime}
-        totalHours={punchSuccessModal.totalHours}
       />
 
       <BranchSwitchOverlay />
@@ -1145,7 +943,6 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         submenus: [
           { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
           { title: 'Team Report', path: '/staff/team-report', permission: 'staff_report' },
-          { title: 'Attendance', path: '/staff/attendance', permission: 'staff_attendance', subscriptionFeature: 'attendance-management' },
           { title: 'Assistance', path: '/staff/office-assistance', permission: 'office_assistance_' }
         ]
       },

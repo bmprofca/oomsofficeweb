@@ -137,7 +137,7 @@ export const fetchUserPermissions = async (force = false) => {
                         'broadcast_livechat',
                         'setting_view_edit',
                         'subscription_manage',
-                        'staff_attendance_view_manage',
+                        'staff_view_manage',
                         'office_assistance_access',
                         'recurring_task_create',
                         'recurring_task_delete',
@@ -293,7 +293,10 @@ export const useUserPermissions = () => {
             return permissions.some(p => ['task_create', 'task_complete', 'task_cancel'].includes(p));
         }
         if (keyOrPrefix === 'staff_view' || keyOrPrefix === 'staff_report') {
-            if (permissions.includes('staff_attendance_view_manage')) {
+            if (
+                permissions.includes('staff_view_manage') ||
+                permissions.includes('staff_attendance_view_manage')
+            ) {
                 return true;
             }
             resolvedKey = 'setting_view_edit';
@@ -301,11 +304,18 @@ export const useUserPermissions = () => {
         if (keyOrPrefix === 'setting_') {
             resolvedKey = 'setting_view_edit';
         }
-        if (keyOrPrefix === 'staff_attendance') {
-            resolvedKey = 'staff_attendance_view_manage';
+        if (keyOrPrefix === 'staff_attendance' || keyOrPrefix === 'staff_view_manage') {
+            resolvedKey = permissions.includes('staff_view_manage')
+                ? 'staff_view_manage'
+                : permissions.includes('staff_attendance_view_manage')
+                    ? 'staff_attendance_view_manage'
+                    : 'staff_view_manage';
         }
         if (keyOrPrefix === 'office_assistance_') {
-            if (permissions.includes('staff_attendance_view_manage')) {
+            if (
+                permissions.includes('staff_view_manage') ||
+                permissions.includes('staff_attendance_view_manage')
+            ) {
                 return true;
             }
             resolvedKey = 'office_assistance_access';
@@ -393,7 +403,10 @@ export const checkPermissionSync = (keyOrPrefix) => {
         return permissions.some(p => ['task_create', 'task_complete', 'task_cancel'].includes(p));
     }
     if (keyOrPrefix === 'staff_view' || keyOrPrefix === 'staff_report') {
-        if (permissions.includes('staff_attendance_view_manage')) {
+        if (
+            permissions.includes('staff_view_manage') ||
+            permissions.includes('staff_attendance_view_manage')
+        ) {
             return true;
         }
         resolvedKey = 'setting_view_edit';
@@ -401,11 +414,18 @@ export const checkPermissionSync = (keyOrPrefix) => {
     if (keyOrPrefix === 'setting_') {
         resolvedKey = 'setting_view_edit';
     }
-    if (keyOrPrefix === 'staff_attendance') {
-        resolvedKey = 'staff_attendance_view_manage';
+    if (keyOrPrefix === 'staff_attendance' || keyOrPrefix === 'staff_view_manage') {
+        resolvedKey = permissions.includes('staff_view_manage')
+            ? 'staff_view_manage'
+            : permissions.includes('staff_attendance_view_manage')
+                ? 'staff_attendance_view_manage'
+                : 'staff_view_manage';
     }
     if (keyOrPrefix === 'office_assistance_') {
-        if (permissions.includes('staff_attendance_view_manage')) {
+        if (
+            permissions.includes('staff_view_manage') ||
+            permissions.includes('staff_attendance_view_manage')
+        ) {
             return true;
         }
         resolvedKey = 'office_assistance_access';

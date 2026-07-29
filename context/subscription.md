@@ -62,7 +62,7 @@ else if (!hasAccess(level)) → SubscriptionBlockedScreen  // Refresh access but
 else → children
 ```
 
-Feature levels: `core`, `salary-management`, `attendance-management`, `live-chat`.
+Feature levels: `core`, `salary-management`, `live-chat`.
 
 ---
 

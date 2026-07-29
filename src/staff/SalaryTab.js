@@ -60,7 +60,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
         try {
             setLoadingWeeklyOff(true);
             const response = await fetch(
-                `${API_BASE_URL}/attendance/admin/get-weekly-off?username=${username}`,
+                `${API_BASE_URL}/salary/admin/get-weekly-off?username=${username}`,
                 {
                     method: 'GET',
                     headers: getHeaders()
@@ -88,7 +88,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
             setLoading(true);
             setError(null);
             const response = await fetch(
-                `${API_BASE_URL}/attendance/admin/salary-history?username=${username}`,
+                `${API_BASE_URL}/salary/admin/salary-history?username=${username}`,
                 {
                     method: 'GET',
                     headers: getHeaders()
@@ -219,7 +219,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
             };
             
             const response = await fetch(
-                `${API_BASE_URL}/attendance/admin/set-salary`,
+                `${API_BASE_URL}/salary/admin/set-salary`,
                 {
                     method: 'POST',
                     headers: getHeaders(),
@@ -336,7 +336,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
 
         try {
             const response = await fetch(
-                `${API_BASE_URL}/attendance/admin/set-weekly-off`,
+                `${API_BASE_URL}/salary/admin/set-weekly-off`,
                 {
                     method: 'POST',
                     headers: getHeaders(),

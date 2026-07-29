@@ -32,7 +32,6 @@ const EMPTY_SUBSCRIPTION = {
     features: {
         core: false,
         'salary-management': false,
-        'attendance-management': false,
         'live-chat': false,
     },
 };
@@ -391,9 +390,6 @@ export const useSubscription = () => {
             return isSub;
         }
         if (feature === 'salary-management') {
-            return activeNames.includes('BusinessPlus') || activeNames.includes('BusinessPro');
-        }
-        if (feature === 'attendance-management') {
             return activeNames.includes('BusinessPlus') || activeNames.includes('BusinessPro');
         }
         if (feature === 'live-chat') {

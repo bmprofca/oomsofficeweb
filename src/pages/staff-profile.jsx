@@ -4,7 +4,6 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sidebar, Header } from '../components/header';
 import {
     FiUser,
-    FiClock,
     FiDollarSign,
     FiAward,
     FiBriefcase,
@@ -18,27 +17,23 @@ import {
     FiHome,
     FiChevronRight,
     FiRefreshCw,
-    FiX,
     FiStar,
     FiMaximize2,
     FiMinimize2,
     FiAlertCircle,
-    FiCheckSquare,
-    FiCoffee // Added for break icon
+    FiCheckSquare
 } from 'react-icons/fi';
 import  API_BASE_URL  from '../utils/api-controller';
 import  getHeaders  from '../utils/get-headers';
 import { useSubscription } from '../hooks/useSubscription';
 // Import tab components
 import ProfileTab from '../staff/ProfileTab';
-import AttendanceTab from '../staff/AttendanceTab';
 import ExpenseTab from '../staff/ExpenseTab';
 import BonusFineTab from '../staff/BonusFineTab';
 import SalaryTab from '../staff/SalaryTab';
 import LedgerTab from '../staff/LedgerTab';
 import LoanTab from '../staff/LoanTab';
 import PerformanceTab from '../staff/PerformanceTab';
-import EntryReportTab from '../staff/EntryReportTab';
 import TaskTab from '../staff/StaffTaskTab';
 import StaffPayslip from '../staff/StaffPayslip';
 
@@ -87,128 +82,14 @@ const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => {
     );
 };
 
-// Break Status Popup Component
-const BreakStatusPopup = ({ isOpen, onClose, breakStartTime, onBreakEnd, staffName }) => {
-    const [elapsedTime, setElapsedTime] = useState('00:00:00');
-
-    useEffect(() => {
-        if (!isOpen || !breakStartTime) return;
-
-        const breakStartDate = new Date(breakStartTime);
-        
-        const updateElapsedTime = () => {
-            const now = new Date();
-            const diff = Math.floor((now - breakStartDate) / 1000); // Difference in seconds
-            
-            const hours = Math.floor(diff / 3600);
-            const minutes = Math.floor((diff % 3600) / 60);
-            const seconds = diff % 60;
-            
-            setElapsedTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-        };
-
-        updateElapsedTime(); // Initial update
-        const interval = setInterval(updateElapsedTime, 1000);
-
-        return () => clearInterval(interval);
-    }, [isOpen, breakStartTime]);
-
-    if (!isOpen) return null;
-
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-            onClick={onClose}
-        >
-            <motion.div
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.9, y: 20 }}
-                className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-                            <FiCoffee className="w-6 h-6 text-amber-600" />
-                        </div>
-                        <h2 className="text-xl font-bold text-gray-900">On Break</h2>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                        <FiX className="w-5 h-5 text-gray-500" />
-                    </button>
-                </div>
-
-                <div className="space-y-4">
-                    <p className="text-gray-700">
-                        <span className="font-semibold">{staffName || 'Staff member'}</span> is currently on break.
-                    </p>
-                    
-                    <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                        <p className="text-sm font-medium text-amber-800 mb-2">Break Details</p>
-                        <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Started at:</span>
-                                <span className="font-medium text-gray-900">
-                                    {new Date(breakStartTime).toLocaleTimeString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Duration:</span>
-                                <span className="font-mono font-medium text-amber-700">{elapsedTime}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Date:</span>
-                                <span className="font-medium text-gray-900">
-                                    {new Date(breakStartTime).toLocaleDateString()}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                        <p className="text-sm text-blue-800 flex items-start gap-2">
-                            <FiAlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <span>Actions are restricted while on break. Please end the break before performing any operations.</span>
-                        </p>
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                        <button
-                            onClick={onBreakEnd}
-                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-                        >
-                            End Break
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
-            </motion.div>
-        </motion.div>
-    );
-};
-
 const STAFF_PROFILE_TABS = [
     'profile',
-    'attendance',
     'expense',
     'bonus-fine',
     'salary',
     'ledger',
     'loan',
     'performance',
-    'entry-report',
     'task',
     'payslip',
 ];
@@ -229,7 +110,7 @@ const StaffProfile = () => {
         const saved = localStorage.getItem('staffTabsMinimized');
         return saved ? JSON.parse(saved) : true;
     });
-    const [activeTab, setActiveTab] = useState(tab || 'profile');
+    const [activeTab, setActiveTab] = useState(STAFF_PROFILE_TABS.includes(tab) ? tab : 'profile');
     const [showSettings, setShowSettings] = useState(false);
     const [isMobileView, setIsMobileView] = useState(false);
 
@@ -237,13 +118,6 @@ const StaffProfile = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isAccepted, setIsAccepted] = useState(false);
-
-    // Break status states
-    const [showBreakPopup, setShowBreakPopup] = useState(false);
-    const [breakStatus, setBreakStatus] = useState({
-        onBreak: false,
-        breakStartTime: null
-    });
 
     // Staff data state
     const [staffData, setStaffData] = useState({
@@ -268,21 +142,6 @@ const StaffProfile = () => {
     });
 
     // Sample data for tabs
-    const [attendance, setAttendance] = useState({
-        month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        summary: {
-            totalDays: 0,
-            notMarked: 0,
-            present: 0,
-            absent: 0,
-            halfDay: 0,
-            overTime: "00 H : 00 M",
-            fineHours: "00 H : 00 M",
-            paidLeave: 0
-        },
-        calendar: []
-    });
-
     const [expenses, setExpenses] = useState([]);
     const [bonusFine, setBonusFine] = useState([]);
     const [salary, setSalary] = useState({ list: [] });
@@ -306,10 +165,6 @@ const StaffProfile = () => {
         period: "",
         services: [],
         tasks: []
-    });
-    const [entryReport, setEntryReport] = useState({
-        month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        entries: []
     });
     const [tasks, setTasks] = useState([]);
 
@@ -340,10 +195,15 @@ const StaffProfile = () => {
 
     // Update active tab when URL changes
     useEffect(() => {
-        if (tab && STAFF_PROFILE_TABS.includes(tab)) {
+        if (!tab) return;
+        if (STAFF_PROFILE_TABS.includes(tab)) {
             setActiveTab(tab);
+        } else if (username) {
+            // Unknown/removed tab (e.g. legacy 'attendance' or 'entry-report' links) — fall back to profile
+            setActiveTab('profile');
+            navigate(`/staff/view/profile/${encodeURIComponent(username)}/profile`, { replace: true });
         }
-    }, [tab]);
+    }, [tab, username, navigate]);
 
     // Default tab when only username is in the path
     useEffect(() => {
@@ -377,99 +237,8 @@ const StaffProfile = () => {
     useEffect(() => {
         if (username && !STAFF_PROFILE_TABS.includes(username)) {
             fetchStaffProfile();
-            fetchBreakStatus();
         }
     }, [username]);
-
-    // Function to fetch break status
-    const fetchBreakStatus = async () => {
-        if (!username) return;
-
-        try {
-            const headers = await getHeaders();
-            if (!headers) {
-                console.error('Authentication failed');
-                return;
-            }
-
-            console.log(`Fetching break status for username: ${username}`);
-            
-            const response = await fetch(
-                `${API_BASE_URL}/attendance/break/status?username=${username}`,
-                {
-                    method: 'GET',
-                    headers: headers
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch break status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('Break status response:', data);
-
-            if (data.success) {
-                setBreakStatus({
-                    onBreak: data.onBreak,
-                    breakStartTime: data.breakStartTime || null
-                });
-
-                // Show popup if staff is on break
-                if (data.onBreak && data.onBreak === true) {
-                    setShowBreakPopup(true);
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching break status:', error);
-        }
-    };
-
-   // Function to handle ending the break
-const handleEndBreak = async () => {
-    try {
-        const headers = await getHeaders();
-        if (!headers) {
-            throw new Error('Authentication failed');
-        }
-
-        // Call API to end break - passing username in body
-        const response = await fetch(
-            `${API_BASE_URL}/attendance/break/end`,
-            {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username: username }) // Pass username in body
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error('Failed to end break');
-        }
-
-        const data = await response.json();
-        
-        if (data.success) {
-            // Update break status
-            setBreakStatus({
-                onBreak: false,
-                breakStartTime: null
-            });
-            setShowBreakPopup(false);
-            
-            // Optional: Show success message
-            console.log('Break ended successfully');
-        } else {
-            throw new Error(data.message || 'Failed to end break');
-        }
-    } catch (error) {
-        console.error('Error ending break:', error);
-        alert('Failed to end break. Please try again.');
-    }
-};
 
     // Function to fetch staff profile from API
     const fetchStaffProfile = async () => {
@@ -571,14 +340,12 @@ const handleEndBreak = async () => {
                 setStaffData(transformedData);
                 console.log('Transformed staff data:', transformedData);
 
-                fetchAttendanceData();
                 fetchExpensesData();
                 fetchBonusFineData();
                 fetchSalaryData();
                 fetchLedgerData();
                 fetchLoanData();
                 fetchPerformanceData();
-                fetchEntryReportData();
                 fetchTasksData();
 
             } else {
@@ -604,33 +371,8 @@ const handleEndBreak = async () => {
             return '';
         }
     };
-    
-    // Function to generate calendar data for attendance
-    const generateCalendarData = () => {
-        const days = [];
-        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-        for (let i = 1; i <= daysInMonth; i++) {
-            days.push({
-                date: i,
-                day: new Date(new Date().getFullYear(), new Date().getMonth(), i).toLocaleDateString('en-US', { weekday: 'short' }),
-                status: null
-            });
-        }
-        return days;
-    };
 
     // API calls for other tabs
-    const fetchAttendanceData = async () => {
-        try {
-            setAttendance(prev => ({
-                ...prev,
-                calendar: generateCalendarData()
-            }));
-        } catch (error) {
-            console.error('Error fetching attendance:', error);
-        }
-    };
-
     const fetchExpensesData = async () => {
         setExpenses([]);
     };
@@ -682,13 +424,6 @@ const handleEndBreak = async () => {
             period: `${startDate} - ${formatDate(endDate)}`,
             services: [],
             tasks: generateTaskData()
-        });
-    };
-
-    const fetchEntryReportData = async () => {
-        setEntryReport({
-            month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-            entries: []
         });
     };
 
@@ -747,14 +482,12 @@ const handleEndBreak = async () => {
 
     const profileTabs = [
         { id: 'profile', name: 'Profile', icon: FiUser },
-        { id: 'attendance', name: 'Attendance', icon: FiClock, subscriptionFeature: 'attendance-management' },
         { id: 'expense', name: 'Expense', icon: FiDollarSign },
         { id: 'bonus-fine', name: 'Bonus/Fine', icon: FiAward },
         { id: 'salary', name: 'Salary', icon: FiBriefcase, subscriptionFeature: 'salary-management' },
         { id: 'ledger', name: 'Ledger', icon: FiBookOpen },
         { id: 'loan', name: 'Loan', icon: FiDollarSign },
         { id: 'performance', name: 'Performance', icon: FiTrendingUp },
-        { id: 'entry-report', name: 'Entry Report', icon: FiFileText },
         { id: 'task', name: 'Task', icon: FiCheckSquare },
         { id: 'payslip', name: 'Payslip', icon: FiFileText, subscriptionFeature: 'salary-management' },
     ];
@@ -785,7 +518,6 @@ const handleEndBreak = async () => {
     const handleRefresh = () => {
         if (username) {
             fetchStaffProfile();
-            fetchBreakStatus(); // Also refresh break status
         }
     };
 
@@ -804,15 +536,12 @@ const handleEndBreak = async () => {
             variants: tabContentVariants,
             staffData,
             username,
-            isAccepted,
-            isOnBreak: breakStatus.onBreak // Pass break status to tabs
+            isAccepted
         };
 
         switch (activeTab) {
             case 'profile':
                 return <ProfileTab key="profile" staffData={staffData} setStaffData={setStaffData} username={username} {...props} />;
-            case 'attendance':
-                return <AttendanceTab key="attendance" attendance={attendance} setAttendance={setAttendance} username={username} {...props} />;
             case 'expense':
                 return <ExpenseTab key="expense" expenses={expenses} setExpenses={setExpenses} username={username} staffUsername={username}     {...props} />;
             case 'bonus-fine':
@@ -825,8 +554,6 @@ const handleEndBreak = async () => {
                 return <LoanTab key="loan" loan={loan} setLoan={setLoan} username={username} {...props} />;
             case 'performance':
                 return <PerformanceTab key="performance" performance={performance} setPerformance={setPerformance} staffUsername={username} {...props} />;
-            case 'entry-report':
-                return <EntryReportTab key="entry-report" entryReport={entryReport} setEntryReport={setEntryReport} username={username} {...props} />;
             case 'task':
                 return <TaskTab key="task" tasks={tasks} setTasks={setTasks} username={username} {...props} />;
             case 'payslip':
@@ -970,15 +697,6 @@ const handleEndBreak = async () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            {/* Break Status Popup */}
-            <BreakStatusPopup
-                isOpen={showBreakPopup}
-                onClose={() => setShowBreakPopup(false)}
-                breakStartTime={breakStatus.breakStartTime}
-                onBreakEnd={handleEndBreak}
-                staffName={staffData.fullName}
-            />
-
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="w-full px-2 sm:px-4 md:px-8 py-4 md:py-6">
@@ -1001,22 +719,10 @@ const handleEndBreak = async () => {
                             <FiChevronRight className="w-4 h-4" />
                             <span className="capitalize">{activeTab.replace('-', ' ')}</span>
 
-                            {/* Break Status Indicator */}
-                            {breakStatus.onBreak && (
-                                <motion.div
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-amber-100 rounded-lg"
-                                >
-                                    <FiCoffee className="w-4 h-4 text-amber-600" />
-                                    <span className="text-sm font-medium text-amber-700">On Break</span>
-                                </motion.div>
-                            )}
-
                             {/* Refresh button */}
                             <motion.button
                                 onClick={handleRefresh}
-                                className="ml-2 p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="ml-auto p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 whileHover={{ rotate: 180 }}
                                 transition={{ duration: 0.3 }}
                                 title="Refresh data"
@@ -1045,11 +751,6 @@ const handleEndBreak = async () => {
                                             </div>
                                             {isAccepted && (
                                                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-2 border-white"></div>
-                                            )}
-                                            {breakStatus.onBreak && (
-                                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-amber-500 rounded-full border-2 border-white flex items-center justify-center">
-                                                    <FiCoffee className="w-3 h-3 text-white" />
-                                                </div>
                                             )}
                                         </motion.div>
                                         <div className="flex-1 min-w-0">

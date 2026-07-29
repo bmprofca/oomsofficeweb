@@ -1679,10 +1679,6 @@ const ViewStaff = () => {
                                                     <div className="p-1 bg-indigo-50 rounded mr-2"><FiUser className="w-3 h-3 text-indigo-500" /></div>
                                                     <div className="font-medium text-left">Profile</div>
                                                 </Link>
-                                                <Link to={`/staff/view/profile/${activeMember.username}/attendance`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
-                                                    <div className="p-1 bg-blue-50 rounded mr-2"><FiUserCheck className="w-3 h-3 text-blue-500" /></div>
-                                                    <div className="font-medium text-left">Attendance</div>
-                                                </Link>
                                                 <Link to={`/staff/view/profile/${activeMember.username}/ledger`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
                                                     <div className="p-1 bg-blue-50 rounded mr-2"><FiCreditCard className="w-3 h-3 text-blue-600" /></div>
                                                     <div className="font-medium text-left">Ledger</div>

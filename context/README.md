@@ -17,6 +17,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`gst-change.md`](./gst-change.md) | GST rates, fees payloads, display-only tax |
 | [`settings-branch.md`](./settings-branch.md) | Branch Settings tabs (Details, Logo, Sign, Invoice, **GST Config**) |
 | [`account-profile.md`](./account-profile.md) | My Profile page, `/account` APIs, contact OTP, `getAccountHeaders` |
+| [`attendance.md`](./attendance.md) | Attendance modal, header entry, swipe-to-confirm, today-status timeline |
 | [`auth-and-api.md`](./auth-and-api.md) | `getHeaders` vs `getAccountHeaders`, base URL |
 | [`search-input-icon.md`](./search-input-icon.md) | Search input placeholder/text overlapping leading `FiSearch` icon |
 | [`action-button.md`](./action-button.md) | ⋮ action buttons, dropdown menus, viewport-safe floating panels |
@@ -36,7 +37,8 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 - `task-components.md` - Notes/SubTask/Staff/Details tab reference
 - `task-create.md` - Task create flow
 - `datepicker.md` - PortalDatePicker / DateRangePickerField
-- `modal.md` - Viewport-safe modal pattern
+- `modal.md` - Viewport-safe modal pattern (+ AttendanceModal pointer)
+- `attendance.md` - Attendance modal / swipe confirm / header entry
 - `typography.md` / `ui-patterns.md` / component notes (`checkbox`, `action-button`, etc.)
 
 ## Pair with server
@@ -51,6 +53,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | `task-list-display.md` | `SERVER/context/task-list.md` |
 | `gst-change.md` | `SERVER/context/gst-change.md` |
 | `account-profile.md` | `SERVER/context/account-profile.md` |
+| `attendance.md` | `SERVER/context/attendance.md` |
 | `settings-branch.md` | `SERVER/routes/settings.js` + GST / branch docs |
 | `layout.md` | — (client-only) |
 

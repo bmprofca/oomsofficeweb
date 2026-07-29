@@ -6,7 +6,6 @@ import {
   FiUserPlus,
   FiCheckCircle,
   FiTrendingUp,
-  FiUserCheck,
   FiPlus,
   FiMove,
   FiAlertCircle,
@@ -25,7 +24,6 @@ const CARD_ICONS = {
   "active-client": FiCheckCircle,
   "net-profit": FiTrendingUp,
   "total-staff": FiUsers,
-  "present-today": FiUserCheck,
   "task-create-today": FiPlus,
   "task-complete-today": FiCheckCircle,
   "total-ca": FiBriefcase,
@@ -50,9 +48,6 @@ const CARD_META = {
   },
   "total-staff": {
     gradient: "linear-gradient(135deg, #ef4444 0%, #e11d48 100%)",
-  },
-  "present-today": {
-    gradient: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
   },
   "task-create-today": {
     gradient: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
@@ -105,12 +100,6 @@ const DEFAULT_CARDS = [
     title: "Total Staff",
     value: "total_staff",
     link: "/staff/view",
-  },
-  {
-    id: "present-today",
-    title: "Present Today",
-    value: "present_today",
-    link: "/staff/attendance",
   },
   {
     id: "task-create-today",

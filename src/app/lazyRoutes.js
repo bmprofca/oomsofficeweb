@@ -28,7 +28,6 @@ export const ExpenseItemsPage = lazy(() => import('../pages/expense-items'));
 export const ViewStaff = lazy(() => import('../pages/staff-display'));
 export const ViewStaffProfile = lazy(() => import('../pages/staff-profile'));
 export const StaffReport = lazy(() => import('../pages/staff-report'));
-export const ManageAttendance = lazy(() => import('../pages/staff-attendance'));
 export const OfficeAssistance = lazy(() => import('../pages/office-assistance'));
 export const ViewDSCRegister = lazy(() => import('../pages/office-assistance/dsc-report'));
 export const ViewFileIndex = lazy(() => import('../pages/office-assistance/file-index'));

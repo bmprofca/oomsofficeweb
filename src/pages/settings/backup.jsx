@@ -73,8 +73,8 @@ const SECTION_INFO = {
         dot: 'bg-rose-500',
     },
     staff_management: {
-        title: 'Staff & Attendance',
-        description: 'Active staff mapping list and daily attendance logs',
+        title: 'Staff',
+        description: 'Active staff mapping list',
         icon: FiUserCheck,
         card: 'border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50',
         badge: 'bg-teal-100 text-teal-700',

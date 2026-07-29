@@ -97,7 +97,7 @@ const StaffPayslip = ({ username, variants }) => {
                     
                     try {
                         const response = await fetch(
-                            `${API_BASE_URL}/attendance/generate-payslip`,
+                            `${API_BASE_URL}/salary/generate-payslip`,
                             {
                                 method: 'POST',
                                 headers: getHeaders(),
@@ -205,7 +205,7 @@ const StaffPayslip = ({ username, variants }) => {
         
         try {
             const response = await fetch(
-                `${API_BASE_URL}/attendance/generate-payslip`,
+                `${API_BASE_URL}/salary/generate-payslip`,
                 {
                     method: 'POST',
                     headers: getHeaders(),
@@ -267,7 +267,7 @@ const StaffPayslip = ({ username, variants }) => {
         
         try {
             const response = await fetch(
-                `${API_BASE_URL}/attendance/detailed-payslip-pdf`,
+                `${API_BASE_URL}/salary/detailed-payslip-pdf`,
                 {
                     method: 'POST',
                     headers: getHeaders(),
@@ -329,7 +329,7 @@ const StaffPayslip = ({ username, variants }) => {
         
         try {
             const response = await fetch(
-                `${API_BASE_URL}/attendance/detailed-payslip`,
+                `${API_BASE_URL}/salary/detailed-payslip`,
                 {
                     method: 'POST',
                     headers: getHeaders(),
@@ -369,7 +369,7 @@ const StaffPayslip = ({ username, variants }) => {
         
         try {
             const response = await fetch(
-                `${API_BASE_URL}/attendance/detailed-payslip`,
+                `${API_BASE_URL}/salary/detailed-payslip`,
                 {
                     method: 'POST',
                     headers: getHeaders(),

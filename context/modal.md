@@ -67,6 +67,16 @@ Received At in modal uses `getBankTypeInfo(record)` (wraps `getReceivedAtInfo`) 
 
 See `finance-registers.md` for `payment_to` cash vs bank display rules.
 
+## Attendance modal
+
+| Modal | Opens from | Notes |
+|-------|------------|-------|
+| `AttendanceModal` | Header profile → Attendance | Punch/break timeline, branch banner, swipe-to-confirm |
+
+- Pattern: centered shell, fade-only, fixed header/footer, scrollable body (same checklist below).
+- **No backdrop close** — X or ESC only (ESC cancels pending swipe confirm first).
+- Full behavior: [`attendance.md`](./attendance.md). Server: [`SERVER/context/attendance.md`](../../SERVER/context/attendance.md).
+
 Implementation checklist
 - Root overlay uses `overflow-hidden` (not `overflow-y-auto`) unless you intentionally scroll the full-screen layer.
 - Avoid setting `document.body.style.overflow` from every modal unless centralized: multiple modals + sidebar each toggling `overflow` often leaves the page stuck (`hidden` or conflicting `auto`). Prefer a fixed `overflow-hidden` overlay and inner scroll only; if you must lock the body, use a single shared lock (ref counter) or always restore with `removeProperty('overflow')` in one place.

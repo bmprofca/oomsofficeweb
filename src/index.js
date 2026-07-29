@@ -42,7 +42,6 @@ import {
   ViewStaff,
   ViewStaffProfile,
   StaffReport,
-  ManageAttendance,
   OfficeAssistance,
   ViewDSCRegister,
   ViewFileIndex,
@@ -220,22 +219,16 @@ const ProtectedRoute = ({ children }) => {
   if (pathname.startsWith('/broadcast/whatsapp/onechatting/live-chat')) {
     requiredLevel = 'live-chat';
   }
-  // 2. Attendance management
-  else if (pathname.startsWith('/staff/attendance')) {
-    requiredLevel = 'attendance-management';
-  }
-  // 3. Staff profile tabs gated by feature
+  // 2. Staff profile tabs gated by feature
   else if (pathname.startsWith('/staff/view/profile/')) {
     const segments = pathname.split('/').filter(Boolean);
     // /staff/view/profile/:username/:tab → tab is last segment when present
     const tab = segments.length >= 4 ? segments[3] : null;
     if (['salary', 'payslip'].includes(tab)) {
       requiredLevel = 'salary-management';
-    } else if (tab === 'attendance') {
-      requiredLevel = 'attendance-management';
     }
   }
-  // 4. Core CRM Features (Exclude pages that must be accessible without subscription)
+  // 3. Core CRM Features (Exclude pages that must be accessible without subscription)
   else if (
     pathname !== '/subscription' &&
     pathname !== '/my-profile' &&
@@ -554,12 +547,6 @@ root.render(
             <Route path="/staff/team-report" element={
               <ProtectedRoute>
                 <StaffReport />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/staff/attendance" element={
-              <ProtectedRoute>
-                <ManageAttendance />
               </ProtectedRoute>
             } />
 

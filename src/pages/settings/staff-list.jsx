@@ -193,7 +193,7 @@ const StaffList = () => {
         if (id.startsWith('broadcast_')) return 'Broadcast & Messaging';
         if (id.startsWith('setting_')) return 'Settings Access';
         if (id.startsWith('subscription_')) return 'Subscription';
-        if (id.startsWith('staff_')) return 'Staff & Attendance';
+        if (id.startsWith('staff_')) return 'Staff';
         if (id.startsWith('office_assistance_')) return 'Office Assistance';
         return 'Other Permissions';
     };
@@ -218,7 +218,8 @@ const StaffList = () => {
         broadcast_livechat: 'LiveChat',
         setting_view_edit: 'Settings',
         subscription_manage: 'Subscription',
-        staff_attendance_view_manage: 'Staff & Attendance',
+        staff_view_manage: 'Staff',
+        staff_attendance_view_manage: 'Staff',
         office_assistance_access: 'Office Assistance',
         recurring_task_create: 'Compliance Create',
         recurring_task_delete: 'Compliance Delete',

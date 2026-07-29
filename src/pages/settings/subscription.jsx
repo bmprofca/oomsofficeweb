@@ -182,7 +182,6 @@ const Subscription = () => {
                     { label: 'Gateway Access & Ledger Groups', included: true },
                     { label: 'Staff Management', included: true },
                     { label: 'Salary Management', included: false },
-                    { label: 'Attendance Management', included: false },
                     { label: 'Live Chat (OOMS)', included: false },
                 ],
             },
@@ -199,7 +198,6 @@ const Subscription = () => {
                     { label: 'Gateway Access & Ledger Groups', included: true },
                     { label: 'Staff Management Module', included: true },
                     { label: 'Salary Management Included', included: true },
-                    { label: 'Attendance Management Included', included: true },
                     { label: 'Live Chat (OOMS)', included: false },
                 ],
             },
@@ -216,7 +214,6 @@ const Subscription = () => {
                     { label: 'Gateway Access & Ledger Groups', included: true },
                     { label: 'Staff Management Module', included: true },
                     { label: 'Salary Management Included', included: true },
-                    { label: 'Attendance Management Included', included: true },
                     { label: 'Live Chat (OOMS) Integrated', included: true },
                 ],
             }
