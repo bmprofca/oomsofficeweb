@@ -101,6 +101,7 @@ Static `profileTabs` in the page (Basic Details, Firms, Password, Quotation, Tas
 |------|------|
 | Page | `src/pages/client-profile.jsx` |
 | Ledger | `src/ClientComponents/LedgerTab.js` |
+| Firms tab (groups) | `src/ClientComponents/FirmsTab.js` — see [`group-firms.md`](./group-firms.md) |
 | Reminder modal | `src/components/Modals/ClientPaymentReminderModal.jsx` |
 | Firms shared modal | `src/components/Modals/FirmsDetailsModal.jsx` |
 | Currency / table | `src/components/TransactionTable.js` |

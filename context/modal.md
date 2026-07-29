@@ -9,14 +9,15 @@ Goal
 Viewport-safe wrapper
 - Root: `fixed inset-0 flex items-start justify-center p-3 sm:p-4 z-50 overflow-hidden overscroll-none` — **`overflow-hidden` on this layer** prevents the viewport layer from scrolling, so centered dialogs do not drift when wheel/touch scrolling is aggressive.
 - Use `pointer-events-none` on the root and **`pointer-events-auto`** on (1) a full **`absolute inset-0`** backdrop and (2) the dialog panel with **`relative z-[1]`**, so backdrop still receives outside clicks.
-- Align modal near top for small screens: `items-start` (bank forms); centered dialogs may use `items-center`.
+- Align modal near top for small screens: `items-start` (bank forms); **centered dialogs** (firm shell, confirmations, reminders) use `items-center justify-center`.
 - Avoid `min-h-screen` / inner scroll wrappers that move the dialog (can cause subtle vertical shift).
 - Prefer fade-only modal transition (avoid `scale` / `y` translate for stable position).
 
 Example root + backdrop + panel:
-- Root: `fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`
+- Root (centered): `fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`
+- Root (top-aligned forms): `… flex items-start justify-center …`
 - Backdrop: `absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto` (click to close)
-- Panel: `relative z-[1] pointer-events-auto ... max-h-[min(calc(100vh-…),100dvh)] overflow-hidden flex flex-col`
+- Panel: `relative z-[1] pointer-events-auto ... max-h-[min(calc(100vh-…),100dvh)] overflow-hidden flex flex-col` (omit vertical `my-*` when using `items-center` so the panel stays truly centered)
 
 Modal container
 - Use flex column layout: `flex flex-col`

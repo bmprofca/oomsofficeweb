@@ -70,6 +70,26 @@ Also: Bulk Import, Add Firms.
 
 ---
 
+## Firm groups from client profile
+
+Client **Firms** tab (`src/ClientComponents/FirmsTab.js`) can add/remove firms on groups without leaving the profile.
+
+| Action | API |
+|--------|-----|
+| List memberships | Included on `GET /client/details/firms/list?username=&search=` → each firm has `groups: [{ group_id, group_name, is_active }]`. Firms tab loads all statuses. |
+| Branch groups picker | `GET /group/list?page=1&limit=200` (active only) |
+| Sync firm groups | `POST /group/group-firms/set-firm-groups` `{ firm_id, group_ids: [group_id, …] }` — adds missing + soft-deletes removed |
+| Add | `POST /group/group-firms/add-firms` `{ group_id, firm_ids: [firm_id] }` |
+| Remove | `DELETE /group/group-firms/remove` `{ group_id, firm_ids: [firm_id] }` |
+| Create with groups | `POST …/firms/create` body may include `groups: [group_id, …]` |
+| Edit firm | `POST …/firms/edit` updates firm fields only — does not accept/modify groups |
+
+**UI:** group chips on each firm (chip ✕ removes), violet **Manage groups** modal (`FirmGroupsManageModal.jsx`) with TaskCreate-style dual list (available ↔ assigned), and multi-select on **Add firm** only (not Edit).
+
+**Do not** send `groups` on firm edit — use Manage groups / `set-firm-groups` instead.
+
+---
+
 ## Do not
 
 - Treat list 404 / missing group as an empty firm list

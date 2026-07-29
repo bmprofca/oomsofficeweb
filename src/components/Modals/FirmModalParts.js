@@ -57,8 +57,13 @@ export function FirmModalShell({
     footer,
     children,
     zClass = 'z-[100]',
+    bodyScroll = true,
 }) {
     if (typeof document === 'undefined') return null;
+
+    const bodyClass = bodyScroll
+        ? SCROLL_BODY
+        : 'min-h-0 flex-1 overflow-hidden px-5 py-4';
 
     return createPortal(
         <AnimatePresence>
@@ -69,7 +74,7 @@ export function FirmModalShell({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className={`fixed inset-0 ${zClass} flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`}
+                    className={`fixed inset-0 ${zClass} flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`}
                 >
                     <button
                         type="button"
@@ -85,7 +90,7 @@ export function FirmModalShell({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className={`relative z-[1] pointer-events-auto flex w-full ${maxWidth} my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/80`}
+                        className={`relative z-[1] pointer-events-auto flex w-full ${maxWidth} max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/80`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <header className={`shrink-0 ${headerClass} px-5 py-3.5`}>
@@ -104,7 +109,12 @@ export function FirmModalShell({
                                 </button>
                             </div>
                         </header>
-                        <div className={SCROLL_BODY} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>{children}</div>
+                        <div
+                            className={bodyClass}
+                            style={bodyScroll ? { scrollbarWidth: 'none', msOverflowStyle: 'none' } : undefined}
+                        >
+                            {children}
+                        </div>
                         {footer && <footer className="shrink-0 border-t border-slate-200 bg-slate-50/90 px-5 py-3">{footer}</footer>}
                     </motion.div>
                 </motion.div>

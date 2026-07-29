@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { FiBriefcase, FiEdit, FiTrash2, FiSearch, FiPlus, FiX, FiCheck, FiAlertCircle, FiEye, FiMapPin } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+    FiBriefcase, FiEdit, FiTrash2, FiPlus, FiAlertCircle, FiEye, FiLayers, FiLoader, FiSearch, FiMoreVertical,
+} from 'react-icons/fi';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { checkPermissionSync } from '../utils/permission-helper';
+import MultiSelectInput from '../components/MultiSelectInput';
+import FirmGroupsManageModal from '../components/Modals/FirmGroupsManageModal';
 import {
     FirmModalShell,
     FirmFormFields,
@@ -16,6 +21,155 @@ import {
 const DEFAULT_FIRM_TYPES = [
     { value: 'individual', label: 'Individual' },
 ];
+
+const MENU_Z = 99999;
+const MENU_GAP = 8;
+const MENU_PAD = 8;
+
+const ActionMenu = ({ items = [] }) => {
+    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const btnRef = useRef(null);
+    const menuRef = useRef(null);
+
+    const calcPos = useCallback(() => {
+        const btn = btnRef.current;
+        const menu = menuRef.current;
+        if (!btn) return;
+        const r = btn.getBoundingClientRect();
+        const mH = menu?.offsetHeight || 160;
+        const mW = menu?.offsetWidth || 180;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const candidates = [
+            { top: r.top - mH - MENU_GAP, left: r.right - mW },
+            { top: r.bottom + MENU_GAP, left: r.right - mW },
+            { top: r.top, left: r.right + MENU_GAP },
+            { top: r.top, left: r.left - mW - MENU_GAP },
+        ];
+
+        const fits = (p) =>
+            p.top >= MENU_PAD &&
+            p.left >= MENU_PAD &&
+            p.top + mH <= vh - MENU_PAD &&
+            p.left + mW <= vw - MENU_PAD;
+
+        const chosen = candidates.find(fits) || candidates[1];
+        setPos({
+            top: Math.min(Math.max(MENU_PAD, chosen.top), vh - MENU_PAD - mH),
+            left: Math.min(Math.max(MENU_PAD, chosen.left), vw - MENU_PAD - mW),
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const raf = requestAnimationFrame(() => calcPos());
+        return () => cancelAnimationFrame(raf);
+    }, [open, calcPos]);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onDown = (e) => {
+            if (!btnRef.current?.contains(e.target) && !menuRef.current?.contains(e.target)) {
+                setOpen(false);
+            }
+        };
+        const onClose = () => setOpen(false);
+        const onKey = (e) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        window.addEventListener('scroll', onClose, true);
+        window.addEventListener('resize', calcPos);
+        window.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDown);
+            window.removeEventListener('scroll', onClose, true);
+            window.removeEventListener('resize', calcPos);
+            window.removeEventListener('keydown', onKey);
+        };
+    }, [open, calcPos]);
+
+    return (
+        <>
+            <button
+                ref={btnRef}
+                type="button"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen((v) => !v);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                aria-label="Actions"
+            >
+                <FiMoreVertical className="w-4 h-4" />
+            </button>
+
+            {typeof document !== 'undefined' &&
+                createPortal(
+                    <AnimatePresence>
+                        {open ? (
+                            <motion.div
+                                ref={menuRef}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.12 }}
+                                style={{
+                                    position: 'fixed',
+                                    top: pos.top,
+                                    left: pos.left,
+                                    zIndex: MENU_Z,
+                                }}
+                                className="w-44 bg-white border border-slate-200 rounded-xl shadow-xl py-1 overflow-hidden"
+                            >
+                                {items.map((item) => (
+                                    <button
+                                        key={item.label}
+                                        type="button"
+                                        disabled={item.disabled}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (item.disabled) return;
+                                            setOpen(false);
+                                            item.onClick?.();
+                                        }}
+                                        className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${item.danger
+                                            ? 'text-red-600 hover:bg-red-50'
+                                            : 'text-slate-700 hover:bg-slate-50'
+                                            } disabled:opacity-40 disabled:cursor-not-allowed`}
+                                    >
+                                        {item.icon}
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>,
+                    document.body,
+                )}
+        </>
+    );
+};
+
+const emptyFirmForm = () => ({
+    name: '',
+    type: 'individual',
+    pan: '',
+    gst: '',
+    file_no: '',
+    tan: '',
+    vat: '',
+    cin: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: '',
+    group_ids: [],
+});
 
 const getApiErrorMessage = (error, fallback = 'Something went wrong') => {
     if (error?.response?.data?.message) return String(error.response.data.message);
@@ -32,148 +186,137 @@ const getApiErrorMessage = (error, fallback = 'Something went wrong') => {
     return error?.message || fallback;
 };
 
+const mapFirmFromApi = (firm) => ({
+    ...firm,
+    firm_id: firm.firm_id,
+    firm_name: firm.firm_name,
+    firm_type: firm.firm_type,
+    status: firm.status,
+    pan: firm.pan_no || '',
+    gst: firm.gst_no || '',
+    file_no: firm.file_no || '',
+    tan: firm.tan_no || '',
+    cin: firm.cin_no || '',
+    vat: firm.vat_no || '',
+    groups: Array.isArray(firm.groups) ? firm.groups : [],
+    address: firm.address || {
+        address_line_1: '',
+        address_line_2: '',
+        city: '',
+        state: '',
+        pincode: '',
+        country: '',
+    },
+    create_by: firm.create_by || {},
+    modify_by: firm.modify_by || {},
+    create_date: firm.create_date,
+    modify_date: firm.modify_date,
+});
+
 const FirmsTab = ({ clientUsername }) => {
     const [firms, setFirms] = useState([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
+    const [showGroupsModal, setShowGroupsModal] = useState(false);
     const [selectedFirm, setSelectedFirm] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('active');
-    const [loading, setLoading] = useState(false);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [loading, setLoading] = useState(true);
     const [savingFirm, setSavingFirm] = useState(false);
+    const [savingGroups, setSavingGroups] = useState(false);
+    const [meta, setMeta] = useState({ total: 0, active: 0, inactive: 0 });
     const [statesAndDistricts, setStatesAndDistricts] = useState([]);
     const [businessTypeOptions, setBusinessTypeOptions] = useState(DEFAULT_FIRM_TYPES);
     const [statesLoading, setStatesLoading] = useState(true);
-    const [newFirm, setNewFirm] = useState({
-        name: '',
-        type: 'individual',
-        pan: '',
-        gst: '',
-        file_no: '',
-        tan: '',
-        vat: '',
-        cin: '',
-        address_line_1: '',
-        address_line_2: '',
-        city: '',
-        state: '',
-        pincode: '',
-        country: ''
-    });
-    const [editFirmData, setEditFirmData] = useState({
-        name: '',
-        type: 'individual',
-        pan: '',
-        gst: '',
-        file_no: '',
-        tan: '',
-        vat: '',
-        cin: '',
-        address_line_1: '',
-        address_line_2: '',
-        city: '',
-        state: '',
-        pincode: '',
-        country: ''
-    });
+    const [branchGroups, setBranchGroups] = useState([]);
+    const [groupsLoading, setGroupsLoading] = useState(false);
+    const [newFirm, setNewFirm] = useState(emptyFirmForm);
+    const [editFirmData, setEditFirmData] = useState(emptyFirmForm);
+    const searchTimer = useRef(null);
 
-
-
-    // Fetch firms from API - UPDATED with correct field mapping
-    const fetchFirms = useCallback(async () => {
-        if (!clientUsername) {
-            console.error('Client username is required to fetch firms');
-            return;
+    const fetchBranchGroups = useCallback(async () => {
+        const headers = getHeaders();
+        if (!headers) return;
+        try {
+            setGroupsLoading(true);
+            const response = await axios.get(
+                `${API_BASE_URL}/group/list?page=1&limit=200`,
+                { headers },
+            );
+            if (response.data?.success) {
+                const rows = Array.isArray(response.data.data) ? response.data.data : [];
+                setBranchGroups(
+                    rows
+                        .filter((g) => String(g.status) === '1' || g.is_active === true)
+                        .map((g) => ({
+                            value: g.group_id,
+                            label: g.name || g.group_id,
+                            firm_count: g.firm_count,
+                        })),
+                );
+            }
+        } catch (error) {
+            console.error('Error fetching groups:', error);
+        } finally {
+            setGroupsLoading(false);
         }
+    }, []);
+
+    const fetchFirms = useCallback(async ({
+        search = debouncedSearch,
+    } = {}) => {
+        if (!clientUsername) return;
 
         const headers = getHeaders();
-        if (!headers) {
-            console.error('Cannot fetch firms: Missing authentication headers');
-            return;
-        }
+        if (!headers) return;
 
         try {
             setLoading(true);
+            const params = new URLSearchParams({
+                username: clientUsername,
+            });
+            if (String(search || '').trim()) params.set('search', String(search).trim());
+
             const response = await axios.get(
-                `${API_BASE_URL}/client/details/firms/list?username=${clientUsername}`,
-                { headers }
+                `${API_BASE_URL}/client/details/firms/list?${params.toString()}`,
+                { headers },
             );
 
-            console.log('FULL Firms API Response:', response.data);
-
-            if (response.data && response.data.success) {
+            if (response.data?.success) {
                 const firmsData = response.data.data.firms || [];
-
-                // Map the API response to our component's expected format
-                const mappedFirms = firmsData.map(firm => ({
-                    ...firm,
-                    // Map API field names to our component's expected field names
-                    firm_id: firm.firm_id,
-                    firm_name: firm.firm_name,
-                    firm_type: firm.firm_type,
-                    status: firm.status,
-                    pan: firm.pan_no || '',  // Map pan_no to pan
-                    gst: firm.gst_no || '',  // Map gst_no to gst
-                    file_no: firm.file_no || '',
-                    tan: firm.tan_no || '',  // Map tan_no to tan
-                    cin: firm.cin_no || '',  // Map cin_no to cin
-                    vat: firm.vat_no || '',  // Map vat_no to vat
-                    address: firm.address || {
-                        address_line_1: '',
-                        address_line_2: '',
-                        city: '',
-                        state: '',
-                        pincode: '',
-                        country: ''
-                    },
-                    create_by: firm.create_by || {},
-                    modify_by: firm.modify_by || {},
-                    create_date: firm.create_date,
-                    modify_date: firm.modify_date
-                }));
-
-                console.log('Mapped firms:', mappedFirms);
-                setFirms(mappedFirms);
-            } else {
-                console.error('API Error:', response.data?.message || 'Unknown error');
+                setFirms(firmsData.map(mapFirmFromApi));
+                const nextMeta = response.data.data.meta || {};
+                setMeta({
+                    total: Number(nextMeta.total) || 0,
+                    active: Number(nextMeta.active) || 0,
+                    inactive: Number(nextMeta.inactive) || 0,
+                });
             }
         } catch (error) {
             console.error('Error fetching firms:', error);
-            if (error.response) {
-                console.error('Response data:', error.response.data);
-                console.error('Response status:', error.response.status);
-                toast.error(getApiErrorMessage(error, 'Failed to fetch firms'));
-            } else if (error.request) {
-                console.error('No response received:', error.request);
-                toast.error('No response from server. Please check your connection.');
-            } else {
-                console.error('Request setup error:', error.message);
-                toast.error(error.message || 'Failed to fetch firms');
-            }
+            toast.error(getApiErrorMessage(error, 'Failed to fetch firms'));
         } finally {
             setLoading(false);
         }
-    }, [clientUsername]);
+    }, [clientUsername, debouncedSearch]);
 
-    // Initial fetch
     useEffect(() => {
-        if (clientUsername) {
-            fetchFirms();
-        }
+        if (clientUsername) fetchFirms();
     }, [clientUsername, fetchFirms]);
 
-    // Filter firms based on search + status
-    const filteredFirms = firms.filter(firm =>
-        firm.firm_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        firm.pan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        firm.gst?.toLowerCase().includes(searchTerm.toLowerCase())
-    ).filter((firm) => {
-        if (statusFilter === 'all') return true;
-        if (statusFilter === 'active') return !!firm.status;
-        return !firm.status;
-    });
+    useEffect(() => {
+        fetchBranchGroups();
+    }, [fetchBranchGroups]);
+
+    useEffect(() => {
+        clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(() => {
+            setDebouncedSearch(searchTerm.trim());
+        }, 400);
+        return () => clearTimeout(searchTimer.current);
+    }, [searchTerm]);
 
     useEffect(() => {
         let mounted = true;
@@ -202,7 +345,34 @@ const FirmsTab = ({ clientUsername }) => {
         return () => { mounted = false; };
     }, []);
 
-    // Create new firm
+    const buildFirmPayload = (form, firmId = null) => {
+        const payload = {
+            ...(firmId ? { firm_id: firmId } : {}),
+            username: clientUsername,
+            type: form.type,
+            pan: form.pan,
+            firm: form.name,
+            gst: form.gst || null,
+            tan: form.tan || null,
+            vat: form.vat || null,
+            cin: form.cin || null,
+            file: form.file_no,
+            address: {
+                state: form.state || '',
+                district: form.city || '',
+                town: form.city || '',
+                pincode: form.pincode || '',
+                address_line_1: form.address_line_1 || '',
+                address_line_2: form.address_line_2 || '',
+            },
+        };
+        // Groups only on create; edit uses Manage groups / group-firms APIs
+        if (!firmId) {
+            payload.groups = Array.isArray(form.group_ids) ? form.group_ids.filter(Boolean) : [];
+        }
+        return payload;
+    };
+
     const handleAddFirm = async () => {
         const headers = getHeaders();
         if (!headers) {
@@ -212,72 +382,27 @@ const FirmsTab = ({ clientUsername }) => {
 
         try {
             setSavingFirm(true);
-            const requestBody = {
-                username: clientUsername, // Client username is required
-                type: newFirm.type,
-                pan: newFirm.pan,
-                firm: newFirm.name,
-                gst: newFirm.gst || null,
-                tan: newFirm.tan || null,
-                vat: newFirm.vat || null,
-                cin: newFirm.cin || null,
-                file: newFirm.file_no,
-                address: {
-                    state: newFirm.state || '',
-                    district: newFirm.city || '',
-                    town: newFirm.city || '',
-                    pincode: newFirm.pincode || '',
-                    address_line_1: newFirm.address_line_1 || '',
-                    address_line_2: newFirm.address_line_2 || ''
-                },
-                groups: [] // You can make this configurable if needed
-            };
-
-            console.log('Creating firm with data:', requestBody);
-            console.log('Using endpoint:', `${API_BASE_URL}/client/details/firms/create`);
-
             const response = await axios.post(
                 `${API_BASE_URL}/client/details/firms/create`,
-                requestBody,
-                { headers }
+                buildFirmPayload(newFirm),
+                { headers },
             );
 
-            console.log('Create firm response:', response.data);
-
-            if (response.data && response.data.success) {
-                // Refresh firms list
+            if (response.data?.success) {
                 fetchFirms();
                 setShowAddModal(false);
-                // Reset form
-                setNewFirm({
-                    name: '',
-                    type: 'individual',
-                    pan: '',
-                    gst: '',
-                    file_no: '',
-                    tan: '',
-                    vat: '',
-                    cin: '',
-                    address_line_1: '',
-                    address_line_2: '',
-                    city: '',
-                    state: '',
-                    pincode: '',
-                    country: ''
-                });
+                setNewFirm(emptyFirmForm());
                 toast.success(response.data?.message || 'Firm created successfully');
             } else {
                 toast.error(response.data?.message || 'Failed to create firm');
             }
         } catch (error) {
-            console.error('Error creating firm:', error);
             toast.error(getApiErrorMessage(error, 'Failed to create firm'));
         } finally {
             setSavingFirm(false);
         }
     };
 
-    // Edit firm
     const handleEditFirm = async () => {
         if (!selectedFirm?.firm_id) {
             toast.error('No firm selected for editing');
@@ -292,41 +417,13 @@ const FirmsTab = ({ clientUsername }) => {
 
         try {
             setSavingFirm(true);
-            const requestBody = {
-                firm_id: selectedFirm.firm_id,
-                username: clientUsername,
-                type: editFirmData.type,
-                pan: editFirmData.pan,
-                firm: editFirmData.name,
-                gst: editFirmData.gst || null,
-                tan: editFirmData.tan || null,
-                vat: editFirmData.vat || null,
-                cin: editFirmData.cin || null,
-                file: editFirmData.file_no,
-                address: {
-                    state: editFirmData.state || '',
-                    district: editFirmData.city || '',
-                    town: editFirmData.city || '',
-                    pincode: editFirmData.pincode || '',
-                    address_line_1: editFirmData.address_line_1 || '',
-                    address_line_2: editFirmData.address_line_2 || ''
-                },
-                groups: [] // You can make this configurable if needed
-            };
-
-            console.log('Updating firm with data:', requestBody);
-            console.log('Using endpoint:', `${API_BASE_URL}/client/details/firms/edit`);
-
             const response = await axios.post(
                 `${API_BASE_URL}/client/details/firms/edit`,
-                requestBody,
-                { headers }
+                buildFirmPayload(editFirmData, selectedFirm.firm_id),
+                { headers },
             );
 
-            console.log('Update firm response:', response.data);
-
-            if (response.data && response.data.success) {
-                // Refresh firms list
+            if (response.data?.success) {
                 fetchFirms();
                 setShowEditModal(false);
                 toast.success(response.data?.message || 'Firm updated successfully');
@@ -334,14 +431,12 @@ const FirmsTab = ({ clientUsername }) => {
                 toast.error(response.data?.message || 'Failed to update firm');
             }
         } catch (error) {
-            console.error('Error updating firm:', error);
             toast.error(getApiErrorMessage(error, 'Failed to update firm'));
         } finally {
             setSavingFirm(false);
         }
     };
 
-    // Delete firm
     const deleteFirm = async () => {
         if (!selectedFirm?.firm_id) {
             toast.error('No firm selected for deletion');
@@ -360,70 +455,28 @@ const FirmsTab = ({ clientUsername }) => {
                 `${API_BASE_URL}/client/details/firms/delete/${selectedFirm.firm_id}`,
                 {
                     headers,
-                    data: { username: clientUsername }
-                }
+                    data: { username: clientUsername },
+                },
             );
 
-            if (response.data && response.data.success) {
-                // Remove from local state
-                setFirms(firms.filter(firm => firm.firm_id !== selectedFirm.firm_id));
+            if (response.data?.success) {
                 setShowDeleteModal(false);
                 toast.success(response.data?.message || 'Firm deleted successfully');
+                await fetchFirms();
             } else {
                 toast.error(response.data?.message || 'Failed to delete firm');
             }
         } catch (error) {
-            console.error('Error deleting firm:', error);
             toast.error(getApiErrorMessage(error, 'Failed to delete firm'));
+            if (error?.response?.status === 409) {
+                setShowDeleteModal(false);
+            }
         } finally {
             setSavingFirm(false);
         }
     };
 
-    // Toggle firm status (Active/Inactive)
-    const toggleStatus = async (firmId) => {
-        const headers = getHeaders();
-        if (!headers) {
-            toast.error('Please sign in again.');
-            return;
-        }
-
-        try {
-            const firmToUpdate = firms.find(f => f.firm_id === firmId);
-            if (!firmToUpdate) return;
-
-            const newStatus = !firmToUpdate.status;
-
-            const response = await axios.post(
-                `${API_BASE_URL}/client/details/firms/status`,
-                {
-                    firm_id: firmId,
-                    username: clientUsername,
-                    status: newStatus
-                },
-                { headers }
-            );
-
-            if (response.data && response.data.success) {
-                setFirms(firms.map(firm =>
-                    firm.firm_id === firmId ? { ...firm, status: newStatus } : firm
-                ));
-                toast.success(
-                    response.data?.message ||
-                    `Firm marked as ${newStatus ? 'active' : 'inactive'}`
-                );
-            } else {
-                toast.error(response.data?.message || 'Failed to update status');
-            }
-        } catch (error) {
-            console.error('Error updating firm status:', error);
-            toast.error(getApiErrorMessage(error, 'Failed to update firm status'));
-        }
-    };
-
     const openEditModal = (firm) => {
-        console.log('Opening edit modal with firm data:', firm);
-
         setSelectedFirm(firm);
         setEditFirmData({
             name: firm.firm_name || '',
@@ -439,7 +492,7 @@ const FirmsTab = ({ clientUsername }) => {
             city: firm.address?.district || firm.address?.city || '',
             state: firm.address?.state || '',
             pincode: firm.address?.pincode || '',
-            country: firm.address?.country || ''
+            country: firm.address?.country || '',
         });
         setShowEditModal(true);
     };
@@ -454,7 +507,44 @@ const FirmsTab = ({ clientUsername }) => {
         setShowViewModal(true);
     };
 
-    // Format date for display
+    const openGroupsModal = (firm) => {
+        setSelectedFirm(firm);
+        setShowGroupsModal(true);
+        if (branchGroups.length === 0) fetchBranchGroups();
+    };
+
+    const saveFirmGroups = async (groupIds = []) => {
+        if (!selectedFirm?.firm_id) return;
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Please sign in again.');
+            return;
+        }
+
+        setSavingGroups(true);
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/group/group-firms/set-firm-groups`,
+                {
+                    firm_id: selectedFirm.firm_id,
+                    group_ids: Array.isArray(groupIds) ? groupIds.filter(Boolean) : [],
+                },
+                { headers },
+            );
+            if (response.data?.success) {
+                toast.success(response.data?.message || 'Firm groups updated');
+                setShowGroupsModal(false);
+                await fetchFirms();
+            } else {
+                toast.error(response.data?.message || 'Failed to update firm groups');
+            }
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'Failed to update firm groups'));
+        } finally {
+            setSavingGroups(false);
+        }
+    };
+
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
         try {
@@ -464,227 +554,348 @@ const FirmsTab = ({ clientUsername }) => {
                 month: 'short',
                 day: 'numeric',
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
             });
         } catch (error) {
             return dateString;
         }
     };
 
-    // Stats calculation
-    const totalFirms = firms.length;
-    const activeFirms = firms.filter(f => f.status).length;
-    const inactiveFirms = totalFirms - activeFirms;
+    const renderGroupsField = (groupIds, setGroupIds) => (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                    <p className="text-sm font-semibold text-slate-800">Firm groups</p>
+                    <p className="text-xs text-slate-500">
+                        Assign this firm to one or more office assistance groups
+                    </p>
+                </div>
+                {groupsLoading ? <FiLoader className="h-4 w-4 animate-spin text-slate-400" /> : null}
+            </div>
+            <MultiSelectInput
+                options={branchGroups}
+                value={groupIds}
+                onChange={setGroupIds}
+                placeholder="Select groups..."
+                searchPlaceholder="Search groups..."
+                emptyMessage={groupsLoading ? 'Loading groups...' : 'No groups found'}
+                allSelectedLabel="All groups"
+                showSearch
+                disabled={groupsLoading}
+            />
+        </div>
+    );
+
+    const canEdit = checkPermissionSync('client_edit');
+
+    const renderGroupChips = (firm) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+            {(firm.groups || []).length === 0 ? (
+                <span className="rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[11px] text-slate-500">
+                    Not in any group
+                </span>
+            ) : (
+                (firm.groups || []).map((group) => (
+                    <span
+                        key={group.group_id}
+                        className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700"
+                    >
+                        {group.group_name || group.group_id}
+                    </span>
+                ))
+            )}
+        </div>
+    );
+
+    const firmActionItems = (firm) => {
+        const items = [
+            {
+                label: 'View',
+                icon: <FiEye className="w-3.5 h-3.5 text-emerald-600" />,
+                onClick: () => openViewModal(firm),
+            },
+        ];
+        if (canEdit) {
+            items.push(
+                {
+                    label: 'Manage groups',
+                    icon: <FiLayers className="w-3.5 h-3.5 text-violet-600" />,
+                    onClick: () => openGroupsModal(firm),
+                },
+                {
+                    label: 'Edit',
+                    icon: <FiEdit className="w-3.5 h-3.5 text-blue-600" />,
+                    onClick: () => openEditModal(firm),
+                },
+                {
+                    label: 'Delete',
+                    icon: <FiTrash2 className="w-3.5 h-3.5" />,
+                    danger: true,
+                    onClick: () => openDeleteModal(firm),
+                },
+            );
+        }
+        return items;
+    };
+
     const stateOptions = statesAndDistricts.map((item) => item.name);
     const addDistrictOptions = statesAndDistricts.find((item) => item.name === newFirm.state)?.districts || [];
     const editDistrictOptions = statesAndDistricts.find((item) => item.name === editFirmData.state)?.districts || [];
 
+    const FirmsSkeleton = () => (
+        <>
+            <div className="space-y-3 md:hidden">
+                {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="animate-pulse rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                                <div className="h-10 w-10 rounded-lg bg-slate-200 shrink-0" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-3.5 w-2/3 rounded bg-slate-200" />
+                                    <div className="h-3 w-1/3 rounded bg-slate-100" />
+                                </div>
+                            </div>
+                            <div className="h-8 w-8 rounded-lg bg-slate-100" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                            <div className="h-8 rounded-md bg-slate-100" />
+                            <div className="h-8 rounded-md bg-slate-100" />
+                        </div>
+                        <div className="h-5 w-28 rounded-full bg-slate-100" />
+                    </div>
+                ))}
+            </div>
+            <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="grid grid-cols-[48px_1.4fr_0.9fr_0.9fr_0.7fr_1.2fr_64px] gap-3">
+                        {Array.from({ length: 7 }).map((_, i) => (
+                            <div key={i} className="h-3 rounded bg-slate-200 animate-pulse" />
+                        ))}
+                    </div>
+                </div>
+                {Array.from({ length: 6 }).map((_, index) => (
+                    <div
+                        key={index}
+                        className="grid grid-cols-[48px_1.4fr_0.9fr_0.9fr_0.7fr_1.2fr_64px] gap-3 border-b border-slate-100 px-3 py-3.5 last:border-b-0 animate-pulse"
+                    >
+                        <div className="h-3 w-4 rounded bg-slate-200" />
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="h-8 w-8 rounded-lg bg-slate-200 shrink-0" />
+                            <div className="flex-1 space-y-1.5">
+                                <div className="h-3.5 w-3/4 rounded bg-slate-200" />
+                                <div className="h-3 w-1/2 rounded bg-slate-100" />
+                            </div>
+                        </div>
+                        <div className="h-3 w-20 rounded bg-slate-200 self-center" />
+                        <div className="h-3 w-16 rounded bg-slate-200 self-center" />
+                        <div className="h-5 w-14 rounded-full bg-slate-200 self-center" />
+                        <div className="h-5 w-24 rounded-full bg-slate-100 self-center" />
+                        <div className="h-7 w-7 rounded-lg bg-slate-100 justify-self-end" />
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-xl p-6"
+            exit={{ opacity: 0, y: -12 }}
+            className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
         >
-            {/* Header Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-5 gap-4">
-                <div className="space-y-2">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
-                        Business Firms
-                    </h3>
-                    <p className="text-xs text-slate-600">Manage and organize all client business entities in one place</p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                    <div className="relative w-full sm:w-[18rem]">
-                        <input
-                            type="text"
-                            placeholder="Search by name or PAN..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200"
-                        />
-                    </div>
-                    {checkPermissionSync('client_edit') && (
-                        <motion.button
-                            onClick={() => setShowAddModal(true)}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-md hover:shadow-md transition-all duration-200 text-sm font-semibold"
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            <FiPlus className="w-4 h-4" />
-                            Add New Firm
-                        </motion.button>
-                    )}
-                </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                <button
-                    type="button"
-                    onClick={() => setStatusFilter('active')}
-                    className={`w-full text-left bg-white p-4 rounded-xl border shadow-sm transition-all ${statusFilter === 'active' ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-gray-200 hover:border-emerald-200'}`}
-                >
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-semibold text-slate-600">Active Firms</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">{activeFirms}</p>
-                        </div>
-                        <div className="w-10 h-10 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg flex items-center justify-center">
-                            <FiCheck className="w-5 h-5 text-green-600" />
-                        </div>
-                    </div>
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setStatusFilter('inactive')}
-                    className={`w-full text-left bg-white p-4 rounded-xl border shadow-sm transition-all ${statusFilter === 'inactive' ? 'border-rose-300 ring-2 ring-rose-100' : 'border-gray-200 hover:border-rose-200'}`}
-                >
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-semibold text-slate-600">Inactive Firms</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">{inactiveFirms}</p>
-                        </div>
-                        <div className="w-10 h-10 bg-gradient-to-r from-gray-100 to-slate-100 rounded-lg flex items-center justify-center">
-                            <FiAlertCircle className="w-5 h-5 text-slate-600" />
-                        </div>
-                    </div>
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setStatusFilter('all')}
-                    className={`w-full text-left bg-white p-4 rounded-xl border shadow-sm transition-all ${statusFilter === 'all' ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200 hover:border-blue-200'}`}
-                >
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-semibold text-slate-600">All Firms</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">{totalFirms}</p>
-                        </div>
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
-                            <FiBriefcase className="w-5 h-5 text-blue-600" />
-                        </div>
-                    </div>
-                </button>
-            </div>
-
-            {/* Loading State */}
-            {loading ? (
-                <div className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                    </div>
-                    <h3 className="text-sm font-semibold text-slate-800 mb-2">Loading firms...</h3>
-                    <p className="text-slate-600">Please wait while we fetch your firm data</p>
-                </div>
-            ) : (
-                /* Firms List */
-                <div className="space-y-3">
-                    {filteredFirms.length === 0 ? (
-                        <div className="text-center py-12">
-                            <div className="w-20 h-20 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
-                                <FiBriefcase className="w-10 h-10 text-slate-400" />
+            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2.5">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-200">
+                                <FiBriefcase className="h-4 w-4" />
                             </div>
-                            <h3 className="text-sm font-semibold text-slate-800 mb-2">
-                                {firms.length === 0 ? 'No firms found' : 'No matching firms'}
-                            </h3>
-                            <p className="text-slate-600">
-                                {firms.length === 0 ? 'Add a new firm to get started' : 'Try adjusting your search'}
-                            </p>
+                            <div>
+                                <h3 className="m-0 text-base font-bold text-slate-800 sm:text-lg">
+                                    Business Firms
+                                </h3>
+                                <p className="m-0 mt-0.5 text-xs text-slate-500">
+                                    Manage firms and group memberships
+                                </p>
+                            </div>
                         </div>
-                    ) : (
-                        filteredFirms.map((firm, index) => (
-                            <motion.div
-                                key={firm.firm_id || index}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.05 }}
-                                className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 group"
+                    </div>
+                    <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center lg:w-auto">
+                        <div className="flex w-full sm:w-72 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20">
+                            <FiSearch className="h-4 w-4 shrink-0 text-slate-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Search name, PAN, file no..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0"
+                            />
+                        </div>
+                        {canEdit && (
+                            <motion.button
+                                type="button"
+                                onClick={() => {
+                                    setNewFirm(emptyFirmForm());
+                                    setShowAddModal(true);
+                                    if (branchGroups.length === 0) fetchBranchGroups();
+                                }}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:from-indigo-700 hover:to-blue-700"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                             >
-                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                                    <div className="min-w-0 flex items-start gap-3">
-                                        <div className="w-11 h-11 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
-                                            <FiBriefcase className="w-5 h-5 text-blue-600" />
-                                        </div>
-                                        <div className="min-w-0 space-y-2">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <h4 className="text-sm font-semibold text-slate-800 truncate">{firm.firm_name || 'Unnamed Firm'}</h4>
-                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-slate-700'}`}>
+                                <FiPlus className="h-4 w-4" />
+                                Add Firm
+                            </motion.button>
+                        )}
+                    </div>
+                </div>
+
+                {!loading && meta.total > 0 ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-700">
+                            {meta.total} total
+                        </span>
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
+                            {meta.active} active
+                        </span>
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-600">
+                            {meta.inactive} inactive
+                        </span>
+                    </div>
+                ) : null}
+            </div>
+
+            <div className="p-4 sm:p-5">
+                {loading ? (
+                    <FirmsSkeleton />
+                ) : firms.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-14 text-center">
+                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
+                            <FiBriefcase className="h-6 w-6 text-slate-400" />
+                        </div>
+                        <h3 className="m-0 text-sm font-semibold text-slate-800">
+                            {debouncedSearch ? 'No matching firms' : 'No firms yet'}
+                        </h3>
+                        <p className="m-0 mt-1 text-xs text-slate-500">
+                            {debouncedSearch
+                                ? 'Try a different search term'
+                                : 'Add a firm to get started'}
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Mobile cards */}
+                        <div className="space-y-3 md:hidden">
+                            {firms.map((firm, index) => (
+                                <motion.div
+                                    key={firm.firm_id || index}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: Math.min(index * 0.03, 0.25) }}
+                                    className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm"
+                                >
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                                                <FiBriefcase className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h4 className="m-0 truncate text-sm font-semibold text-slate-800">
+                                                    {firm.firm_name || 'Unnamed Firm'}
+                                                </h4>
+                                                <p className="m-0 mt-0.5 truncate text-xs capitalize text-slate-500">
+                                                    {firm.firm_type || '—'}
+                                                </p>
+                                                <span className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
                                                     {firm.status ? 'Active' : 'Inactive'}
                                                 </span>
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
-                                                <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1">
-                                                    <span className="font-medium text-slate-500">Type: </span>
-                                                    <span className="text-slate-900 font-semibold capitalize">
-                                                        {firm.firm_type || 'N/A'}
-                                                    </span>
-                                                </div>
-                                                <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1">
-                                                    <span className="font-medium text-slate-500">PAN: </span>
-                                                    <span className="text-slate-900 font-semibold">{firm.pan || 'N/A'}</span>
-                                                </div>
-                                                <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1">
-                                                    <span className="font-medium text-slate-500">GST: </span>
-                                                    <span className="text-slate-900 font-semibold">{firm.gst || 'N/A'}</span>
-                                                </div>
-                                            </div>
-                                            {firm.address && (
-                                                <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
-                                                    <FiMapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                                                    {[firm.address.address_line_1, firm.address.address_line_2, firm.address.city, firm.address.state, firm.address.pincode]
-                                                        .filter(Boolean)
-                                                        .join(', ')}
-                                                </div>
-                                            )}
+                                        </div>
+                                        <ActionMenu items={firmActionItems(firm)} />
+                                    </div>
+                                    <div className="mb-2.5 grid grid-cols-2 gap-1.5 text-xs">
+                                        <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                            <span className="font-medium text-slate-500">PAN: </span>
+                                            <span className="font-semibold text-slate-800">{firm.pan || '—'}</span>
+                                        </div>
+                                        <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                            <span className="font-medium text-slate-500">File: </span>
+                                            <span className="font-semibold text-slate-800">{firm.file_no || '—'}</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        {/* <motion.button
-                                            onClick={() => toggleStatus(firm.firm_id)}
-                                            className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300 ${firm.status
-                                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-green-500/25'
-                                                : 'bg-gradient-to-r from-gray-500 to-slate-600 text-white hover:shadow-lg hover:shadow-gray-500/25'
-                                            }`}
-                                            whileHover={{ scale: 1.05, y: -2 }}
-                                            whileTap={{ scale: 0.95 }}
-                                        >
-                                            {firm.status ? 'Deactivate' : 'Activate'}
-                                        </motion.button> */}
-                                        <motion.button
-                                            onClick={() => openViewModal(firm)}
-                                            className="p-2.5 bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700 hover:shadow-sm rounded-lg transition-all duration-200"
-                                            whileHover={{ scale: 1.1, rotate: 5 }}
-                                            whileTap={{ scale: 0.9 }}
-                                        >
-                                            <FiEye className="w-4 h-4" />
-                                        </motion.button>
-                                        {checkPermissionSync('client_edit') && (
-                                            <>
-                                                <motion.button
-                                                    onClick={() => openEditModal(firm)}
-                                                    className="p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 hover:shadow-sm rounded-lg transition-all duration-200"
-                                                    whileHover={{ scale: 1.1, rotate: 5 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                >
-                                                    <FiEdit className="w-4 h-4" />
-                                                </motion.button>
-                                                <motion.button
-                                                    onClick={() => openDeleteModal(firm)}
-                                                    className="p-2.5 bg-gradient-to-r from-red-50 to-rose-50 text-red-700 hover:shadow-sm rounded-lg transition-all duration-200"
-                                                    whileHover={{ scale: 1.1, rotate: -5 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                >
-                                                    <FiTrash2 className="w-4 h-4" />
-                                                </motion.button>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))
-                    )}
-                </div>
-            )}
+                                    {renderGroupChips(firm)}
+                                </motion.div>
+                            ))}
+                        </div>
+
+                        {/* Desktop table */}
+                        <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white md:block">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full table-fixed">
+                                    <thead>
+                                        <tr className="border-b border-slate-200 bg-slate-50/90">
+                                            <th className="w-[5%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">#</th>
+                                            <th className="w-[28%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Firm</th>
+                                            <th className="w-[14%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">PAN</th>
+                                            <th className="w-[12%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">File No</th>
+                                            <th className="w-[10%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Status</th>
+                                            <th className="w-[23%] px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-600">Groups</th>
+                                            <th className="w-[8%] px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-slate-600">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {firms.map((firm, index) => (
+                                            <tr
+                                                key={firm.firm_id || index}
+                                                className="border-b border-slate-100 last:border-b-0 hover:bg-indigo-50/30 transition-colors"
+                                            >
+                                                <td className="px-3 py-3 align-middle text-xs font-bold text-slate-600">
+                                                    {index + 1}
+                                                </td>
+                                                <td className="px-3 py-3 align-middle min-w-0">
+                                                    <div className="flex min-w-0 items-center gap-2.5">
+                                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                                                            <FiBriefcase className="h-3.5 w-3.5" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="m-0 truncate text-sm font-semibold text-slate-800">
+                                                                {firm.firm_name || 'Unnamed Firm'}
+                                                            </p>
+                                                            <p className="m-0 mt-0.5 truncate text-xs capitalize text-slate-500">
+                                                                {firm.firm_type || '—'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-3 align-middle text-sm font-semibold tabular-nums text-slate-800">
+                                                    {firm.pan || '—'}
+                                                </td>
+                                                <td className="px-3 py-3 align-middle text-sm font-medium tabular-nums text-slate-700">
+                                                    {firm.file_no || '—'}
+                                                </td>
+                                                <td className="px-3 py-3 align-middle">
+                                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {firm.status ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3 align-middle">
+                                                    {renderGroupChips(firm)}
+                                                </td>
+                                                <td className="px-3 py-3 align-middle">
+                                                    <div className="flex justify-end">
+                                                        <ActionMenu items={firmActionItems(firm)} />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
 
             <FirmModalShell
                 open={showAddModal}
@@ -712,6 +923,10 @@ const FirmsTab = ({ clientUsername }) => {
                     statesLoading={statesLoading}
                     businessTypeOptions={businessTypeOptions}
                 />
+                {renderGroupsField(
+                    newFirm.group_ids || [],
+                    (ids) => setNewFirm((prev) => ({ ...prev, group_ids: ids })),
+                )}
             </FirmModalShell>
 
             <FirmModalShell
@@ -743,6 +958,16 @@ const FirmsTab = ({ clientUsername }) => {
                 />
             </FirmModalShell>
 
+            <FirmGroupsManageModal
+                open={showGroupsModal && !!selectedFirm}
+                firm={selectedFirm}
+                groups={branchGroups}
+                groupsLoading={groupsLoading}
+                saving={savingGroups}
+                onClose={() => !savingGroups && setShowGroupsModal(false)}
+                onSave={saveFirmGroups}
+            />
+
             <FirmModalShell
                 open={showViewModal && !!selectedFirm}
                 onClose={() => setShowViewModal(false)}
@@ -754,17 +979,40 @@ const FirmsTab = ({ clientUsername }) => {
                 footer={
                     <ModalFooterActions
                         onCancel={() => setShowViewModal(false)}
-                        onConfirm={checkPermissionSync('client_edit') ? () => {
+                        onConfirm={canEdit ? () => {
                             setShowViewModal(false);
                             if (selectedFirm) openEditModal(selectedFirm);
                         } : null}
                         cancelLabel="Close"
-                        confirmLabel={checkPermissionSync('client_edit') ? "Edit firm" : null}
+                        confirmLabel={canEdit ? 'Edit firm' : null}
                         confirmClass="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-indigo-200"
                     />
                 }
             >
-                {selectedFirm && <FirmViewDetails firm={selectedFirm} formatDate={formatDate} />}
+                {selectedFirm && (
+                    <div className="space-y-4">
+                        <FirmViewDetails firm={selectedFirm} formatDate={formatDate} />
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Groups
+                            </p>
+                            {(selectedFirm.groups || []).length === 0 ? (
+                                <p className="text-sm text-slate-500">Not in any group</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {(selectedFirm.groups || []).map((group) => (
+                                        <span
+                                            key={group.group_id}
+                                            className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700"
+                                        >
+                                            {group.group_name || group.group_id}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </FirmModalShell>
 
             <FirmModalShell
@@ -796,7 +1044,6 @@ const FirmsTab = ({ clientUsername }) => {
                     </p>
                 </div>
             </FirmModalShell>
-
         </motion.div>
     );
 };
