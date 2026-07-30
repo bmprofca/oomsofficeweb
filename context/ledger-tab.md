@@ -1,13 +1,14 @@
 # LedgerTab Reference
 
-> **Purpose:** Tag when changing client ledger UI, opening balance, or post-transaction profile balance sync. Pair with [`client-profile.md`](./client-profile.md).
+> **Purpose:** Tag when changing client ledger UI, opening balance, post-transaction profile balance sync, or row Download / action menu. Pair with [`client-profile.md`](./client-profile.md) and [`invoice.md`](./invoice.md).
 
 ## Scope
 
 Client ledger transactions + opening balance flows.
 
 **Component:** `src/ClientComponents/LedgerTab.js`  
-Also wrapped from task profile via `src/TaskComponent/LedgerTab.js` → same `ClientLedger`.
+Also wrapped from task profile via `src/TaskComponent/LedgerTab.js` → same `ClientLedger`.  
+CA / Agent mirrors: `CAComponents/LedgerTab.js`, `AgentComponents/LedgerTab.js` (same Download / menu rules).
 
 ## Key features
 
@@ -17,6 +18,14 @@ Also wrapped from task profile via `src/TaskComponent/LedgerTab.js` → same `Cl
 - Create flows via `TransactionModalManager` (Receive, Payment, Sale, Purchase, Expense, Journal)
 - Page size + pagination + page jump (`TablePagination`)
 - Currency: **₹** via `formatLedgerCurrency` / plain via `formatLedgerCurrencyPlain`
+- Row action menu: **Details**, **Edit**, and **Download** only when `downloadable` is true
+
+## Download / generate invoice
+
+- List rows include `downloadable` from `GET /transaction/list` (server: `invoice_id` + supported type).
+- Download calls `POST /invoice/generate` with `{ invoice_id, type, response: 'pdf' }` — not `/invoice/generate-invoice`.
+- Supported types: sale, purchase, payment, receive, journal, expense (opening balance → no Download).
+- Action menu height must track visible items (`itemCount = 2 + (downloadable ? 1 : 0)`); use `height: 'auto'` so hiding Download does not leave a gap. See [`invoice.md`](./invoice.md) and [`action-button.md`](./action-button.md).
 
 ## Props (important)
 

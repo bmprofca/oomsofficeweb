@@ -61,3 +61,4 @@ Use this for **table row ⋮ action buttons**, **dropdown action menus**, and an
 - Row action menus: portal + fixed position + flip/clamp (see Groups, Group Firms, OneChatting Configure, Compliance assignment board, Services)
 - `ViewportTooltip` is for other controls (e.g. Refresh) — **not** for table action ⋮ buttons
 - Tag this file when adding or changing any action-button / action-menu UX
+- **Conditional items:** if the menu hides options (e.g. ledger **Download** when `!downloadable`), size placement from the real item count and set menu `height: 'auto'` — never hardcode height for the max item set (that leaves empty gap). Ledger reference: [`ledger-tab.md`](./ledger-tab.md), [`invoice.md`](./invoice.md).
