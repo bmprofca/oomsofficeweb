@@ -28,6 +28,7 @@ import {
   FiLoader,
 } from "react-icons/fi";
 import { DatePickerField } from "../components/PortalDatePicker";
+import StateDistrictSelect from "../components/state-district-select";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import useDebouncedValue from "../hooks/useDebouncedValue";
@@ -646,8 +647,6 @@ const CreateClient = () => {
   };
 
   // Dropdown search states
-  const [searchState, setSearchState] = useState("");
-  const [searchDistrict, setSearchDistrict] = useState("");
   const [searchBusinessState, setSearchBusinessState] = useState("");
   const [searchBusinessDistrict, setSearchBusinessDistrict] = useState("");
   const [searchGroup, setSearchGroup] = useState("");
@@ -874,21 +873,6 @@ const CreateClient = () => {
   ]);
 
   // Filtered data for searchable dropdowns
-  const filteredStates = states.filter((state) =>
-    state.state.toLowerCase().includes(searchState.toLowerCase()),
-  );
-
-  const getCurrentDistricts = () => {
-    const selectedState = states.find(
-      (state) => state.state === formData.state,
-    );
-    return selectedState ? selectedState.districts : [];
-  };
-
-  const filteredDistricts = getCurrentDistricts().filter((district) =>
-    district.toLowerCase().includes(searchDistrict.toLowerCase()),
-  );
-
   const filteredBusinessStates = states.filter((state) =>
     state.state.toLowerCase().includes(searchBusinessState.toLowerCase()),
   );
@@ -1446,8 +1430,6 @@ const CreateClient = () => {
     setCurrentStep(1);
 
     // Reset search states
-    setSearchState("");
-    setSearchDistrict("");
     setSearchBusinessState("");
     setSearchBusinessDistrict("");
     setSearchGroup("");
@@ -1490,24 +1472,6 @@ const CreateClient = () => {
       ...prev,
       [dropdown]: !prev[dropdown],
     }));
-  };
-
-  // Select state
-  const selectState = (state) => {
-    setFormData((prev) => ({
-      ...prev,
-      state,
-      district: "",
-    }));
-    setIsDropdownOpen((prev) => ({ ...prev, state: false }));
-    setSearchState("");
-  };
-
-  // Select district
-  const selectDistrict = (district) => {
-    setFormData((prev) => ({ ...prev, district }));
-    setIsDropdownOpen((prev) => ({ ...prev, district: false }));
-    setSearchDistrict("");
   };
 
   // Select business state
@@ -2133,134 +2097,31 @@ const CreateClient = () => {
                     }`}
                   >
                     <div className="space-y-4">
-                      {/* State and District with Searchable Dropdowns */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="space-y-1 dropdown-container">
-                          <label className="block text-xs font-medium text-gray-700">
-                            State <span className="text-red-500">*</span>
-                          </label>
-                          <div className="relative">
-                            <div
-                              className={`w-full px-3 py-3 text-sm border ${errors.state ? "border-red-500" : "border-gray-300"} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-colors duration-200 cursor-pointer flex items-center justify-between ${isDropdownOpen.state ? "ring-2 ring-indigo-500 border-indigo-500" : ""}`}
-                              onClick={() => toggleDropdown("state")}
-                            >
-                              <span
-                                className={
-                                  formData.state
-                                    ? "text-gray-900"
-                                    : "text-gray-500"
-                                }
-                              >
-                                {formData.state || "Select State"}
-                              </span>
-                              <FiSearch className="w-4 h-4 text-gray-400" />
-                            </div>
-
-                            {isDropdownOpen.state && (
-                              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                <div className="sticky top-0 bg-white p-2 border-b">
-                                  <div className="relative">
-                                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
-                                    <input
-                                      type="text"
-                                      value={searchState}
-                                      onChange={(e) =>
-                                        setSearchState(e.target.value)
-                                      }
-                                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                      placeholder="Search state..."
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  </div>
-                                </div>
-                                {filteredStates.map((state) => (
-                                  <div
-                                    key={state.state}
-                                    className="px-4 py-2 text-sm hover:bg-indigo-50 cursor-pointer flex items-center justify-between"
-                                    onClick={() => selectState(state.state)}
-                                  >
-                                    <span>{state.state}</span>
-                                    {formData.state === state.state && (
-                                      <FiCheck className="w-4 h-4 text-indigo-600" />
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {errors.state && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {errors.state}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="space-y-1 dropdown-container">
-                          <label className="block text-xs font-medium text-gray-700">
-                            District <span className="text-red-500">*</span>
-                          </label>
-                          <div className="relative">
-                            <div
-                              className={`w-full px-3 py-3 text-sm border ${errors.district ? "border-red-500" : "border-gray-300"} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-colors duration-200 cursor-pointer flex items-center justify-between ${isDropdownOpen.district ? "ring-2 ring-indigo-500 border-indigo-500" : ""} ${!formData.state ? "bg-gray-100 cursor-not-allowed" : ""}`}
-                              onClick={() =>
-                                formData.state && toggleDropdown("district")
-                              }
-                            >
-                              <span
-                                className={
-                                  formData.district
-                                    ? "text-gray-900"
-                                    : "text-gray-500"
-                                }
-                              >
-                                {formData.district || "Select District"}
-                              </span>
-                              <FiSearch className="w-4 h-4 text-gray-400" />
-                            </div>
-
-                            {isDropdownOpen.district && formData.state && (
-                              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                <div className="sticky top-0 bg-white p-2 border-b">
-                                  <div className="relative">
-                                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
-                                    <input
-                                      type="text"
-                                      value={searchDistrict}
-                                      onChange={(e) =>
-                                        setSearchDistrict(e.target.value)
-                                      }
-                                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                      placeholder="Search district..."
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  </div>
-                                </div>
-                                {filteredDistricts.map((district) => (
-                                  <div
-                                    key={district}
-                                    className="px-4 py-2 text-sm hover:bg-indigo-50 cursor-pointer flex items-center justify-between"
-                                    onClick={() => selectDistrict(district)}
-                                  >
-                                    <span>{district}</span>
-                                    {formData.district === district && (
-                                      <FiCheck className="w-4 h-4 text-indigo-600" />
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {errors.district && (
-                            <p className="text-red-500 text-xs mt-1">
-                              {errors.district}
-                            </p>
-                          )}
-                          {!formData.state && (
-                            <p className="text-gray-500 text-xs mt-1">
-                              Select a state first
-                            </p>
-                          )}
-                        </div>
+                      <div className="space-y-2">
+                        <StateDistrictSelect
+                          selectedState={formData.state}
+                          selectedDistrict={formData.district}
+                          onStateChange={(state) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              state,
+                              district:
+                                state === prev.state ? prev.district : "",
+                            }))
+                          }
+                          onDistrictChange={(district) =>
+                            setFormData((prev) => ({ ...prev, district }))
+                          }
+                          stateLabel="State"
+                          districtLabel="District"
+                          required
+                        />
+                        {errors.state ? (
+                          <p className="text-red-500 text-xs">{errors.state}</p>
+                        ) : null}
+                        {errors.district ? (
+                          <p className="text-red-500 text-xs">{errors.district}</p>
+                        ) : null}
                       </div>
 
                       {/* Town and Pincode */}

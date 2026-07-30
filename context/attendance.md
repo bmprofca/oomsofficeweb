@@ -99,16 +99,19 @@ Date picker (default today) + search + TablePagination (default 100)
         ↓
 GET /attendance/day-list?date=&search=&page=&limit=
         ↓
-Table: # · staff (name + local mobile) · status · punch in/out · breaks · approval · designation · manage icon
+Table: # · staff (name + local mobile + resolved profile image) · status · punch in/out · breaks · approval · manage icon
         ↓
-FiEdit3 → AttendanceMarkModal (Absent / Present / Half Day / Leave)
+FiClipboard → AttendanceMarkModal (Absent / Present / Half Day / Leave)
         ↓
 POST /attendance/manage/mark  → always is_approved = 1
 ```
 
 - No attendance row → status badge **Not Marked** (tooltip: treated as absent); counts in Absent summary
-- Empty punch/break/designation cells stay blank (no em dash)
-- Present shows in/out via [`Timepicker`](../src/components/Timepicker.js) (prefilled)
+- Empty punch/break/approval cells stay blank (no em dash)
+- Table uses zebra striping; single-row mark updates show a row-only skeleton while refresh/date/search reloads show the full table skeleton
+- Profile images resolve through the same media-proxy helper path as profile pages (`resolveProfileImageUrl`)
+- Present shows in/out via [`Timepicker`](../src/components/Timepicker.js) (prefilled, centered picker with AM/PM)
+- Present modal shows break records, per-break duration, punched-time restore chips, and a worked-time badge (`out - in`)
 - Times are TIME-only (`HH:mm`), not timestamps
 - Skeleton matches table columns while loading
 - Username is not shown in the UI

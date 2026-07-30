@@ -77,6 +77,7 @@ See `finance-registers.md` for `payment_to` cash vs bank display rules.
 - Pattern: centered shell, fade-only, fixed header/footer, scrollable body (same checklist below).
 - **No backdrop close** — X or ESC only (ESC cancels pending swipe confirm first on personal modal).
 - Manage mark: [`AttendanceMarkModal`](../src/components/Modals/AttendanceMarkModal.jsx); times: [`Timepicker`](../src/components/Timepicker.js).
+- `Timepicker` is a centered focus modal with blurred backdrop, AM/PM toggle, smooth `Now` auto-scroll, and fixed footer actions (`Now`, `Clear`, `Apply`).
 - Full behavior: [`attendance.md`](./attendance.md). Server: [`SERVER/context/attendance.md`](../../SERVER/context/attendance.md).
 
 Implementation checklist
