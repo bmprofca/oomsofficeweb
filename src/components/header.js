@@ -157,7 +157,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
 
   const getSubscriptionLevel = (key) => {
     if (key === 'whatsapp-live-chat') return 'live-chat';
-    if (['dashboard', 'tasks', 'recurring-tasks', 'clients', 'billing', 'finance', 'broadcast', 'staff-management'].includes(key)) {
+    if (['dashboard', 'tasks', 'recurring-tasks', 'clients', 'billing', 'finance', 'assistance', 'broadcast', 'staff-management'].includes(key)) {
       return 'core';
     }
     return null;
@@ -969,13 +969,19 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
       },
       { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/', permission: 'finance_' },
       {
+        key: 'assistance',
+        title: 'Assistance',
+        icon: <FiBriefcase size={18} />,
+        path: '/staff/office-assistance',
+        permission: 'office_assistance_'
+      },
+      {
         key: 'staff-management', title: 'Staff Management', icon: <FiUsers size={18} />,
         permission: 'staff_',
         submenus: [
-          { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
           { title: 'Attendance', path: '/staff/attendance', permission: 'staff_view' },
           { title: 'Team Report', path: '/staff/team-report', permission: 'staff_report' },
-          { title: 'Assistance', path: '/staff/office-assistance', permission: 'office_assistance_' }
+          { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
         ]
       },
       { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast', permission: 'broadcast_' },

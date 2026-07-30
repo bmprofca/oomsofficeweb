@@ -64,7 +64,10 @@ Follows [`modal.md`](./modal.md):
 | `not_punched` | Punch In |
 | `punched_in` | Start Break · Punch Out |
 | `on_break` | End Break |
-| `punched_out` | Close |
+| `punched_out` / `present` | Close |
+| `absent` / `leave` / `half_day` | Close only — office-marked card (no punch timeline) |
+
+Office-marked days (`office_marked` from `GET /attendance/today-status`, or states `absent` | `leave` | `half_day`) show a clear status card so staff can see today’s mark. Punch/break buttons are hidden.
 
 ### Swipe to confirm
 
@@ -99,16 +102,22 @@ Date picker (default today) + search + TablePagination (default 100)
         ↓
 GET /attendance/day-list?date=&search=&page=&limit=
         ↓
-Table: # · staff (name + local mobile + resolved profile image) · status · punch in/out · breaks · approval · manage icon
+Table: # + animated select toggle · staff · status · punch in/out · breaks · approval · manage icon
+        ↓
+Select ≥1 → Bulk approve → ConfirmActionModal → POST /attendance/manage/bulk-approve
         ↓
 FiClipboard → AttendanceMarkModal (Absent / Present / Half Day / Leave)
         ↓
 POST /attendance/manage/mark  → always is_approved = 1
 ```
 
+- Multi-select uses the same animated square checkboxes as Clients ([`client-view.jsx`](../src/pages/client-view.jsx) `AnimatedCheckbox`): indigo border/fill, check / indeterminate dash, scale tap. Master checkbox in table header + toolbar Select All; selected rows `bg-indigo-50/50`
+- **Bulk approve** appears when at least one row is selected; confirmation then posts `{ usernames, date }`
+- Backend approves only punch-in + punch-out complete rows; toast shows done / skipped counts
+- Selection clears on date / search / page / limit change
 - No attendance row → status badge **Not Marked** (tooltip: treated as absent); counts in Absent summary
 - Empty punch/break/approval cells stay blank (no em dash)
-- Table uses zebra striping; single-row mark updates show a row-only skeleton while refresh/date/search reloads show the full table skeleton
+- Table uses zebra striping (overridden when selected); single-row mark updates show a row-only skeleton while refresh/date/search reloads show the full table skeleton
 - Profile images resolve through the same media-proxy helper path as profile pages (`resolveProfileImageUrl`)
 - Present shows in/out via [`Timepicker`](../src/components/Timepicker.js) (prefilled, centered picker with AM/PM)
 - Present modal shows break records, per-break duration, punched-time restore chips, and a worked-time badge (`out - in`)

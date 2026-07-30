@@ -13,6 +13,7 @@ import axios from 'axios';
 import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
 import BranchRequiredRoute from './components/BranchRequiredRoute';
 import RouteLoadingFallback from './app/RouteLoadingFallback';
+import DocumentTitle from './app/DocumentTitle';
 import { handleUnauthorizedResponse } from './utils/auth-session';
 import {
   Login,
@@ -271,6 +272,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <BrowserRouter>
+      <DocumentTitle />
       <TaskCreateProvider>
         <Toaster
           position="top-center"

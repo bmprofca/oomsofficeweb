@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   FiCalendar,
   FiCheck,
+  FiCheckCircle,
   FiClipboard,
   FiChevronLeft,
   FiChevronRight,
@@ -13,6 +15,7 @@ import {
   FiLogOut,
   FiRefreshCw,
   FiSearch,
+  FiSettings,
   FiUser,
   FiUsers,
   FiX,
@@ -22,12 +25,92 @@ import { Header, Sidebar } from '../components/header';
 import { DatePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import AttendanceMarkModal from '../components/Modals/AttendanceMarkModal';
+import ConfirmActionModal from '../components/ConfirmActionModal';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import { resolveProfileImageUrl } from '../utils/user-profile-storage';
 
 const ATTENDANCE_TZ = 'Asia/Kolkata';
 const DEFAULT_LIMIT = 100;
+
+/** Same animated checkbox as client-view.jsx */
+const AnimatedCheckbox = ({
+  checked,
+  indeterminate = false,
+  onChange,
+  ariaLabel,
+  disabled = false,
+}) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = indeterminate;
+    }
+  }, [indeterminate, checked]);
+
+  const isActive = checked || indeterminate;
+
+  return (
+    <label
+      className={`relative inline-flex items-center group ${
+        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={onChange}
+        aria-label={ariaLabel}
+        disabled={disabled}
+      />
+      <motion.span
+        className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
+          isActive
+            ? 'border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200'
+            : 'border-gray-300 bg-white group-hover:border-indigo-400'
+        }`}
+        animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
+        transition={{ duration: 0.18 }}
+        whileTap={disabled ? {} : { scale: 0.92 }}
+      >
+        <AnimatePresence initial={false} mode="wait">
+          {indeterminate ? (
+            <motion.span
+              key="dash"
+              className="block h-0.5 w-2 rounded-full bg-white"
+              initial={{ opacity: 0, scaleX: 0.4 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              exit={{ opacity: 0, scaleX: 0.4 }}
+              transition={{ duration: 0.12 }}
+            />
+          ) : checked ? (
+            <motion.svg
+              key="check"
+              viewBox="0 0 12 12"
+              className="h-3 w-3 text-white"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.15 }}
+            >
+              <path
+                d="M2.5 6l2.2 2.2 4.8-4.8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </motion.svg>
+          ) : null}
+        </AnimatePresence>
+      </motion.span>
+    </label>
+  );
+};
 
 const STATE_META = {
   not_marked: {
@@ -154,7 +237,7 @@ function TableSkeleton({ rows = 8 }) {
       <table className="min-w-full text-left text-sm">
         <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           <tr>
-            <th className="w-12 px-4 py-3">#</th>
+            <th className="w-16 px-4 py-3">#</th>
             <th className="px-4 py-3">Staff</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Punch in</th>
@@ -168,7 +251,10 @@ function TableSkeleton({ rows = 8 }) {
           {Array.from({ length: rows }).map((_, index) => (
             <tr key={index}>
               <td className="px-4 py-3">
-                <div className={`${sk} h-3.5 w-6`} />
+                <div className="flex items-center gap-2">
+                  <div className={`${sk} h-3.5 w-6`} />
+                  <div className={`${sk} h-3.5 w-7 rounded-full`} />
+                </div>
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -256,6 +342,10 @@ function StaffAttendancePage() {
   const [markRow, setMarkRow] = useState(null);
   const [markLoading, setMarkLoading] = useState(false);
   const [updatingUsername, setUpdatingUsername] = useState('');
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkApproving, setBulkApproving] = useState(false);
 
   const contentInset = isMinimized ? 'md:pl-20' : 'md:pl-[260px]';
   const today = getTodayDateString();
@@ -324,6 +414,22 @@ function StaffAttendancePage() {
   }, [selectedDate, search, page, limit, loadDayList]);
 
   useEffect(() => {
+    setSelectedItems([]);
+    setSelectAll(false);
+    setBulkConfirmOpen(false);
+  }, [selectedDate, search, page, limit]);
+
+  useEffect(() => {
+    if (selectedItems.length === 0) {
+      setSelectAll(false);
+    } else if (staff.length > 0 && selectedItems.length === staff.length) {
+      setSelectAll(true);
+    } else {
+      setSelectAll(false);
+    }
+  }, [selectedItems, staff.length]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       const next = searchInput.trim();
       setSearch((prev) => {
@@ -334,6 +440,75 @@ function StaffAttendancePage() {
     }, 300);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
+
+  const handleToggleSelect = useCallback((username) => {
+    const id = String(username || '');
+    if (!id) return;
+    setSelectedItems((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectAll) {
+      setSelectedItems([]);
+      setSelectAll(false);
+      return;
+    }
+    setSelectedItems(staff.map((row) => String(row.username)).filter(Boolean));
+    setSelectAll(true);
+  }, [selectAll, staff]);
+
+  const submitBulkApprove = useCallback(async () => {
+    if (selectedItems.length === 0 || bulkApproving) return;
+    setBulkApproving(true);
+    try {
+      const headers = await getHeaders();
+      if (!headers) throw new Error('Missing auth headers');
+      const res = await fetch(`${API_BASE_URL}/attendance/manage/bulk-approve`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          usernames: selectedItems,
+          date: selectedDate,
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.message || 'Failed to bulk approve');
+      }
+      const done = Number(result?.data?.done ?? 0);
+      const notDone = Number(result?.data?.not_done ?? 0);
+      toast.success(
+        result.message || `Approved ${done} staff. Skipped ${notDone} staff.`
+      );
+      setBulkConfirmOpen(false);
+      setSelectedItems([]);
+      setSelectAll(false);
+      await loadDayList({
+        date: selectedDate,
+        searchTerm: search,
+        pageNum: page,
+        pageLimit: limit,
+        showSkeleton: false,
+      });
+    } catch (error) {
+      toast.error(error.message || 'Failed to bulk approve');
+    } finally {
+      setBulkApproving(false);
+    }
+  }, [
+    selectedItems,
+    bulkApproving,
+    selectedDate,
+    loadDayList,
+    search,
+    page,
+    limit,
+  ]);
 
   const summaryCards = useMemo(
     () => [
@@ -549,9 +724,35 @@ function StaffAttendancePage() {
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <FiUsers className="h-4 w-4 text-slate-400" />
-                Staff list
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <FiUsers className="h-4 w-4 text-slate-400" />
+                  Staff list
+                </div>
+                {selectedItems.length > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">
+                      {selectedItems.length}
+                    </div>
+                    <span className="text-sm text-gray-600">selected</span>
+                  </div>
+                ) : null}
+                <AnimatePresence>
+                  {selectedItems.length > 0 ? (
+                    <motion.button
+                      type="button"
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      onClick={() => setBulkConfirmOpen(true)}
+                      disabled={bulkApproving}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      <FiCheckCircle className="h-4 w-4" />
+                      Bulk approve
+                    </motion.button>
+                  ) : null}
+                </AnimatePresence>
               </div>
               <div className="relative w-full sm:max-w-xs">
                 <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -593,7 +794,21 @@ function StaffAttendancePage() {
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                       <tr>
-                        <th className="w-12 px-4 py-3 font-semibold">#</th>
+                        <th className="w-16 px-4 py-3 font-semibold">
+                          <div className="flex items-center gap-2">
+                            <AnimatedCheckbox
+                              checked={selectAll}
+                              indeterminate={
+                                selectedItems.length > 0 &&
+                                selectedItems.length < staff.length
+                              }
+                              onChange={handleSelectAll}
+                              disabled={staff.length === 0}
+                              ariaLabel="Select all staff"
+                            />
+                            <span>#</span>
+                          </div>
+                        </th>
                         <th className="px-4 py-3 font-semibold">Staff</th>
                         <th className="px-4 py-3 font-semibold">Status</th>
                         <th className="px-4 py-3 font-semibold">Punch in</th>
@@ -601,7 +816,10 @@ function StaffAttendancePage() {
                         <th className="hidden px-4 py-3 font-semibold md:table-cell">Breaks</th>
                         <th className="hidden px-4 py-3 font-semibold lg:table-cell">Approval</th>
                         <th className="w-12 px-4 py-3 font-semibold">
-                          <span className="sr-only">Manage</span>
+                          <span className="inline-flex items-center justify-center" title="Manage">
+                            <FiSettings className="h-3.5 w-3.5" aria-hidden />
+                            <span className="sr-only">Manage</span>
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -612,16 +830,32 @@ function StaffAttendancePage() {
                         const localMobile = formatLocalMobile(row.mobile, row.country_code);
                         const imageUrl = resolveProfileImageUrl(row.image);
                         const rowBusy = markLoading && updatingUsername === row.username;
+                        const isSelected = selectedItems.includes(row.username);
                         if (rowBusy) {
                           return <TableRowSkeleton key={row.username} />;
                         }
                         return (
-                          <tr
+                          <motion.tr
                             key={row.username}
-                            className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/55'} hover:bg-teal-50/40`}
+                            className={`group transition-colors duration-150 hover:bg-teal-50/40 ${
+                              isSelected
+                                ? 'bg-indigo-50/50'
+                                : index % 2 === 0
+                                  ? 'bg-white'
+                                  : 'bg-slate-50/55'
+                            }`}
                           >
-                            <td className="px-4 py-3 tabular-nums text-slate-500">
-                              {serialBase + index + 1}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <AnimatedCheckbox
+                                  checked={isSelected}
+                                  onChange={() => handleToggleSelect(row.username)}
+                                  ariaLabel={`Select ${row.name || 'staff'}`}
+                                />
+                                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-medium tabular-nums text-gray-700">
+                                  {serialBase + index + 1}
+                                </div>
+                              </div>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
@@ -700,7 +934,7 @@ function StaffAttendancePage() {
                                 <FiClipboard className="h-4 w-4" />
                               </button>
                             </td>
-                          </tr>
+                          </motion.tr>
                         );
                       })}
                     </tbody>
@@ -735,6 +969,22 @@ function StaffAttendancePage() {
           if (!markLoading) setMarkRow(null);
         }}
         onSubmit={submitMark}
+      />
+
+      <ConfirmActionModal
+        isOpen={bulkConfirmOpen}
+        title="Bulk approve"
+        heading="Approve selected attendance?"
+        message={`Approve ${selectedItems.length} selected staff for ${formatDisplayDate(selectedDate)}. Only staff with both punch in and punch out will be approved; others will be skipped.`}
+        confirmLabel="Approve"
+        cancelLabel="Cancel"
+        loading={bulkApproving}
+        tone="primary"
+        icon={FiCheckCircle}
+        onCancel={() => {
+          if (!bulkApproving) setBulkConfirmOpen(false);
+        }}
+        onConfirm={submitBulkApprove}
       />
     </div>
   );
