@@ -88,4 +88,28 @@ Follows [`modal.md`](./modal.md):
 
 Body for POSTs: `{ method: 'manual' }`.
 
-Expect `data.breaks[]` on status/action responses for the timeline list.
+## Manage page (day list)
+
+**Route:** `/staff/attendance`  
+**Page:** [`src/pages/staff-attendance.jsx`](../src/pages/staff-attendance.jsx)  
+**Nav:** Staff Management → Attendance (`staff_view`)
+
+```
+Date picker (default today) + search + TablePagination (default 100)
+        ↓
+GET /attendance/day-list?date=&search=&page=&limit=
+        ↓
+Table: # · staff (name + local mobile) · status · punch in/out · breaks · approval · designation · manage icon
+        ↓
+FiEdit3 → AttendanceMarkModal (Absent / Present / Half Day / Leave)
+        ↓
+POST /attendance/manage/mark  → always is_approved = 1
+```
+
+- No attendance row → status badge **Not Marked** (tooltip: treated as absent); counts in Absent summary
+- Empty punch/break/designation cells stay blank (no em dash)
+- Present shows in/out via [`Timepicker`](../src/components/Timepicker.js) (prefilled)
+- Times are TIME-only (`HH:mm`), not timestamps
+- Skeleton matches table columns while loading
+- Username is not shown in the UI
+- Personal punch modal remains profile-menu only for non-admin staff (see above)

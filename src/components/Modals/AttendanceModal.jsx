@@ -87,10 +87,20 @@ const CONFIRM_RATIO = 0.9;
 const sk = 'animate-pulse rounded-md bg-slate-200/80';
 
 function formatTime(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (value == null || value === '') return '—';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  const raw = String(value).trim();
+  const iso = raw.match(/T(\d{2}):(\d{2})/);
+  if (iso) return `${iso[1]}:${iso[2]}`;
+  const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (m) return `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
+  const d = new Date(raw);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  return '—';
 }
 
 function formatDateLabel(value) {
@@ -105,10 +115,27 @@ function formatDateLabel(value) {
   });
 }
 
-function formatDuration(start, end) {
-  if (!start) return '—';
-  const startMs = new Date(start).getTime();
-  const endMs = end ? new Date(end).getTime() : Date.now();
+function timeToMs(timeValue, dateStr) {
+  if (timeValue == null || timeValue === '') return NaN;
+  if (timeValue instanceof Date && !Number.isNaN(timeValue.getTime())) {
+    return timeValue.getTime();
+  }
+  const raw = String(timeValue).trim();
+  const m = raw.match(/(?:T|^)(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const day = dateStr || new Date().toISOString().slice(0, 10);
+    const hh = String(Number(m[1])).padStart(2, '0');
+    const mm = m[2];
+    const ss = m[3] || '00';
+    return new Date(`${day}T${hh}:${mm}:${ss}`).getTime();
+  }
+  const d = new Date(raw);
+  return d.getTime();
+}
+
+function formatDuration(start, end, dateStr) {
+  const startMs = timeToMs(start, dateStr);
+  const endMs = end ? timeToMs(end, dateStr) : Date.now();
   if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) return '—';
   const totalMinutes = Math.floor((endMs - startMs) / 60000);
   const hours = Math.floor(totalMinutes / 60);
@@ -453,15 +480,15 @@ const AttendanceModal = ({ isOpen, onClose, branchName, branchId }) => {
   const workDuration = useMemo(() => {
     const attendance = status?.attendance;
     if (!attendance?.in_time) return '—';
-    return formatDuration(attendance.in_time, attendance.out_time || null);
+    return formatDuration(attendance.in_time, attendance.out_time || null, status?.date);
   }, [status, tick]);
 
   const totalBreakDuration = useMemo(() => {
     if (!breaks.length) return '0m';
     let ms = 0;
     for (const item of breaks) {
-      const startMs = new Date(item.start_time).getTime();
-      const endMs = item.end_time ? new Date(item.end_time).getTime() : Date.now();
+      const startMs = timeToMs(item.start_time, status?.date);
+      const endMs = item.end_time ? timeToMs(item.end_time, status?.date) : Date.now();
       if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs >= startMs) {
         ms += endMs - startMs;
       }
@@ -471,7 +498,7 @@ const AttendanceModal = ({ isOpen, onClose, branchName, branchId }) => {
     const minutes = totalMinutes % 60;
     if (hours <= 0) return `${minutes}m`;
     return `${hours}h ${minutes}m`;
-  }, [breaks, tick]);
+  }, [breaks, tick, status?.date]);
 
   const requestAction = (actionKey) => {
     if (busy) return;
@@ -710,7 +737,7 @@ const AttendanceModal = ({ isOpen, onClose, branchName, branchId }) => {
                                   ) : null}
                                 </p>
                                 <p className="m-0 text-xs font-medium tabular-nums text-slate-500">
-                                  {formatDuration(item.start_time, item.end_time)}
+                                  {formatDuration(item.start_time, item.end_time, status?.date)}
                                 </p>
                               </div>
                               <p className="m-0 mt-1 text-sm tabular-nums text-slate-600">

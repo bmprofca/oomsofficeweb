@@ -41,6 +41,7 @@ import {
   ExpenseItemsPage,
   ViewStaff,
   ViewStaffProfile,
+  StaffAttendance,
   StaffReport,
   OfficeAssistance,
   ViewDSCRegister,
@@ -527,6 +528,12 @@ root.render(
             <Route path="/staff/view" element={
               <ProtectedRoute>
                 <ViewStaff />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/staff/attendance" element={
+              <ProtectedRoute>
+                <StaffAttendance />
               </ProtectedRoute>
             } />
 

@@ -72,9 +72,11 @@ See `finance-registers.md` for `payment_to` cash vs bank display rules.
 | Modal | Opens from | Notes |
 |-------|------------|-------|
 | `AttendanceModal` | Header profile → Attendance | Punch/break timeline, branch banner, swipe-to-confirm |
+| `AttendanceMarkModal` | Staff Attendance page manage icon | Absent / Present / Half Day / Leave; Present uses `Timepicker` |
 
 - Pattern: centered shell, fade-only, fixed header/footer, scrollable body (same checklist below).
-- **No backdrop close** — X or ESC only (ESC cancels pending swipe confirm first).
+- **No backdrop close** — X or ESC only (ESC cancels pending swipe confirm first on personal modal).
+- Manage mark: [`AttendanceMarkModal`](../src/components/Modals/AttendanceMarkModal.jsx); times: [`Timepicker`](../src/components/Timepicker.js).
 - Full behavior: [`attendance.md`](./attendance.md). Server: [`SERVER/context/attendance.md`](../../SERVER/context/attendance.md).
 
 Implementation checklist

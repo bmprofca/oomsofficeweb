@@ -973,6 +973,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         permission: 'staff_',
         submenus: [
           { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
+          { title: 'Attendance', path: '/staff/attendance', permission: 'staff_view' },
           { title: 'Team Report', path: '/staff/team-report', permission: 'staff_report' },
           { title: 'Assistance', path: '/staff/office-assistance', permission: 'office_assistance_' }
         ]

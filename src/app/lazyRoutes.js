@@ -27,6 +27,7 @@ export const ViewExpenses = lazy(() => import('../pages/expense-display'));
 export const ExpenseItemsPage = lazy(() => import('../pages/expense-items'));
 export const ViewStaff = lazy(() => import('../pages/staff-display'));
 export const ViewStaffProfile = lazy(() => import('../pages/staff-profile'));
+export const StaffAttendance = lazy(() => import('../pages/staff-attendance'));
 export const StaffReport = lazy(() => import('../pages/staff-report'));
 export const OfficeAssistance = lazy(() => import('../pages/office-assistance'));
 export const ViewDSCRegister = lazy(() => import('../pages/office-assistance/dsc-report'));
