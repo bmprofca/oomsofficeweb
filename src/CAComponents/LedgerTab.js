@@ -174,12 +174,12 @@ export default function LedgerTab({
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    const computeActionMenuPosition = useCallback((anchorEl) => {
+    const computeActionMenuPosition = useCallback((anchorEl, itemCount = 3) => {
         if (!anchorEl) return null;
 
         const rect = anchorEl.getBoundingClientRect();
         const menuWidth = 160;
-        const menuHeight = 120;
+        const menuHeight = 8 + itemCount * 36;
         const gap = 8;
         const margin = 8;
         const vw = window.innerWidth;
@@ -240,7 +240,9 @@ export default function LedgerTab({
         if (!showActionMenu || !actionAnchorRef.current) return undefined;
 
         const updatePosition = () => {
-            setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current));
+            const txn = transactions.find((t) => t.transaction_id === showActionMenu);
+            const itemCount = 2 + (txn?.downloadable ? 1 : 0);
+            setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current, itemCount));
         };
 
         const handleEscape = (e) => {
@@ -261,7 +263,7 @@ export default function LedgerTab({
             window.removeEventListener('scroll', updatePosition, true);
             document.removeEventListener('keydown', handleEscape);
         };
-    }, [showActionMenu, computeActionMenuPosition]);
+    }, [showActionMenu, computeActionMenuPosition, transactions]);
 
     const fetchOpeningBalance = useCallback(async () => {
         if (!caUsername) return;
@@ -411,9 +413,11 @@ export default function LedgerTab({
         e.stopPropagation();
         const willOpen = showActionMenu !== transactionId;
         if (willOpen) {
+            const txn = transactions.find((t) => t.transaction_id === transactionId);
+            const itemCount = 2 + (txn?.downloadable ? 1 : 0);
             actionAnchorRef.current = e.currentTarget;
             setShowActionMenu(transactionId);
-            setActionMenuPosition(computeActionMenuPosition(e.currentTarget));
+            setActionMenuPosition(computeActionMenuPosition(e.currentTarget, itemCount));
             return;
         }
         actionAnchorRef.current = null;
@@ -694,8 +698,8 @@ export default function LedgerTab({
                         initial={{ opacity: 0, scale: 0.96 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.96 }}
-                        className="fixed z-[99999] w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
-                        style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                        className="fixed z-[99999] w-40 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                        style={{ top: actionMenuPosition.top, left: actionMenuPosition.left, height: 'auto' }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <span
@@ -740,19 +744,21 @@ export default function LedgerTab({
                             <FiEdit2 className="h-4 w-4 text-blue-600" />
                             Edit
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => handleViewInvoice(selectedActionTransaction)}
-                            disabled={downloadingInvoice}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {downloadingInvoice ? (
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
-                            ) : (
-                                <FiFile className="h-4 w-4 text-green-600" />
-                            )}
-                            {downloadingInvoice ? 'Downloading…' : 'Invoice'}
-                        </button>
+                        {selectedActionTransaction.downloadable ? (
+                            <button
+                                type="button"
+                                onClick={() => handleViewInvoice(selectedActionTransaction)}
+                                disabled={downloadingInvoice}
+                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {downloadingInvoice ? (
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
+                                ) : (
+                                    <FiFile className="h-4 w-4 text-green-600" />
+                                )}
+                                {downloadingInvoice ? 'Downloading…' : 'Download'}
+                            </button>
+                        ) : null}
                     </motion.div>,
                     document.body
                 )}

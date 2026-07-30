@@ -116,12 +116,14 @@ const ClientLedger = ({
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    const computeActionMenuPosition = useCallback((anchorEl) => {
+    const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
         if (!anchorEl) return null;
 
+        const itemCount = Math.max(1, Number(options.itemCount) || 2);
         const rect = anchorEl.getBoundingClientRect();
         const menuWidth = 160;
-        const menuHeight = 120;
+        // py-1 (8px) + ~36px per action row
+        const menuHeight = 8 + itemCount * 36;
         const gap = 8;
         const margin = 8;
         const vw = window.innerWidth;
@@ -184,7 +186,11 @@ const ClientLedger = ({
         if (!showActionMenu || !actionAnchorRef.current) return undefined;
 
         const updatePosition = () => {
-            setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current));
+            const tx = transactions.find((t) => t.transaction_id === showActionMenu);
+            const itemCount = 2 + (tx?.downloadable ? 1 : 0);
+            setActionMenuPosition(
+                computeActionMenuPosition(actionAnchorRef.current, { itemCount })
+            );
         };
 
         const handleEscape = (e) => {
@@ -205,7 +211,7 @@ const ClientLedger = ({
             window.removeEventListener('scroll', updatePosition, true);
             document.removeEventListener('keydown', handleEscape);
         };
-    }, [showActionMenu, computeActionMenuPosition]);
+    }, [showActionMenu, computeActionMenuPosition, transactions]);
 
     const refreshProfileBalance = useCallback(() => {
         if (typeof onProfileRefresh === 'function') {
@@ -389,9 +395,13 @@ const ClientLedger = ({
         e.stopPropagation();
         const willOpen = showActionMenu !== transactionId;
         if (willOpen) {
+            const tx = transactions.find((t) => t.transaction_id === transactionId);
+            const itemCount = 2 + (tx?.downloadable ? 1 : 0);
             actionAnchorRef.current = e.currentTarget;
             setShowActionMenu(transactionId);
-            setActionMenuPosition(computeActionMenuPosition(e.currentTarget));
+            setActionMenuPosition(
+                computeActionMenuPosition(e.currentTarget, { itemCount })
+            );
             return;
         }
         actionAnchorRef.current = null;
@@ -655,8 +665,8 @@ const ClientLedger = ({
                     initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.96 }}
-                    className="fixed w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999]"
-                    style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                    className="fixed w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
+                    style={{ top: actionMenuPosition.top, left: actionMenuPosition.left, height: 'auto' }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <span
@@ -688,18 +698,20 @@ const ClientLedger = ({
                         <FiEdit2 className="w-4 h-4 text-blue-600" />
                         Edit
                     </button>
-                    <button
-                        onClick={() => handleViewInvoice(selectedActionTransaction)}
-                        disabled={downloadingInvoice}
-                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-green-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {downloadingInvoice ? (
-                            <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <FiFile className="w-4 h-4 text-green-600" />
-                        )}
-                        {downloadingInvoice ? 'Downloading…' : 'Invoice'}
-                    </button>
+                    {selectedActionTransaction.downloadable ? (
+                        <button
+                            onClick={() => handleViewInvoice(selectedActionTransaction)}
+                            disabled={downloadingInvoice}
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-green-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {downloadingInvoice ? (
+                                <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <FiFile className="w-4 h-4 text-green-600" />
+                            )}
+                            {downloadingInvoice ? 'Downloading…' : 'Download'}
+                        </button>
+                    ) : null}
                 </motion.div>,
                 document.body
             )}

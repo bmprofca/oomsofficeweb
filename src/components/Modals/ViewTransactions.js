@@ -191,15 +191,17 @@ const BaseTransactionViewModal = ({ transaction, onClose, formatCurrency, partic
 
                 <div className="border-t border-slate-200 bg-white px-4 sm:px-5 py-2 shrink-0">
                     <div className="flex items-center justify-end gap-2">
-                        <button
-                            type="button"
-                            onClick={() => onDownload?.(transaction)}
-                            disabled={Boolean(isDownloading) || !transaction?.invoice_id}
-                            className="px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
-                        >
-                            <FiDownload className="w-4 h-4" />
-                            {isDownloading ? 'Downloading...' : 'Download'}
-                        </button>
+                        {transaction?.downloadable !== false && transaction?.invoice_id ? (
+                            <button
+                                type="button"
+                                onClick={() => onDownload?.(transaction)}
+                                disabled={Boolean(isDownloading)}
+                                className="px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                            >
+                                <FiDownload className="w-4 h-4" />
+                                {isDownloading ? 'Downloading...' : 'Download'}
+                            </button>
+                        ) : null}
                         <button
                             type="button"
                             disabled

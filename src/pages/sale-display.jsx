@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FiPlus,
     FiSettings,
@@ -21,6 +22,7 @@ import {
     FiPlusCircle,
     FiLayers,
     FiLock,
+    FiDownload,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { TbCurrencyRupee } from 'react-icons/tb';
@@ -63,6 +65,9 @@ const parseLineRemark = (remark) => {
     return { kind: 'text', text: s };
 };
 
+const ACTIONS_MENU_WIDTH = 192;
+const ACTIONS_MENU_HEIGHT = 260;
+
 const ViewSales = () => {
     const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -99,6 +104,8 @@ const ViewSales = () => {
     // State for dropdown menus
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: undefined, bottom: undefined, right: 0 });
+    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
     // Export Modal State
@@ -298,6 +305,62 @@ const ViewSales = () => {
         setActiveRowDropdown(null);
     };
 
+    // Download invoice PDF via POST /invoice/generate
+    const handleDownloadInvoice = async (sale) => {
+        const invoiceId = sale?.invoice_id;
+        if (!invoiceId) {
+            toast.error('Invoice ID not available for this sale');
+            return;
+        }
+
+        setActiveRowDropdown(null);
+        setDownloadingInvoice(true);
+
+        const toastId = toast.loading('Generating invoice…');
+        try {
+            const headers = getHeaders();
+            if (!headers) {
+                toast.error('Please log in again to download the invoice', { id: toastId });
+                return;
+            }
+
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/generate`,
+                { invoice_id: invoiceId, type: 'sale', response: 'pdf' },
+                { headers, responseType: 'blob' }
+            );
+
+            const filename = `invoice-${sale.invoice_no || invoiceId}.pdf`;
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Invoice downloaded', { id: toastId });
+        } catch (error) {
+            console.error('Invoice download error:', error);
+            let message = error.message || 'Failed to download invoice';
+            if (error.response?.data instanceof Blob) {
+                try {
+                    const text = await error.response.data.text();
+                    const parsed = JSON.parse(text);
+                    message = parsed.message || message;
+                } catch {
+                    // keep default message
+                }
+            } else if (error.response?.data?.message) {
+                message = error.response.data.message;
+            }
+            toast.error(message, { id: toastId });
+        } finally {
+            setDownloadingInvoice(false);
+        }
+    };
+
     // Handle search input change
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -374,28 +437,6 @@ const ViewSales = () => {
                 setExportModal({ open: false, type: '', data: null });
             }
         }, 100);
-    };
-
-    // Get edit link and invoice link based on sale_type
-    const getActionLinks = (sale) => {
-        let editLink = '';
-        let invoiceLink = '';
-
-        switch (sale.sale_type) {
-            case 'client':
-                editLink = `/edit-sale-client?redirect=${window.location.href}&invoice_id=${sale.invoice_id}`;
-                invoiceLink = `/preview-invoice-sale?invoice_id=${sale.invoice_id}`;
-                break;
-            case 'bank':
-                editLink = `/edit-sale-bank?redirect=${window.location.href}&invoice_id=${sale.invoice_id}`;
-                invoiceLink = `/preview-invoice-sale?invoice_id=${sale.invoice_id}`;
-                break;
-            default:
-                editLink = '#';
-                invoiceLink = '#';
-        }
-
-        return { editLink, invoiceLink };
     };
 
     // Format date
@@ -477,15 +518,35 @@ const ViewSales = () => {
         return null;
     };
 
-    // Toggle row dropdown
-    const toggleRowDropdown = (invoiceId) => {
-        setActiveRowDropdown(activeRowDropdown === invoiceId ? null : invoiceId);
+    // Toggle row dropdown (portal + fixed position so menu is not clipped by table overflow)
+    const toggleRowDropdown = (invoiceId, e) => {
+        if (activeRowDropdown === invoiceId) {
+            setActiveRowDropdown(null);
+            return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + 8;
+        setDropdownPos({
+            top: openUpward ? undefined : rect.bottom + 4,
+            bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
+            right: window.innerWidth - rect.right,
+        });
+        setActiveRowDropdown(invoiceId);
     };
+
+    const activeSale = useMemo(
+        () => sales.find((s) => s.invoice_id === activeRowDropdown) || null,
+        [sales, activeRowDropdown]
+    );
 
     // Close all dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
+            if (
+                !event.target.closest('.dropdown-container') &&
+                !event.target.closest('[data-sale-actions-menu]')
+            ) {
                 setShowAddDropdown(false);
                 setActiveRowDropdown(null);
             }
@@ -496,6 +557,17 @@ const ViewSales = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+
+    useEffect(() => {
+        if (!activeRowDropdown) return undefined;
+        const close = () => setActiveRowDropdown(null);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        return () => {
+            window.removeEventListener('scroll', close, true);
+            window.removeEventListener('resize', close);
+        };
+    }, [activeRowDropdown]);
 
     // List rows are server-paginated; `sales` is already the current page from the API
     const currentItems = sales;
@@ -765,13 +837,11 @@ const ViewSales = () => {
                                 <thead><tr className="bg-gradient-to-r from-slate-50 to-slate-100"><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">Sl No</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Date</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">Particulars</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Invoice No</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Total Value</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Tax</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Grand Total</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Actions</th></tr></thead>
                                 <tbody className="bg-white divide-y divide-slate-100">
                                     {loading ? [...Array(5)].map((_, index) => <SkeletonRow key={index} />) : currentItems.length === 0 ? (<tr><td colSpan="8" className="text-center py-8 text-slate-500"><div className="flex flex-col items-center justify-center"><div className="p-3 bg-slate-100 rounded-full mb-3"><FiFileText className="w-8 h-8 text-slate-400" /></div><p className="text-slate-600 text-sm font-medium mb-1">No sales records found</p></div></td></tr>) : currentItems.map((sale, index) => {
-                                        const { editLink, invoiceLink } = getActionLinks(sale);
-                                        const isDropdownOpen = activeRowDropdown === sale.invoice_id;
                                         const actualIndex = (currentPage - 1) * itemsPerPage + index;
                                         const firstServiceName = sale.items?.[0]?.service?.name;
 
                                         return (
-                                            <motion.tr key={sale.invoice_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="hover:bg-blue-50/20 transition-colors duration-150">
+                                            <motion.tr key={sale.invoice_id || sale.sale_id || index} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="hover:bg-blue-50/20 transition-colors duration-150">
                                                 <td className="text-center p-3 align-middle"><div className="text-slate-700 font-medium text-xs">{actualIndex + 1}</div></td>
                                                 <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(sale.transaction_date)}</div></td>
                                                 <td className="text-center p-3 align-middle"><div className="mx-auto max-w-[200px]"><div className="text-slate-800 font-semibold text-xs">{getSalePartyName(sale) || 'N/A'}</div><div className="flex flex-col items-center gap-1 mt-1">{sale.is_task ? <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">Task</span> : <span className="text-[9px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Direct</span>}</div>{firstServiceName && <div className="text-slate-500 text-[10px] mt-1 truncate max-w-[200px] mx-auto">{firstServiceName}</div>}</div></td>
@@ -781,63 +851,15 @@ const ViewSales = () => {
                                                 <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">₹{formatCurrency(sale.calculation?.grand_total || sale.amount || 0)}</span></td>
                                                 <td className="text-center p-3 align-middle">
                                                     <div className="dropdown-container relative flex justify-center">
-                                                        <motion.button className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300" onClick={() => toggleRowDropdown(sale.invoice_id)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                                        <motion.button
+                                                            type="button"
+                                                            className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
+                                                            onClick={(e) => toggleRowDropdown(sale.invoice_id, e)}
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                        >
                                                             <FiMenu className="w-3.5 h-3.5" />
                                                         </motion.button>
-                                                        <AnimatePresence>
-                                                            {isDropdownOpen && (
-                                                                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden">
-                                                                    <div className="py-1">
-                                                                        <button onClick={() => handleViewSale(sale)} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150">
-                                                                            <div className="p-1 bg-blue-50 rounded mr-2"><FiEye className="w-3 h-3 text-blue-500" /></div>
-                                                                            <div className="text-left"><div className="font-medium">View Details</div></div>
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
-                                                                                !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
-                                                                            }`}
-                                                                            onClick={() => {
-                                                                                if (!check('finance_entry_edit')) {
-                                                                                    toast.error('Need Access Permission');
-                                                                                    return;
-                                                                                }
-                                                                                openEditModal(sale);
-                                                                            }}
-                                                                        >
-                                                                            <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                {!check('finance_entry_edit') ? (
-                                                                                    <FiLock className="w-3 h-3 text-slate-400" />
-                                                                                ) : (
-                                                                                    <FiEdit className="w-3 h-3 text-blue-500" />
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="text-left"><div className="font-medium">Edit Sale</div></div>
-                                                                        </button>
-                                                                        {invoiceLink && (
-                                                                            <a href={invoiceLink} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
-                                                                                <div className="p-1 bg-slate-50 rounded mr-2"><FiFileText className="w-3 h-3 text-slate-600" /></div>
-                                                                                <div className="text-left"><div className="font-medium">View Invoice</div></div>
-                                                                            </a>
-                                                                        )}
-                                                                        <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                            <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('print', sale)}>
-                                                                                <div className="p-1 bg-slate-50 rounded mr-2"><FiPrinter className="w-3 h-3 text-slate-600" /></div>
-                                                                                <div className="text-left"><div className="font-medium">Print</div></div>
-                                                                            </button>
-                                                                            <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('whatsapp', sale)}>
-                                                                                <div className="p-1 bg-green-50 rounded mr-2"><FaWhatsapp className="w-3 h-3 text-green-500" /></div>
-                                                                                <div className="text-left"><div className="font-medium">WhatsApp</div></div>
-                                                                            </button>
-                                                                            <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('email', sale)}>
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2"><FiMail className="w-3 h-3 text-blue-500" /></div>
-                                                                                <div className="text-left"><div className="font-medium">Email</div></div>
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
                                                     </div>
                                                 </td>
                                             </motion.tr>
@@ -855,6 +877,88 @@ const ViewSales = () => {
             </div>
 
             {/* Modals */}
+            {activeRowDropdown && activeSale && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    data-sale-actions-menu
+                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    style={{
+                        top: dropdownPos.top,
+                        bottom: dropdownPos.bottom,
+                        right: dropdownPos.right,
+                        minWidth: ACTIONS_MENU_WIDTH,
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => handleViewSale(activeSale)}
+                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                    >
+                        <div className="mr-2 rounded bg-blue-50 p-1"><FiEye className="h-3 w-3 text-blue-500" /></div>
+                        <div className="text-left font-medium">View Details</div>
+                    </button>
+                    <button
+                        type="button"
+                        className={`flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
+                        onClick={() => {
+                            if (!check('finance_entry_edit')) {
+                                toast.error('Need Access Permission');
+                                return;
+                            }
+                            openEditModal(activeSale);
+                        }}
+                    >
+                        <div className="mr-2 rounded bg-blue-50 p-1">
+                            {!check('finance_entry_edit') ? (
+                                <FiLock className="h-3 w-3 text-slate-400" />
+                            ) : (
+                                <FiEdit className="h-3 w-3 text-blue-500" />
+                            )}
+                        </div>
+                        <div className="text-left font-medium">Edit Sale</div>
+                    </button>
+                    <button
+                        type="button"
+                        disabled={downloadingInvoice}
+                        onClick={() => handleDownloadInvoice(activeSale)}
+                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        <div className="mr-2 rounded bg-green-50 p-1"><FiDownload className="h-3 w-3 text-green-600" /></div>
+                        <div className="text-left font-medium">{downloadingInvoice ? 'Downloading…' : 'Download'}</div>
+                    </button>
+                    <div className="mt-1 border-t border-slate-100 pt-1">
+                        <button
+                            type="button"
+                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                            onClick={() => handleOtherExport('print', activeSale)}
+                        >
+                            <div className="mr-2 rounded bg-slate-50 p-1"><FiPrinter className="h-3 w-3 text-slate-600" /></div>
+                            <div className="text-left font-medium">Print</div>
+                        </button>
+                        <button
+                            type="button"
+                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                            onClick={() => handleOtherExport('whatsapp', activeSale)}
+                        >
+                            <div className="mr-2 rounded bg-green-50 p-1"><FaWhatsapp className="h-3 w-3 text-green-500" /></div>
+                            <div className="text-left font-medium">WhatsApp</div>
+                        </button>
+                        <button
+                            type="button"
+                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                            onClick={() => handleOtherExport('email', activeSale)}
+                        >
+                            <div className="mr-2 rounded bg-blue-50 p-1"><FiMail className="h-3 w-3 text-blue-500" /></div>
+                            <div className="text-left font-medium">Email</div>
+                        </button>
+                    </div>
+                </motion.div>,
+                document.body
+            )}
+
             <SaleForm isOpen={saleFormModal} onClose={() => setSaleFormModal(false)} onSuccess={handleSaleSuccess} mode="modal" />
             <EmailSelectionModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSubmit={handleEmailSubmit} />
             <MobileSelectionModal isOpen={isWhatsappModalOpen} onClose={() => setWhatsappModalOpen(false)} onSubmit={handleWhatsappSubmit} />
