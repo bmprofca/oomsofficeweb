@@ -19,6 +19,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`settings-branch.md`](./settings-branch.md) | Branch Settings tabs (Details, Logo, Sign, Invoice, **GST Config**) |
 | [`account-profile.md`](./account-profile.md) | My Profile page, `/account` APIs, contact OTP, `getAccountHeaders` |
 | [`attendance.md`](./attendance.md) | Attendance modal, header entry, swipe-to-confirm, today-status timeline |
+| [`salary.md`](./salary.md) | Staff salary tab: fixed/flexible, effective_from, one active assignment |
 | [`auth-and-api.md`](./auth-and-api.md) | `getHeaders` vs `getAccountHeaders`, base URL |
 | [`search-input-icon.md`](./search-input-icon.md) | Search input placeholder/text overlapping leading `FiSearch` icon |
 | [`action-button.md`](./action-button.md) | ⋮ action buttons, dropdown menus, viewport-safe floating panels |

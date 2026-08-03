@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FiActivity,
+  FiAlertTriangle,
   FiCalendar,
   FiCheck,
   FiCheckCircle,
@@ -14,8 +15,36 @@ import {
   FiUser,
   FiUserX,
   FiX,
+  FiZap,
 } from "react-icons/fi";
 import Timepicker from "../Timepicker";
+import { resolveProfileImageUrl } from "../../utils/user-profile-storage";
+
+const ToggleSwitch = ({
+  enabled,
+  onChange,
+  label,
+  disabled,
+  onColor = "bg-teal-600",
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={enabled}
+    aria-label={label}
+    disabled={disabled}
+    onClick={() => onChange?.(!enabled)}
+    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+      enabled ? onColor : "bg-slate-200"
+    }`}
+  >
+    <span
+      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+        enabled ? "translate-x-5" : "translate-x-0.5"
+      }`}
+    />
+  </button>
+);
 
 const MARK_OPTIONS = [
   {
@@ -179,6 +208,138 @@ function resolveInitialMark(row) {
   return "absent";
 }
 
+/** Prefer punched times; else active salary shift (if assigned). */
+function resolvePunchTimes(row) {
+  const existingIn = toInputTime(row?.attendance?.in_time);
+  const existingOut = toInputTime(row?.attendance?.out_time);
+  const shiftIn = toInputTime(row?.active_salary?.working_hours_start);
+  const shiftOut = toInputTime(row?.active_salary?.working_hours_end);
+  return {
+    inTime: existingIn || shiftIn || "",
+    outTime: existingOut || shiftOut || "",
+  };
+}
+
+function daysInMonthFromDate(dateStr) {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const [y, m] = dateStr.split("-").map(Number);
+  if (!y || !m) return null;
+  return new Date(y, m, 0).getDate();
+}
+
+function formatInr(value, { maxFractionDigits = 2 } = {}) {
+  if (!Number.isFinite(value)) return "—";
+  return `₹${Number(value).toLocaleString("en-IN", {
+    maximumFractionDigits: maxFractionDigits,
+    minimumFractionDigits: Number.isInteger(value)
+      ? 0
+      : Math.min(2, maxFractionDigits),
+  })}`;
+}
+
+/**
+ * Calendar-day wage from active monthly salary ÷ days in that month.
+ * Present can include OT / fine when expected minutes exist and toggles are on.
+ */
+function resolveDayWage(
+  row,
+  dateStr,
+  markId,
+  { inTime, outTime, overtimeEnabled, fineEnabled } = {},
+) {
+  const amount = Number(row?.active_salary?.amount);
+  const days = daysInMonthFromDate(dateStr);
+  if (!Number.isFinite(amount) || amount <= 0 || !days) return null;
+
+  const daily = amount / days;
+  let multiplier = 0;
+  let label = "No day wage";
+  if (markId === "present") {
+    multiplier = 1;
+    label = "Full day wage";
+  } else if (markId === "half_day") {
+    multiplier = 0.5;
+    label = "Half day wage";
+  } else if (markId === "leave") {
+    multiplier = 1;
+    label = "Leave · full day wage";
+  } else {
+    multiplier = 0;
+    label = "Absent · no day wage";
+  }
+
+  const baseWage = daily * multiplier;
+  const expectedMinsRaw = Number(row?.active_salary?.expected_minutes);
+  const expectedHoursRaw = Number(row?.active_salary?.expected_hours);
+  const expectedMinutes =
+    Number.isFinite(expectedMinsRaw) && expectedMinsRaw > 0
+      ? expectedMinsRaw
+      : Number.isFinite(expectedHoursRaw) && expectedHoursRaw > 0
+        ? Math.round(expectedHoursRaw * 60)
+        : null;
+  const hasExpected = expectedMinutes != null && expectedMinutes > 0;
+  const start = timeToMinutes(inTime);
+  const end = timeToMinutes(outTime);
+  const worked =
+    markId === "present" && start != null && end != null && end >= start
+      ? end - start
+      : null;
+
+  const salaryOtAllowed = Boolean(row?.active_salary?.overtime_enabled);
+  const salaryFineAllowed = Boolean(row?.active_salary?.fine_enabled);
+
+  let extraMinutes = 0;
+  let lessMinutes = 0;
+  let otAmount = 0;
+  let fineAmount = 0;
+  let showOvertime = false;
+  let showFine = false;
+  const perMinute = hasExpected ? daily / expectedMinutes : null;
+
+  if (
+    markId === "present" &&
+    hasExpected &&
+    worked != null &&
+    perMinute != null
+  ) {
+    extraMinutes = Math.max(0, worked - expectedMinutes);
+    lessMinutes = Math.max(0, expectedMinutes - worked);
+    // Only show OT/fine when the staff salary allows them
+    showOvertime = salaryOtAllowed && extraMinutes > 0;
+    showFine = salaryFineAllowed && lessMinutes > 0;
+    if (showOvertime && overtimeEnabled) {
+      otAmount = extraMinutes * perMinute;
+    }
+    if (showFine && fineEnabled) {
+      fineAmount = lessMinutes * perMinute;
+    }
+  }
+
+  const netWage = baseWage + otAmount - fineAmount;
+
+  return {
+    monthly: amount,
+    daysInMonth: days,
+    daily,
+    wage: baseWage,
+    netWage,
+    multiplier,
+    label,
+    salaryType: row.active_salary?.salary_type || "fixed",
+    expectedHours: hasExpected ? expectedMinutes / 60 : null,
+    perHour: hasExpected ? daily / (expectedMinutes / 60) : null,
+    workedMinutes: worked,
+    extraMinutes,
+    lessMinutes,
+    showOvertime,
+    showFine,
+    otAmount,
+    fineAmount,
+    overtimeEnabled: Boolean(overtimeEnabled),
+    fineEnabled: Boolean(fineEnabled),
+  };
+}
+
 /**
  * Mark attendance modal — Absent / Present / Half Day / Leave.
  * Present shows Timepicker in/out. Follows CLIENT/context/modal.md.
@@ -194,12 +355,27 @@ const AttendanceMarkModal = ({
   const [mark, setMark] = useState("absent");
   const [inTime, setInTime] = useState("");
   const [outTime, setOutTime] = useState("");
+  const [overtimeEnabled, setOvertimeEnabled] = useState(false);
+  const [fineEnabled, setFineEnabled] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !row) return;
-    setMark(resolveInitialMark(row));
-    setInTime(toInputTime(row.attendance?.in_time));
-    setOutTime(toInputTime(row.attendance?.out_time));
+    const nextMark = resolveInitialMark(row);
+    setMark(nextMark);
+    const times = resolvePunchTimes(row);
+    setInTime(times.inTime);
+    setOutTime(times.outTime);
+    const att = row.attendance;
+    setOvertimeEnabled(
+      att?.overtime_enabled != null
+        ? Boolean(att.overtime_enabled)
+        : Boolean(row.active_salary?.overtime_enabled),
+    );
+    setFineEnabled(
+      att?.fine_enabled != null
+        ? Boolean(att.fine_enabled)
+        : Boolean(row.active_salary?.fine_enabled),
+    );
   }, [isOpen, row]);
 
   useEffect(() => {
@@ -212,6 +388,7 @@ const AttendanceMarkModal = ({
   }, [isOpen, loading, onClose]);
 
   const staffName = row?.name || "Staff";
+  const imageUrl = resolveProfileImageUrl(row?.image);
   const localMobile = formatLocalMobile(row?.mobile, row?.country_code);
   const option = useMemo(
     () => MARK_OPTIONS.find((item) => item.id === mark),
@@ -220,14 +397,37 @@ const AttendanceMarkModal = ({
   const existingIn = toInputTime(row?.attendance?.in_time);
   const existingOut = toInputTime(row?.attendance?.out_time);
   const breaks = Array.isArray(row?.breaks) ? row.breaks : [];
-  const showSuggestedIn = Boolean(existingIn && inTime && existingIn !== inTime);
-  const showSuggestedOut = Boolean(existingOut && outTime && existingOut !== outTime);
+  const showSuggestedIn = Boolean(
+    existingIn && inTime && existingIn !== inTime,
+  );
+  const showSuggestedOut = Boolean(
+    existingOut && outTime && existingOut !== outTime,
+  );
   const workedMinutes = useMemo(() => {
     const start = timeToMinutes(inTime);
     const end = timeToMinutes(outTime);
     if (start == null || end == null || end < start) return null;
     return Math.max(0, end - start);
   }, [inTime, outTime]);
+
+  const wageInfo = useMemo(
+    () =>
+      resolveDayWage(row, date, mark, {
+        inTime,
+        outTime,
+        overtimeEnabled,
+        fineEnabled,
+      }),
+    [row, date, mark, inTime, outTime, overtimeEnabled, fineEnabled],
+  );
+
+  const selectMark = (nextMark) => {
+    setMark(nextMark);
+    if (nextMark !== "present" || !row) return;
+    const times = resolvePunchTimes(row);
+    setInTime((prev) => prev || times.inTime);
+    setOutTime((prev) => prev || times.outTime);
+  };
 
   const handleSave = () => {
     if (!option) return;
@@ -239,6 +439,10 @@ const AttendanceMarkModal = ({
     if (mark === "present") {
       payload.in_time = inTime || null;
       payload.out_time = outTime || null;
+      payload.overtime_enabled = Boolean(
+        wageInfo?.showOvertime && overtimeEnabled,
+      );
+      payload.fine_enabled = Boolean(wageInfo?.showFine && fineEnabled);
     }
     onSubmit?.(payload);
   };
@@ -271,9 +475,9 @@ const AttendanceMarkModal = ({
             <header className="shrink-0 border-b border-slate-100 px-4 py-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
-                  {row.image ? (
+                  {imageUrl ? (
                     <img
-                      src={row.image}
+                      src={imageUrl}
                       alt=""
                       className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-slate-200"
                     />
@@ -342,6 +546,46 @@ const AttendanceMarkModal = ({
             </header>
 
             <div className="px-4 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {wageInfo ? (
+                <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-teal-100 bg-teal-50/70 px-3 py-2">
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-600 text-xs font-bold text-white">
+                    ₹
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="m-0 truncate text-xs font-semibold text-teal-900">
+                        Day wage
+                        <span className="font-medium text-teal-700/80">
+                          {" "}
+                          · {wageInfo.label}
+                        </span>
+                      </p>
+                      <p
+                        className={`m-0 shrink-0 text-sm font-semibold tabular-nums ${
+                          wageInfo.netWage > 0
+                            ? "text-teal-800"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        {formatInr(wageInfo.netWage)}
+                      </p>
+                    </div>
+                    <p className="m-0 mt-0.5 truncate text-[11px] tabular-nums text-slate-500">
+                      {formatInr(wageInfo.monthly)} / {wageInfo.daysInMonth}d →{" "}
+                      {formatInr(wageInfo.daily)}
+                      /day
+                      {mark === "half_day" ? " · ×½" : ""}
+                      {wageInfo.otAmount > 0
+                        ? ` · +OT ${formatInr(wageInfo.otAmount)}`
+                        : ""}
+                      {wageInfo.fineAmount > 0
+                        ? ` · −Fine ${formatInr(wageInfo.fineAmount)}`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {MARK_OPTIONS.map((item) => {
                   const selected = mark === item.id;
@@ -351,7 +595,7 @@ const AttendanceMarkModal = ({
                       key={item.id}
                       type="button"
                       disabled={loading}
-                      onClick={() => setMark(item.id)}
+                      onClick={() => selectMark(item.id)}
                       className={`relative flex items-center gap-2 rounded-xl border px-2.5 py-2.5 text-sm font-semibold ring-1 transition disabled:opacity-50 ${
                         selected ? item.active : item.inactive
                       }`}
@@ -449,6 +693,85 @@ const AttendanceMarkModal = ({
                       ) : null}
                     </div>
                   </div>
+
+                  {wageInfo?.showOvertime || wageInfo?.showFine ? (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {wageInfo.showOvertime ? (
+                        <div className="rounded-xl border border-emerald-100 bg-white/90 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                                <FiZap className="h-4 w-4" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="m-0 text-sm font-semibold text-slate-800">
+                                  Overtime
+                                </p>
+                                <p className="m-0 text-[11px] text-slate-500 tabular-nums">
+                                  +{formatDurationLabel(wageInfo.extraMinutes)}{" "}
+                                  ·{" "}
+                                  {formatInr(
+                                    wageInfo.otAmount ||
+                                      (wageInfo.extraMinutes / 60) *
+                                        (wageInfo.perHour || 0),
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <ToggleSwitch
+                              enabled={overtimeEnabled}
+                              label="Apply overtime"
+                              disabled={loading}
+                              onColor="bg-emerald-600"
+                              onChange={setOvertimeEnabled}
+                            />
+                          </div>
+                          <p className="m-0 mt-2 text-[11px] leading-relaxed text-slate-500">
+                            {overtimeEnabled
+                              ? "Extra time will be paid at the hourly rate."
+                              : "Extra time will not be paid."}
+                          </p>
+                        </div>
+                      ) : null}
+                      {wageInfo.showFine ? (
+                        <div className="rounded-xl border border-rose-100 bg-white/90 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
+                                <FiAlertTriangle className="h-4 w-4" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="m-0 text-sm font-semibold text-slate-800">
+                                  Fine
+                                </p>
+                                <p className="m-0 text-[11px] text-slate-500 tabular-nums">
+                                  −{formatDurationLabel(wageInfo.lessMinutes)} ·{" "}
+                                  {formatInr(
+                                    wageInfo.fineAmount ||
+                                      (wageInfo.lessMinutes / 60) *
+                                        (wageInfo.perHour || 0),
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <ToggleSwitch
+                              enabled={fineEnabled}
+                              label="Apply fine"
+                              disabled={loading}
+                              onColor="bg-rose-600"
+                              onChange={setFineEnabled}
+                            />
+                          </div>
+                          <p className="m-0 mt-2 text-[11px] leading-relaxed text-slate-500">
+                            {fineEnabled
+                              ? "Shortfall will be deducted at the hourly rate."
+                              : "Shortfall will not be deducted."}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   <div className="space-y-2 rounded-xl border border-emerald-100 bg-white/80 p-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
                       <FiCoffee className="h-3.5 w-3.5 text-amber-600" />
@@ -458,7 +781,10 @@ const AttendanceMarkModal = ({
                       <div className="space-y-2">
                         {breaks.map((item, index) => (
                           <div
-                            key={item.break_id || `${item.start_time || "break"}-${index}`}
+                            key={
+                              item.break_id ||
+                              `${item.start_time || "break"}-${index}`
+                            }
                             className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs"
                           >
                             <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
@@ -492,7 +818,9 @@ const AttendanceMarkModal = ({
                         ))}
                       </div>
                     ) : (
-                      <p className="m-0 text-sm text-slate-500">No break records for this day.</p>
+                      <p className="m-0 text-sm text-slate-500">
+                        No break records for this day.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -511,7 +839,9 @@ const AttendanceMarkModal = ({
                 </button>
                 <button
                   type="button"
-                  disabled={loading || (mark === "present" && (!inTime || !outTime))}
+                  disabled={
+                    loading || (mark === "present" && (!inTime || !outTime))
+                  }
                   onClick={handleSave}
                   className="inline-flex flex-[1.3] items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >

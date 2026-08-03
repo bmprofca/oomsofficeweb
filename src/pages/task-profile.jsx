@@ -262,7 +262,11 @@ const TaskProfile = () => {
             animate="animate"
             exit="exit"
           >
-            <DetailsTab taskData={taskData} task_id={task_id} />
+            <DetailsTab
+              taskData={taskData}
+              task_id={task_id}
+              onTaskUpdated={() => fetchTaskData(task_id)}
+            />
           </motion.div>
         );
       case "notes":

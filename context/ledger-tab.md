@@ -62,6 +62,11 @@ Do not fake-delay or duplicate success toasts beyond what the modal already show
 - reset page to 1 on filter/limit change
 - show range summary + prev/next + jump input
 
-## Shared table
+## Staff ledger
 
-`src/components/TransactionTable.js` — amounts, INR formatting, type/payment icons (`InrIcon` instead of `FiDollarSign` for payment/cash).
+**Component:** `src/staff/LedgerTab.js` (same pattern as Client / CA).
+
+- `GET /transaction/list?party_type=staff&party_id=…`
+- Opening balance: `party_type=staff`
+- Shared `TransactionTable` + `TablePagination` + date range + add transaction + downloadable action menu
+- Wired from `staff-profile.jsx` with `username` / `staffData` (no fake sample entries)

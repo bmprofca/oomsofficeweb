@@ -17,6 +17,7 @@ export default function ConfirmActionModal({
   loading = false,
   tone = "danger", // danger | primary | warning
   icon: Icon = FiAlertTriangle,
+  children = null,
   onCancel,
   onConfirm,
 }) {
@@ -111,6 +112,7 @@ export default function ConfirmActionModal({
                     </p>
                   </div>
                 ) : null}
+                {children ? <div className="mt-4 text-left">{children}</div> : null}
               </div>
             </div>
 

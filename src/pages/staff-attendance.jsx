@@ -1,6 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Link } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FiCalendar,
   FiCheck,
@@ -19,18 +25,18 @@ import {
   FiUser,
   FiUsers,
   FiX,
-} from 'react-icons/fi';
-import { toast } from 'react-hot-toast';
-import { Header, Sidebar } from '../components/header';
-import { DatePickerField } from '../components/PortalDatePicker';
-import TablePagination from '../components/TablePagination';
-import AttendanceMarkModal from '../components/Modals/AttendanceMarkModal';
-import ConfirmActionModal from '../components/ConfirmActionModal';
-import API_BASE_URL from '../utils/api-controller';
-import getHeaders from '../utils/get-headers';
-import { resolveProfileImageUrl } from '../utils/user-profile-storage';
+} from "react-icons/fi";
+import { toast } from "react-hot-toast";
+import { Header, Sidebar } from "../components/header";
+import { DatePickerField } from "../components/PortalDatePicker";
+import TablePagination from "../components/TablePagination";
+import AttendanceMarkModal from "../components/Modals/AttendanceMarkModal";
+import ConfirmActionModal from "../components/ConfirmActionModal";
+import API_BASE_URL from "../utils/api-controller";
+import getHeaders from "../utils/get-headers";
+import { resolveProfileImageUrl } from "../utils/user-profile-storage";
 
-const ATTENDANCE_TZ = 'Asia/Kolkata';
+const ATTENDANCE_TZ = "Asia/Kolkata";
 const DEFAULT_LIMIT = 100;
 
 /** Same animated checkbox as client-view.jsx */
@@ -54,7 +60,7 @@ const AnimatedCheckbox = ({
   return (
     <label
       className={`relative inline-flex items-center group ${
-        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
       }`}
     >
       <input
@@ -69,8 +75,8 @@ const AnimatedCheckbox = ({
       <motion.span
         className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
           isActive
-            ? 'border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200'
-            : 'border-gray-300 bg-white group-hover:border-indigo-400'
+            ? "border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200"
+            : "border-gray-300 bg-white group-hover:border-indigo-400"
         }`}
         animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
         transition={{ duration: 0.18 }}
@@ -114,121 +120,121 @@ const AnimatedCheckbox = ({
 
 const STATE_META = {
   not_marked: {
-    label: 'Not Marked',
-    badge: 'bg-slate-50 text-slate-500 ring-slate-200',
+    label: "Not Marked",
+    badge: "bg-slate-50 text-slate-500 ring-slate-200",
     Icon: FiUser,
-    title: 'Not marked will be treated as absent',
+    title: "Not marked will be treated as absent",
   },
   absent: {
-    label: 'Absent',
-    badge: 'bg-slate-100 text-slate-600 ring-slate-200',
+    label: "Absent",
+    badge: "bg-slate-100 text-slate-600 ring-slate-200",
     Icon: FiUser,
   },
   present: {
-    label: 'Present',
-    badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    label: "Present",
+    badge: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     Icon: FiCheck,
   },
   punched_in: {
-    label: 'Punched in',
-    badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    label: "Punched in",
+    badge: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     Icon: FiLogIn,
   },
   on_break: {
-    label: 'On break',
-    badge: 'bg-amber-50 text-amber-800 ring-amber-200',
+    label: "On break",
+    badge: "bg-amber-50 text-amber-800 ring-amber-200",
     Icon: FiCoffee,
   },
   punched_out: {
-    label: 'Punched out',
-    badge: 'bg-rose-50 text-rose-700 ring-rose-200',
+    label: "Punched out",
+    badge: "bg-rose-50 text-rose-700 ring-rose-200",
     Icon: FiLogOut,
   },
   half_day: {
-    label: 'Half day',
-    badge: 'bg-amber-50 text-amber-800 ring-amber-200',
+    label: "Half day",
+    badge: "bg-amber-50 text-amber-800 ring-amber-200",
     Icon: FiClock,
   },
   leave: {
-    label: 'Leave',
-    badge: 'bg-sky-50 text-sky-700 ring-sky-200',
+    label: "Leave",
+    badge: "bg-sky-50 text-sky-700 ring-sky-200",
     Icon: FiCalendar,
   },
 };
 
-const sk = 'animate-pulse rounded-md bg-slate-200/80';
+const sk = "animate-pulse rounded-md bg-slate-200/80";
 
 function getTodayDateString(timeZone = ATTENDANCE_TZ) {
-  return new Intl.DateTimeFormat('en-CA', {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   }).format(new Date());
 }
 
 function shiftDateString(dateStr, days) {
-  const [y, m, d] = String(dateStr).split('-').map(Number);
+  const [y, m, d] = String(dateStr).split("-").map(Number);
   if (!y || !m || !d) return getTodayDateString();
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + days);
   const yy = dt.getUTCFullYear();
-  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
 }
 
 function formatDisplayDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return "—";
   const d = new Date(`${dateStr}T12:00:00`);
   if (Number.isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString([], {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }
 
 /** Format MySQL TIME / legacy timestamp to display time. */
 function formatTime(value) {
-  if (value == null || value === '') return '';
+  if (value == null || value === "") return "";
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
   const raw = String(value).trim();
   const iso = raw.match(/T(\d{2}):(\d{2})/);
   if (iso) return `${iso[1]}:${iso[2]}`;
   const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
-  if (m) return `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
+  if (m) return `${String(Number(m[1])).padStart(2, "0")}:${m[2]}`;
   const d = new Date(raw);
   if (!Number.isNaN(d.getTime())) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
-  return '';
+  return "";
 }
 
 /** Local mobile without country code. */
 function formatLocalMobile(mobile, countryCode) {
-  let digits = String(mobile || '').replace(/\D/g, '');
-  if (!digits) return '';
-  const cc = String(countryCode || '').replace(/\D/g, '');
+  let digits = String(mobile || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const cc = String(countryCode || "").replace(/\D/g, "");
   if (cc && digits.startsWith(cc) && digits.length > cc.length) {
     digits = digits.slice(cc.length);
-  } else if (digits.startsWith('91') && digits.length > 10) {
+  } else if (digits.startsWith("91") && digits.length > 10) {
     digits = digits.slice(2);
   }
   return digits;
 }
 
 function getInitials(name) {
-  const parts = String(name || '')
+  const parts = String(name || "")
     .trim()
     .split(/\s+/)
     .filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return 'ST';
+  return "ST";
 }
 
 function TableSkeleton({ rows = 8 }) {
@@ -328,26 +334,28 @@ function TableRowSkeleton() {
 function StaffAttendancePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
-    const saved = localStorage.getItem('sidebarMinimized');
+    const saved = localStorage.getItem("sidebarMinimized");
     return saved ? JSON.parse(saved) : false;
   });
 
   const [selectedDate, setSelectedDate] = useState(() => getTodayDateString());
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [loading, setLoading] = useState(true);
   const [payload, setPayload] = useState(null);
   const [markRow, setMarkRow] = useState(null);
   const [markLoading, setMarkLoading] = useState(false);
-  const [updatingUsername, setUpdatingUsername] = useState('');
+  const [updatingUsername, setUpdatingUsername] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkApproving, setBulkApproving] = useState(false);
+  const [bulkApplyOvertime, setBulkApplyOvertime] = useState(true);
+  const [bulkApplyFine, setBulkApplyFine] = useState(true);
 
-  const contentInset = isMinimized ? 'md:pl-20' : 'md:pl-[260px]';
+  const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
   const today = getTodayDateString();
   const isToday = selectedDate === today;
   const staff = Array.isArray(payload?.staff) ? payload.staff : [];
@@ -371,37 +379,46 @@ function StaffAttendancePage() {
   };
 
   const loadDayList = useCallback(
-    async ({ date, searchTerm = '', pageNum = 1, pageLimit = DEFAULT_LIMIT, showSkeleton = true } = {}) => {
+    async ({
+      date,
+      searchTerm = "",
+      pageNum = 1,
+      pageLimit = DEFAULT_LIMIT,
+      showSkeleton = true,
+    } = {}) => {
       if (showSkeleton) setLoading(true);
       try {
         const headers = await getHeaders();
-        if (!headers) throw new Error('Missing auth headers');
+        if (!headers) throw new Error("Missing auth headers");
 
         const params = new URLSearchParams({
           date,
           page: String(pageNum),
           limit: String(pageLimit),
         });
-        if (searchTerm) params.set('search', searchTerm);
+        if (searchTerm) params.set("search", searchTerm);
 
-        const res = await fetch(`${API_BASE_URL}/attendance/day-list?${params}`, { headers });
+        const res = await fetch(
+          `${API_BASE_URL}/attendance/day-list?${params}`,
+          { headers },
+        );
         const result = await res.json().catch(() => ({}));
         if (!res.ok || !result?.success) {
-          throw new Error(result?.message || 'Failed to load attendance');
+          throw new Error(result?.message || "Failed to load attendance");
         }
         setPayload(result.data || null);
         if (result.data?.pagination?.page) {
           setPage(result.data.pagination.page);
         }
       } catch (error) {
-        console.error('Attendance day list error', error);
-        toast.error(error.message || 'Failed to load attendance');
+        console.error("Attendance day list error", error);
+        toast.error(error.message || "Failed to load attendance");
         setPayload(null);
       } finally {
         if (showSkeleton) setLoading(false);
       }
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -442,10 +459,10 @@ function StaffAttendancePage() {
   }, [searchInput]);
 
   const handleToggleSelect = useCallback((username) => {
-    const id = String(username || '');
+    const id = String(username || "");
     if (!id) return;
     setSelectedItems((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }, []);
 
@@ -464,26 +481,31 @@ function StaffAttendancePage() {
     setBulkApproving(true);
     try {
       const headers = await getHeaders();
-      if (!headers) throw new Error('Missing auth headers');
-      const res = await fetch(`${API_BASE_URL}/attendance/manage/bulk-approve`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
+      if (!headers) throw new Error("Missing auth headers");
+      const res = await fetch(
+        `${API_BASE_URL}/attendance/manage/bulk-approve`,
+        {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            usernames: selectedItems,
+            date: selectedDate,
+            apply_overtime: bulkApplyOvertime,
+            apply_fine: bulkApplyFine,
+          }),
         },
-        body: JSON.stringify({
-          usernames: selectedItems,
-          date: selectedDate,
-        }),
-      });
+      );
       const result = await res.json().catch(() => ({}));
       if (!res.ok || !result?.success) {
-        throw new Error(result?.message || 'Failed to bulk approve');
+        throw new Error(result?.message || "Failed to bulk approve");
       }
       const done = Number(result?.data?.done ?? 0);
       const notDone = Number(result?.data?.not_done ?? 0);
       toast.success(
-        result.message || `Approved ${done} staff. Skipped ${notDone} staff.`
+        result.message || `Approved ${done} staff. Skipped ${notDone} staff.`,
       );
       setBulkConfirmOpen(false);
       setSelectedItems([]);
@@ -496,7 +518,7 @@ function StaffAttendancePage() {
         showSkeleton: false,
       });
     } catch (error) {
-      toast.error(error.message || 'Failed to bulk approve');
+      toast.error(error.message || "Failed to bulk approve");
     } finally {
       setBulkApproving(false);
     }
@@ -504,78 +526,80 @@ function StaffAttendancePage() {
     selectedItems,
     bulkApproving,
     selectedDate,
-    loadDayList,
     search,
     page,
     limit,
+    loadDayList,
+    bulkApplyOvertime,
+    bulkApplyFine,
   ]);
 
   const summaryCards = useMemo(
     () => [
       {
-        key: 'total',
-        label: 'Staff',
+        key: "total",
+        label: "Staff",
         value: summary.total,
-        tone: 'text-violet-800 bg-violet-50 border-violet-200',
-        iconTone: 'bg-violet-100 text-violet-700',
+        tone: "text-violet-800 bg-violet-50 border-violet-200",
+        iconTone: "bg-violet-100 text-violet-700",
         Icon: FiUsers,
       },
       {
-        key: 'present',
-        label: 'Present',
+        key: "present",
+        label: "Present",
         value: summary.present,
-        tone: 'text-emerald-800 bg-emerald-50 border-emerald-200',
-        iconTone: 'bg-emerald-100 text-emerald-700',
+        tone: "text-emerald-800 bg-emerald-50 border-emerald-200",
+        iconTone: "bg-emerald-100 text-emerald-700",
         Icon: FiCheck,
       },
       {
-        key: 'absent',
-        label: 'Absent',
+        key: "absent",
+        label: "Absent",
         value: summary.absent,
-        tone: 'text-rose-800 bg-rose-50 border-rose-200',
-        iconTone: 'bg-rose-100 text-rose-700',
+        tone: "text-rose-800 bg-rose-50 border-rose-200",
+        iconTone: "bg-rose-100 text-rose-700",
         Icon: FiX,
       },
       {
-        key: 'half_day',
-        label: 'Half day',
+        key: "half_day",
+        label: "Half day",
         value: summary.half_day || 0,
-        tone: 'text-amber-800 bg-amber-50 border-amber-200',
-        iconTone: 'bg-amber-100 text-amber-700',
+        tone: "text-amber-800 bg-amber-50 border-amber-200",
+        iconTone: "bg-amber-100 text-amber-700",
         Icon: FiClock,
       },
       {
-        key: 'leave',
-        label: 'Leave',
+        key: "leave",
+        label: "Leave",
         value: summary.leave || 0,
-        tone: 'text-sky-800 bg-sky-50 border-sky-200',
-        iconTone: 'bg-sky-100 text-sky-700',
+        tone: "text-sky-800 bg-sky-50 border-sky-200",
+        iconTone: "bg-sky-100 text-sky-700",
         Icon: FiCalendar,
       },
     ],
-    [summary]
+    [summary],
   );
 
   const submitMark = useCallback(
     async (body) => {
-      setUpdatingUsername(body?.username || '');
+      setUpdatingUsername(body?.username || "");
       setMarkLoading(true);
       try {
         const headers = await getHeaders();
-        if (!headers) throw new Error('Missing auth headers');
+        if (!headers) throw new Error("Missing auth headers");
         const res = await fetch(`${API_BASE_URL}/attendance/manage/mark`, {
-          method: 'POST',
+          method: "POST",
           headers: {
             ...headers,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok || !result?.success) {
-          throw new Error(result?.message || 'Failed to mark attendance');
+          throw new Error(result?.message || "Failed to mark attendance");
         }
-        toast.success(result.message || 'Attendance marked');
+        toast.success(result.message || "Attendance marked");
         setMarkRow(null);
         await loadDayList({
           date: selectedDate,
@@ -585,13 +609,13 @@ function StaffAttendancePage() {
           showSkeleton: false,
         });
       } catch (error) {
-        toast.error(error.message || 'Failed to mark attendance');
+        toast.error(error.message || "Failed to mark attendance");
       } finally {
         setMarkLoading(false);
-        setUpdatingUsername('');
+        setUpdatingUsername("");
       }
     },
-    [loadDayList, selectedDate, search, page, limit]
+    [loadDayList, selectedDate, search, page, limit],
   );
 
   const serialBase = (pagination.page - 1) * pagination.limit;
@@ -610,7 +634,9 @@ function StaffAttendancePage() {
         setIsMinimized={setIsMinimized}
       />
 
-      <main className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}>
+      <main
+        className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}
+      >
         <div className="mx-3 sm:mx-4 py-4 sm:py-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -620,7 +646,7 @@ function StaffAttendancePage() {
               </h1>
               <p className="m-0 mt-1 text-sm text-slate-500">
                 {formatDisplayDate(selectedDate)}
-                {isToday ? ' · Today' : ''}
+                {isToday ? " · Today" : ""}
               </p>
             </div>
 
@@ -640,7 +666,7 @@ function StaffAttendancePage() {
               <DatePickerField
                 value={selectedDate}
                 onChange={(next) => {
-                  const value = typeof next === 'string' ? next : next?.date;
+                  const value = typeof next === "string" ? next : next?.date;
                   if (value) {
                     setPage(1);
                     setSelectedDate(value);
@@ -695,14 +721,19 @@ function StaffAttendancePage() {
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 title="Refresh"
               >
-                <FiRefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <FiRefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
               </button>
             </div>
           </div>
 
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {summaryCards.map((card) => (
-              <div key={card.key} className={`rounded-2xl border px-3 py-3 ${card.tone}`}>
+              <div
+                key={card.key}
+                className={`rounded-2xl border px-3 py-3 ${card.tone}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="m-0 text-[11px] font-semibold uppercase tracking-wide opacity-70">
@@ -711,10 +742,14 @@ function StaffAttendancePage() {
                     {loading ? (
                       <div className={`${sk} mt-2 h-7 w-10`} />
                     ) : (
-                      <p className="m-0 mt-1 text-xl font-semibold tabular-nums">{card.value}</p>
+                      <p className="m-0 mt-1 text-xl font-semibold tabular-nums">
+                        {card.value}
+                      </p>
                     )}
                   </div>
-                  <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${card.iconTone}`}>
+                  <span
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${card.iconTone}`}
+                  >
                     <card.Icon className="h-4 w-4" />
                   </span>
                 </div>
@@ -744,7 +779,11 @@ function StaffAttendancePage() {
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
-                      onClick={() => setBulkConfirmOpen(true)}
+                      onClick={() => {
+                        setBulkApplyOvertime(true);
+                        setBulkApplyFine(true);
+                        setBulkConfirmOpen(true);
+                      }}
                       disabled={bulkApproving}
                       className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
                     >
@@ -766,7 +805,7 @@ function StaffAttendancePage() {
                 {searchInput ? (
                   <button
                     type="button"
-                    onClick={() => setSearchInput('')}
+                    onClick={() => setSearchInput("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                     aria-label="Clear search"
                   >
@@ -781,11 +820,19 @@ function StaffAttendancePage() {
             ) : staff.length === 0 ? (
               <div className="px-4 py-16 text-center">
                 <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
-                  {loading ? <FiLoader className="h-5 w-5 animate-spin" /> : <FiUsers className="h-5 w-5" />}
+                  {loading ? (
+                    <FiLoader className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <FiUsers className="h-5 w-5" />
+                  )}
                 </div>
-                <p className="m-0 text-sm font-semibold text-slate-800">No staff found</p>
+                <p className="m-0 text-sm font-semibold text-slate-800">
+                  No staff found
+                </p>
                 <p className="m-0 mt-1 text-xs text-slate-500">
-                  {search ? 'Try a different search.' : 'No active staff mapped to this branch.'}
+                  {search
+                    ? "Try a different search."
+                    : "No active staff mapped to this branch."}
                 </p>
               </div>
             ) : (
@@ -812,11 +859,20 @@ function StaffAttendancePage() {
                         <th className="px-4 py-3 font-semibold">Staff</th>
                         <th className="px-4 py-3 font-semibold">Status</th>
                         <th className="px-4 py-3 font-semibold">Punch in</th>
-                        <th className="hidden px-4 py-3 font-semibold sm:table-cell">Punch out</th>
-                        <th className="hidden px-4 py-3 font-semibold md:table-cell">Breaks</th>
-                        <th className="hidden px-4 py-3 font-semibold lg:table-cell">Approval</th>
+                        <th className="hidden px-4 py-3 font-semibold sm:table-cell">
+                          Punch out
+                        </th>
+                        <th className="hidden px-4 py-3 font-semibold md:table-cell">
+                          Breaks
+                        </th>
+                        <th className="hidden px-4 py-3 font-semibold lg:table-cell">
+                          Approval
+                        </th>
                         <th className="w-12 px-4 py-3 font-semibold">
-                          <span className="inline-flex items-center justify-center" title="Manage">
+                          <span
+                            className="inline-flex items-center justify-center"
+                            title="Manage"
+                          >
                             <FiSettings className="h-3.5 w-3.5" aria-hidden />
                             <span className="sr-only">Manage</span>
                           </span>
@@ -825,11 +881,16 @@ function StaffAttendancePage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {staff.map((row, index) => {
-                        const meta = STATE_META[row.state] || STATE_META.not_marked;
+                        const meta =
+                          STATE_META[row.state] || STATE_META.not_marked;
                         const StatusIcon = meta.Icon;
-                        const localMobile = formatLocalMobile(row.mobile, row.country_code);
+                        const localMobile = formatLocalMobile(
+                          row.mobile,
+                          row.country_code,
+                        );
                         const imageUrl = resolveProfileImageUrl(row.image);
-                        const rowBusy = markLoading && updatingUsername === row.username;
+                        const rowBusy =
+                          markLoading && updatingUsername === row.username;
                         const isSelected = selectedItems.includes(row.username);
                         if (rowBusy) {
                           return <TableRowSkeleton key={row.username} />;
@@ -839,18 +900,20 @@ function StaffAttendancePage() {
                             key={row.username}
                             className={`group transition-colors duration-150 hover:bg-teal-50/40 ${
                               isSelected
-                                ? 'bg-indigo-50/50'
+                                ? "bg-indigo-50/50"
                                 : index % 2 === 0
-                                  ? 'bg-white'
-                                  : 'bg-slate-50/55'
+                                  ? "bg-white"
+                                  : "bg-slate-50/55"
                             }`}
                           >
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <AnimatedCheckbox
                                   checked={isSelected}
-                                  onChange={() => handleToggleSelect(row.username)}
-                                  ariaLabel={`Select ${row.name || 'staff'}`}
+                                  onChange={() =>
+                                    handleToggleSelect(row.username)
+                                  }
+                                  ariaLabel={`Select ${row.name || "staff"}`}
                                 />
                                 <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-medium tabular-nums text-gray-700">
                                   {serialBase + index + 1}
@@ -906,13 +969,16 @@ function StaffAttendancePage() {
                                   <FiCoffee className="h-3.5 w-3.5 text-amber-600" />
                                   {row.break_count}
                                   {row.open_break ? (
-                                    <span className="text-amber-700">· open</span>
+                                    <span className="text-amber-700">
+                                      · open
+                                    </span>
                                   ) : null}
                                 </span>
                               ) : null}
                             </td>
                             <td className="hidden px-4 py-3 lg:table-cell">
-                              {row.state === 'not_marked' || !row.attendance ? null : row.is_approved ? (
+                              {row.state === "not_marked" ||
+                              !row.attendance ? null : row.is_approved ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
                                   <FiCheck className="h-3.5 w-3.5" />
                                   Approved
@@ -985,7 +1051,45 @@ function StaffAttendancePage() {
           if (!bulkApproving) setBulkConfirmOpen(false);
         }}
         onConfirm={submitBulkApprove}
-      />
+      >
+        <div className="space-y-2">
+          <p className="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Apply for eligible staff
+          </p>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3.5 py-3">
+            <div className="min-w-0 text-left">
+              <p className="m-0 text-sm font-semibold text-slate-800">
+                Overtime
+              </p>
+              <p className="m-0 text-xs text-slate-500">
+                Pay extra when worked more than expected hours
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              checked={bulkApplyOvertime}
+              disabled={bulkApproving}
+              onChange={(e) => setBulkApplyOvertime(e.target.checked)}
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50/60 px-3.5 py-3">
+            <div className="min-w-0 text-left">
+              <p className="m-0 text-sm font-semibold text-slate-800">Fine</p>
+              <p className="m-0 text-xs text-slate-500">
+                Deduct when worked less than expected hours
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+              checked={bulkApplyFine}
+              disabled={bulkApproving}
+              onChange={(e) => setBulkApplyFine(e.target.checked)}
+            />
+          </label>
+        </div>
+      </ConfirmActionModal>
     </div>
   );
 }

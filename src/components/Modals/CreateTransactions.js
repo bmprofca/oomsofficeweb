@@ -5876,7 +5876,7 @@ export const JournalModal = ({
     showClient = true,
     editRecord = null,
 }) => {
-    const presetFromType = partyType === 'agent' || partyType === 'ca' ? partyType : 'client';
+    const presetFromType = partyType === 'agent' || partyType === 'ca' || partyType === 'staff' ? partyType : 'client';
     const showFromSection = showClient && showFromClient;
     const [loading, setLoading] = useState(false);
     const [presetFromParty, setPresetFromParty] = useState(null);

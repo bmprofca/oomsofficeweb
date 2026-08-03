@@ -29,7 +29,9 @@ toast + close modal
   isOpen={attendanceModalOpen}
   onClose={() => setAttendanceModalOpen(false)}
   branchName={branchLabel}
-  branchId={selectedCompany?.branch_id || localStorage.getItem('branch_id') || ''}
+  branchId={
+    selectedCompany?.branch_id || localStorage.getItem("branch_id") || ""
+  }
 />
 ```
 
@@ -59,12 +61,12 @@ Follows [`modal.md`](./modal.md):
 
 ### Footer actions (by `state`)
 
-| State | Actions |
-|-------|---------|
-| `not_punched` | Punch In |
-| `punched_in` | Start Break · Punch Out |
-| `on_break` | End Break |
-| `punched_out` / `present` | Close |
+| State                           | Actions                                             |
+| ------------------------------- | --------------------------------------------------- |
+| `not_punched`                   | Punch In                                            |
+| `punched_in`                    | Start Break · Punch Out                             |
+| `on_break`                      | End Break                                           |
+| `punched_out` / `present`       | Close                                               |
 | `absent` / `leave` / `half_day` | Close only — office-marked card (no punch timeline) |
 
 Office-marked days (`office_marked` from `GET /attendance/today-status`, or states `absent` | `leave` | `half_day`) show a clear status card so staff can see today’s mark. Punch/break buttons are hidden.
@@ -81,13 +83,13 @@ Office-marked days (`office_marked` from `GET /attendance/today-status`, or stat
 
 ## API usage
 
-| Call | When |
-|------|------|
+| Call                           | When                 |
+| ------------------------------ | -------------------- |
 | `GET /attendance/today-status` | Modal open + refresh |
-| `POST /attendance/punch-in` | Confirm punch in |
-| `POST /attendance/punch-out` | Confirm punch out |
-| `POST /attendance/break/start` | Confirm start break |
-| `POST /attendance/break/end` | Confirm end break |
+| `POST /attendance/punch-in`    | Confirm punch in     |
+| `POST /attendance/punch-out`   | Confirm punch out    |
+| `POST /attendance/break/start` | Confirm start break  |
+| `POST /attendance/break/end`   | Confirm end break    |
 
 Body for POSTs: `{ method: 'manual' }`.
 
@@ -120,6 +122,11 @@ POST /attendance/manage/mark  → always is_approved = 1
 - Table uses zebra striping (overridden when selected); single-row mark updates show a row-only skeleton while refresh/date/search reloads show the full table skeleton
 - Profile images resolve through the same media-proxy helper path as profile pages (`resolveProfileImageUrl`)
 - Present shows in/out via [`Timepicker`](../src/components/Timepicker.js) (prefilled, centered picker with AM/PM)
+- Prefill order for Present punch fields: existing punch in/out → else active salary shift start/end from `day-list.active_salary` → else empty
+- Avatar uses `resolveProfileImageUrl` (same as the attendance table)
+- When `active_salary.amount` exists, mark modal shows day wage: `amount ÷ daysInMonth` (calendar length of selected date’s month); Present = full day, Half day = half, Leave = full day, Absent = ₹0
+- Present + `expected_minutes` (or derived hours): OT / fine fields show only when the staff salary has overtime / fine enabled. If salary has them off, OT/fine are not applicable (UI hidden; server ignores apply flags). Amount = (extra|less minutes) × (daily ÷ expected_minutes). Net wage updates live; saved flags go to `/manage/mark`
+- Bulk approve confirm offers Apply Overtime / Apply Fine checkboxes → `apply_overtime` / `apply_fine` on `/manage/bulk-approve`
 - Present modal shows break records, per-break duration, punched-time restore chips, and a worked-time badge (`out - in`)
 - Times are TIME-only (`HH:mm`), not timestamps
 - Skeleton matches table columns while loading

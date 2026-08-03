@@ -80,6 +80,17 @@ See `finance-registers.md` for `payment_to` cash vs bank display rules.
 - `Timepicker` is a centered focus modal with blurred backdrop, AM/PM toggle, smooth `Now` auto-scroll, and fixed footer actions (`Now`, `Clear`, `Apply`).
 - Full behavior: [`attendance.md`](./attendance.md). Server: [`SERVER/context/attendance.md`](../../SERVER/context/attendance.md).
 
+## Payslip modal
+
+| Modal | Opens from | Notes |
+|-------|------------|-------|
+| `PayslipPreviewModal` | Staff profile → Payslip tab | Preview payable amount; confirm generate / regenerate ledger |
+| `BonusFineModal` | Staff profile → Bonus/Fine tab | Create / edit / delete month-scoped bonus or fine |
+
+- Centered shell, fade-only, fixed header/footer, scrollable body.
+- Backdrop click + ESC close (blocked while generating/saving).
+- Files: [`PayslipPreviewModal.jsx`](../src/components/Modals/PayslipPreviewModal.jsx), [`BonusFineModal.jsx`](../src/components/Modals/BonusFineModal.jsx). See [`salary.md`](./salary.md).
+
 Implementation checklist
 - Root overlay uses `overflow-hidden` (not `overflow-y-auto`) unless you intentionally scroll the full-screen layer.
 - Avoid setting `document.body.style.overflow` from every modal unless centralized: multiple modals + sidebar each toggling `overflow` often leaves the page stuck (`hidden` or conflicting `auto`). Prefer a fixed `overflow-hidden` overlay and inner scroll only; if you must lock the body, use a single shared lock (ref counter) or always restore with `removeProperty('overflow')` in one place.
