@@ -1,27 +1,42 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { FiPlus, FiEye, FiEdit2, FiClock, FiRefreshCw } from 'react-icons/fi';
+import {
+  FiPlus,
+  FiEye,
+  FiEdit2,
+  FiClock,
+  FiRefreshCw,
+  FiMoreVertical,
+  FiCheckCircle,
+  FiCalendar,
+  FiLayers,
+} from 'react-icons/fi';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
+import TablePagination from '../components/TablePagination';
 import SalaryAssignmentModal from '../components/Modals/SalaryAssignmentModal';
-
-const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-const statusStyles = {
-  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  scheduled: 'bg-sky-50 text-sky-700 border-sky-200',
-  expired: 'bg-slate-50 text-slate-600 border-slate-200',
-};
 
 const formatCurrency = (value) =>
   `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 const formatDate = (value) => {
   if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
-  return d.toLocaleDateString('en-IN');
+  const raw = String(value);
+  let date;
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    const [y, m, d] = raw.slice(0, 10).split('-').map(Number);
+    date = new Date(y, m - 1, d);
+  } else {
+    date = new Date(value);
+  }
+  if (Number.isNaN(date.getTime())) return raw.slice(0, 10);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 };
 
 function formatDurationMinutes(total) {
@@ -32,6 +47,33 @@ function formatDurationMinutes(total) {
   if (h > 0 && m > 0) return `${h}h ${m}m`;
   if (h > 0) return `${h}h`;
   return `${m}m`;
+}
+
+function toYmd(value) {
+  if (!value) return '';
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Active assignment covering the current calendar month → Current. */
+function isCurrentForThisMonth(row) {
+  if (!row || String(row.status || '').toLowerCase() !== 'active') return false;
+  const today = new Date();
+  const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const from = toYmd(row.effective_from);
+  const to = row.effective_to ? toYmd(row.effective_to) : null;
+  if (!from) return true;
+  if (from > monthEnd) return false;
+  if (to && to < monthStart) return false;
+  return true;
 }
 
 function buildPayload(username, form) {
@@ -76,6 +118,104 @@ function validateForm(form) {
   return null;
 }
 
+function StatusChip({ row }) {
+  if (isCurrentForThisMonth(row)) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <FiCheckCircle className="w-3 h-3" />
+        Current
+      </span>
+    );
+  }
+  const status = String(row.status || '').toLowerCase();
+  if (status === 'scheduled') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200">
+        <FiCalendar className="w-3 h-3" />
+        Scheduled
+      </span>
+    );
+  }
+  if (status === 'active') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
+        <FiCheckCircle className="w-3 h-3" />
+        Active
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200">
+      <FiLayers className="w-3 h-3" />
+      Expired
+    </span>
+  );
+}
+
+function TypeChip({ type }) {
+  const isFlexible = String(type || 'fixed').toLowerCase() === 'flexible';
+  if (isFlexible) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+        <FiClock className="w-3 h-3" />
+        Flexible
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+      Fixed
+    </span>
+  );
+}
+
+const TableHead = () => (
+  <thead className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+    <tr>
+      <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[6%]">
+        #
+      </th>
+      <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[16%]">
+        Amount
+      </th>
+      <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[14%]">
+        Type
+      </th>
+      <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[14%]">
+        Hours
+      </th>
+      <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[18%]">
+        Effective from
+      </th>
+      <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[16%]">
+        Status
+      </th>
+      <th className="px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[10%]">
+        Actions
+      </th>
+    </tr>
+  </thead>
+);
+
+const TableSkeleton = ({ rows = 6 }) => (
+  <div className="overflow-x-auto">
+    <table className="min-w-full table-fixed text-left text-sm font-sans">
+      <TableHead />
+      <tbody>
+        {Array.from({ length: rows }, (_, i) => (
+          <tr key={`sk-${i}`} className="border-b border-gray-100">
+            {Array.from({ length: 7 }, (_, j) => (
+              <td key={`sk-${i}-${j}`} className="px-3 py-2.5">
+                <div className="h-3.5 animate-pulse rounded bg-slate-200/90 w-full max-w-[5rem]" />
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
 const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants }) => {
   const username = usernameProp || '';
   const [loading, setLoading] = useState(false);
@@ -84,14 +224,20 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
   const [salaryData, setSalaryData] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [weeklyOffData, setWeeklyOffData] = useState(null);
-  const [loadingWeeklyOff, setLoadingWeeklyOff] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [selectedAssignment, setSelectedAssignment] = useState(null);
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
+  const [showActionMenu, setShowActionMenu] = useState(null);
+  const [menuEntry, setMenuEntry] = useState(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState(null);
+  const actionAnchorRef = useRef(null);
+
   const fetchWeeklyOff = useCallback(async (staffUsername) => {
     try {
-      setLoadingWeeklyOff(true);
       const response = await fetch(
         `${API_BASE_URL}/salary/admin/get-weekly-off?username=${encodeURIComponent(staffUsername)}`,
         { method: 'GET', headers: getHeaders() }
@@ -101,9 +247,6 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
       setWeeklyOffData(data.data);
     } catch (err) {
       console.error(err);
-      toast.error(err.message);
-    } finally {
-      setLoadingWeeklyOff(false);
     }
   }, []);
 
@@ -139,8 +282,10 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
       (result.data.scheduled || []).forEach((s) => pushRow(s, 'scheduled'));
       (result.data.history || []).forEach((s) => pushRow(s, 'expired'));
       setAssignments(rows);
+      setPage(1);
     } catch (err) {
       setError(err.message);
+      setAssignments([]);
       toast.error(err.message);
     } finally {
       setLoading(false);
@@ -153,19 +298,159 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
     fetchWeeklyOff(username);
   }, [username, fetchSalaryHistory, fetchWeeklyOff]);
 
+  const totalPages = Math.max(1, Math.ceil(assignments.length / limit) || 1);
+  const paged = useMemo(() => {
+    const start = (page - 1) * limit;
+    return assignments.slice(start, start + limit);
+  }, [assignments, page, limit]);
+  const serialBase = (page - 1) * limit;
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const computeActionMenuPosition = useCallback((anchorEl, itemCount = 2) => {
+    if (!anchorEl) return null;
+
+    const rect = anchorEl.getBoundingClientRect();
+    const menuWidth = 160;
+    const menuHeight = 8 + itemCount * 36;
+    const gap = 8;
+    const margin = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const space = {
+      top: rect.top - margin,
+      bottom: vh - rect.bottom - margin,
+      right: vw - rect.right - margin,
+      left: rect.left - margin,
+    };
+
+    const fits = {
+      top: space.top >= menuHeight + gap,
+      bottom: space.bottom >= menuHeight + gap,
+      right: space.right >= menuWidth + gap,
+      left: space.left >= menuWidth + gap,
+    };
+
+    const preferred = ['top', 'bottom', 'right', 'left'];
+    let placement = preferred.find((p) => fits[p]);
+    if (!placement) {
+      placement = preferred.reduce(
+        (best, p) => (space[p] > space[best] ? p : best),
+        'bottom'
+      );
+    }
+
+    let top = 0;
+    let left = 0;
+
+    if (placement === 'top') {
+      top = rect.top - menuHeight - gap;
+      left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === 'bottom') {
+      top = rect.bottom + gap;
+      left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === 'right') {
+      top = rect.top + rect.height / 2 - menuHeight / 2;
+      left = rect.right + gap;
+    } else {
+      top = rect.top + rect.height / 2 - menuHeight / 2;
+      left = rect.left - menuWidth - gap;
+    }
+
+    const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+    const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+    const anchorCenterX = rect.left + rect.width / 2;
+    const anchorCenterY = rect.top + rect.height / 2;
+
+    return {
+      top: clampedTop,
+      left: clampedLeft,
+      placement,
+      arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+      arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
+    };
+  }, []);
+
+  const closeActionMenu = useCallback(() => {
+    setShowActionMenu(null);
+    actionAnchorRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+    const menuCount = menuEntry && String(menuEntry.status) !== 'expired' ? 2 : 1;
+
+    const updatePosition = () => {
+      setActionMenuPosition(
+        computeActionMenuPosition(actionAnchorRef.current, menuCount)
+      );
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') closeActionMenu();
+    };
+
+    const handleOutside = (e) => {
+      if (
+        actionAnchorRef.current?.contains(e.target) ||
+        e.target.closest?.('[data-salary-action-menu]')
+      ) {
+        return;
+      }
+      closeActionMenu();
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('mousedown', handleOutside);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleOutside);
+    };
+  }, [showActionMenu, menuEntry, computeActionMenuPosition, closeActionMenu]);
+
+  const rowKey = (row) => row.assignment_id || row.salary_id || row.id;
+
+  const toggleActionMenu = (e, row) => {
+    e.stopPropagation();
+    const key = rowKey(row);
+    const willOpen = showActionMenu !== key;
+    if (willOpen) {
+      const itemCount = String(row.status) !== 'expired' ? 2 : 1;
+      actionAnchorRef.current = e.currentTarget;
+      setMenuEntry(row);
+      setShowActionMenu(key);
+      setActionMenuPosition(computeActionMenuPosition(e.currentTarget, itemCount));
+      return;
+    }
+    closeActionMenu();
+  };
+
   const openCreate = () => {
+    closeActionMenu();
     setSelectedAssignment(null);
     setModalMode('create');
     setModalOpen(true);
   };
 
   const openEdit = (row) => {
+    closeActionMenu();
     setSelectedAssignment(row);
     setModalMode('edit');
     setModalOpen(true);
   };
 
   const openView = (row) => {
+    closeActionMenu();
     setSelectedAssignment(row);
     setModalMode('view');
     setModalOpen(true);
@@ -211,7 +496,6 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
       }
 
       const isFlexible = form.salary_type === 'flexible';
-      // Fixed only: persist day offs. Flexible clears any existing paid leave.
       const offResponse = await fetch(`${API_BASE_URL}/salary/admin/set-weekly-off`, {
         method: 'POST',
         headers: getHeaders(),
@@ -228,9 +512,9 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
       if (!offResponse.ok || !offData.success) {
         throw new Error(
           offData.message ||
-          (isFlexible
-            ? 'Salary saved but failed to clear day offs'
-            : 'Salary saved but failed to update day offs')
+            (isFlexible
+              ? 'Salary saved but failed to clear day offs'
+              : 'Salary saved but failed to update day offs')
         );
       }
 
@@ -248,45 +532,6 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
     }
   };
 
-  const handleWeeklyOffToggle = async (day) => {
-    if (!username) return;
-    const currentDays =
-      weeklyOffData?.days ||
-      weeklyOffData?.weekly_off_days ||
-      (weeklyOffData?.weekly_off?.weekly_off_day
-        ? [weeklyOffData.weekly_off.weekly_off_day]
-        : []);
-    const has = currentDays.includes(day);
-    const nextDays = has ? currentDays.filter((d) => d !== day) : [...currentDays, day];
-
-    const toggleToast = toast.loading(has ? `Removing ${day}…` : `Adding ${day}…`);
-    try {
-      const response = await fetch(`${API_BASE_URL}/salary/admin/set-weekly-off`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          username,
-          days: nextDays,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.message || 'Failed to update day off');
-
-      toast.success(data.message || 'Day off updated', { id: toggleToast });
-      const days = data.data?.days || nextDays;
-      setWeeklyOffData({
-        ...weeklyOffData,
-        days,
-        weekly_off_days: days,
-        weekly_off: days.length
-          ? { weekly_off_day: days[0], weekly_off_days: days, is_active: true }
-          : null,
-      });
-    } catch (err) {
-      toast.error(err.message || 'Failed to update day off', { id: toggleToast });
-    }
-  };
-
   const currentWeeklyOffDays =
     weeklyOffData?.days ||
     weeklyOffData?.weekly_off_days ||
@@ -295,9 +540,17 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
       : weeklyOffData?.weekly_off?.weekly_off_day
         ? [weeklyOffData.weekly_off.weekly_off_day]
         : []);
-  const activeAssignment = assignments.find((a) => a.status === 'active');
+
   const staffName =
-    staffNameProp || salaryData?.profile?.name || activeAssignment?.staff_name || '';
+    staffNameProp || salaryData?.profile?.name || '';
+
+  const currentCount = assignments.filter((a) => isCurrentForThisMonth(a)).length;
+  const scheduledCount = salaryData?.summary?.scheduled_count || 0;
+  const historyCount = salaryData?.summary?.history_count || 0;
+
+  const showMenu =
+    Boolean(showActionMenu) && Boolean(menuEntry) && Boolean(actionMenuPosition);
+  const menuCanEdit = menuEntry && String(menuEntry.status) !== 'expired';
 
   return (
     <motion.div
@@ -305,13 +558,14 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
       initial="initial"
       animate="animate"
       exit="exit"
-      className="space-y-5"
+      className="space-y-3"
     >
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">Salary</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Fixed monthly or flexible hour-based pay. Only one assignment is active.
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-base md:text-lg font-bold text-gray-800 m-0">Salary</h2>
+          <p className="text-xs text-gray-500 mt-0.5 m-0">
+            Fixed or flexible assignments
+            {staffName ? ` · ${staffName}` : ''}.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -319,8 +573,9 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
             type="button"
             onClick={() => username && fetchSalaryHistory(username)}
             disabled={!username || loading}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
             title="Refresh"
+            aria-label="Refresh"
           >
             <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -328,214 +583,245 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
             type="button"
             onClick={openCreate}
             disabled={!username}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 h-9 rounded-lg bg-teal-600 px-3 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
           >
-            <FiPlus className="w-4 h-4" />
-            Assign salary
+            <FiPlus className="w-3.5 h-3.5" />
+            Assign
           </button>
         </div>
       </div>
 
       {!username && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           Staff username is missing. Open this tab from a staff profile.
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           {error}
         </div>
       )}
 
-      {activeAssignment ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Active amount
-            </p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900 tabular-nums">
-              {formatCurrency(activeAssignment.monthly_salary)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Type</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900 capitalize">
-              {activeAssignment.salary_type || 'fixed'}
-            </p>
-            {activeAssignment.salary_type === 'flexible' && (
-              <p className="mt-1 text-xs text-slate-500 flex items-center gap-1">
-                <FiClock className="w-3.5 h-3.5" />
-                {activeAssignment.monthly_working_minutes != null
-                  ? formatDurationMinutes(activeAssignment.monthly_working_minutes)
-                  : activeAssignment.monthly_working_hours
-                    ? `${activeAssignment.monthly_working_hours} hrs`
-                    : '—'}{' '}
-                / month
-              </p>
-            )}
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                Effective from
-              </p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">
-                {formatDate(activeAssignment.effective_from)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => openEdit(activeAssignment)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
-            >
-              <FiEdit2 className="w-3.5 h-3.5" />
-              Edit
-            </button>
-          </div>
+      <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+        <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <h3 className="text-sm font-semibold text-gray-800 m-0 inline-flex items-center gap-1.5">
+            <FiLayers className="w-3.5 h-3.5 text-teal-600" />
+            Assignments
+          </h3>
+          <p className="text-xs text-gray-500 m-0 tabular-nums">
+            {currentCount} current · {scheduledCount} scheduled · {historyCount} past
+          </p>
         </div>
-      ) : (
-        !loading &&
-        username && (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-5 py-8 text-center">
-            <p className="text-sm font-medium text-slate-800">No active salary</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Assign a fixed or flexible salary to get started.
-            </p>
-            <button
-              type="button"
-              onClick={openCreate}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              <FiPlus className="w-4 h-4" />
-              Assign salary
-            </button>
-          </div>
-        )
-      )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-900">Assignments</h3>
-          <span className="text-xs text-slate-500">
-            {salaryData?.summary?.scheduled_count || 0} scheduled ·{' '}
-            {salaryData?.summary?.history_count || 0} past
-          </span>
-        </div>
         {loading && assignments.length === 0 ? (
-          <div className="py-10 text-center text-sm text-slate-500">Loading…</div>
+          <TableSkeleton rows={Math.min(limit, 6)} />
         ) : assignments.length === 0 ? (
-          <div className="py-10 text-center text-sm text-slate-500">No salary assigned yet.</div>
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full table-fixed text-left text-sm font-sans">
+                <TableHead />
+                <tbody>
+                  <tr>
+                    <td colSpan={7} className="px-3 py-10 text-center">
+                      <p className="text-sm font-medium text-gray-500 m-0">No salary assigned yet</p>
+                      <p className="text-xs text-gray-400 mt-1 m-0">
+                        Assign a fixed or flexible salary to get started.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openCreate}
+                        disabled={!username}
+                        className="mt-3 inline-flex items-center gap-1.5 h-9 rounded-lg bg-teal-600 px-3 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                      >
+                        <FiPlus className="w-3.5 h-3.5" />
+                        Assign salary
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <TablePagination
+              page={page}
+              limit={limit}
+              total={0}
+              totalPages={1}
+              defaultRows={20}
+              rowOptions={[5, 10, 20, 50, 100]}
+              onPageChange={setPage}
+              onLimitChange={(next) => {
+                setLimit(next);
+                setPage(1);
+              }}
+            />
+          </>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Amount</th>
-                  <th className="px-5 py-3 font-medium">Type</th>
-                  <th className="px-5 py-3 font-medium">Hours</th>
-                  <th className="px-5 py-3 font-medium">Effective from</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {assignments.map((row) => {
-                  const canEdit = row.status !== 'expired';
-                  return (
-                    <tr
-                      key={row.assignment_id || row.salary_id || row.id}
-                      className="hover:bg-slate-50/80"
-                    >
-                      <td className="px-5 py-3 font-medium text-slate-900 tabular-nums">
-                        {formatCurrency(row.monthly_salary)}
-                      </td>
-                      <td className="px-5 py-3 capitalize text-slate-700">
-                        {row.salary_type || 'fixed'}
-                      </td>
-                      <td className="px-5 py-3 text-slate-700">
-                        {row.salary_type === 'flexible'
-                          ? row.monthly_working_minutes != null
-                            ? formatDurationMinutes(row.monthly_working_minutes)
-                            : row.monthly_working_hours != null
-                              ? `${row.monthly_working_hours} hrs`
-                              : '—'
-                          : '—'}
-                      </td>
-                      <td className="px-5 py-3 text-slate-700">
-                        {formatDate(row.effective_from)}
-                      </td>
-                      <td className="px-5 py-3">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-md border text-xs font-medium ${statusStyles[row.status] || statusStyles.expired
-                            }`}
-                        >
-                          {row.status_display || row.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-1">
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full table-fixed text-left text-sm font-sans">
+                <TableHead />
+                <tbody>
+                  {paged.map((row, idx) => {
+                    const key = rowKey(row);
+                    const isCurrent = isCurrentForThisMonth(row);
+                    return (
+                      <tr
+                        key={key}
+                        className={`border-b border-gray-100 transition-colors ${
+                          isCurrent
+                            ? 'bg-emerald-50/40 hover:bg-emerald-50/70'
+                            : 'bg-white hover:bg-blue-50/30'
+                        }`}
+                      >
+                        <td className="px-3 py-2.5 text-[11px] font-bold text-gray-800 tabular-nums">
+                          {serialBase + idx + 1}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="inline-flex text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 tabular-nums">
+                            {formatCurrency(row.monthly_salary)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <TypeChip type={row.salary_type} />
+                        </td>
+                        <td className="px-3 py-2.5 text-sm text-gray-700">
+                          {row.salary_type === 'flexible' ? (
+                            <span className="inline-flex items-center gap-1">
+                              <FiClock className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                              {row.monthly_working_minutes != null
+                                ? formatDurationMinutes(row.monthly_working_minutes)
+                                : row.monthly_working_hours != null
+                                  ? `${row.monthly_working_hours} hrs`
+                                  : '—'}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-sm font-medium text-gray-700">
+                          <span className="inline-flex items-center gap-1.5">
+                            <FiCalendar className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                            {formatDate(row.effective_from)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <StatusChip row={row} />
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
                           <button
                             type="button"
-                            onClick={() => openView(row)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                            title="View"
+                            onClick={(e) => toggleActionMenu(e, row)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                            aria-label="Actions"
+                            aria-expanded={showActionMenu === key}
                           >
-                            <FiEye className="w-4 h-4" />
+                            <FiMoreVertical className="w-4 h-4" />
                           </button>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              onClick={() => openEdit(row)}
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                              title="Edit"
-                            >
-                              <FiEdit2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination
+              page={page}
+              limit={limit}
+              total={assignments.length}
+              totalPages={totalPages}
+              defaultRows={20}
+              rowOptions={[5, 10, 20, 50, 100]}
+              onPageChange={setPage}
+              onLimitChange={(next) => {
+                setLimit(next);
+                setPage(1);
+              }}
+            />
+          </>
         )}
       </div>
 
-      {(activeAssignment?.salary_type || 'fixed') === 'fixed' && (
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">Day off (paid leave)</h3>
-            <span className="text-xs text-slate-500">Multiple allowed</span>
-          </div>
-          <div className="p-5">
-            {loadingWeeklyOff ? (
-              <p className="text-sm text-slate-500">Loading…</p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                {WEEK_DAYS.map((day) => {
-                  const selected = currentWeeklyOffDays.includes(day);
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => handleWeeklyOffToggle(day)}
-                      className={`rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${selected
-                          ? 'border-violet-500 bg-violet-50 text-violet-700'
-                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
-                        }`}
-                    >
-                      {day.slice(0, 3)}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence
+            onExitComplete={() => {
+              if (!showActionMenu) {
+                setMenuEntry(null);
+                setActionMenuPosition(null);
+              }
+            }}
+          >
+            {showMenu ? (
+              <motion.div
+                key="salary-action-menu"
+                data-salary-action-menu
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.14 }}
+                className="fixed z-[99999] w-40 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                style={{
+                  top: actionMenuPosition.top,
+                  left: actionMenuPosition.left,
+                  height: 'auto',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span
+                  className="absolute h-2.5 w-2.5 rotate-45 border-slate-200 bg-white"
+                  style={{
+                    left:
+                      actionMenuPosition.placement === 'left' ||
+                      actionMenuPosition.placement === 'right'
+                        ? undefined
+                        : `${actionMenuPosition.arrowX - 5}px`,
+                    top:
+                      actionMenuPosition.placement === 'bottom'
+                        ? '-5px'
+                        : actionMenuPosition.placement === 'top'
+                          ? undefined
+                          : `${actionMenuPosition.arrowY - 5}px`,
+                    bottom:
+                      actionMenuPosition.placement === 'top' ? '-5px' : undefined,
+                    right:
+                      actionMenuPosition.placement === 'left' ? '-5px' : undefined,
+                    borderTopWidth:
+                      actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                    borderLeftWidth:
+                      actionMenuPosition.placement === 'bottom' ||
+                      actionMenuPosition.placement === 'right'
+                        ? '1px'
+                        : '0',
+                    borderBottomWidth:
+                      actionMenuPosition.placement === 'top' ? '1px' : '0',
+                    borderRightWidth:
+                      actionMenuPosition.placement === 'left' ? '1px' : '0',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => openView(menuEntry)}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50"
+                >
+                  <FiEye className="h-4 w-4 text-slate-500" />
+                  Details
+                </button>
+                {menuCanEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(menuEntry)}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50"
+                  >
+                    <FiEdit2 className="h-4 w-4 text-blue-600" />
+                    Edit
+                  </button>
+                ) : null}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>,
+          document.body
+        )}
 
       <SalaryAssignmentModal
         isOpen={modalOpen}

@@ -15,12 +15,14 @@ import {
   FiMinimize2,
   FiCheckSquare,
   FiX,
+  FiCalendar,
 } from "react-icons/fi";
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { useSubscription } from "../hooks/useSubscription";
 import { resolveProfileImageUrl } from "../utils/user-profile-storage";
 import ProfileTab from "../staff/ProfileTab";
+import StaffAttendanceTab from "../staff/StaffAttendanceTab";
 import ExpenseTab from "../staff/ExpenseTab";
 import BonusFineTab from "../staff/BonusFineTab";
 import SalaryTab from "../staff/SalaryTab";
@@ -228,6 +230,7 @@ const StaffProfilePageSkeleton = ({ tabsMinimized = true, tabCount = 9 }) => {
 };
 
 const STAFF_PROFILE_TABS = [
+  "attendance",
   "profile",
   "expense",
   "bonus-fine",
@@ -344,7 +347,7 @@ const StaffProfile = () => {
     if (STAFF_PROFILE_TABS.includes(tab)) {
       setActiveTab(tab);
     } else if (username) {
-      // Unknown/removed tab (e.g. legacy 'attendance' or 'entry-report' links) â€” fall back to profile
+      // Unknown/removed tab (e.g. legacy entry-report) — fall back to profile
       setActiveTab("profile");
       navigate(`/staff/view/profile/${encodeURIComponent(username)}/profile`, {
         replace: true,
@@ -619,6 +622,7 @@ const StaffProfile = () => {
   };
 
   const profileTabs = [
+    { id: "attendance", name: "Attendance", icon: FiCalendar },
     { id: "profile", name: "Profile", icon: FiUser },
     { id: "expense", name: "Expense", icon: InrIcon },
     { id: "bonus-fine", name: "Bonus/Fine", icon: FiAward },
@@ -698,6 +702,16 @@ const StaffProfile = () => {
     };
 
     switch (activeTab) {
+      case "attendance":
+        return (
+          <StaffAttendanceTab
+            key="attendance"
+            username={username}
+            staffName={staffData.fullName}
+            staffData={staffData}
+            {...props}
+          />
+        );
       case "profile":
         return (
           <ProfileTab

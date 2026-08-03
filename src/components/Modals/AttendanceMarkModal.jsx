@@ -137,6 +137,13 @@ function formatDateLabel(dateStr) {
   });
 }
 
+function toLocalYmd(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function formatTimeLabel(value) {
   const raw = toInputTime(value);
   if (!raw) return "";
@@ -238,8 +245,20 @@ function formatInr(value, { maxFractionDigits = 2 } = {}) {
 }
 
 /**
+ * Grace threshold: variance within grace → 0 billable.
+ * Beyond grace → full variance counts (not variance − grace).
+ */
+function applyGraceThreshold(varianceMinutes, gracePeriodMinutes) {
+  const raw = Math.max(0, Number(varianceMinutes) || 0);
+  const grace = Math.max(0, Number(gracePeriodMinutes) || 0);
+  if (raw <= grace) return 0;
+  return raw;
+}
+
+/**
  * Calendar-day wage from active monthly salary ÷ days in that month.
  * Present can include OT / fine when expected minutes exist and toggles are on.
+ * Grace: OT/fine only when extra/less exceeds grace; then full minutes count.
  */
 function resolveDayWage(
   row,
@@ -277,6 +296,11 @@ function resolveDayWage(
       : Number.isFinite(expectedHoursRaw) && expectedHoursRaw > 0
         ? Math.round(expectedHoursRaw * 60)
         : null;
+  const graceMinutesRaw = Number(row?.active_salary?.grace_period_minutes);
+  const graceMinutes =
+    Number.isFinite(graceMinutesRaw) && graceMinutesRaw > 0
+      ? graceMinutesRaw
+      : 0;
   const hasExpected = expectedMinutes != null && expectedMinutes > 0;
   const start = timeToMinutes(inTime);
   const end = timeToMinutes(outTime);
@@ -288,12 +312,16 @@ function resolveDayWage(
   const salaryOtAllowed = Boolean(row?.active_salary?.overtime_enabled);
   const salaryFineAllowed = Boolean(row?.active_salary?.fine_enabled);
 
+  let rawExtraMinutes = 0;
+  let rawLessMinutes = 0;
   let extraMinutes = 0;
   let lessMinutes = 0;
   let otAmount = 0;
   let fineAmount = 0;
   let showOvertime = false;
   let showFine = false;
+  let withinOtGrace = false;
+  let withinFineGrace = false;
   const perMinute = hasExpected ? daily / expectedMinutes : null;
 
   if (
@@ -302,9 +330,13 @@ function resolveDayWage(
     worked != null &&
     perMinute != null
   ) {
-    extraMinutes = Math.max(0, worked - expectedMinutes);
-    lessMinutes = Math.max(0, expectedMinutes - worked);
-    // Only show OT/fine when the staff salary allows them
+    rawExtraMinutes = Math.max(0, worked - expectedMinutes);
+    rawLessMinutes = Math.max(0, expectedMinutes - worked);
+    extraMinutes = applyGraceThreshold(rawExtraMinutes, graceMinutes);
+    lessMinutes = applyGraceThreshold(rawLessMinutes, graceMinutes);
+    withinOtGrace = rawExtraMinutes > 0 && extraMinutes === 0;
+    withinFineGrace = rawLessMinutes > 0 && lessMinutes === 0;
+    // Only show OT/fine when billable minutes remain after grace
     showOvertime = salaryOtAllowed && extraMinutes > 0;
     showFine = salaryFineAllowed && lessMinutes > 0;
     if (showOvertime && overtimeEnabled) {
@@ -329,8 +361,13 @@ function resolveDayWage(
     expectedHours: hasExpected ? expectedMinutes / 60 : null,
     perHour: hasExpected ? daily / (expectedMinutes / 60) : null,
     workedMinutes: worked,
+    graceMinutes,
+    rawExtraMinutes,
+    rawLessMinutes,
     extraMinutes,
     lessMinutes,
+    withinOtGrace,
+    withinFineGrace,
     showOvertime,
     showFine,
     otAmount,
@@ -360,7 +397,11 @@ const AttendanceMarkModal = ({
 
   useEffect(() => {
     if (!isOpen || !row) return;
-    const nextMark = resolveInitialMark(row);
+    const future = Boolean(date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date > toLocalYmd());
+    let nextMark = resolveInitialMark(row);
+    if (future && (nextMark === "present" || nextMark === "half_day")) {
+      nextMark = "absent";
+    }
     setMark(nextMark);
     const times = resolvePunchTimes(row);
     setInTime(times.inTime);
@@ -376,7 +417,7 @@ const AttendanceMarkModal = ({
         ? Boolean(att.fine_enabled)
         : Boolean(row.active_salary?.fine_enabled),
     );
-  }, [isOpen, row]);
+  }, [isOpen, row, date]);
 
   useEffect(() => {
     if (!isOpen || loading) return undefined;
@@ -386,6 +427,11 @@ const AttendanceMarkModal = ({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen, loading, onClose]);
+
+  const isFutureDate = useMemo(() => {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+    return date > toLocalYmd();
+  }, [date]);
 
   const staffName = row?.name || "Staff";
   const imageUrl = resolveProfileImageUrl(row?.image);
@@ -422,6 +468,12 @@ const AttendanceMarkModal = ({
   );
 
   const selectMark = (nextMark) => {
+    if (
+      isFutureDate &&
+      (nextMark === "present" || nextMark === "half_day")
+    ) {
+      return;
+    }
     setMark(nextMark);
     if (nextMark !== "present" || !row) return;
     const times = resolvePunchTimes(row);
@@ -431,6 +483,12 @@ const AttendanceMarkModal = ({
 
   const handleSave = () => {
     if (!option) return;
+    if (
+      isFutureDate &&
+      (mark === "present" || mark === "half_day")
+    ) {
+      return;
+    }
     const payload = {
       username: row.username,
       date,
@@ -590,13 +648,21 @@ const AttendanceMarkModal = ({
                 {MARK_OPTIONS.map((item) => {
                   const selected = mark === item.id;
                   const Icon = item.Icon;
+                  const futureBlocked =
+                    isFutureDate &&
+                    (item.id === "present" || item.id === "half_day");
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      disabled={loading}
+                      disabled={loading || futureBlocked}
                       onClick={() => selectMark(item.id)}
-                      className={`relative flex items-center gap-2 rounded-xl border px-2.5 py-2.5 text-sm font-semibold ring-1 transition disabled:opacity-50 ${
+                      title={
+                        futureBlocked
+                          ? "Not available for future dates"
+                          : undefined
+                      }
+                      className={`relative flex items-center gap-2 rounded-xl border px-2.5 py-2.5 text-sm font-semibold ring-1 transition disabled:cursor-not-allowed disabled:opacity-40 ${
                         selected ? item.active : item.inactive
                       }`}
                     >
@@ -619,6 +685,11 @@ const AttendanceMarkModal = ({
                   );
                 })}
               </div>
+              {isFutureDate ? (
+                <p className="mt-2 m-0 text-[11px] text-slate-500">
+                  Future date: only Absent or Leave can be marked.
+                </p>
+              ) : null}
 
               {(existingIn || existingOut) && mark !== "present" ? (
                 <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-3 text-xs text-slate-600">
@@ -694,7 +765,10 @@ const AttendanceMarkModal = ({
                     </div>
                   </div>
 
-                  {wageInfo?.showOvertime || wageInfo?.showFine ? (
+                  {wageInfo?.showOvertime ||
+                  wageInfo?.showFine ||
+                  wageInfo?.withinOtGrace ||
+                  wageInfo?.withinFineGrace ? (
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {wageInfo.showOvertime ? (
                         <div className="rounded-xl border border-emerald-100 bg-white/90 p-3">
@@ -732,6 +806,24 @@ const AttendanceMarkModal = ({
                               : "Extra time will not be paid."}
                           </p>
                         </div>
+                      ) : wageInfo.withinOtGrace ? (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                              <FiZap className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="m-0 text-sm font-semibold text-slate-800">
+                                Within grace
+                              </p>
+                              <p className="m-0 text-[11px] text-slate-500 tabular-nums">
+                                +{formatDurationLabel(wageInfo.rawExtraMinutes)}{" "}
+                                ≤ {formatDurationLabel(wageInfo.graceMinutes)}{" "}
+                                grace · no overtime
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       ) : null}
                       {wageInfo.showFine ? (
                         <div className="rounded-xl border border-rose-100 bg-white/90 p-3">
@@ -767,6 +859,24 @@ const AttendanceMarkModal = ({
                               ? "Shortfall will be deducted at the hourly rate."
                               : "Shortfall will not be deducted."}
                           </p>
+                        </div>
+                      ) : wageInfo.withinFineGrace ? (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                              <FiAlertTriangle className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="m-0 text-sm font-semibold text-slate-800">
+                                Within grace
+                              </p>
+                              <p className="m-0 text-[11px] text-slate-500 tabular-nums">
+                                −{formatDurationLabel(wageInfo.rawLessMinutes)}{" "}
+                                ≤ {formatDurationLabel(wageInfo.graceMinutes)}{" "}
+                                grace · no fine
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       ) : null}
                     </div>

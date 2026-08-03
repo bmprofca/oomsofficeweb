@@ -8,7 +8,9 @@ import {
     FiEdit2,
     FiFile,
     FiEye,
-    FiBarChart2
+    FiBarChart2,
+    FiShare2,
+    FiChevronDown,
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -21,6 +23,7 @@ import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import OpeningBalanceModal from '../components/OpeningBalanceModal';
 import { ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
+import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import TransactionTable, {
     getTransactionAmounts,
     formatLedgerCurrency,
@@ -68,6 +71,11 @@ const ClientLedger = ({
     const [actionMenuPosition, setActionMenuPosition] = useState(null);
     const actionAnchorRef = useRef(null);
     const [showAddMenu, setShowAddMenu] = useState(false);
+    const [showShareMenu, setShowShareMenu] = useState(false);
+    const [shareMenuPosition, setShareMenuPosition] = useState(null);
+    const shareAnchorRef = useRef(null);
+    const [showDocumentShareModal, setShowDocumentShareModal] = useState(false);
+    const [downloadingLedger, setDownloadingLedger] = useState(false);
     const [selectedBank, setSelectedBank] = useState(null);
     const [detailsTransaction, setDetailsTransaction] = useState(null);
     const [downloadingInvoice, setDownloadingInvoice] = useState(false);
@@ -111,6 +119,9 @@ const ClientLedger = ({
             actionAnchorRef.current = null;
             setActionMenuPosition(null);
             setShowAddMenu(false);
+            setShowShareMenu(false);
+            shareAnchorRef.current = null;
+            setShareMenuPosition(null);
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
@@ -212,6 +223,39 @@ const ClientLedger = ({
             document.removeEventListener('keydown', handleEscape);
         };
     }, [showActionMenu, computeActionMenuPosition, transactions]);
+
+    useEffect(() => {
+        if (!showShareMenu || !shareAnchorRef.current) return undefined;
+
+        const updateSharePosition = () => {
+            const el = shareAnchorRef.current;
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            setShareMenuPosition({
+                top: rect.bottom + 8,
+                left: Math.max(8, rect.right - 176),
+            });
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                setShowShareMenu(false);
+                shareAnchorRef.current = null;
+                setShareMenuPosition(null);
+            }
+        };
+
+        updateSharePosition();
+        window.addEventListener('resize', updateSharePosition);
+        window.addEventListener('scroll', updateSharePosition, true);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('resize', updateSharePosition);
+            window.removeEventListener('scroll', updateSharePosition, true);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [showShareMenu]);
 
     const refreshProfileBalance = useCallback(() => {
         if (typeof onProfileRefresh === 'function') {
@@ -370,10 +414,77 @@ const ClientLedger = ({
         }
     };
 
-    // Handle export
-    const handleExport = useCallback((type) => {
-        toast.success(`${type.toUpperCase()} export started...`);
+    // Handle export / download ledger PDF
+    const handleDownloadLedgerPdf = useCallback(async () => {
+        if (!username || !checkPermissionSync('task_fees_view')) return;
+        setShowShareMenu(false);
+        shareAnchorRef.current = null;
+        setShareMenuPosition(null);
+        setDownloadingLedger(true);
+        const toastId = toast.loading('Generating ledger PDF…');
+        try {
+            const params = new URLSearchParams({
+                party_type: 'client',
+                party_id: username,
+                from_date: fromDate,
+                to_date: toDate,
+                format: 'pdf',
+            });
+            const response = await axios.get(
+                `${API_BASE_URL}/transaction/download/ledger?${params}`,
+                { headers: getHeaders(), responseType: 'blob' }
+            );
+            const filename = `ledger_${username}_${fromDate}_to_${toDate}.pdf`;
+            const url = window.URL.createObjectURL(
+                new Blob([response.data], { type: 'application/pdf' })
+            );
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Ledger downloaded', { id: toastId });
+        } catch (error) {
+            console.error('Ledger download error:', error);
+            toast.error(
+                error.response?.data?.message || error.message || 'Failed to download ledger',
+                { id: toastId }
+            );
+        } finally {
+            setDownloadingLedger(false);
+        }
+    }, [username, fromDate, toDate]);
+
+    const handleOpenShareLedger = useCallback(() => {
+        setShowShareMenu(false);
+        shareAnchorRef.current = null;
+        setShareMenuPosition(null);
+        setShowDocumentShareModal(true);
     }, []);
+
+    const handleShareLedgerSend = useCallback(
+        async (channels) => {
+            const response = await axios.post(
+                `${API_BASE_URL}/transaction/ledger/share`,
+                {
+                    party_type: 'client',
+                    party_id: username,
+                    from_date: fromDate,
+                    to_date: toDate,
+                    channels,
+                },
+                { headers: getHeaders() }
+            );
+            return {
+                success: response.data?.success,
+                message: response.data?.message,
+                data: response.data?.data,
+            };
+        },
+        [username, fromDate, toDate]
+    );
 
     // Handle transaction type click - MODIFIED
     const handleTransactionTypeClick = (type) => {
@@ -539,16 +650,43 @@ const ClientLedger = ({
                         >
                             <FiRefreshCw className="w-5 h-5 text-slate-600" />
                         </motion.button>
-                        <motion.button
-                            onClick={() => handleExport('pdf')}
-                            disabled={!checkPermissionSync('task_fees_view')}
-                            className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            whileHover={checkPermissionSync('task_fees_view') ? { scale: 1.05 } : {}}
-                            whileTap={checkPermissionSync('task_fees_view') ? { scale: 0.95 } : {}}
-                            title="Export PDF"
-                        >
-                            <FiDownload className="w-5 h-5 text-slate-600" />
-                        </motion.button>
+                        <div className="relative">
+                            <motion.button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!checkPermissionSync('task_fees_view')) return;
+                                    const willOpen = !showShareMenu;
+                                    if (willOpen) {
+                                        shareAnchorRef.current = e.currentTarget;
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setShareMenuPosition({
+                                            top: rect.bottom + 8,
+                                            left: Math.max(8, rect.right - 176),
+                                        });
+                                        setShowShareMenu(true);
+                                        setShowAddMenu(false);
+                                    } else {
+                                        setShowShareMenu(false);
+                                        shareAnchorRef.current = null;
+                                        setShareMenuPosition(null);
+                                    }
+                                }}
+                                disabled={!checkPermissionSync('task_fees_view') || downloadingLedger}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-slate-700"
+                                whileHover={checkPermissionSync('task_fees_view') ? { scale: 1.02 } : {}}
+                                whileTap={checkPermissionSync('task_fees_view') ? { scale: 0.98 } : {}}
+                                title="Share / Download"
+                            >
+                                {downloadingLedger ? (
+                                    <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <FiShare2 className="w-4 h-4 text-slate-600" />
+                                )}
+                                <span>Share</span>
+                                <FiChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                            </motion.button>
+                        </div>
                         <div className="relative">
                             <motion.button
                                 onClick={(e) => {
@@ -658,6 +796,50 @@ const ClientLedger = ({
                 formatCurrency={formatCurrencyPlain}
                 summary={summary}
             />
+
+            <DocumentShareModal
+                isOpen={showDocumentShareModal}
+                onClose={() => setShowDocumentShareModal(false)}
+                title="Share Ledger"
+                subtitle="Choose delivery channels"
+                notificationType="document sharing"
+                recipientLabel={
+                    clientNameProp
+                        ? `${clientNameProp} · ${fromDate} to ${toDate}`
+                        : `${username} · ${fromDate} to ${toDate}`
+                }
+                onSend={handleShareLedgerSend}
+            />
+
+            {/* Share dropdown */}
+            {showShareMenu && shareMenuPosition && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="fixed w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-[99999] overflow-hidden"
+                    style={{ top: shareMenuPosition.top, left: shareMenuPosition.left }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        onClick={handleDownloadLedgerPdf}
+                        disabled={downloadingLedger}
+                        className="w-full px-3.5 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors disabled:opacity-50"
+                    >
+                        <FiDownload className="w-4 h-4 text-slate-600" />
+                        Download
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleOpenShareLedger}
+                        className="w-full px-3.5 py-2.5 text-left text-sm text-slate-700 hover:bg-teal-50 flex items-center gap-2.5 transition-colors"
+                    >
+                        <FiShare2 className="w-4 h-4 text-teal-600" />
+                        Share
+                    </button>
+                </motion.div>,
+                document.body
+            )}
 
             {/* Viewport-aware Action Menu Popover */}
             {showActionMenu && selectedActionTransaction && actionMenuPosition && createPortal(

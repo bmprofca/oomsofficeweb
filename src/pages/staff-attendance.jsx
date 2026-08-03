@@ -28,7 +28,7 @@ import {
 } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { Header, Sidebar } from "../components/header";
-import { DatePickerField } from "../components/PortalDatePicker";
+import { DateRangePickerField } from "../components/PortalDatePicker";
 import TablePagination from "../components/TablePagination";
 import AttendanceMarkModal from "../components/Modals/AttendanceMarkModal";
 import ConfirmActionModal from "../components/ConfirmActionModal";
@@ -196,22 +196,93 @@ function formatDisplayDate(dateStr) {
   });
 }
 
-/** Format MySQL TIME / legacy timestamp to display time. */
+/** Format MySQL TIME / legacy timestamp to 12-hour display. */
 function formatTime(value) {
   if (value == null || value === "") return "";
+  const opts = { hour: "numeric", minute: "2-digit", hour12: true };
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return value.toLocaleTimeString([], opts);
   }
   const raw = String(value).trim();
   const iso = raw.match(/T(\d{2}):(\d{2})/);
-  if (iso) return `${iso[1]}:${iso[2]}`;
+  if (iso) {
+    const d = new Date(2000, 0, 1, Number(iso[1]), Number(iso[2]));
+    return d.toLocaleTimeString([], opts);
+  }
   const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
-  if (m) return `${String(Number(m[1])).padStart(2, "0")}:${m[2]}`;
+  if (m) {
+    const d = new Date(2000, 0, 1, Number(m[1]), Number(m[2]));
+    return d.toLocaleTimeString([], opts);
+  }
   const d = new Date(raw);
   if (!Number.isNaN(d.getTime())) {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString([], opts);
   }
   return "";
+}
+
+function formatBreakDuration(mins) {
+  const n = Math.round(Number(mins));
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const h = Math.floor(n / 60);
+  const m = n % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+}
+
+function timeToMinutes(value) {
+  if (value == null || value === "") return null;
+  const raw = String(value).trim();
+  const iso = raw.match(/T(\d{2}):(\d{2})/);
+  if (iso) return Number(iso[1]) * 60 + Number(iso[2]);
+  const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** Gross punch span minus closed break time. */
+function getNetWorkedMinutes(row) {
+  const att = row?.attendance;
+  if (!att) return null;
+  let worked =
+    att.worked_minutes != null ? Number(att.worked_minutes) : null;
+  if (!Number.isFinite(worked) || worked < 0) {
+    const start = timeToMinutes(att.in_time);
+    const end = timeToMinutes(att.out_time);
+    if (start == null || end == null || end < start) return null;
+    worked = end - start;
+  }
+  const breaks = Math.max(0, Number(row?.break_total_minutes) || 0);
+  return Math.max(0, worked - breaks);
+}
+
+function rowSelectionKey(row) {
+  const username = String(row?.username || "").trim();
+  const date = String(row?.date || "").slice(0, 10);
+  if (!username || !date) return "";
+  return `${username}::${date}`;
+}
+
+function parseSelectionKey(key) {
+  const raw = String(key || "");
+  const idx = raw.lastIndexOf("::");
+  if (idx <= 0) return null;
+  return {
+    username: raw.slice(0, idx),
+    date: raw.slice(idx + 2),
+  };
+}
+
+function formatShortDate(dateStr) {
+  if (!dateStr) return "—";
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString([], {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 /** Local mobile without country code. */
@@ -237,17 +308,17 @@ function getInitials(name) {
   return "ST";
 }
 
-function TableSkeleton({ rows = 8 }) {
+function TableSkeleton({ rows = 8, showDate = false }) {
   return (
     <div className="overflow-x-auto" aria-busy="true">
       <table className="min-w-full text-left text-sm">
         <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           <tr>
             <th className="w-16 px-4 py-3">#</th>
+            {showDate ? <th className="px-4 py-3">Date</th> : null}
             <th className="px-4 py-3">Staff</th>
             <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Punch in</th>
-            <th className="hidden px-4 py-3 sm:table-cell">Punch out</th>
+            <th className="px-4 py-3">Punch</th>
             <th className="hidden px-4 py-3 md:table-cell">Breaks</th>
             <th className="hidden px-4 py-3 lg:table-cell">Approval</th>
             <th className="w-12 px-4 py-3" />
@@ -262,6 +333,11 @@ function TableSkeleton({ rows = 8 }) {
                   <div className={`${sk} h-3.5 w-7 rounded-full`} />
                 </div>
               </td>
+              {showDate ? (
+                <td className="px-4 py-3">
+                  <div className={`${sk} h-3.5 w-20`} />
+                </td>
+              ) : null}
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className={`${sk} h-10 w-10 rounded-full`} />
@@ -272,13 +348,10 @@ function TableSkeleton({ rows = 8 }) {
                 <div className={`${sk} h-6 w-24 rounded-full`} />
               </td>
               <td className="px-4 py-3">
-                <div className={`${sk} h-3.5 w-14`} />
-              </td>
-              <td className="hidden px-4 py-3 sm:table-cell">
-                <div className={`${sk} h-3.5 w-14`} />
+                <div className={`${sk} h-8 w-28`} />
               </td>
               <td className="hidden px-4 py-3 md:table-cell">
-                <div className={`${sk} h-3.5 w-10`} />
+                <div className={`${sk} h-3.5 w-16`} />
               </td>
               <td className="hidden px-4 py-3 lg:table-cell">
                 <div className={`${sk} h-6 w-20 rounded-full`} />
@@ -294,12 +367,17 @@ function TableSkeleton({ rows = 8 }) {
   );
 }
 
-function TableRowSkeleton() {
+function TableRowSkeleton({ showDate = false }) {
   return (
     <tr className="bg-amber-50/40">
       <td className="px-4 py-3">
         <div className={`${sk} h-3.5 w-6`} />
       </td>
+      {showDate ? (
+        <td className="px-4 py-3">
+          <div className={`${sk} h-3.5 w-20`} />
+        </td>
+      ) : null}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <div className={`${sk} h-10 w-10 rounded-full`} />
@@ -313,13 +391,10 @@ function TableRowSkeleton() {
         <div className={`${sk} h-6 w-24 rounded-full`} />
       </td>
       <td className="px-4 py-3">
-        <div className={`${sk} h-3.5 w-14`} />
-      </td>
-      <td className="hidden px-4 py-3 sm:table-cell">
-        <div className={`${sk} h-3.5 w-14`} />
+        <div className={`${sk} h-8 w-28`} />
       </td>
       <td className="hidden px-4 py-3 md:table-cell">
-        <div className={`${sk} h-3.5 w-12`} />
+        <div className={`${sk} h-3.5 w-16`} />
       </td>
       <td className="hidden px-4 py-3 lg:table-cell">
         <div className={`${sk} h-6 w-20 rounded-full`} />
@@ -338,7 +413,8 @@ function StaffAttendancePage() {
     return saved ? JSON.parse(saved) : false;
   });
 
-  const [selectedDate, setSelectedDate] = useState(() => getTodayDateString());
+  const [fromDate, setFromDate] = useState(() => getTodayDateString());
+  const [toDate, setToDate] = useState(() => getTodayDateString());
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -347,9 +423,10 @@ function StaffAttendancePage() {
   const [payload, setPayload] = useState(null);
   const [markRow, setMarkRow] = useState(null);
   const [markLoading, setMarkLoading] = useState(false);
-  const [updatingUsername, setUpdatingUsername] = useState("");
+  const [updatingKey, setUpdatingKey] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkApproving, setBulkApproving] = useState(false);
   const [bulkApplyOvertime, setBulkApplyOvertime] = useState(true);
@@ -357,7 +434,9 @@ function StaffAttendancePage() {
 
   const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
   const today = getTodayDateString();
-  const isToday = selectedDate === today;
+  const isSingleDay = fromDate === toDate;
+  const isToday = isSingleDay && fromDate === today;
+  const isRange = Boolean(payload?.is_range) || !isSingleDay;
   const staff = Array.isArray(payload?.staff) ? payload.staff : [];
   const pagination = payload?.pagination || {
     page: 1,
@@ -378,9 +457,19 @@ function StaffAttendancePage() {
     approved: 0,
   };
 
+  const pageSelectionKeys = useMemo(
+    () => staff.map((row) => rowSelectionKey(row)).filter(Boolean),
+    [staff],
+  );
+
+  const selectedCount = selectAllAcrossPages
+    ? pagination.total || 0
+    : selectedItems.length;
+
   const loadDayList = useCallback(
     async ({
-      date,
+      start = fromDate,
+      end = toDate,
       searchTerm = "",
       pageNum = 1,
       pageLimit = DEFAULT_LIMIT,
@@ -392,7 +481,9 @@ function StaffAttendancePage() {
         if (!headers) throw new Error("Missing auth headers");
 
         const params = new URLSearchParams({
-          date,
+          from_date: start,
+          to_date: end,
+          date: start,
           page: String(pageNum),
           limit: String(pageLimit),
         });
@@ -418,33 +509,49 @@ function StaffAttendancePage() {
         if (showSkeleton) setLoading(false);
       }
     },
-    [],
+    [fromDate, toDate],
   );
 
   useEffect(() => {
     loadDayList({
-      date: selectedDate,
+      start: fromDate,
+      end: toDate,
       searchTerm: search,
       pageNum: page,
       pageLimit: limit,
     });
-  }, [selectedDate, search, page, limit, loadDayList]);
+  }, [fromDate, toDate, search, page, limit, loadDayList]);
 
   useEffect(() => {
     setSelectedItems([]);
     setSelectAll(false);
+    setSelectAllAcrossPages(false);
     setBulkConfirmOpen(false);
-  }, [selectedDate, search, page, limit]);
+  }, [fromDate, toDate, search]);
 
   useEffect(() => {
+    if (selectAllAcrossPages) return;
+    setSelectedItems([]);
+    setSelectAll(false);
+    setBulkConfirmOpen(false);
+  }, [page, limit, selectAllAcrossPages]);
+
+  useEffect(() => {
+    if (selectAllAcrossPages) {
+      setSelectAll(pageSelectionKeys.length > 0);
+      return;
+    }
     if (selectedItems.length === 0) {
       setSelectAll(false);
-    } else if (staff.length > 0 && selectedItems.length === staff.length) {
+    } else if (
+      pageSelectionKeys.length > 0 &&
+      pageSelectionKeys.every((key) => selectedItems.includes(key))
+    ) {
       setSelectAll(true);
     } else {
       setSelectAll(false);
     }
-  }, [selectedItems, staff.length]);
+  }, [selectedItems, pageSelectionKeys, selectAllAcrossPages]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -458,30 +565,69 @@ function StaffAttendancePage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  const handleToggleSelect = useCallback((username) => {
-    const id = String(username || "");
-    if (!id) return;
-    setSelectedItems((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  }, []);
+  const handleToggleSelect = useCallback(
+    (row) => {
+      const key = rowSelectionKey(row);
+      if (!key) return;
+      if (selectAllAcrossPages) {
+        setSelectAllAcrossPages(false);
+        setSelectedItems(pageSelectionKeys.filter((k) => k !== key));
+        setSelectAll(false);
+        return;
+      }
+      setSelectedItems((prev) =>
+        prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key],
+      );
+    },
+    [selectAllAcrossPages, pageSelectionKeys],
+  );
 
   const handleSelectAll = useCallback(() => {
-    if (selectAll) {
+    if (selectAll || selectAllAcrossPages) {
       setSelectedItems([]);
       setSelectAll(false);
+      setSelectAllAcrossPages(false);
       return;
     }
-    setSelectedItems(staff.map((row) => String(row.username)).filter(Boolean));
+    setSelectedItems(pageSelectionKeys);
     setSelectAll(true);
-  }, [selectAll, staff]);
+    setSelectAllAcrossPages(false);
+  }, [selectAll, selectAllAcrossPages, pageSelectionKeys]);
+
+  const shiftRange = useCallback(
+    (days) => {
+      setPage(1);
+      setFromDate((d) => shiftDateString(d, days));
+      setToDate((d) => shiftDateString(d, days));
+    },
+    [],
+  );
 
   const submitBulkApprove = useCallback(async () => {
-    if (selectedItems.length === 0 || bulkApproving) return;
+    if (selectedCount === 0 || bulkApproving) return;
     setBulkApproving(true);
     try {
       const headers = await getHeaders();
       if (!headers) throw new Error("Missing auth headers");
+
+      const body = selectAllAcrossPages
+        ? {
+            select_all: true,
+            from_date: fromDate,
+            to_date: toDate,
+            date: fromDate,
+            search,
+            apply_overtime: bulkApplyOvertime,
+            apply_fine: bulkApplyFine,
+          }
+        : {
+            items: selectedItems.map(parseSelectionKey).filter(Boolean),
+            from_date: fromDate,
+            to_date: toDate,
+            apply_overtime: bulkApplyOvertime,
+            apply_fine: bulkApplyFine,
+          };
+
       const res = await fetch(
         `${API_BASE_URL}/attendance/manage/bulk-approve`,
         {
@@ -490,12 +636,7 @@ function StaffAttendancePage() {
             ...headers,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            usernames: selectedItems,
-            date: selectedDate,
-            apply_overtime: bulkApplyOvertime,
-            apply_fine: bulkApplyFine,
-          }),
+          body: JSON.stringify(body),
         },
       );
       const result = await res.json().catch(() => ({}));
@@ -510,8 +651,10 @@ function StaffAttendancePage() {
       setBulkConfirmOpen(false);
       setSelectedItems([]);
       setSelectAll(false);
+      setSelectAllAcrossPages(false);
       await loadDayList({
-        date: selectedDate,
+        start: fromDate,
+        end: toDate,
         searchTerm: search,
         pageNum: page,
         pageLimit: limit,
@@ -523,9 +666,12 @@ function StaffAttendancePage() {
       setBulkApproving(false);
     }
   }, [
-    selectedItems,
+    selectedCount,
     bulkApproving,
-    selectedDate,
+    selectAllAcrossPages,
+    selectedItems,
+    fromDate,
+    toDate,
     search,
     page,
     limit,
@@ -582,7 +728,10 @@ function StaffAttendancePage() {
 
   const submitMark = useCallback(
     async (body) => {
-      setUpdatingUsername(body?.username || "");
+      const markDate = body?.date || markRow?.date || fromDate;
+      setUpdatingKey(
+        rowSelectionKey({ username: body?.username, date: markDate }),
+      );
       setMarkLoading(true);
       try {
         const headers = await getHeaders();
@@ -593,7 +742,7 @@ function StaffAttendancePage() {
             ...headers,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ ...body, date: markDate }),
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok || !result?.success) {
@@ -602,7 +751,8 @@ function StaffAttendancePage() {
         toast.success(result.message || "Attendance marked");
         setMarkRow(null);
         await loadDayList({
-          date: selectedDate,
+          start: fromDate,
+          end: toDate,
           searchTerm: search,
           pageNum: page,
           pageLimit: limit,
@@ -612,13 +762,18 @@ function StaffAttendancePage() {
         toast.error(error.message || "Failed to mark attendance");
       } finally {
         setMarkLoading(false);
-        setUpdatingUsername("");
+        setUpdatingKey("");
       }
     },
-    [loadDayList, selectedDate, search, page, limit],
+    [loadDayList, fromDate, toDate, search, page, limit, markRow],
   );
 
   const serialBase = (pagination.page - 1) * pagination.limit;
+  const dateLabel = isSingleDay
+    ? formatDisplayDate(fromDate)
+    : `${formatShortDate(fromDate)} – ${formatShortDate(toDate)}`;
+  const canGoNext =
+    isSingleDay ? fromDate < today : toDate < today;
 
   return (
     <div className="min-h-screen bg-slate-50/80">
@@ -645,7 +800,7 @@ function StaffAttendancePage() {
                 Attendance
               </h1>
               <p className="m-0 mt-1 text-sm text-slate-500">
-                {formatDisplayDate(selectedDate)}
+                {dateLabel}
                 {isToday ? " · Today" : ""}
               </p>
             </div>
@@ -653,42 +808,40 @@ function StaffAttendancePage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setPage(1);
-                  setSelectedDate((d) => shiftDateString(d, -1));
-                }}
+                onClick={() => shiftRange(-1)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                title="Previous day"
+                title="Previous"
               >
                 <FiChevronLeft className="h-4 w-4" />
               </button>
 
-              <DatePickerField
-                value={selectedDate}
-                onChange={(next) => {
-                  const value = typeof next === "string" ? next : next?.date;
-                  if (value) {
-                    setPage(1);
-                    setSelectedDate(value);
-                  }
+              <DateRangePickerField
+                value={{ start: fromDate, end: toDate }}
+                onChange={(range) => {
+                  const start = range?.start || today;
+                  const end = range?.end || start;
+                  setPage(1);
+                  setFromDate(start);
+                  setToDate(end);
                 }}
-                hideTabs
+                mode="both"
+                initialTab="quick"
+                defaultQuickKey="td"
+                quickOptionKeys={["tm", "lm", "l3m", "l6m"]}
                 showResetButton={false}
+                truncateRangeLabel={false}
                 maxSelectableDate={today}
                 placeholder="Select date"
-                wrapperClassName="w-auto"
-                buttonClassName="h-10 w-auto whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 text-slate-800 hover:bg-slate-50"
+                wrapperClassName="w-auto max-w-full"
+                buttonClassName="h-10 w-auto max-w-full whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 text-slate-800 hover:bg-slate-50"
               />
 
               <button
                 type="button"
-                disabled={isToday}
-                onClick={() => {
-                  setPage(1);
-                  setSelectedDate((d) => shiftDateString(d, 1));
-                }}
+                disabled={!canGoNext}
+                onClick={() => shiftRange(1)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                title="Next day"
+                title="Next"
               >
                 <FiChevronRight className="h-4 w-4" />
               </button>
@@ -698,7 +851,8 @@ function StaffAttendancePage() {
                   type="button"
                   onClick={() => {
                     setPage(1);
-                    setSelectedDate(today);
+                    setFromDate(today);
+                    setToDate(today);
                   }}
                   className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-800 hover:bg-teal-100"
                 >
@@ -711,7 +865,8 @@ function StaffAttendancePage() {
                 type="button"
                 onClick={() =>
                   loadDayList({
-                    date: selectedDate,
+                    start: fromDate,
+                    end: toDate,
                     searchTerm: search,
                     pageNum: page,
                     pageLimit: limit,
@@ -764,16 +919,16 @@ function StaffAttendancePage() {
                   <FiUsers className="h-4 w-4 text-slate-400" />
                   Staff list
                 </div>
-                {selectedItems.length > 0 ? (
+                {selectedCount > 0 ? (
                   <div className="flex items-center gap-2">
                     <div className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">
-                      {selectedItems.length}
+                      {selectedCount > 99 ? "99+" : selectedCount}
                     </div>
                     <span className="text-sm text-gray-600">selected</span>
                   </div>
                 ) : null}
                 <AnimatePresence>
-                  {selectedItems.length > 0 ? (
+                  {selectedCount > 0 ? (
                     <motion.button
                       type="button"
                       initial={{ opacity: 0, scale: 0.96 }}
@@ -816,7 +971,7 @@ function StaffAttendancePage() {
             </div>
 
             {loading ? (
-              <TableSkeleton />
+              <TableSkeleton showDate={isRange} />
             ) : staff.length === 0 ? (
               <div className="px-4 py-16 text-center">
                 <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400">
@@ -837,6 +992,39 @@ function StaffAttendancePage() {
               </div>
             ) : (
               <>
+                {selectAll && pagination.total > staff.length ? (
+                  <div className="border-b border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs text-indigo-800">
+                    {selectAllAcrossPages ? (
+                      <>
+                        All {pagination.total.toLocaleString()} records are
+                        selected.{" "}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedItems([]);
+                            setSelectAll(false);
+                            setSelectAllAcrossPages(false);
+                          }}
+                          className="font-semibold underline hover:text-indigo-950"
+                        >
+                          Clear selection
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        All {staff.length.toLocaleString()} records on this page
+                        are selected.{" "}
+                        <button
+                          type="button"
+                          onClick={() => setSelectAllAcrossPages(true)}
+                          className="font-semibold underline hover:text-indigo-950"
+                        >
+                          Select all {pagination.total.toLocaleString()} records
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : null}
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -844,10 +1032,14 @@ function StaffAttendancePage() {
                         <th className="w-16 px-4 py-3 font-semibold">
                           <div className="flex items-center gap-2">
                             <AnimatedCheckbox
-                              checked={selectAll}
+                              checked={
+                                selectAllAcrossPages ||
+                                (selectAll && pageSelectionKeys.length > 0)
+                              }
                               indeterminate={
+                                !selectAllAcrossPages &&
                                 selectedItems.length > 0 &&
-                                selectedItems.length < staff.length
+                                !selectAll
                               }
                               onChange={handleSelectAll}
                               disabled={staff.length === 0}
@@ -856,12 +1048,12 @@ function StaffAttendancePage() {
                             <span>#</span>
                           </div>
                         </th>
+                        {isRange ? (
+                          <th className="px-4 py-3 font-semibold">Date</th>
+                        ) : null}
                         <th className="px-4 py-3 font-semibold">Staff</th>
                         <th className="px-4 py-3 font-semibold">Status</th>
-                        <th className="px-4 py-3 font-semibold">Punch in</th>
-                        <th className="hidden px-4 py-3 font-semibold sm:table-cell">
-                          Punch out
-                        </th>
+                        <th className="px-4 py-3 font-semibold">Punch</th>
                         <th className="hidden px-4 py-3 font-semibold md:table-cell">
                           Breaks
                         </th>
@@ -889,15 +1081,30 @@ function StaffAttendancePage() {
                           row.country_code,
                         );
                         const imageUrl = resolveProfileImageUrl(row.image);
+                        const rowKey = rowSelectionKey(row);
                         const rowBusy =
-                          markLoading && updatingUsername === row.username;
-                        const isSelected = selectedItems.includes(row.username);
+                          markLoading && updatingKey === rowKey;
+                        const isSelected =
+                          selectAllAcrossPages || selectedItems.includes(rowKey);
+                        const breakDuration = formatBreakDuration(
+                          row.break_total_minutes,
+                        );
+                        const inLabel = formatTime(row.attendance?.in_time);
+                        const outLabel = formatTime(row.attendance?.out_time);
+                        const netWorked = formatBreakDuration(
+                          getNetWorkedMinutes(row),
+                        );
                         if (rowBusy) {
-                          return <TableRowSkeleton key={row.username} />;
+                          return (
+                            <TableRowSkeleton
+                              key={rowKey || `${row.username}-${index}`}
+                              showDate={isRange}
+                            />
+                          );
                         }
                         return (
                           <motion.tr
-                            key={row.username}
+                            key={rowKey || `${row.username}-${index}`}
                             className={`group transition-colors duration-150 hover:bg-teal-50/40 ${
                               isSelected
                                 ? "bg-indigo-50/50"
@@ -910,9 +1117,7 @@ function StaffAttendancePage() {
                               <div className="flex items-center gap-2">
                                 <AnimatedCheckbox
                                   checked={isSelected}
-                                  onChange={() =>
-                                    handleToggleSelect(row.username)
-                                  }
+                                  onChange={() => handleToggleSelect(row)}
                                   ariaLabel={`Select ${row.name || "staff"}`}
                                 />
                                 <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-medium tabular-nums text-gray-700">
@@ -920,6 +1125,11 @@ function StaffAttendancePage() {
                                 </div>
                               </div>
                             </td>
+                            {isRange ? (
+                              <td className="px-4 py-3 text-xs font-medium tabular-nums text-slate-700">
+                                {formatShortDate(row.date)}
+                              </td>
+                            ) : null}
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
                                 {imageUrl ? (
@@ -957,20 +1167,39 @@ function StaffAttendancePage() {
                                 {meta.label}
                               </span>
                             </td>
-                            <td className="px-4 py-3 tabular-nums text-slate-800">
-                              {formatTime(row.attendance?.in_time)}
-                            </td>
-                            <td className="hidden px-4 py-3 tabular-nums text-slate-800 sm:table-cell">
-                              {formatTime(row.attendance?.out_time)}
+                            <td className="px-4 py-3 text-slate-800">
+                              {inLabel || outLabel || netWorked ? (
+                                <div className="flex flex-col gap-0.5 text-xs leading-tight">
+                                  {inLabel || outLabel ? (
+                                    <span className="tabular-nums font-medium">
+                                      {[inLabel, outLabel]
+                                        .filter(Boolean)
+                                        .join(" – ")}
+                                    </span>
+                                  ) : null}
+                                  {netWorked ? (
+                                    <span className="tabular-nums text-slate-500">
+                                      WT {netWorked}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : null}
                             </td>
                             <td className="hidden px-4 py-3 text-slate-700 md:table-cell">
                               {row.break_count > 0 ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-medium">
-                                  <FiCoffee className="h-3.5 w-3.5 text-amber-600" />
-                                  {row.break_count}
-                                  {row.open_break ? (
-                                    <span className="text-amber-700">
-                                      · open
+                                <span className="inline-flex flex-col gap-0.5 text-xs font-medium leading-tight">
+                                  <span className="inline-flex items-center gap-1">
+                                    <FiCoffee className="h-3.5 w-3.5 text-amber-600" />
+                                    {row.break_count}
+                                    {row.open_break ? (
+                                      <span className="text-amber-700">
+                                        · open
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  {breakDuration ? (
+                                    <span className="tabular-nums text-slate-500">
+                                      {breakDuration}
                                     </span>
                                   ) : null}
                                 </span>
@@ -1029,7 +1258,7 @@ function StaffAttendancePage() {
       <AttendanceMarkModal
         isOpen={Boolean(markRow)}
         row={markRow}
-        date={selectedDate}
+        date={markRow?.date || fromDate}
         loading={markLoading}
         onClose={() => {
           if (!markLoading) setMarkRow(null);
@@ -1041,7 +1270,7 @@ function StaffAttendancePage() {
         isOpen={bulkConfirmOpen}
         title="Bulk approve"
         heading="Approve selected attendance?"
-        message={`Approve ${selectedItems.length} selected staff for ${formatDisplayDate(selectedDate)}. Only staff with both punch in and punch out will be approved; others will be skipped.`}
+        message={`Approve ${selectedCount.toLocaleString()} selected record${selectedCount === 1 ? "" : "s"} for ${dateLabel}. Only rows with both punch in and punch out will be approved; others will be skipped.`}
         confirmLabel="Approve"
         cancelLabel="Cancel"
         loading={bulkApproving}

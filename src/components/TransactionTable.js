@@ -80,11 +80,11 @@ function getParticularsDisplay(transaction) {
 
         return (
             <div className="flex flex-col min-w-0">
-                <div className="font-medium text-slate-800 truncate" title={itemsLabel}>
+                <div className="font-medium text-slate-800 whitespace-normal break-words">
                     {itemsLabel}
                 </div>
                 {remark && (
-                    <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
+                    <div className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
                         {remark}
                     </div>
                 )}
@@ -100,7 +100,7 @@ function getParticularsDisplay(transaction) {
                     {[d.account_no, d.holder, d.ifsc, d.branch].filter(Boolean).join(' • ')}
                 </div>
                 {remark && (
-                    <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
+                    <div className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
                         {remark}
                     </div>
                 )}
@@ -113,7 +113,7 @@ function getParticularsDisplay(transaction) {
                 <div className="font-medium text-slate-800">{transaction.create_by.name || 'Company'}</div>
                 <div className="text-xs text-slate-500">{transaction.create_by.email || ''}</div>
                 {remark && (
-                    <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
+                    <div className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
                         {remark}
                     </div>
                 )}
@@ -127,7 +127,7 @@ function getParticularsDisplay(transaction) {
         <div className="flex flex-col min-w-0">
             <div className="font-medium text-slate-800">{txType || 'N/A'}</div>
             {remark && (
-                <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
+                <div className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
                     {remark}
                 </div>
             )}

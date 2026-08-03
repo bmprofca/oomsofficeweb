@@ -482,7 +482,14 @@ export default function SalaryAssignmentModal({
   return createPortal(
     <AnimatePresence>
       {isOpen ? (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+        <motion.div
+          key="salary-assignment-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-[1100] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
+        >
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -510,6 +517,7 @@ export default function SalaryAssignmentModal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
             className="relative z-[1] pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
+            onClick={(e) => e.stopPropagation()}
           >
             <header className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-teal-50/40 px-5 py-3.5">
               <div className="flex items-center justify-between gap-3">
@@ -778,7 +786,7 @@ export default function SalaryAssignmentModal({
               )}
             </footer>
           </motion.div>
-        </div>
+        </motion.div>
       ) : null}
     </AnimatePresence>,
     document.body,

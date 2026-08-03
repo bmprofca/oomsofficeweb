@@ -9,12 +9,12 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import {
-  FiPlus,
-  FiEdit2,
-  FiTrash2,
+    FiPlus,
+    FiEdit2,
+    FiTrash2,
   FiRefreshCw,
-  FiTrendingUp,
-  FiTrendingDown,
+    FiTrendingUp,
+    FiTrendingDown,
   FiMoreVertical,
 } from "react-icons/fi";
 import API_BASE_URL from "../utils/api-controller";
@@ -177,9 +177,9 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
     } catch (err) {
       setEntries([]);
       toast.error(err.message || "Failed to load bonus/fine");
-    } finally {
-      setLoading(false);
-    }
+        } finally {
+            setLoading(false);
+        }
   }, [username, filterType, setBonusFine]);
 
   useEffect(() => {
@@ -284,8 +284,8 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
         actionAnchorRef.current?.contains(e.target) ||
         e.target.closest?.("[data-bonus-fine-action-menu]")
       ) {
-        return;
-      }
+            return;
+        }
       closeActionMenu();
     };
 
@@ -311,8 +311,8 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
       setMenuEntry(row);
       setShowActionMenu(row.entry_id);
       setActionMenuPosition(computeActionMenuPosition(e.currentTarget, 2));
-      return;
-    }
+            return;
+        }
     closeActionMenu();
   };
 
@@ -420,12 +420,12 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
   const showMenu =
     Boolean(showActionMenu) && Boolean(menuEntry) && Boolean(actionMenuPosition);
 
-  return (
-    <motion.div
-      variants={variants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
+    return (
+        <motion.div
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
       className="space-y-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -433,7 +433,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
           Bonus / Fine
         </h2>
         <div className="flex items-center gap-2">
-          <button
+                            <button
             type="button"
             onClick={fetchList}
             disabled={!username || loading}
@@ -444,8 +444,8 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
             <FiRefreshCw
               className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
             />
-          </button>
-          <button
+                            </button>
+                            <button
             type="button"
             onClick={openCreate}
             disabled={!username}
@@ -453,7 +453,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
           >
             <FiPlus className="w-3.5 h-3.5" />
             Add
-          </button>
+                            </button>
         </div>
       </div>
 
@@ -469,7 +469,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
           { id: "bonus", label: "Bonus" },
           { id: "fine", label: "Fine" },
         ].map((f) => (
-          <button
+                            <button
             key={f.id}
             type="button"
             onClick={() => setFilterType(f.id)}
@@ -480,10 +480,10 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
             }`}
           >
             {f.label}
-          </button>
+                            </button>
         ))}
-      </div>
-
+                        </div>
+                        
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
         {loading ? (
           <TableSkeleton rows={Math.min(limit, 8)} />
@@ -520,7 +520,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
           </>
         ) : (
           <>
-            <div className="overflow-x-auto">
+                    <div className="overflow-x-auto">
               <table className="min-w-full table-fixed text-left text-sm font-sans">
                 <TableHead />
                 <tbody>
@@ -531,36 +531,36 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
                     >
                       <td className="px-3 py-2.5 text-[11px] font-bold text-gray-800 tabular-nums">
                         {serialBase + idx + 1}
-                      </td>
+                                            </td>
                       <td className="px-3 py-2.5 text-sm font-medium text-gray-700 tabular-nums">
                         {formatDate(row.create_date)}
-                      </td>
+                                            </td>
                       <td className="px-3 py-2.5 text-sm font-medium text-gray-700">
                         {row.month_name
                           ? `${row.month_name} ${row.year}`
                           : formatMonthLabel(row) || "—"}
-                      </td>
+                                            </td>
                       <td className="px-3 py-2.5">
                         {row.type === "bonus" ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
                             <FiTrendingUp className="w-3 h-3" />
                             Bonus
-                          </span>
+                                                </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700">
                             <FiTrendingDown className="w-3 h-3" />
                             Fine
-                          </span>
+                                                </span>
                         )}
-                      </td>
+                                            </td>
                       <td className="px-3 py-2.5 text-right text-sm font-semibold tabular-nums text-gray-800">
                         {formatCurrency(row.amount)}
-                      </td>
+                                            </td>
                       <td className="px-3 py-2.5 text-sm text-gray-700 truncate">
                         {row.remark || (
                           <span className="text-gray-400">—</span>
                         )}
-                      </td>
+                                            </td>
                       <td className="px-3 py-2.5 text-sm text-gray-700 min-w-0">
                         {row.create_by_name || row.create_by_mobile ? (
                           <div className="flex flex-col items-start gap-0.5 min-w-0">
@@ -573,14 +573,14 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
                                   ? `+${row.create_by_country_code} ${row.create_by_mobile}`
                                   : row.create_by_mobile
                                 : "—"}
-                            </span>
+                                                    </span>
                           </div>
-                        ) : (
+                                                ) : (
                           <span className="text-gray-400">—</span>
-                        )}
-                      </td>
+                                                )}
+                                            </td>
                       <td className="px-3 py-2.5 text-right">
-                        <button
+                                                    <button
                           type="button"
                           onClick={(e) => toggleActionMenu(e, row)}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
@@ -588,13 +588,13 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
                           aria-expanded={showActionMenu === row.entry_id}
                         >
                           <FiMoreVertical className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
+                                                    </button>
+                                            </td>
+                                        </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                            </tbody>
+                        </table>
+                    </div>
             <TablePagination
               page={page}
               limit={limit}
@@ -609,8 +609,8 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
               }}
             />
           </>
-        )}
-      </div>
+                )}
+            </div>
 
       {typeof document !== "undefined" &&
         createPortal(
@@ -623,7 +623,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
             }}
           >
             {showMenu ? (
-              <motion.div
+                        <motion.div
                 key="bonus-fine-action-menu"
                 data-bonus-fine-action-menu
                 initial={{ opacity: 0, scale: 0.96 }}
@@ -636,8 +636,8 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
                   left: actionMenuPosition.left,
                   height: "auto",
                 }}
-                onClick={(e) => e.stopPropagation()}
-              >
+                            onClick={(e) => e.stopPropagation()}
+                        >
                 <span
                   className="absolute h-2.5 w-2.5 rotate-45 border-slate-200 bg-white"
                   style={{
@@ -673,23 +673,23 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
                       actionMenuPosition.placement === "left" ? "1px" : "0",
                   }}
                 />
-                <button
+                                    <button
                   type="button"
                   onClick={() => openEdit(menuEntry)}
                   className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50"
-                >
+                                    >
                   <FiEdit2 className="h-4 w-4 text-blue-600" />
                   Edit
-                </button>
-                <button
+                                    </button>
+                                    <button
                   type="button"
                   onClick={() => openDelete(menuEntry)}
                   className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-rose-700 transition-colors hover:bg-rose-50"
                 >
                   <FiTrash2 className="h-4 w-4 text-rose-600" />
                   Delete
-                </button>
-              </motion.div>
+                                    </button>
+                        </motion.div>
             ) : null}
           </AnimatePresence>,
           document.body,
@@ -705,8 +705,8 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
         onSubmit={handleSubmit}
         onConfirmDelete={handleDelete}
       />
-    </motion.div>
-  );
+        </motion.div>
+    );
 };
 
 export default BonusFineTab;

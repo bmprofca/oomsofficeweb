@@ -13,6 +13,8 @@ export const QUICK_OPTION_CODES = {
     YD: 'yd',
     TM: 'tm',
     LM: 'lm',
+    L3M: 'l3m',
+    L6M: 'l6m',
     TW: 'tw',
     LW: 'lw',
     FY: 'fy',
@@ -255,12 +257,11 @@ export function buildQuickPresetEntry(code) {
     }
     if (c === 'tm') {
         const thisMonthStart = startOfDay(new Date(t.getFullYear(), t.getMonth(), 1));
-        const thisMonthEnd = startOfDay(new Date(t.getFullYear(), t.getMonth() + 1, 0));
         return {
             key: 'tm',
             label: 'This month',
-            sub: `${fmt(thisMonthStart)} – ${fmt(thisMonthEnd)}`,
-            range: [thisMonthStart, thisMonthEnd],
+            sub: `${fmt(thisMonthStart)} – ${fmt(t)}`,
+            range: [thisMonthStart, t],
         };
     }
     if (c === 'lm') {
@@ -271,6 +272,24 @@ export function buildQuickPresetEntry(code) {
             label: 'Last month',
             sub: `${fmt(lastMonthStart)} – ${fmt(lastMonthEnd)}`,
             range: [lastMonthStart, lastMonthEnd],
+        };
+    }
+    if (c === 'l3m') {
+        const start = startOfDay(new Date(t.getFullYear(), t.getMonth() - 3, 1));
+        return {
+            key: 'l3m',
+            label: 'Last 3 months',
+            sub: `${fmt(start)} – ${fmt(t)}`,
+            range: [start, t],
+        };
+    }
+    if (c === 'l6m') {
+        const start = startOfDay(new Date(t.getFullYear(), t.getMonth() - 6, 1));
+        return {
+            key: 'l6m',
+            label: 'Last 6 months',
+            sub: `${fmt(start)} – ${fmt(t)}`,
+            range: [start, t],
         };
     }
     if (c === 'tw') {
@@ -530,7 +549,7 @@ export default function DatePicker({
     /** @deprecated use `defaultQuickKey` */
     initialQuickKey,
     defaultQuickKey,
-    /** Ordered short codes: `td`, `tom`, `n7`, `eom`, `yd`, `tm`, `lm`, `tw`, `lw`, `fy`, `lf`. When set, only these quick options appear (2-column grid). */
+    /** Ordered short codes: `td`, `tom`, `n7`, `eom`, `yd`, `tm`, `lm`, `l3m`, `l6m`, `tw`, `lw`, `fy`, `lf`. When set, only these quick options appear (2-column grid). */
     quickOptionKeys,
     initialSingle = null,
     initialRangeStart = null,
@@ -954,6 +973,7 @@ export function DateRangePickerField({
     showResetButton = true,
     /** When false, range text stays on one line without ellipsis (use with a wide enough wrapper). */
     truncateRangeLabel = true,
+    maxSelectableDate = null,
 }) {
     const [open, setOpen] = useState(false);
     const [lastUsedTab, setLastUsedTab] = useState(initialTab);
@@ -982,8 +1002,10 @@ export function DateRangePickerField({
                 aria-expanded={open}
             >
                 <span
-                    className={`min-w-0 flex-1 text-left text-xs sm:text-sm ${
-                        truncateRangeLabel ? 'truncate' : 'whitespace-nowrap'
+                    className={`text-left text-xs sm:text-sm ${
+                        truncateRangeLabel
+                            ? 'min-w-0 flex-1 truncate'
+                            : 'whitespace-nowrap'
                     } ${startDate ? '' : 'text-gray-400'}`}
                 >
                     {displayValue}
@@ -1010,6 +1032,7 @@ export function DateRangePickerField({
                     maxCalendarYear={maxCalendarYear}
                     showRangeHint={showRangeHint}
                     showResetButton={showResetButton}
+                    maxSelectableDate={maxSelectableDate}
                     onRequestClose={() => setOpen(false)}
                     onApply={(result) => {
                         if (result?.sourceTab) {
