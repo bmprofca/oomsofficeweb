@@ -3,14 +3,13 @@
 ## Dropdowns inside scrollable tables
 
 - Use portal rendering to `document.body` for row menus if parent has `overflow`
-- Position using `getBoundingClientRect()`
-- Auto-flip up/down based on viewport space
-- Finance registers use `z-[10040]` for row menus; details modals use `z-[10050]`
-- Mark triggers/menus with `data-*-actions-trigger` and `data-*-actions-menu` for outside-click close
-- Support right-click (`onContextMenu`) on `<tr>` to open the same menu as the ⋮ button
-- Constants `ACTIONS_MENU_WIDTH` / `ACTIONS_MENU_HEIGHT` size the menu and viewport flip logic
+- Position using `getBoundingClientRect()` with flip/clamp (prefer top → bottom → right → left)
+- Finance voucher registers: `z-[99999]`, `height: 'auto'`, `FiMoreVertical` — see [`action-button.md`](./action-button.md)
+- Details modals commonly use `z-[10050]`
+- Size placement from **real** menu item count (no empty gap when options are hidden)
+- Outside click + Escape close; recalc on resize/scroll
 
-Reference implementations: `received-display.js`, `discount.js`, `bank-account.js`, `capital-accuont.js`.
+Canonical references: `sale-display.jsx`, `purchase-display.jsx`, `received-display.jsx`. Also: bank/capital/discount registers, ledger tabs.
 
 ## Dialogs
 

@@ -53,8 +53,12 @@ Software users authenticate with **OTP** (see `SERVER/routes/auth.js`). There is
 | Discount create | POST | `/expense/discount/create` |
 | Discount edit | PUT | `/expense/discount/edit` |
 | Discount details | GET | `/expense/discount/details?discount_id=` |
+| Invoice PDF | POST | `/invoice/generate` |
+| Invoice share | POST | `/invoice/share` |
+| Sale edit | PUT | `/sale/edit` |
+| Purchase edit | PUT | `/purchase/edit` |
 
-See `finance-registers.md` (frontend) and `SERVER/docs/finance-registers.md` for full contracts.
+See [`finance-registers.md`](./finance-registers.md) and [`invoice.md`](./invoice.md). Server pair: [`SERVER/context/invoice.md`](../../SERVER/context/invoice.md).
 
 ## Related context
 
@@ -64,3 +68,5 @@ See `finance-registers.md` (frontend) and `SERVER/docs/finance-registers.md` for
 | Branch Settings | [`settings-branch.md`](./settings-branch.md) |
 | GST | [`gst-change.md`](./gst-change.md) |
 | Page shell width | [`layout.md`](./layout.md) |
+| Finance registers | [`finance-registers.md`](./finance-registers.md) |
+| Invoice generate/share | [`invoice.md`](./invoice.md) |

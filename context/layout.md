@@ -140,6 +140,7 @@ Header is fixed at `h-16` → content always needs `pt-16`.
 - `src/pages/settings/branch-setting.jsx` (`contentInset` helper)
 - `src/pages/dashboard.jsx` (aligned to this pattern)
 - `src/pages/billing-view.jsx`
+- Finance voucher registers: `sale-display.jsx`, `purchase-display.jsx`, `received-display.jsx` (and siblings) — inset + `mx-2 sm:mx-4 md:mx-8`; flat table (not card). See [`finance-registers.md`](./finance-registers.md).
 - Most list pages under `src/pages/*-display.jsx`
 
 When fixing a page that “doesn’t use full width,” first compare its main `className` inset to this doc — that is almost always the bug.

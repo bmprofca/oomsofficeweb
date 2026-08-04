@@ -1,210 +1,197 @@
 # Finance Registers (Frontend)
 
-Reference for finance register pages: **Received**, **Discount**, **Bank**, and **Capital**. These screens share a common layout and interaction model.
+Reference for finance **voucher / register** list pages. Canonical UX: **Sale** and **Purchase** — flat full-width shell, portal ⋮ actions, create/edit via transaction modals, invoice Download/Share where supported.
+
+> Tag this file when changing any finance register list page. Also tag [`layout.md`](./layout.md), [`action-button.md`](./action-button.md), [`invoice.md`](./invoice.md), [`modal.md`](./modal.md).
 
 ## Pages
 
-| Register | File | Route (typical) |
-|----------|------|-----------------|
-| Received | `src/pages/received-display.js` | Finance → Received |
-| Discount | `src/pages/discount.js` | Finance → Discount |
-| Bank | `src/pages/bank-account.js` | Finance → Bank accounts |
-| Capital | `src/pages/capital-accuont.js` | Finance → Capital accounts |
+| Register | File | Notes |
+|----------|------|--------|
+| Sale | `src/pages/sale-display.jsx` | **Canonical** — flat table, portal actions, task-sale edit guard |
+| Purchase | `src/pages/purchase-display.jsx` | Same shell/actions as sale |
+| Received | `src/pages/received-display.jsx` | Same shell/actions; share = client only |
+| Payment | `src/pages/payment-display.jsx` | Edit + details Edit; Download/Share as wired |
+| Contra | `src/pages/contra-display.jsx` | Edit uses `raw_data` (not flattened row) |
+| Journal | `src/pages/journal-display.jsx` | Edit uses `raw_data` |
+| Expense | `src/pages/expense-display.jsx` | Edit + details Edit |
+| Discount | `src/pages/discount.jsx` | Edit + details Edit |
+| Bank | `src/pages/bank-account.js` | Account list (not voucher register) |
+| Capital | `src/pages/capital-accuont.js` | Account list |
 
-## Shared layout pattern
-
-Each register page follows the same structure:
-
-1. **Stat cards** — gradient summary cards above the table (count + amount, or type-specific stats for bank).
-2. **Card shell** — `rounded-2xl border border-slate-200 bg-white shadow-lg` with sticky toolbar header.
-3. **Toolbar** — page icon + title, debounced search (`sm:w-60`), `DateRangePickerField` (`sm:w-56`), primary actions (Add / Export).
-4. **Table** — inline skeleton rows while loading; empty state when no records.
-5. **`TablePagination`** — default **20** rows/page; options 10/20/50/100.
-6. **Row actions** — `createPortal` dropdown (`z-[10040]`), viewport-aware positioning, right-click context menu on rows.
-7. **Details modal** — read-only audit/details view opened from row menu (“View Details”).
-8. **Dates** — display format `DD/MM/YYYY` via local `formatDisplayDate` / `formatDate` helpers.
-
-### Date range picker defaults (registers)
-
-```js
-<DateRangePickerField
-  value={{ start: fromDate, end: toDate }}
-  onChange={(range) => { setFromDate(range?.start || ''); setToDate(range?.end || ''); }}
-  mode="range"
-  initialTab="quick"
-  defaultQuickKey="tm"
-  quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
-  showRangeHint={false}
-  showResetButton={false}
-  buttonClassName="w-full h-9 ..."
-/>
-```
-
-### Search
-
-- Debounce **500ms** before API call.
-- Reset page to `1` when search or date range changes.
-
-### Portal row action menu
-
-- Constants: `ACTIONS_MENU_WIDTH`, `ACTIONS_MENU_HEIGHT`.
-- Position with `getBoundingClientRect()`; flip up/down based on viewport space.
-- Close on outside click (`data-*-actions-menu` / `data-*-actions-trigger` selectors).
-- Right-click on row opens the same menu as the ⋮ button.
-
-See also: `ui-patterns.md`, `tables.md`, `modal.md`, `datepicker.md`.
+Older notes used `.js` filenames; prefer `.jsx` where the file exists.
 
 ---
 
-## Received Register (`received-display.js`)
+## Shared shell (full width + flat table)
+
+Follow [`layout.md`](./layout.md):
+
+```jsx
+<div className={`pt-16 transition-all … ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+  <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+    {/* stats */}
+    {/* register panel — NOT a heavy card */}
+  </div>
+</div>
+```
+
+### Do / don’t
+
+| Do | Don’t |
+|----|--------|
+| `mx-2 sm:mx-4 md:mx-8` gutters | Shell `max-w-7xl mx-auto` / `px-4 sm:px-6 lg:px-8` as only width control |
+| Flat panel: `rounded-lg border border-slate-200/80 bg-white/70` | `rounded-2xl … shadow-lg` white card wrapping the whole table |
+| Sticky toolbar: `from-slate-100/90 via-white to-indigo-50/40` | Nested card + card for toolbar + table |
+| Alternating rows `bg-white` / `bg-slate-50/70`, hover `hover:bg-indigo-50/40` | Only soft `hover:bg-blue-50/20` without zebra |
+
+### Toolbar
+
+- Title + search + `DateRangePickerField` (quick keys `tw/lw/lm/tm/lf/fy`, default `tm`)
+- Export dropdown + Create (gate with `finance_entry`)
+- Debounce search ~300–500ms; reset page on filter/limit change
+
+### Pagination
+
+- Prefer `TablePagination` with options including **20** default on list pages that already use it
+- Purchase may use default 10 — match the page’s existing API limit when changing
+
+---
+
+## Row actions (portal ⋮)
+
+Follow [`action-button.md`](./action-button.md). Canonical implementation: `sale-display.jsx` / `purchase-display.jsx`.
+
+### Requirements
+
+1. Trigger: `FiMoreVertical`, `aria-label="Actions"` only — **no** hover tooltip
+2. Portal to `document.body`, `position: fixed`, `z-[99999]`, `height: 'auto'`
+3. Placement: prefer **top → bottom → right → left**, then clamp into viewport
+4. Recalc on resize + scroll; close on outside click, Escape
+5. Size menu from **real item count** (`menuHeight ≈ 8 + itemCount * 36`)
+
+### Standard voucher actions (Sale / Purchase / Received)
+
+| Action | Behavior |
+|--------|----------|
+| **Details** | Open register details modal (or `ViewTransactionModalManager`) |
+| **Edit** | `EditTransactionModalManager`; require `finance_entry_edit` |
+| **Download** | `POST /invoice/generate` PDF blob (see [`invoice.md`](./invoice.md)) |
+| **Share** | `DocumentShareModal` → `POST /invoice/share` |
+
+Opening Edit (or Download/Share) must **close** the details modal and the ⋮ menu first.
+
+### Type-specific notes
+
+| Register | Edit payload | Download `type` | Share gate |
+|----------|--------------|-----------------|------------|
+| Sale | sale list row; task sales → navigate task profile (`Edit (Task)`) | `sale` | Client sales only |
+| Purchase | purchase list row | `purchase` | Client or CA |
+| Received | receive list row | `receive` | Client only (`payment_from.type === 'client'`) |
+| Contra / Journal | **`record.raw_data \|\| record`** — flattened list row is not enough for the edit form | — | — |
+| Payment / Expense / Discount / Journal | same edit modal pattern; details footer should offer Edit when permitted | as applicable | as applicable |
+
+### Create / edit wiring
+
+| Piece | Path |
+|-------|------|
+| Create forms | `components/Modals/CreateTransactions.js` (`SaleForm`, `PurchaseForm`, `TransactionModalManager`, …) |
+| Edit switcher | `components/Modals/EditTransactions.js` → `EditTransactionModalManager` |
+| Shared register details | `components/Modals/ViewTransactions.js` (`SaleDetailsModal`, `PurchaseDetailsModal`, …) |
+| Document share UI | `components/Modals/DocumentShareModal` |
+
+Permissions: `finance_report` (page), `finance_entry` (create), `finance_entry_edit` (edit), `finance_balance_view` (show amounts vs `*.*`).
+
+---
+
+## Sale Register (`sale-display.jsx`)
+
+- Stats: count, net, tax, total
+- Details via `ViewTransactionModalManager` (`modalType="SALE"`) with Edit / Download / Share footer
+- Task-origin sales: list may include `task_id`; edit goes to `/task/profile/{id}/details`
+- Backend edit: `PUT /sale/edit` (rejects `is_task = '1'`)
+
+---
+
+## Purchase Register (`purchase-display.jsx`)
+
+- Stats: count, total amount
+- Flat shell + portal actions identical to sale
+- Details via `ViewTransactionModalManager` (`modalType="PURCHASE"`)
+- Backend edit: `PUT /purchase/edit` (`executeEditPurchase`)
+- List enrichment: `purchase_id`, `items`, `calculation` as needed for edit/view
+
+---
+
+## Received Register (`received-display.jsx`)
 
 ### API
 
 - `GET /transaction/report/receive`
-- Query: `page_no`, `limit`, `from_date`, `to_date`, optional `search` (invoice no. or remark).
+- Query: `page_no`, `limit`, `from_date`, `to_date`, optional `search`
 
-### Stat cards
+### Stats
 
-- **Received entries** — `stats.count`
-- **Total received** — `stats.amount` (date-range scoped; not search-filtered)
+- Received entries — `stats.count`
+- Total received — `stats.amount` (date-range scoped)
 
-### Table columns
+### Table
 
-Uses `table-fixed` with percentage widths (no horizontal min-width scroll):
+Prefer sale/purchase-style columns (`text-xs`, `min-w-*`, centered cells) — **not** a heavy `table-fixed` % card layout.
 
-| Column | Width | Notes |
-|--------|-------|-------|
-| # | 4% | Serial |
-| Date | 10% | `DD/MM/YYYY` |
-| Particulars | 26% | Party name + type badge + remark |
-| Voucher | 12% | `invoice_no` |
-| Amount | 12% | Right-aligned ₹ |
-| Received At | 20% | Bank/capital/cash destination |
-| Actions | 10% | Row menu |
+| Column | Notes |
+|--------|-------|
+| Sl No | Serial |
+| Date | `DD/MM/YYYY` |
+| Particulars | Party name + type badge + remark |
+| Voucher No | `invoice_no` |
+| Amount | ₹ badge |
+| Received At | Bank / cash / capital destination |
+| Actions | Portal ⋮ |
 
-**Received By** was removed from the table; it appears in `ReceivedDetailsModal` only.
+**Received By** stays in `ReceivedDetailsModal` only (not a table column).
 
 ### `payment_to` display (`getReceivedAtInfo`)
-
-Party mapping from API:
 
 ```js
 payment_from: { type, details }  // sender (client, ca, staff, …)
 payment_to:   { type, details }  // receiver (bank or capital)
 ```
 
-Display rules for **Received At**:
-
 | `payment_to.type` | `details.type` | Primary label | Badge | Subtitle |
 |-------------------|----------------|---------------|-------|----------|
-| `bank` | `cash` | `details.holder` (e.g. “Main Cash”) | `cash` (amber) | — |
+| `bank` | `cash` | `details.holder` | `cash` | — |
 | `bank` | `savings` / `current` / `loan` | `details.bank` | account type | `details.account_no` |
-| `capital` | — | `details.name` | `capital` (indigo) | — |
-
-Helpers:
-
-- `getReceivedAtInfo(item)` — primary display object
-- `getReceivedAtBadgeStyle(accountType)` — badge colors
-- `getBankTypeInfo(item)` — wrapper for modal/export (backward compatible)
-- `getReceivedAtLabel(item)` — plain string for export
-
-Cash example payload:
-
-```json
-"payment_to": {
-  "type": "bank",
-  "details": {
-    "bank_id": "...",
-    "holder": "Main Cash",
-    "type": "cash",
-    "remark": ""
-  }
-}
-```
+| `capital` | — | `details.name` | `capital` | — |
 
 ### Row actions
 
-- **View Details** → `ReceivedDetailsModal` (party, received at, received by, audit trail)
-- **Edit Received** — permission `finance_entry_edit`
-- **View Invoice** — when invoice link exists
-
-Print / WhatsApp / Email were removed from the row menu; toolbar export remains.
+Same as purchase: **Details**, **Edit**, **Download** (`type: 'receive'`), **Share** (client only). Prefer PDF Download over a separate “View Invoice” link.
 
 ### Modals
 
-- `ReceivedDetailsModal` — follows `modal.md` viewport-safe pattern (`z-[10050]`).
-- Create/edit via `TransactionModalManager` / `EditTransactionModalManager`.
+- `ReceivedDetailsModal` — local portal modal (`modal.md`)
+- Create/edit: `TransactionModalManager` / `EditTransactionModalManager` (`modalType="RECEIVE"`)
+- Share: `DocumentShareModal`
 
 ---
 
-## Discount Register (`discount.js`)
+## Payment / Contra / Journal / Expense / Discount
 
-### API
+Shared edit UX (aligned with sale/purchase):
 
-- `GET /expense/discount/list` — list + stats + pagination
-- Create/edit via `DiscountModal` → `POST /expense/discount/create`, `PUT /expense/discount/edit`
+1. Row ⋮ **Edit** gated by `finance_entry_edit`
+2. Details modal footer **Edit** (same gate); opens edit and closes details
+3. `onSubmit` / success → close edit modal + refetch list
+4. Contra & Journal: pass **`raw_data`** into `EditTransactionModalManager`
 
-### Stat cards
-
-- **Discount entries** — `stats.count`
-- **Total discount** — `stats.amount`
-
-### Table
-
-Party column shows type badge, party label, care-of subtitle, contact lines. Row actions: View Details, Edit Discount.
-
-### `DiscountDetailsModal`
-
-Read-only modal with party type badge, amount, invoice no., date, remark, create/modify audit.
-
-### Party helpers
-
-- `getDiscountPartyLabel(row)` — display name (bank/capital/client/etc.)
-- `getDiscountPartyProfilePath(row)` — deep link to client/CA/agent/staff profile
-- `formatCareOfSubtitle(details)` — guardian / care-of line
-
-### `DiscountModal` (`CreateTransactions.js`)
-
-- Exported from `TransactionModalManager` as `discount` type.
-- Wired on `finance-voucher-entry.js` for quick create.
-- Edit mode via `EditTransactionModalManager` with `editRecord.discount_id`.
-- Party types: `client`, `ca`, `staff`, `agent`.
-- Payload: `{ party_id, party_type, amount, remark, transaction_date }`.
+Discount: `handleEditSuccess` must close edit modal **and** refresh (not refresh-only).
 
 ---
 
-## Bank Register (`bank-account.js`)
+## Bank / Capital
 
-### API
-
-- `GET /transaction/bank/list`
-- Query: `page_no`, `limit`, optional `search`
-- Response includes `stats.by_type` for savings, current, loan, cash.
-
-### Stat cards
-
-Four type cards from `BANK_TYPE_CARDS`:
-
-| Key | Label | Icon |
-|-----|-------|------|
-| `savings` | Savings | `TbPigMoney` |
-| `current` | Current | `TbBuildingBank` |
-| `loan` | Loan | `HiOutlineReceiptRefund` |
-| `cash` | Cash | `TbCash` |
-
-Each card shows `count` and `balance` from `stats.by_type[key]`.
-
-### Notes
-
-- Refresh shows skeleton only (no success toast).
-- Uses `DatePickerField` for some filters (not full date-range register pattern).
-- Portal action dropdown + `TablePagination` same as other registers.
-
----
-
-## Capital Register (`capital-accuont.js`)
-
-Reference implementation for the register shell (stat cards, `TablePagination`, portal row actions). Uses capital-specific APIs from `SERVER/routes/capital.js`.
+Account list screens; keep portal actions + pagination. Not required to mirror voucher Download/Share unless product asks.
 
 ---
 
@@ -214,11 +201,16 @@ Reference implementation for the register shell (stat cards, `TablePagination`, 
 |-----------|------|
 | `TablePagination` | `src/components/TablePagination.js` |
 | `DateRangePickerField` | `src/components/PortalDatePicker.js` |
-| `TransactionModalManager` | `src/components/Modals/CreateTransactions.js` |
+| `TransactionModalManager` / forms | `src/components/Modals/CreateTransactions.js` |
 | `EditTransactionModalManager` | `src/components/Modals/EditTransactions.js` |
-| `DiscountModal` | exported from `CreateTransactions.js` |
+| `ViewTransactionModalManager` | `src/components/Modals/ViewTransactions.js` |
+| `DocumentShareModal` | `src/components/Modals/DocumentShareModal` |
 
-## Permissions
+## Related docs
 
-- `finance_entry_edit` — required for edit actions on received/discount rows (toast “Need Access Permission” when denied).
-- Use `useUserPermissions()` + `check('permission_key')`.
+- [`layout.md`](./layout.md) — sidebar inset / full width
+- [`action-button.md`](./action-button.md) — ⋮ menu physics
+- [`invoice.md`](./invoice.md) — generate + share
+- [`modal.md`](./modal.md) — details modal layout
+- [`tables.md`](./tables.md) — table density
+- [`SERVER/context/invoice.md`](../../SERVER/context/invoice.md) — generate/share API

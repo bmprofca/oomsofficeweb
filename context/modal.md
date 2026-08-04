@@ -53,19 +53,24 @@ Example body:
 
 Read-only row detail modals on finance registers follow the same viewport-safe pattern with compact header/footer and scrollable body.
 
-| Modal | Page | Shows |
-|-------|------|-------|
-| `ReceivedDetailsModal` | `received-display.js` | Party, amount, voucher, received at (bank/cash/capital), received by, remark, audit |
-| `DiscountDetailsModal` | `discount.js` | Party type, amount, invoice, date, remark, audit |
+| Modal | Page / source | Shows |
+|-------|---------------|-------|
+| `SaleDetailsModal` | `ViewTransactions.js` ← `sale-display.jsx` | Sale party, items, tax, audit; footer Edit / Download / Share |
+| `PurchaseDetailsModal` | `ViewTransactions.js` ← `purchase-display.jsx` | Purchase party, items, totals; footer Edit / Download / Share |
+| `ReceivedDetailsModal` | `received-display.jsx` | Party, amount, voucher, received at, received by, remark, audit |
+| `DiscountDetailsModal` | `discount.jsx` | Party type, amount, invoice, date, remark, audit (+ Edit in footer) |
+| Payment / Journal / Expense / Contra details | respective `*-display.jsx` | Type-specific fields + **Edit** in footer when `finance_entry_edit` |
 
+- Prefer shared `ViewTransactionModalManager` for sale/purchase; local portal modals elsewhere still follow this checklist.
 - Render via `createPortal(..., document.body)`.
-- Open from row action menu “View Details”.
+- Open from row action **Details**.
+- Footer **Edit** should close details and open `EditTransactionModalManager` (same as row ⋮ Edit).
 - Use `DetailRow` helper: label left, value right, `border-b border-slate-100`.
 - Badge chips for party type / account type inside modal body.
 
 Received At in modal uses `getBankTypeInfo(record)` (wraps `getReceivedAtInfo`) so cash accounts show holder + `cash` badge.
 
-See `finance-registers.md` for `payment_to` cash vs bank display rules.
+See [`finance-registers.md`](./finance-registers.md) for shell, actions, and `payment_to` cash vs bank display rules.
 
 ## Attendance modal
 

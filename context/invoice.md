@@ -1,6 +1,6 @@
 # Invoice settings & PDF download — Client context
 
-> **Purpose:** Tag when changing invoice settings UI, PDF download from ledgers/registers, or generate API usage. Pair with [`SERVER/context/invoice.md`](../../SERVER/context/invoice.md) and [`ledger-tab.md`](./ledger-tab.md).
+> **Purpose:** Tag when changing invoice settings UI, PDF download/share from ledgers/registers, or generate API usage. Pair with [`SERVER/context/invoice.md`](../../SERVER/context/invoice.md), [`ledger-tab.md`](./ledger-tab.md), and [`finance-registers.md`](./finance-registers.md).
 
 ---
 
@@ -19,7 +19,34 @@ Body example:
 - Expect a **PDF blob** when `response: "pdf"` (download via object URL / save).
 - Do **not** call `/invoice/generate-invoice` (removed on server).
 
-Used from (non-exhaustive): ledger tabs (Client / CA / Agent), `sale-display.jsx`, `journal-display.jsx`, billing views, bank / capital transaction menus.
+Register `type` values used from list pages:
+
+| Page | `type` |
+|------|--------|
+| `sale-display.jsx` | `sale` |
+| `purchase-display.jsx` | `purchase` |
+| `received-display.jsx` | `receive` |
+| Ledgers / other | match row `transaction_type` (normalized) |
+
+Also used from: ledger tabs (Client / CA / Agent), journal, billing, bank / capital menus.
+
+---
+
+## Share API
+
+```
+POST /invoice/share
+```
+
+Body: `{ invoice_id, type, channels }` — opens via `DocumentShareModal`.
+
+| Register | Share when |
+|----------|------------|
+| Sale | `sale_type === 'client'` |
+| Purchase | party `client` or `ca` |
+| Received | `payment_from.type === 'client'` |
+
+Server resolves the recipient client/CA from the transaction parties; toast a clear message if the party is not shareable.
 
 ---
 
@@ -38,6 +65,8 @@ Supported types: **sale, purchase, payment, receive, journal, expense**.
 
 Same rule for CA / Agent ledger action menus. Task ledger reuses Client ledger. Staff ledger has no action Download menu.
 
+On **Sale / Purchase / Received** registers, Download is offered when `invoice_id` exists (generate-supported types).
+
 ---
 
 ## Action menu height (conditional Download)
@@ -50,6 +79,8 @@ Pattern (Client / CA / Agent `LedgerTab.js`):
 - `menuHeight ≈ 8 + itemCount * 36` for placement math
 - Menu style: `height: 'auto'`, `overflow-hidden`
 - Portal + fixed positioning (see [`action-button.md`](./action-button.md))
+
+Sale / Purchase / Received voucher menus typically use **4** items: Details, Edit, Download, Share (`itemCount: 4`).
 
 ---
 
@@ -72,12 +103,18 @@ Pattern (Client / CA / Agent `LedgerTab.js`):
 
 ---
 
-## Sale display
+## Register pages (Sale / Purchase / Received)
 
-`src/pages/sale-display.jsx`:
+Canonical row actions (see [`finance-registers.md`](./finance-registers.md)):
 
-- Row action: **Download** via `POST /invoice/generate` (`type: 'sale'`, `response: 'pdf'`).
-- Action menu: portal + fixed (avoid table `overflow-x-auto` clipping). Prefer Download over a separate “View Invoice” when generating PDF.
+1. **Details**
+2. **Edit** (`finance_entry_edit`)
+3. **Download** — `POST /invoice/generate` + blob save
+4. **Share** — `DocumentShareModal` → `POST /invoice/share`
+
+Prefer Download over a separate “View Invoice” navigation link when the generate API covers the type.
+
+Sale details/footer also wire Download/Share via `ViewTransactionModalManager` / `SaleDetailsModal`. Purchase same with `PurchaseDetailsModal`.
 
 ---
 
@@ -88,5 +125,8 @@ Pattern (Client / CA / Agent `LedgerTab.js`):
 | `pages/settings/invoice-setting.jsx` | Formats + prefixes |
 | `ClientComponents/LedgerTab.js` | Download + menu height |
 | `CAComponents/LedgerTab.js` / `AgentComponents/LedgerTab.js` | Same pattern |
-| `components/Modals/ViewTransactions.js` | Details Download gate |
-| `pages/sale-display.jsx` | Sale PDF download |
+| `components/Modals/ViewTransactions.js` | Details Download / Share / Edit |
+| `components/Modals/DocumentShareModal` | Share channel UI |
+| `pages/sale-display.jsx` | Sale PDF + share |
+| `pages/purchase-display.jsx` | Purchase PDF + share |
+| `pages/received-display.jsx` | Receive PDF + share |

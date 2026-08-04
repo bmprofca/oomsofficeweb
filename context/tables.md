@@ -30,14 +30,14 @@
 
 ## Finance register tables
 
-Used on `received-display.js`, `discount.js`, `bank-account.js`, `capital-accuont.js`.
+Canonical: `sale-display.jsx`, `purchase-display.jsx`, `received-display.jsx` (also payment / contra / journal / expense / discount).
 
-- Prefer `table-fixed` with explicit `%` column widths when removing columns would leave uneven gaps.
-- Received register column widths: `# 4%`, `Date 10%`, `Particulars 26%`, `Voucher 12%`, `Amount 12%`, `Received At 20%`, `Actions 10%`.
-- Inline skeleton rows inside `<tbody>` while `listLoading` (not full-page overlay).
-- Row hover: `hover:bg-blue-50/30` (or page accent).
-- Amount columns: right-aligned, `tabular-nums`, ₹ prefix.
-- Date columns: `DD/MM/YYYY` in cells.
-- Row ⋮ menu + right-click both open the same portal action dropdown.
+- **No card shell** around the table — flat panel `rounded-lg border border-slate-200/80 bg-white/70` inside full-width gutters ([`layout.md`](./layout.md)).
+- Prefer `text-xs` cells with `min-w-*` columns (sale/purchase style) over heavy `table-fixed` % layouts unless a page still needs them.
+- Zebra rows: even `bg-white`, odd `bg-slate-50/70`; hover `hover:bg-indigo-50/40`.
+- Header: `bg-slate-100/90`, uppercase `text-[10px]` tracking.
+- Inline skeleton rows inside `<tbody>` while loading (not only a full-page overlay).
+- Amounts: ₹ + badge / `tabular-nums`; dates `DD/MM/YYYY`.
+- Row ⋮: portal menu per [`action-button.md`](./action-button.md) (`z-[99999]`); do not rely on in-cell dropdowns clipped by `overflow-x-auto`.
 
-Full register patterns: `finance-registers.md`.
+Full register patterns: [`finance-registers.md`](./finance-registers.md).

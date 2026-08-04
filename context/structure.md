@@ -16,13 +16,18 @@
 
 ## Finance register screens
 
-- `pages/received-display.js` — Received register (`GET /transaction/report/receive`)
-- `pages/discount.js` — Discount register (`GET /expense/discount/list`)
+Canonical shell/actions: sale + purchase (flat full-width, portal ⋮, Download/Share). See [`finance-registers.md`](./finance-registers.md).
+
+- `pages/sale-display.jsx` — Sale register
+- `pages/purchase-display.jsx` — Purchase register
+- `pages/received-display.jsx` — Received (`GET /transaction/report/receive`)
+- `pages/payment-display.jsx` / `contra-display.jsx` / `journal-display.jsx` / `expense-display.jsx`
+- `pages/discount.jsx` — Discount register
 - `pages/bank-account.js` — Bank accounts (`GET /transaction/bank/list`)
 - `pages/capital-accuont.js` — Capital accounts
-- `pages/finance-voucher-entry.js` — Finance entry hub (opens `DiscountModal`, payment modals, etc.)
+- `pages/finance-voucher-entry.js` — Finance entry hub (create modals)
 
-See `finance-registers.md` for shared layout, table, and modal conventions.
+Shared modals: `components/Modals/CreateTransactions.js`, `EditTransactions.js`, `ViewTransactions.js`, `DocumentShareModal`.
 
 ## Commonly referenced shared components
 
