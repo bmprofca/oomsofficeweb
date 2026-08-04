@@ -80,6 +80,14 @@ The component does not fetch data; it renders whatever you pass. Amounts follow 
 
 `particular` drives the **Particulars** column (sale items, bank details, create_by + remark, or fallback to formatted `transaction_type`).
 
+### Remarks — no ellipsis
+
+In `getParticularsDisplay`, remark (and sale items title) must **wrap**, not truncate:
+
+- Use `whitespace-normal break-words`
+- Do **not** use `truncate` or `max-w-[200px]` on remark lines
+- Long remarks expand the cell height (ledger PDF mirrors this — full wrap, no `...` slice)
+
 ## Usage (with pagination in parent)
 
 ```jsx

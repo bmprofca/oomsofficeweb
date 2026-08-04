@@ -12,8 +12,9 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`payment-reminder.md`](./payment-reminder.md) | Payment reminder modal (list / debtors / profile / group firms) |
 | [`birthday-reminder.md`](./birthday-reminder.md) | Today's Birthdays select/bulk + `ClientBirthdayReminderModal` |
 | [`task-list-display.md`](./task-list-display.md) | Complete date under status; compliance period under fees |
-| [`ledger-tab.md`](./ledger-tab.md) | Client ledger tab, opening balance, INR, profile balance sync, Download gate |
-| [`invoice.md`](./invoice.md) | Invoice settings formats/prefixes, PDF generate, ledger Download |
+| [`ledger-tab.md`](./ledger-tab.md) | Client ledger tab, opening balance, Share/Download PDF, profile balance sync, Download gate |
+| [`TransactionTable.md`](./TransactionTable.md) | Shared ledger table; remarks wrap (no ellipsis) |
+| [`invoice.md`](./invoice.md) | Invoice settings formats/prefixes, PDF generate, ledger row Download |
 | [`layout.md`](./layout.md) | Page shell width, sidebar inset, Header `setIsMinimized` |
 | [`gst-change.md`](./gst-change.md) | GST rates, fees payloads, display-only tax |
 | [`settings-branch.md`](./settings-branch.md) | Branch Settings tabs (Details, Logo, Sign, Invoice, **GST Config**) |
@@ -50,8 +51,8 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 |--------|--------|
 | `subscription.md` | `SERVER/context/subscription.md` |
 | `group-firms.md` | `SERVER/context/group-firms.md` |
-| `client-profile.md` / `ledger-tab.md` | `SERVER/context/client-balance.md` |
-| `invoice.md` / `ledger-tab.md` (Download) | `SERVER/context/invoice.md` |
+| `client-profile.md` / `ledger-tab.md` | `SERVER/context/client-balance.md`, `SERVER/context/ledger-report.md` |
+| `invoice.md` / `ledger-tab.md` (Download) | `SERVER/context/invoice.md`, `SERVER/context/ledger-report.md` |
 | `payment-reminder.md` | `SERVER/context/payment-reminder.md` |
 | `birthday-reminder.md` | `SERVER/context/birthday-reminder.md` |
 | `task-list-display.md` | `SERVER/context/task-list.md` |

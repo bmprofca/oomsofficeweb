@@ -1,10 +1,10 @@
 # LedgerTab Reference
 
-> **Purpose:** Tag when changing client ledger UI, opening balance, post-transaction profile balance sync, or row Download / action menu. Pair with [`client-profile.md`](./client-profile.md) and [`invoice.md`](./invoice.md).
+> **Purpose:** Tag when changing client ledger UI, opening balance, Share/Download ledger PDF, post-transaction profile balance sync, or row Download / action menu. Pair with [`client-profile.md`](./client-profile.md), [`invoice.md`](./invoice.md), [`TransactionTable.md`](./TransactionTable.md), and [`SERVER/context/ledger-report.md`](../../SERVER/context/ledger-report.md).
 
 ## Scope
 
-Client ledger transactions + opening balance flows.
+Client ledger transactions + opening balance + statement share/download flows.
 
 **Component:** `src/ClientComponents/LedgerTab.js`  
 Also wrapped from task profile via `src/TaskComponent/LedgerTab.js` → same `ClientLedger`.  
@@ -19,8 +19,32 @@ CA / Agent mirrors: `CAComponents/LedgerTab.js`, `AgentComponents/LedgerTab.js` 
 - Page size + pagination + page jump (`TablePagination`)
 - Currency: **₹** via `formatLedgerCurrency` / plain via `formatLedgerCurrencyPlain`
 - Row action menu: **Details**, **Edit**, and **Download** only when `downloadable` is true
+- Header **Share** button: portal dropdown (**Download** PDF | **Share** via channels)
 
-## Download / generate invoice
+## Share / Download ledger statement
+
+| Action | Behavior |
+|--------|----------|
+| Share → Download | `GET /transaction/download/ledger?party_type=client&party_id=…&from_date=…&to_date=…&format=pdf` |
+| Share → Share | Opens `DocumentShareModal` → `POST /transaction/ledger/share` |
+
+**UI pieces**
+
+- `src/components/Modals/DocumentShareModal.jsx` — reusable channel picker (WhatsApp / Email / SMS); availability pattern matches payment reminder (`document sharing` notification type).
+- Share dropdown is a **portal** anchored to the Share button (`shareAnchorRef`). Reposition on `scroll` (capture) + `resize`; close on outside click / Escape (same pattern as row action menu).
+
+**Permissions:** Share/Download gated by `task_fees_view` (same as viewing ledger fees).
+
+**Do not**
+
+- Position the Share menu once and leave it fixed while the page scrolls
+- Hardcode channel availability — load from server like payment reminder
+
+## Particulars / remarks (table)
+
+Long remarks must **wrap** (no ellipsis). Implemented in `TransactionTable` `getParticularsDisplay` — see [`TransactionTable.md`](./TransactionTable.md).
+
+## Download / generate invoice (per row)
 
 - List rows include `downloadable` from `GET /transaction/list` (server: `invoice_id` + supported type).
 - Download calls `POST /invoice/generate` with `{ invoice_id, type, response: 'pdf' }` — not `/invoice/generate-invoice`.
@@ -37,7 +61,7 @@ CA / Agent mirrors: `CAComponents/LedgerTab.js`, `AgentComponents/LedgerTab.js` 
 
 ## Party id
 
-Use **`username`** as `party_id` for list / opening-balance APIs.
+Use **`username`** as `party_id` for list / opening-balance / ledger download-share APIs.
 
 **Removed:** `GET /client/profile/:username` (endpoint gone → 404). Do not restore that fetch.
 
@@ -70,3 +94,4 @@ Do not fake-delay or duplicate success toasts beyond what the modal already show
 - Opening balance: `party_type=staff`
 - Shared `TransactionTable` + `TablePagination` + date range + add transaction + downloadable action menu
 - Wired from `staff-profile.jsx` with `username` / `staffData` (no fake sample entries)
+- Statement Share/Download PDF is currently **client** ledger–focused on the server share route
