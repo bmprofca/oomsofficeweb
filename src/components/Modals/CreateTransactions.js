@@ -1051,6 +1051,44 @@ const mapFixedPartyToSelection = (fixedParty, lockedPartyType) => {
     };
 };
 
+/** Map sale list / details row into party search selection for edit mode. */
+const mapSaleEditRecordToParty = (record) => {
+    if (!record) return null;
+    const saleType = String(record.sale_type || record.party_type || 'client').trim().toLowerCase();
+    const sp = record.sale_party || {};
+    if (saleType === 'bank') {
+        const bankId = String(sp.bank_id || record.party_id || '').trim();
+        if (!bankId) return null;
+        return {
+            party_id: bankId,
+            bank_id: bankId,
+            username: bankId,
+            name: sp.bank || sp.holder || bankId,
+            holder: sp.holder ?? null,
+            account_no: sp.account_no ?? null,
+            ifsc: sp.ifsc ?? null,
+            bank: sp.bank ?? null,
+            type: sp.type ?? null,
+            branch: sp.branch ?? null,
+            userType: 'bank',
+            metaLine: [sp.holder, sp.account_no ? `••${String(sp.account_no).slice(-4)}` : '', sp.ifsc]
+                .filter(Boolean)
+                .join(' · '),
+        };
+    }
+    const username = String(sp.username || record.party_id || '').trim();
+    if (!username) return null;
+    return {
+        party_id: username,
+        username,
+        name: sp.name || username,
+        email: sp.email || '',
+        mobile: sp.mobile || '',
+        userType: saleType || 'client',
+        metaLine: [sp.email, sp.mobile].filter(Boolean).join(' · '),
+    };
+};
+
 const mapSearchPartyItemToTransactionOption = (item) => {
     if (!item?.party_type || !item?.party_id) return null;
     const partyType = String(item.party_type).trim();
@@ -3283,6 +3321,9 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
  * @param {React.ReactNode} [props.belowPartySection] — between party block and services
  * @param {string} [props.formClassName] — appended to `<form>` class (modal adds space-y-5 by default)
  * @param {string} [props.submitButtonLabel] — override primary submit label (modal footer)
+ * @param {object|null} [props.editRecord] — sale list / ledger row to edit (invoice_id / sale_id)
+ * @param {object|null} [props.summary]
+ * @param {function|null} [props.formatCurrency]
  */
 export const SaleForm = ({
     isOpen = false,
@@ -3309,8 +3350,13 @@ export const SaleForm = ({
     submitButtonLabel = '',
     summary = null,
     formatCurrency: formatCurrencyProp = null,
+    editRecord = null,
 }) => {
     const lockedPartyType = normalizeLockedPartyType(lockedPartyTypeProp, lockedSaleType);
+    const isEditMode = Boolean(
+        editRecord &&
+        (editRecord.invoice_id || editRecord.sale_id || editRecord.transaction_id)
+    );
     const shouldShowPartySelector = !hidePartySelector;
     const partyLookup = useTransactionPartySearch(
         SALE_PARTY_SEARCH_TYPES,
@@ -3366,9 +3412,78 @@ export const SaleForm = ({
 
     useEffect(() => {
         if (!isOpen) return;
+
         partyLookup.reset();
         setClientFirms([]);
         setSelectedSaleFirmId('');
+        setIsSubmitting(false);
+
+        if (isEditMode && editRecord) {
+            const calc = editRecord.calculation || {};
+            const discountTypeRaw = String(calc.discount_type || 'not applicable').toLowerCase();
+            const discountType =
+                discountTypeRaw === 'percentage' || discountTypeRaw === 'flat'
+                    ? discountTypeRaw
+                    : 'percentage';
+            const discountValue =
+                discountType === 'percentage'
+                    ? (calc.discount_perc_rate != null && Number(calc.discount_perc_rate) > 0
+                        ? String(calc.discount_perc_rate)
+                        : '')
+                    : (calc.discount_value != null && Number(calc.discount_value) > 0
+                        ? String(calc.discount_value)
+                        : '');
+            const roundOffNum = Number(calc.round_off) || 0;
+            const lineItems = Array.isArray(editRecord.items) && editRecord.items.length > 0
+                ? editRecord.items.map((row) => {
+                    const fees = row.fees ?? row.service?.fees ?? 0;
+                    const serviceId = row.service?.service_id || row.service_id || '';
+                    return {
+                        service_id: serviceId ? String(serviceId) : '',
+                        description: '',
+                        price: fees !== '' && fees != null ? String(fees) : '',
+                        amount: Number(fees) || 0,
+                        remark: row.remark || '',
+                    };
+                })
+                : [{ service_id: '', description: '', price: '', amount: 0, remark: '' }];
+
+            setFormData({
+                payment_date: toIsoDateOnly(editRecord.transaction_date) || new Date().toISOString().split('T')[0],
+                invoice_number: editRecord.invoice_no || '',
+                items: lineItems,
+                subtotal: Number(calc.subtotal) || 0,
+                discount: discountValue,
+                discount_type: discountType,
+                sgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
+                cgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
+                sgst_amount: 0,
+                cgst_amount: 0,
+                round_off: roundOffNum,
+                grand_total: Number(calc.grand_total ?? editRecord.amount) || 0,
+                notes: editRecord.remark || '',
+                remark: editRecord.remark || '',
+                tax_rate: Number(calc.tax_rate) || appSettings.default_gst_rate,
+                additional_charge:
+                    calc.additional_charge != null && Number(calc.additional_charge) !== 0
+                        ? String(calc.additional_charge)
+                        : '',
+                apply_round_off: Math.abs(roundOffNum) > 0.0001,
+            });
+
+            if (editRecord.firm_id) {
+                setSelectedSaleFirmId(String(editRecord.firm_id));
+            }
+
+            if (!hidePartySelector) {
+                const mappedParty = mapSaleEditRecordToParty(editRecord);
+                if (mappedParty) {
+                    partyLookup.setSelectedFirm(mappedParty);
+                }
+            }
+            return;
+        }
+
         setFormData({
             payment_date: new Date().toISOString().split('T')[0],
             invoice_number: `INV-${Date.now().toString().slice(-6)}`,
@@ -3388,7 +3503,7 @@ export const SaleForm = ({
             additional_charge: '',
             apply_round_off: false
         });
-    }, [isOpen, initialPartyId, hidePartySelector, fixedParty?.id, fixedParty?.username, lockedPartyType]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, initialPartyId, hidePartySelector, fixedParty?.id, fixedParty?.username, lockedPartyType, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const party = partyLookup.selectedFirm;
@@ -3409,9 +3524,19 @@ export const SaleForm = ({
                     headers: getHeaders(),
                     params: { username },
                 });
-                if (!cancelled && response.data?.success) {
+                if (cancelled) return;
+                if (response.data?.success) {
                     setClientFirms(response.data.data?.firms || []);
-                } else if (!cancelled) {
+                    // Re-apply firm after list loads (this effect clears selection on party change)
+                    if (isEditMode && editRecord?.firm_id) {
+                        const editUsername = String(
+                            editRecord.sale_party?.username || editRecord.party_id || ''
+                        ).trim();
+                        if (username === editUsername) {
+                            setSelectedSaleFirmId(String(editRecord.firm_id));
+                        }
+                    }
+                } else {
                     setClientFirms([]);
                 }
             } catch (error) {
@@ -3421,7 +3546,7 @@ export const SaleForm = ({
         return () => {
             cancelled = true;
         };
-    }, [partyLookup.selectedFirm]);
+    }, [partyLookup.selectedFirm, isEditMode, editRecord]);
 
     const fetchServices = async () => {
         setIsLoadingServices(true);
@@ -3593,6 +3718,18 @@ export const SaleForm = ({
 
         setIsSubmitting(true);
         try {
+            if (
+                isEditMode &&
+                (editRecord?.is_task === true ||
+                    editRecord?.is_task === 1 ||
+                    String(editRecord?.is_task ?? '').trim() === '1')
+            ) {
+                toast.error(
+                    'This sale was created from a task and cannot be edited here. Open the related task profile to make changes.'
+                );
+                return;
+            }
+
             const basePayload = {
                 transaction_date: formData.payment_date,
                 remark: formData.notes || formData.remark,
@@ -3626,19 +3763,34 @@ export const SaleForm = ({
                 basePayload.firm_id = selectedSaleFirmId;
             }
 
-            const response = await fetch(`${API_BASE_URL}/sale/create`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(basePayload)
-            });
+            const response = isEditMode
+                ? await axios.put(
+                    `${API_BASE_URL}/sale/edit`,
+                    {
+                        ...basePayload,
+                        invoice_id: editRecord.invoice_id || undefined,
+                        sale_id: editRecord.sale_id || undefined,
+                        transaction_id: editRecord.transaction_id || undefined,
+                    },
+                    { headers: getHeaders() }
+                )
+                : await fetch(`${API_BASE_URL}/sale/create`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify(basePayload)
+                }).then(async (res) => {
+                    const data = await res.json();
+                    return { data, ok: res.ok, status: res.status };
+                });
 
-            const data = await response.json();
+            const data = response.data;
+            const ok = isEditMode ? Boolean(data?.success) : (response.ok && data?.success);
 
-            if (data.success) {
+            if (ok) {
                 const msg =
                     typeof data.message === 'string' && data.message.trim()
                         ? data.message.trim()
-                        : 'Invoice created successfully';
+                        : (isEditMode ? 'Sale updated successfully' : 'Invoice created successfully');
                 toast.success(msg);
                 const submissionData = {
                     ...formData,
@@ -3657,11 +3809,15 @@ export const SaleForm = ({
                 onSuccess(submissionData);
                 if (mode === 'modal') onClose();
             } else {
-                throw new Error(data.message || 'Failed to create sale');
+                throw new Error(data?.message || (isEditMode ? 'Failed to update sale' : 'Failed to create sale'));
             }
         } catch (error) {
             console.error('Error submitting form:', error);
-            toast.error(error.message || 'Error creating sale. Please try again.');
+            toast.error(
+                error.response?.data?.message ||
+                error.message ||
+                (isEditMode ? 'Error updating sale. Please try again.' : 'Error creating sale. Please try again.')
+            );
         } finally {
             setIsSubmitting(false);
         }
@@ -4272,14 +4428,14 @@ export const SaleForm = ({
                                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
-                                            Creating...
+                                            {isEditMode ? 'Updating...' : 'Creating...'}
                                         </>
                                     ) : (
                                         <>
                                             <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
-                                            Create Sale
+                                            {submitButtonLabel || (isEditMode ? 'Update Sale' : 'Create Sale')}
                                         </>
                                     )}
                                 </button>
@@ -4296,7 +4452,7 @@ export const SaleForm = ({
             (item) => item.service_id && parseDecimalValue(item.price) > 0
         );
         const isSaleSubmitDisabled = isSubmitting || !partyReady || !hasSaleLineReady;
-        const defaultSubmitLabel = 'Create Sale';
+        const defaultSubmitLabel = isEditMode ? 'Update Sale' : 'Create Sale';
         const saleAccentBtn = MODAL_ACCENT_STYLES.sale.primaryBtn;
 
         const triggerSaleSubmit = () => {
@@ -4307,7 +4463,7 @@ export const SaleForm = ({
             <BaseModal
                 isOpen={isOpen}
                 onClose={onClose}
-                title={modalTitle}
+                title={isEditMode ? (modalTitle || 'Edit Sale Invoice') : modalTitle}
                 maxWidth={modalMaxWidth}
                 compact
                 closeOnOverlayClick={false}
@@ -4346,7 +4502,9 @@ export const SaleForm = ({
                                 onClick={triggerSaleSubmit}
                                 className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${saleAccentBtn}`}
                             >
-                                {isSubmitting ? 'Creating…' : (submitButtonLabel || defaultSubmitLabel)}
+                                {isSubmitting
+                                    ? (isEditMode ? 'Updating…' : 'Creating…')
+                                    : (submitButtonLabel || defaultSubmitLabel)}
                             </button>
                         </div>
                     </div>
@@ -4371,12 +4529,17 @@ export const SaleModal = ({
     clientId,
     bankId,
     bankName,
+    editRecord = null,
     ...saleFormProps
 }) => {
+    const isEditMode = Boolean(
+        editRecord &&
+        (editRecord.invoice_id || editRecord.sale_id || editRecord.transaction_id)
+    );
     const hasClient = Boolean(clientId || clientUsername);
     const hasBank = Boolean(bankId);
     const lockedPartyType = hasClient ? 'client' : hasBank ? 'bank' : null;
-    const hidePartySelector = Boolean(lockedPartyType);
+    const hidePartySelector = Boolean(lockedPartyType) && !isEditMode;
     const fixedParty = hasClient
         ? {
             id: clientId || clientUsername,
@@ -4387,6 +4550,14 @@ export const SaleModal = ({
         : hasBank
             ? { id: bankId, name: bankName || 'Bank', party_type: 'bank' }
             : null;
+
+    const defaultTitle = isEditMode
+        ? 'Edit Sale Invoice'
+        : hasClient
+            ? 'Sale to Client'
+            : hasBank
+                ? 'Sale from Bank'
+                : 'Create Sale Invoice';
 
     return (
         <SaleForm
@@ -4399,13 +4570,10 @@ export const SaleModal = ({
             hidePartySelector={hidePartySelector}
             showFixedPartyBanner={!lockedPartyType}
             fixedParty={fixedParty}
-            modalTitle={
-                hasClient
-                    ? 'Sale to Client'
-                    : hasBank
-                        ? 'Sale from Bank'
-                        : 'Create Sale Invoice'
-            }
+            editRecord={editRecord}
+            modalTitle={defaultTitle}
+            submitButtonLabel={isEditMode ? 'Update Sale' : ''}
+            showNotificationToggles={!isEditMode}
             {...saleFormProps}
             formatCurrency={_formatCurrency}
         />
@@ -4455,7 +4623,12 @@ export const PurchaseForm = ({
     showNotificationToggles = false,
     formClassName = '',
     submitButtonLabel = '',
+    editRecord = null,
 }) => {
+    const isEditMode = Boolean(
+        editRecord &&
+        (editRecord.invoice_id || editRecord.purchase_id || editRecord.transaction_id)
+    );
     const [purchaseType, setPurchaseType] = useState(lockedPurchaseType || defaultPurchaseType);
     const [formData, setFormData] = useState({
         party_id: initialPartyId || '',
@@ -4501,6 +4674,73 @@ export const PurchaseForm = ({
 
     useEffect(() => {
         if (!isOpen) return;
+        setIsSubmitting(false);
+        setUserSearchTerm('');
+        setUserOptions([]);
+        partyDropdownActiveRef.current = false;
+        setShowPartyDropdown(false);
+        fetchServices();
+
+        if (isEditMode && editRecord) {
+            const pTypeRaw = String(editRecord.purchase_type || editRecord.party_type || 'ca').toLowerCase();
+            const pType = pTypeRaw === 'bank' ? 'bank' : 'ca';
+            const sp = editRecord.purchase_party || {};
+            const partyId =
+                pType === 'bank'
+                    ? String(sp.bank_id || editRecord.party_id || '').trim()
+                    : String(sp.username || editRecord.party_id || '').trim();
+            const lineItems = Array.isArray(editRecord.items) && editRecord.items.length > 0
+                ? editRecord.items.map((row) => {
+                    const fees = row.fees ?? row.amount ?? 0;
+                    const serviceId = row.service?.service_id || row.service_id || '';
+                    return {
+                        service_id: serviceId ? String(serviceId) : '',
+                        fees: fees !== '' && fees != null ? String(fees) : '',
+                        remark: row.remark || '',
+                    };
+                })
+                : [{ service_id: '', fees: '', remark: '' }];
+
+            setPurchaseType(lockedPurchaseType || pType);
+            setFormData({
+                party_id: partyId,
+                transaction_date: toIsoDateOnly(editRecord.transaction_date) || new Date().toISOString().split('T')[0],
+                remark: editRecord.remark || '',
+                tax_rate: appSettings.default_gst_rate,
+                items: lineItems,
+            });
+
+            if (pType === 'ca' && partyId) {
+                setSelectedPurchaseUser({
+                    id: partyId,
+                    username: partyId,
+                    name: sp.name || partyId,
+                    email: sp.email,
+                    contact: sp.mobile,
+                    type: 'ca',
+                });
+                setPurchaseBankRow(null);
+                setPurchaseBankPickerOpen(false);
+            } else if (pType === 'bank' && partyId) {
+                setSelectedPurchaseUser(null);
+                setPurchaseBankRow({
+                    bank_id: partyId,
+                    id: partyId,
+                    bank: sp.bank || sp.name,
+                    holder: sp.holder,
+                    account_no: sp.account_no,
+                    ifsc: sp.ifsc,
+                    branch: sp.branch,
+                });
+                setPurchaseBankPickerOpen(false);
+            } else {
+                setSelectedPurchaseUser(null);
+                setPurchaseBankRow(null);
+                setPurchaseBankPickerOpen(true);
+            }
+            return;
+        }
+
         const presetPartyId = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
             ? String(fixedParty.id)
             : (initialPartyId ? String(initialPartyId) : '');
@@ -4511,18 +4751,12 @@ export const PurchaseForm = ({
             tax_rate: appSettings.default_gst_rate,
             items: [{ service_id: '', fees: '', remark: '' }],
         });
-        setIsSubmitting(false);
-        setUserSearchTerm('');
-        setUserOptions([]);
-        partyDropdownActiveRef.current = false;
-        setShowPartyDropdown(false);
         setSelectedPurchaseUser(null);
         setPurchaseBankPickerOpen(!presetPartyId);
         setPurchaseBankRow(null);
         if (lockedPurchaseType) setPurchaseType(lockedPurchaseType);
         else setPurchaseType(defaultPurchaseType);
-        fetchServices();
-    }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId, lockedPurchaseType, defaultPurchaseType]);
+    }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId, lockedPurchaseType, defaultPurchaseType, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         userSearchTermRef.current = userSearchTerm;
@@ -4805,36 +5039,58 @@ export const PurchaseForm = ({
                     })),
             };
 
-            let endpoint = '';
-            let payload = {};
-
-            if (effectivePurchaseType === 'ca') {
-                endpoint = `${API_BASE_URL}/purchase/create/user`;
-                payload = {
+            let data;
+            if (isEditMode) {
+                const editPayload = {
                     ...basePayload,
-                    username: selectedParty.username || selectedParty.id,
-                    user_type: 'ca',
+                    invoice_id: editRecord.invoice_id || undefined,
+                    purchase_id: editRecord.purchase_id || undefined,
+                    transaction_id: editRecord.transaction_id || undefined,
                 };
+                if (effectivePurchaseType === 'ca') {
+                    editPayload.party_id = selectedParty.username || selectedParty.id;
+                    editPayload.party_type = 'ca';
+                } else {
+                    editPayload.party_id = selectedParty.id;
+                    editPayload.party_type = 'bank';
+                }
+                const response = await axios.put(`${API_BASE_URL}/purchase/edit`, editPayload, {
+                    headers: getHeaders(),
+                });
+                data = response.data;
+                if (!data?.success) throw new Error(data?.message || 'Failed to update purchase');
             } else {
-                endpoint = `${API_BASE_URL}/purchase/create/bank`;
-                payload = {
-                    ...basePayload,
-                    bank_id: selectedParty.id,
-                };
-            }
+                let endpoint = '';
+                let payload = {};
 
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(payload),
-            });
-            const data = await response.json();
-            if (!data.success) throw new Error(data.message || 'Failed to create purchase');
+                if (effectivePurchaseType === 'ca') {
+                    endpoint = `${API_BASE_URL}/purchase/create/user`;
+                    payload = {
+                        ...basePayload,
+                        username: selectedParty.username || selectedParty.id,
+                        user_type: 'ca',
+                    };
+                } else {
+                    endpoint = `${API_BASE_URL}/purchase/create/bank`;
+                    payload = {
+                        ...basePayload,
+                        bank_id: selectedParty.id,
+                    };
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify(payload),
+                });
+                data = await response.json();
+                if (!data.success) throw new Error(data.message || 'Failed to create purchase');
+            }
 
             toast.success(
                 typeof data.message === 'string' && data.message.trim()
                     ? data.message.trim()
-                    : 'Purchase created successfully'
+                    : (isEditMode ? 'Purchase updated successfully' : 'Purchase created successfully')
             );
 
             const submissionData = {
@@ -4848,7 +5104,11 @@ export const PurchaseForm = ({
             if (mode === 'modal') onClose();
         } catch (error) {
             console.error('Error submitting purchase form:', error);
-            toast.error(error.message || 'Error creating purchase. Please try again.');
+            toast.error(
+                error.response?.data?.message ||
+                error.message ||
+                (isEditMode ? 'Error updating purchase. Please try again.' : 'Error creating purchase. Please try again.')
+            );
         } finally {
             setIsSubmitting(false);
         }
@@ -5273,7 +5533,7 @@ export const PurchaseForm = ({
     if (mode !== 'modal') return purchaseFormElement;
 
     const isPurchaseSubmitDisabled = isSubmitting || !partyReady || !hasPurchaseLineReady;
-    const defaultSubmitLabel = 'Create Purchase Bill';
+    const defaultSubmitLabel = isEditMode ? 'Update Purchase' : 'Create Purchase Bill';
     const purchaseAccentBtn = MODAL_ACCENT_STYLES.purchase.primaryBtn;
 
     const triggerPurchaseSubmit = () => {
@@ -5284,7 +5544,7 @@ export const PurchaseForm = ({
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title={modalTitle}
+            title={isEditMode ? (modalTitle || 'Edit Purchase Bill') : modalTitle}
             maxWidth={modalMaxWidth}
             compact
             closeOnOverlayClick={false}
@@ -5312,7 +5572,9 @@ export const PurchaseForm = ({
                         onClick={triggerPurchaseSubmit}
                         className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${purchaseAccentBtn}`}
                     >
-                        {isSubmitting ? 'Creating…' : (submitButtonLabel || defaultSubmitLabel)}
+                        {isSubmitting
+                            ? (isEditMode ? 'Updating…' : 'Creating…')
+                            : (submitButtonLabel || defaultSubmitLabel)}
                     </button>
                 </div>
             )}
@@ -5349,11 +5611,26 @@ export const purchaseFormLedgerBankProps = ({ bankId, bankName }) => ({
 });
 
 /** Backward-compatible wrapper used by `TransactionModalManager`. */
-export const PurchaseModal = ({ isOpen, onClose, onSubmit, clientUsername, clientName, clientId, bankId, bankName }) => {
+export const PurchaseModal = ({
+    isOpen,
+    onClose,
+    onSubmit,
+    clientUsername,
+    clientName,
+    clientId,
+    bankId,
+    bankName,
+    editRecord = null,
+    ...purchaseFormProps
+}) => {
+    const isEditMode = Boolean(
+        editRecord &&
+        (editRecord.invoice_id || editRecord.purchase_id || editRecord.transaction_id)
+    );
     const hasClient = Boolean(String(clientUsername || clientId || '').trim());
     const hasBank = Boolean(String(bankId || '').trim());
     const lockedPurchaseType = hasClient ? 'ca' : hasBank ? 'bank' : null;
-    const hidePartySelector = Boolean(lockedPurchaseType);
+    const hidePartySelector = Boolean(lockedPurchaseType) && !isEditMode;
     const fixedParty = hasClient
         ? {
             id: clientId || clientUsername,
@@ -5363,6 +5640,14 @@ export const PurchaseModal = ({ isOpen, onClose, onSubmit, clientUsername, clien
         : hasBank
             ? { id: bankId, name: bankName || 'Bank' }
             : null;
+
+    const defaultTitle = isEditMode
+        ? 'Edit Purchase Bill'
+        : hasClient
+            ? 'Purchase from CA'
+            : hasBank
+                ? 'Purchase from Bank'
+                : 'Create Purchase Bill';
 
     return (
         <PurchaseForm
@@ -5374,17 +5659,14 @@ export const PurchaseModal = ({ isOpen, onClose, onSubmit, clientUsername, clien
             mode="modal"
             initialPartyId={fixedParty ? String(fixedParty.id) : ''}
             defaultPurchaseType={lockedPurchaseType || 'ca'}
-            lockedPurchaseType={lockedPurchaseType}
+            lockedPurchaseType={isEditMode ? null : lockedPurchaseType}
             hidePartySelector={hidePartySelector}
             showFixedPartyBanner={!lockedPurchaseType}
             fixedParty={fixedParty}
-            modalTitle={
-                hasClient
-                    ? 'Purchase from CA'
-                    : hasBank
-                        ? 'Purchase from Bank'
-                        : 'Create Purchase Bill'
-            }
+            editRecord={editRecord}
+            modalTitle={defaultTitle}
+            submitButtonLabel={isEditMode ? 'Update Purchase' : ''}
+            {...purchaseFormProps}
         />
     );
 };

@@ -12,6 +12,7 @@ import {
     FiAlertCircle,
     FiInfo,
     FiEye,
+    FiLock,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -26,6 +27,7 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useUserPermissions } from '../utils/permission-helper';
 
 const ACTIONS_MENU_WIDTH = 192;
 const ACTIONS_MENU_HEIGHT = 132;
@@ -150,7 +152,16 @@ const getJournalPartyDetailLines = (party) => {
     return [];
 };
 
-const JournalEntryDetailsModal = ({ isOpen, journal, onClose, formatCurrency, getTypeLabel, getAccountTypeColor }) => {
+const JournalEntryDetailsModal = ({
+    isOpen,
+    journal,
+    onClose,
+    formatCurrency,
+    getTypeLabel,
+    getAccountTypeColor,
+    onEdit,
+    canEdit = true,
+}) => {
     const fromLabel = getJournalPartyLabel(journal?.payment_from, getTypeLabel);
     const toLabel = getJournalPartyLabel(journal?.payment_to, getTypeLabel);
     const fromLines = getJournalPartyDetailLines(journal?.payment_from);
@@ -172,6 +183,25 @@ const JournalEntryDetailsModal = ({ isOpen, journal, onClose, formatCurrency, ge
                     >
                         Close
                     </button>
+                    {typeof onEdit === 'function' ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!canEdit) {
+                                    toast.error('Need Access Permission');
+                                    return;
+                                }
+                                onEdit(journal);
+                            }}
+                            disabled={!canEdit}
+                            className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 ${
+                                !canEdit ? 'cursor-not-allowed opacity-60 hover:bg-blue-600' : ''
+                            }`}
+                        >
+                            {!canEdit ? <FiLock className="h-3.5 w-3.5" /> : <FiEdit className="h-3.5 w-3.5" />}
+                            Edit Journal
+                        </button>
+                    ) : null}
                 </div>
             )}
         >
@@ -496,6 +526,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 };
 
 const ViewJournal = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -617,6 +648,8 @@ const ViewJournal = () => {
         setEditRecord(journal?.raw_data || journal);
         setEditModalOpen(true);
         setActiveRowDropdown(null);
+        setDetailsOpen(false);
+        setDetailsJournal(null);
     };
 
     const closeEditModal = () => {
@@ -1233,11 +1266,23 @@ const ViewJournal = () => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => openEditModal(activeJournal)}
-                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                        onClick={() => {
+                            if (!check('finance_entry_edit')) {
+                                toast.error('Need Access Permission');
+                                return;
+                            }
+                            openEditModal(activeJournal);
+                        }}
+                        className={`flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
                     >
                         <div className="mr-2 rounded bg-blue-50 p-1">
-                            <FiEdit className="h-3 w-3 text-blue-500" />
+                            {!check('finance_entry_edit') ? (
+                                <FiLock className="h-3 w-3 text-slate-400" />
+                            ) : (
+                                <FiEdit className="h-3 w-3 text-blue-500" />
+                            )}
                         </div>
                         <div className="text-left font-medium">Edit Journal</div>
                     </button>
@@ -1268,6 +1313,8 @@ const ViewJournal = () => {
                 formatCurrency={formatCurrency}
                 getTypeLabel={getTypeLabel}
                 getAccountTypeColor={getAccountTypeColor}
+                canEdit={check('finance_entry_edit')}
+                onEdit={openEditModal}
             />
 
             <TransactionModalManager

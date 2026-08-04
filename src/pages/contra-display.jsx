@@ -20,7 +20,8 @@ import {
     FiShield,
     FiCheckCircle,
     FiAlertCircle,
-    FiInfo
+    FiInfo,
+    FiLock,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -34,6 +35,7 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useUserPermissions } from '../utils/permission-helper';
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -252,6 +254,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 };
 
 const ViewContra = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -370,9 +373,11 @@ const ViewContra = () => {
     };
 
     const openEditModal = (record) => {
-        setEditRecord(record);
+        const editPayload = record?.raw_data || record;
+        setEditRecord(editPayload);
         setEditModalOpen(true);
         setActiveRowDropdown(null);
+        setDetailContra(null);
     };
 
     const closeEditModal = () => {
@@ -1048,11 +1053,23 @@ const ViewContra = () => {
                                                                             </button>
                                                                             <button
                                                                                 type="button"
-                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                onClick={() => openEditModal(contra)}
+                                                                                className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
+                                                                                    !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
+                                                                                }`}
+                                                                                onClick={() => {
+                                                                                    if (!check('finance_entry_edit')) {
+                                                                                        toast.error('Need Access Permission');
+                                                                                        return;
+                                                                                    }
+                                                                                    openEditModal(contra);
+                                                                                }}
                                                                             >
                                                                                 <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    <FiEdit className="w-3 h-3 text-blue-500" />
+                                                                                    {!check('finance_entry_edit') ? (
+                                                                                        <FiLock className="w-3 h-3 text-slate-400" />
+                                                                                    ) : (
+                                                                                        <FiEdit className="w-3 h-3 text-blue-500" />
+                                                                                    )}
                                                                                 </div>
                                                                                 <div className="text-left">
                                                                                     <div className="font-medium">Edit Contra</div>
@@ -1206,13 +1223,34 @@ const ViewContra = () => {
                                 })()}
                             </div>
                             <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-5 py-3">
-                                <div className="flex justify-end">
+                                <div className="flex items-center justify-end gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setDetailContra(null)}
                                         className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                                     >
                                         Close
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!check('finance_entry_edit')) {
+                                                toast.error('Need Access Permission');
+                                                return;
+                                            }
+                                            openEditModal(detailContra);
+                                        }}
+                                        disabled={!check('finance_entry_edit')}
+                                        className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
+                                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-blue-600' : ''
+                                        }`}
+                                    >
+                                        {!check('finance_entry_edit') ? (
+                                            <FiLock className="h-3.5 w-3.5" />
+                                        ) : (
+                                            <FiEdit className="h-3.5 w-3.5" />
+                                        )}
+                                        Edit Contra
                                     </button>
                                 </div>
                             </div>

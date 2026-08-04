@@ -7,6 +7,8 @@ import {
     ContraModal,
     ExpenseModal,
     DiscountModal,
+    SaleModal,
+    PurchaseModal,
 } from './CreateTransactions';
 
 const PARTY_LABELS = {
@@ -17,6 +19,10 @@ const PARTY_LABELS = {
     capital: 'capital',
 };
 
+/**
+ * Edit entry point mirroring CreateTransactions types.
+ * Sale/Purchase use the same create form components with `editRecord`.
+ */
 export const EditTransactionModalManager = ({
     modalType,
     isOpen,
@@ -33,13 +39,26 @@ export const EditTransactionModalManager = ({
 }) => {
     useEffect(() => {
         if (!isOpen || !editRecord) return;
-        if (modalType === 'SALE' || modalType === 'PURCHASE') {
-            toast.info('Sale and purchase entry edit is not available yet.');
+        if (
+            modalType === 'SALE' &&
+            (editRecord.is_task === true ||
+                editRecord.is_task === 1 ||
+                String(editRecord.is_task ?? '').trim() === '1')
+        ) {
+            toast.error(
+                'This sale was created from a task. Open the related task profile to edit it.'
+            );
             onClose();
         }
     }, [isOpen, editRecord, modalType, onClose]);
 
-    if (!editRecord || modalType === 'SALE' || modalType === 'PURCHASE') {
+    if (
+        !editRecord ||
+        (modalType === 'SALE' &&
+            (editRecord.is_task === true ||
+                editRecord.is_task === 1 ||
+                String(editRecord.is_task ?? '').trim() === '1'))
+    ) {
         return null;
     }
 
@@ -64,6 +83,10 @@ export const EditTransactionModalManager = ({
     };
 
     switch (modalType) {
+        case 'SALE':
+            return <SaleModal {...commonProps} />;
+        case 'PURCHASE':
+            return <PurchaseModal {...commonProps} />;
         case 'PAYMENT': {
             const { partyType, partyLabel } = resolvePartyMeta(editRecord, 'to');
             return (

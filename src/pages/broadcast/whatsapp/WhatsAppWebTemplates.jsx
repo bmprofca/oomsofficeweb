@@ -93,6 +93,29 @@ const WEB_TEMPLATE_FIELD_CONFIG = {
   audio: [{ key: 'url', label: 'Audio URL', required: true, inputType: 'url' }],
 };
 
+/** System template name from SERVER/utils/WhatsAppTemplates.js (TEMPLATELIST). */
+const DOCUMENT_SHARING_TEMPLATE_NAME = 'document sharing';
+
+const isDocumentSharingTemplate = (systemTemplateName) =>
+  String(systemTemplateName || '')
+    .trim()
+    .toLowerCase() === DOCUMENT_SHARING_TEMPLATE_NAME;
+
+const getDefaultMappingEditor = (systemTemplateName) => {
+  if (isDocumentSharingTemplate(systemTemplateName)) {
+    return {
+      templateType: 'document',
+      values: {
+        url: '{{document_link}}',
+        filename: '{{document_name}}',
+        caption:
+          'Hi {{name}}, please find {{document_name}} shared by {{shared_by}}.\n{{remark}}',
+      },
+    };
+  }
+  return { templateType: 'text', values: {} };
+};
+
 const EMPTY_FORM = {
   template_name: '',
   template_type: 'text',
@@ -296,11 +319,20 @@ const parseMappingContentToValues = (content, templateType) => {
 };
 
 const loadEditorFromMappingItem = (item) => {
-  const templateType = item?.template_type || 'text';
-  return {
-    templateType,
-    values: parseMappingContentToValues(item?.content, templateType),
-  };
+  const hasConfiguredType = Boolean(item?.template_type);
+  const hasContent =
+    item?.content != null &&
+    (typeof item.content !== 'object' || Object.keys(item.content || {}).length > 0);
+
+  if (hasConfiguredType && (item?.is_set || hasContent)) {
+    const templateType = item.template_type || 'text';
+    return {
+      templateType,
+      values: parseMappingContentToValues(item?.content, templateType),
+    };
+  }
+
+  return getDefaultMappingEditor(item?.name);
 };
 
 const WebMappingPreview = ({ templateType, componentValues }) => {
@@ -896,6 +928,10 @@ const WhatsAppWebTemplates = () => {
   }, []);
 
   const handleEditorTypeChange = (nextType) => {
+    if (isDocumentSharingTemplate(selectedMappingItem?.name)) {
+      setMappingEditorType('document');
+      return;
+    }
     setMappingEditorType(nextType);
     setMappingEditorValues((prev) => {
       const next = {};
@@ -1229,6 +1265,18 @@ const WhatsAppWebTemplates = () => {
                   <p className="text-sm text-gray-500 m-0 mt-1">
                     {selectedMappingItem.description || 'Configure the static WhatsApp message for this event.'}
                   </p>
+                  {String(selectedMappingItem.name || '')
+                    .trim()
+                    .toLowerCase() === DOCUMENT_SHARING_TEMPLATE_NAME ? (
+                    <p className="text-xs text-emerald-700 m-0 mt-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                      Use type <strong>Document</strong>. Keep URL as{' '}
+                      <code className="font-mono">{'{{document_link}}'}</code> and
+                      filename as{' '}
+                      <code className="font-mono">{'{{document_name}}'}</code> —
+                      ledger/document share replaces these with the uploaded file
+                      at send time.
+                    </p>
+                  ) : null}
                 </div>
                 <MappingStatusBadge isSet={Boolean(selectedMappingItem.is_set)} />
               </div>
@@ -1242,10 +1290,13 @@ const WhatsAppWebTemplates = () => {
                     <select
                       value={mappingEditorType}
                       onChange={(e) => handleEditorTypeChange(e.target.value)}
-                      disabled={mappingSaving}
+                      disabled={mappingSaving || isDocumentSharingTemplate(selectedMappingItem?.name)}
                       className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 capitalize"
                     >
-                      {TEMPLATE_TYPES.map((option) => (
+                      {(isDocumentSharingTemplate(selectedMappingItem?.name)
+                        ? TEMPLATE_TYPES.filter((option) => option.value === 'document')
+                        : TEMPLATE_TYPES
+                      ).map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>

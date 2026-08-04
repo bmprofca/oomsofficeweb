@@ -1,1007 +1,1500 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import {
-    FiPlus,
-    FiSettings,
-    FiEdit,
-    FiFileText,
-    FiUsers,
-    FiUser,
-    FiX,
-    FiMenu,
-    FiPrinter,
-    FiMail,
-    FiMessageSquare,
-    FiChevronDown,
-    FiEye,
-    FiInfo,
-    FiCalendar,
-    FiHome,
-    FiBriefcase,
-    FiPercent,
-    FiPlusCircle,
-    FiLayers,
-    FiLock,
-    FiDownload,
-} from 'react-icons/fi';
+  FiPlus,
+  FiEdit2,
+  FiFileText,
+  FiX,
+  FiChevronDown,
+  FiEye,
+  FiPercent,
+  FiLayers,
+  FiLock,
+  FiDownload,
+  FiMoreVertical,
+  FiShare2,
+} from "react-icons/fi";
 import { PiExportBold } from "react-icons/pi";
-import { TbCurrencyRupee } from 'react-icons/tb';
+import { TbCurrencyRupee } from "react-icons/tb";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
-import { motion, AnimatePresence } from 'framer-motion';
-import { Header, Sidebar } from '../components/header';
-import { useUserPermissions } from '../utils/permission-helper';
-import EmailSelectionModal from '../components/email-selection';
-import MobileSelectionModal from '../components/mobile-selection';
-import { SaleForm } from '../components/Modals/CreateTransactions';
-import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
-import { DateRangePickerField } from '../components/PortalDatePicker';
-import TablePagination from '../components/TablePagination';
-import API_BASE_URL from '../utils/api-controller';
-import getHeaders from '../utils/get-headers';
-import axios from 'axios';
-import ExportModal from '../finance/sale-exportModal';
-import toast from 'react-hot-toast';
-
-/** Format `sale_party` mobile with `country_code` (numeric → +91 …; non-numeric e.g. India → label + number). */
-const formatSalePartyMobile = (party) => {
-    if (!party || party.mobile == null || String(party.mobile).trim() === '') return '';
-    const mobile = String(party.mobile).trim();
-    const raw = party.country_code == null ? '' : String(party.country_code).trim();
-    if (!raw) return mobile;
-    if (/^\d+$/.test(raw)) return `+${raw} ${mobile}`;
-    return `${raw} · ${mobile}`;
-};
-
-/** Parse line `remark` e.g. `task:…` for display in sale line items */
-const parseLineRemark = (remark) => {
-    if (remark == null || String(remark).trim() === '') return null;
-    const s = String(remark).trim();
-    if (s.startsWith('task:')) {
-        const id = s.slice(5).trim();
-        return { kind: 'task', id, short: id.length > 12 ? `${id.slice(0, 10)}…` : id };
-    }
-    return { kind: 'text', text: s };
-};
-
-const ACTIONS_MENU_WIDTH = 192;
-const ACTIONS_MENU_HEIGHT = 260;
+import { motion, AnimatePresence } from "framer-motion";
+import { Header, Sidebar } from "../components/header";
+import { useUserPermissions } from "../utils/permission-helper";
+import EmailSelectionModal from "../components/email-selection";
+import MobileSelectionModal from "../components/mobile-selection";
+import { SaleForm } from "../components/Modals/CreateTransactions";
+import { EditTransactionModalManager } from "../components/Modals/EditTransactions";
+import {
+  ViewTransactionModalManager,
+  isTaskOriginSale,
+  resolveSaleTaskId,
+} from "../components/Modals/ViewTransactions";
+import { DateRangePickerField } from "../components/PortalDatePicker";
+import TablePagination from "../components/TablePagination";
+import DocumentShareModal from "../components/Modals/DocumentShareModal";
+import API_BASE_URL from "../utils/api-controller";
+import getHeaders from "../utils/get-headers";
+import axios from "axios";
+import ExportModal from "../finance/sale-exportModal";
+import toast from "react-hot-toast";
 
 const ViewSales = () => {
-    const { check } = useUserPermissions();
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [isMinimized, setIsMinimized] = useState(() => {
-        const saved = localStorage.getItem('sidebarMinimized');
-        return saved ? JSON.parse(saved) : false;
-    });
-    const [loading, setLoading] = useState(true);
-    const [fromDate, setFromDate] = useState(() => {
-        const d = new Date();
-        d.setDate(1);
-        return d.toISOString().split('T')[0];
-    });
-    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
-    const [sales, setSales] = useState([]);
-    const [saleFormModal, setSaleFormModal] = useState(false);
-    const [editModalOpen, setEditModalOpen] = useState(false);
-    const [editRecord, setEditRecord] = useState(null);
-    const [summary, setSummary] = useState({
-        count: 0,
-        net: 0,
-        tax: 0,
-        total: 0,
-    });
+  const navigate = useNavigate();
+  const { check } = useUserPermissions();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(() => {
+    const saved = localStorage.getItem("sidebarMinimized");
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [loading, setLoading] = useState(true);
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split("T")[0];
+  });
+  const [toDate, setToDate] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  const [sales, setSales] = useState([]);
+  const [saleFormModal, setSaleFormModal] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
+  const [summary, setSummary] = useState({
+    count: 0,
+    net: 0,
+    tax: 0,
+    total: 0,
+  });
 
-    // View Modal State
-    const [viewModalOpen, setViewModalOpen] = useState(false);
-    const [selectedSale, setSelectedSale] = useState(null);
+  // View Modal State
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState(null);
 
-    // Search state
-    const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-    // State for dropdown menus
-    const [showAddDropdown, setShowAddDropdown] = useState(false);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    const [dropdownPos, setDropdownPos] = useState({ top: undefined, bottom: undefined, right: 0 });
-    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
-    const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
+  // State for dropdown menus
+  const [showAddDropdown, setShowAddDropdown] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState(null);
+  const actionAnchorRef = useRef(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [shareSale, setShareSale] = useState(null);
+  const [showDocumentShareModal, setShowDocumentShareModal] = useState(false);
+  const [exportModal, setExportModal] = useState({
+    open: false,
+    type: "",
+    data: null,
+  });
 
-    // Export Modal State
-    const [exportModalOpen, setExportModalOpen] = useState(false);
-    const [exportData, setExportData] = useState([]);
-    const [exportColumns, setExportColumns] = useState([]);
+  // Export Modal State
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportData, setExportData] = useState([]);
+  const [exportColumns, setExportColumns] = useState([]);
 
-    const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-    const [selectedEmail, setSelectedEmail] = useState('');
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState("");
 
-    const [isWhatsappModalOpen, setWhatsappModalOpen] = useState(false);
-    const [selectedWhatsapp, setSelectedWhatsapp] = useState('');
+  const [isWhatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [selectedWhatsapp, setSelectedWhatsapp] = useState("");
 
-    // Pagination state
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
-    const [totalRecords, setTotalRecords] = useState(0);
-    const [isLastPage, setIsLastPage] = useState(false);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [isLastPage, setIsLastPage] = useState(false);
 
-    // Debounce search term
-    useEffect(() => {
-        const timerId = setTimeout(() => {
-            setDebouncedSearchTerm(searchTerm);
-        }, 500);
-        return () => clearTimeout(timerId);
-    }, [searchTerm]);
+  // Debounce search term
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timerId);
+  }, [searchTerm]);
 
-    // Reset to page 1 when search, date range, or page size changes
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [debouncedSearchTerm, fromDate, toDate, itemsPerPage]);
+  // Reset to page 1 when search, date range, or page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, fromDate, toDate, itemsPerPage]);
 
-    // Persist sidebar minimized state
-    useEffect(() => {
-        localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
-    }, [isMinimized]);
+  // Persist sidebar minimized state
+  useEffect(() => {
+    localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
+  }, [isMinimized]);
 
-    // Lock page scroll for mobile sidebar only
-    useEffect(() => {
-        if (mobileMenuOpen) {
-            document.body.style.overflow = 'hidden';
+  // Lock page scroll for mobile sidebar only
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
+  /** ISO YYYY-MM-DD → DD/MM/YYYY for export payload (legacy backend shape) */
+  const isoToDdMmYyyy = (iso) => {
+    if (!iso || typeof iso !== "string") return "";
+    const [y, m, d] = iso.split("T")[0].split("-");
+    if (!y || !m || !d) return "";
+    return `${d}/${m}/${y}`;
+  };
+
+  // Fetch sales data from API
+  const fetchSalesData = useCallback(async () => {
+    if (!fromDate || !toDate) return;
+
+    setLoading(true);
+
+    try {
+      const params = {
+        page_no: currentPage,
+        limit: itemsPerPage,
+        from_date: fromDate,
+        to_date: toDate,
+        search: debouncedSearchTerm || "",
+      };
+
+      const headers = await getHeaders();
+      const response = await axios.get(`${API_BASE_URL}/sale/list`, {
+        params,
+        headers,
+      });
+
+      if (response.data.success) {
+        const salesData = response.data.data || [];
+        setSales(salesData);
+
+        // Set pagination from meta
+        const meta = response.data.meta || {};
+        const total = Number(meta.total) || 0;
+        const limit = Number(meta.limit) || itemsPerPage;
+        const totalPagesFromMeta =
+          meta.total_pages != null && meta.total_pages !== ""
+            ? Math.max(1, Number(meta.total_pages) || 1)
+            : Math.max(1, Math.ceil(total / (limit || 1)));
+
+        setTotalRecords(total);
+        setTotalPages(totalPagesFromMeta);
+        setIsLastPage(Boolean(meta.is_last_page));
+        setCurrentPage((prev) =>
+          Math.min(Math.max(1, prev), totalPagesFromMeta),
+        );
+
+        // Set summary from stats
+        const stats = response.data.stats || {};
+        if (stats.amount && typeof stats.amount === "object") {
+          setSummary({
+            count: Number(stats.count) || 0,
+            net: Number(stats.amount.net) || 0,
+            tax: Number(stats.amount.tax) || 0,
+            total: Number(stats.amount.total) || 0,
+          });
         } else {
-            document.body.style.overflow = '';
+          setSummary({
+            count: Number(stats.count) || 0,
+            net: Number(stats.amount) || 0,
+            tax: 0,
+            total: Number(stats.amount) || 0,
+          });
         }
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [mobileMenuOpen]);
+      } else {
+        console.error("API returned success false");
+        setSales([]);
+        setTotalRecords(0);
+        setTotalPages(1);
+        setIsLastPage(true);
+        setSummary({ count: 0, net: 0, tax: 0, total: 0 });
+      }
+    } catch (error) {
+      console.error("Error fetching sales data:", error);
+      setSales([]);
+      setTotalRecords(0);
+      setTotalPages(1);
+      setIsLastPage(true);
+      setSummary({ count: 0, net: 0, tax: 0, total: 0 });
+    } finally {
+      setLoading(false);
+    }
+  }, [fromDate, toDate, debouncedSearchTerm, currentPage, itemsPerPage]);
 
-    /** ISO YYYY-MM-DD → DD/MM/YYYY for export payload (legacy backend shape) */
-    const isoToDdMmYyyy = (iso) => {
-        if (!iso || typeof iso !== 'string') return '';
-        const [y, m, d] = iso.split('T')[0].split('-');
-        if (!y || !m || !d) return '';
-        return `${d}/${m}/${y}`;
-    };
+  // Fetch data when dependencies change
+  useEffect(() => {
+    fetchSalesData();
+  }, [fetchSalesData]);
 
-    // Fetch sales data from API
-    const fetchSalesData = useCallback(async () => {
-        if (!fromDate || !toDate) return;
+  // Prepare data for export
+  const prepareExportData = () => {
+    const exportDataList = [];
+    const exportColumnsConfig = [];
 
-        setLoading(true);
+    // Build columns for export
+    const columns = [
+      { header: "Sl No", key: "sl_no", width: 10 },
+      { header: "Date", key: "date", width: 15 },
+      { header: "Invoice No", key: "invoice_no", width: 20 },
+      { header: "Party Name", key: "party_name", width: 25 },
+      { header: "Total Value (₹)", key: "total_value", width: 18 },
+      { header: "Tax (₹)", key: "tax", width: 15 },
+      { header: "Grand Total (₹)", key: "grand_total", width: 18 },
+      { header: "Payment Mode", key: "payment_mode", width: 15 },
+      { header: "Status", key: "status", width: 12 },
+    ];
 
-        try {
-            const params = {
-                page_no: currentPage,
-                limit: itemsPerPage,
-                from_date: fromDate,
-                to_date: toDate,
-                search: debouncedSearchTerm || ''
-            };
+    exportColumnsConfig.push(...columns);
 
-            const headers = await getHeaders();
-            const response = await axios.get(`${API_BASE_URL}/sale/list`, { params, headers });
+    // Build data rows from current sales
+    sales.forEach((sale, index) => {
+      const partyName =
+        sale.sale_type === "client"
+          ? sale.sale_party?.name || "N/A"
+          : sale.sale_type === "bank"
+            ? sale.sale_party?.holder || "N/A"
+            : "N/A";
 
-            if (response.data.success) {
-                const salesData = response.data.data || [];
-                setSales(salesData);
+      const row = {
+        sl_no: (currentPage - 1) * itemsPerPage + index + 1,
+        date: sale.transaction_date
+          ? new Date(sale.transaction_date).toLocaleDateString("en-GB")
+          : "N/A",
+        invoice_no: sale.invoice_no || "N/A",
+        party_name: partyName,
+        total_value: parseFloat(sale.calculation?.total || sale.amount || 0),
+        tax: parseFloat(sale.calculation?.gst_value || 0),
+        grand_total: parseFloat(
+          sale.calculation?.grand_total || sale.amount || 0,
+        ),
+        payment_mode:
+          sale.sale_type === "client"
+            ? "Client"
+            : sale.sale_type === "bank"
+              ? "Bank Transfer"
+              : "Other",
+        status: "Completed",
+      };
+      exportDataList.push(row);
+    });
 
-                // Set pagination from meta
-                const meta = response.data.meta || {};
-                const total = Number(meta.total) || 0;
-                const limit = Number(meta.limit) || itemsPerPage;
-                const totalPagesFromMeta = meta.total_pages != null && meta.total_pages !== ''
-                    ? Math.max(1, Number(meta.total_pages) || 1)
-                    : Math.max(1, Math.ceil(total / (limit || 1)));
+    return { data: exportDataList, columns: exportColumnsConfig };
+  };
 
-                setTotalRecords(total);
-                setTotalPages(totalPagesFromMeta);
-                setIsLastPage(Boolean(meta.is_last_page));
-                setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPagesFromMeta));
+  // Handle export click for modal
+  const handleExportClick = () => {
+    const { data, columns } = prepareExportData();
 
-                // Set summary from stats
-                const stats = response.data.stats || {};
-                if (stats.amount && typeof stats.amount === 'object') {
-                    setSummary({
-                        count: Number(stats.count) || 0,
-                        net: Number(stats.amount.net) || 0,
-                        tax: Number(stats.amount.tax) || 0,
-                        total: Number(stats.amount.total) || 0,
-                    });
-                } else {
-                    setSummary({
-                        count: Number(stats.count) || 0,
-                        net: Number(stats.amount) || 0,
-                        tax: 0,
-                        total: Number(stats.amount) || 0,
-                    });
-                }
-            } else {
-                console.error('API returned success false');
-                setSales([]);
-                setTotalRecords(0);
-                setTotalPages(1);
-                setIsLastPage(true);
-                setSummary({ count: 0, net: 0, tax: 0, total: 0 });
-            }
-        } catch (error) {
-            console.error('Error fetching sales data:', error);
-            setSales([]);
-            setTotalRecords(0);
-            setTotalPages(1);
-            setIsLastPage(true);
-            setSummary({ count: 0, net: 0, tax: 0, total: 0 });
-        } finally {
-            setLoading(false);
-        }
-    }, [fromDate, toDate, debouncedSearchTerm, currentPage, itemsPerPage]);
+    if (data.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
 
-    // Fetch data when dependencies change
-    useEffect(() => {
-        fetchSalesData();
-    }, [fetchSalesData]);
+    setExportData(data);
+    setExportColumns(columns);
+    setExportModalOpen(true);
+  };
 
-    // Prepare data for export
-    const prepareExportData = () => {
-        const exportDataList = [];
-        const exportColumnsConfig = [];
+  // Handle view sale details
+  const handleViewSale = (sale) => {
+    setSelectedSale(sale);
+    setViewModalOpen(true);
+    setShowActionMenu(null);
+    actionAnchorRef.current = null;
+    setActionMenuPosition(null);
+  };
 
-        // Build columns for export
-        const columns = [
-            { header: 'Sl No', key: 'sl_no', width: 10 },
-            { header: 'Date', key: 'date', width: 15 },
-            { header: 'Invoice No', key: 'invoice_no', width: 20 },
-            { header: 'Party Name', key: 'party_name', width: 25 },
-            { header: 'Total Value (₹)', key: 'total_value', width: 18 },
-            { header: 'Tax (₹)', key: 'tax', width: 15 },
-            { header: 'Grand Total (₹)', key: 'grand_total', width: 18 },
-            { header: 'Payment Mode', key: 'payment_mode', width: 15 },
-            { header: 'Status', key: 'status', width: 12 }
-        ];
+  // Download invoice PDF via POST /invoice/generate
+  const handleDownloadInvoice = async (sale) => {
+    const invoiceId = sale?.invoice_id;
+    if (!invoiceId) {
+      toast.error("Invoice ID not available for this sale");
+      return;
+    }
 
-        exportColumnsConfig.push(...columns);
+    setShowActionMenu(null);
+    actionAnchorRef.current = null;
+    setActionMenuPosition(null);
+    setDownloadingInvoice(true);
 
-        // Build data rows from current sales
-        sales.forEach((sale, index) => {
-            const partyName = sale.sale_type === 'client' 
-                ? (sale.sale_party?.name || 'N/A')
-                : (sale.sale_type === 'bank' ? (sale.sale_party?.holder || 'N/A') : 'N/A');
-            
-            const row = {
-                sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
-                date: sale.transaction_date ? new Date(sale.transaction_date).toLocaleDateString('en-GB') : 'N/A',
-                invoice_no: sale.invoice_no || 'N/A',
-                party_name: partyName,
-                total_value: parseFloat(sale.calculation?.total || sale.amount || 0),
-                tax: parseFloat(sale.calculation?.gst_value || 0),
-                grand_total: parseFloat(sale.calculation?.grand_total || sale.amount || 0),
-                payment_mode: sale.sale_type === 'client' ? 'Client' : (sale.sale_type === 'bank' ? 'Bank Transfer' : 'Other'),
-                status: 'Completed'
-            };
-            exportDataList.push(row);
+    const toastId = toast.loading("Generating invoice…");
+    try {
+      const headers = getHeaders();
+      if (!headers) {
+        toast.error("Please log in again to download the invoice", {
+          id: toastId,
         });
+        return;
+      }
 
-        return { data: exportDataList, columns: exportColumnsConfig };
-    };
+      const response = await axios.post(
+        `${API_BASE_URL}/invoice/generate`,
+        { invoice_id: invoiceId, type: "sale", response: "pdf" },
+        { headers, responseType: "blob" },
+      );
 
-    // Handle export click for modal
-    const handleExportClick = () => {
-        const { data, columns } = prepareExportData();
-        
-        if (data.length === 0) {
-            toast.error('No data to export');
-            return;
-        }
+      const filename = `invoice-${sale.invoice_no || invoiceId}.pdf`;
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
-        setExportData(data);
-        setExportColumns(columns);
-        setExportModalOpen(true);
-    };
-
-    // Handle view sale details
-    const handleViewSale = (sale) => {
-        setSelectedSale(sale);
-        setViewModalOpen(true);
-        setActiveRowDropdown(null);
-    };
-
-    // Download invoice PDF via POST /invoice/generate
-    const handleDownloadInvoice = async (sale) => {
-        const invoiceId = sale?.invoice_id;
-        if (!invoiceId) {
-            toast.error('Invoice ID not available for this sale');
-            return;
-        }
-
-        setActiveRowDropdown(null);
-        setDownloadingInvoice(true);
-
-        const toastId = toast.loading('Generating invoice…');
+      toast.success("Invoice downloaded", { id: toastId });
+    } catch (error) {
+      console.error("Invoice download error:", error);
+      let message = error.message || "Failed to download invoice";
+      if (error.response?.data instanceof Blob) {
         try {
-            const headers = getHeaders();
-            if (!headers) {
-                toast.error('Please log in again to download the invoice', { id: toastId });
-                return;
-            }
-
-            const response = await axios.post(
-                `${API_BASE_URL}/invoice/generate`,
-                { invoice_id: invoiceId, type: 'sale', response: 'pdf' },
-                { headers, responseType: 'blob' }
-            );
-
-            const filename = `invoice-${sale.invoice_no || invoiceId}.pdf`;
-            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', filename);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-
-            toast.success('Invoice downloaded', { id: toastId });
-        } catch (error) {
-            console.error('Invoice download error:', error);
-            let message = error.message || 'Failed to download invoice';
-            if (error.response?.data instanceof Blob) {
-                try {
-                    const text = await error.response.data.text();
-                    const parsed = JSON.parse(text);
-                    message = parsed.message || message;
-                } catch {
-                    // keep default message
-                }
-            } else if (error.response?.data?.message) {
-                message = error.response.data.message;
-            }
-            toast.error(message, { id: toastId });
-        } finally {
-            setDownloadingInvoice(false);
+          const text = await error.response.data.text();
+          const parsed = JSON.parse(text);
+          message = parsed.message || message;
+        } catch {
+          // keep default message
         }
-    };
+      } else if (error.response?.data?.message) {
+        message = error.response.data.message;
+      }
+      toast.error(message, { id: toastId });
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
-    // Handle search input change
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-    };
+  const handleOpenShareSale = (sale) => {
+    if (!sale?.invoice_id) {
+      toast.error("Invoice ID not available for this sale");
+      return;
+    }
+    if (sale.sale_type !== "client") {
+      toast.error("Share is available for client sales only");
+      return;
+    }
+    setShowActionMenu(null);
+    actionAnchorRef.current = null;
+    setActionMenuPosition(null);
+    setShareSale(sale);
+    setShowDocumentShareModal(true);
+  };
 
-    const handlePageChange = (newPage) => {
-        const n = Math.floor(Number(newPage));
-        if (!Number.isFinite(n)) return;
-        const maxPage = Math.max(1, totalPages);
-        setCurrentPage(Math.min(Math.max(1, n), maxPage));
-    };
+  const handleShareSaleSend = useCallback(
+    async (channels) => {
+      if (!shareSale?.invoice_id) {
+        throw new Error("Invoice ID not available");
+      }
+      const response = await axios.post(
+        `${API_BASE_URL}/invoice/share`,
+        {
+          invoice_id: shareSale.invoice_id,
+          type: "sale",
+          channels,
+        },
+        { headers: getHeaders() },
+      );
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Failed to share invoice");
+      }
+      return response.data;
+    },
+    [shareSale],
+  );
 
-    const handleSaleSuccess = (saleData) => {
-        console.log('Sale created successfully:', saleData);
-        fetchSalesData();
-    };
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
 
-    const handleEmailSubmit = (email) => {
-        setSelectedEmail(email);
-        setIsEmailModalOpen(false);
-        console.log('Selected email:', email);
-    };
+  const handlePageChange = (newPage) => {
+    const n = Math.floor(Number(newPage));
+    if (!Number.isFinite(n)) return;
+    const maxPage = Math.max(1, totalPages);
+    setCurrentPage(Math.min(Math.max(1, n), maxPage));
+  };
 
-    const handleWhatsappSubmit = (number) => {
-        setSelectedWhatsapp(number);
-        setWhatsappModalOpen(false);
-        console.log('Selected number:', number);
-    };
+  const handleSaleSuccess = (saleData) => {
+    console.log("Sale created successfully:", saleData);
+    fetchSalesData();
+  };
 
-    // Handle other exports (print, whatsapp, email)
-    const handleOtherExport = async (type, data = null) => {
-        setExportModal({ open: true, type, data });
-        
-        setTimeout(async () => {
-            try {
-                const headers = await getHeaders();
-                const exportDataPayload = {
-                    type: type,
-                    data: data || sales,
-                    date_range: fromDate && toDate ? `${isoToDdMmYyyy(fromDate)} - ${isoToDdMmYyyy(toDate)}` : '',
-                    search: searchTerm
-                };
+  const handleEmailSubmit = (email) => {
+    setSelectedEmail(email);
+    setIsEmailModalOpen(false);
+    console.log("Selected email:", email);
+  };
 
-                const response = await axios.post(`${API_BASE_URL}/sale/export`, exportDataPayload, {
-                    headers,
-                    responseType: type === 'pdf' ? 'blob' : 'json'
-                });
+  const handleWhatsappSubmit = (number) => {
+    setSelectedWhatsapp(number);
+    setWhatsappModalOpen(false);
+    console.log("Selected number:", number);
+  };
 
-                if (type === 'pdf') {
-                    const url = window.URL.createObjectURL(new Blob([response.data]));
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', `sales_report_${new Date().toISOString()}.pdf`);
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    window.URL.revokeObjectURL(url);
-                } else if (type === 'excel') {
-                    const url = window.URL.createObjectURL(new Blob([response.data]));
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', `sales_report_${new Date().toISOString()}.xlsx`);
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    window.URL.revokeObjectURL(url);
-                } else {
-                    toast.success(`${type.toUpperCase()} export completed successfully!`);
-                }
-            } catch (error) {
-                console.error(`Error exporting ${type}:`, error);
-                toast.error(`Failed to export ${type}. Please try again.`);
-            } finally {
-                setExportModal({ open: false, type: '', data: null });
-            }
-        }, 100);
-    };
+  // Handle other exports (print, whatsapp, email)
+  const handleOtherExport = async (type, data = null) => {
+    setExportModal({ open: true, type, data });
 
-    // Format date
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB');
-    };
-
-    // Format currency
-    const formatCurrency = (amount) => {
-        if (!check('finance_balance_view')) {
-            return '*.*';
-        }
-        const numAmount = parseFloat(amount);
-        if (isNaN(numAmount)) return '0.00';
-        return new Intl.NumberFormat('en-IN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(numAmount);
-    };
-
-    const openEditModal = (record) => {
-        setEditRecord(record);
-        setEditModalOpen(true);
-        setActiveRowDropdown(null);
-        setViewModalOpen(false);
-    };
-
-    const closeEditModal = () => {
-        setEditModalOpen(false);
-        setEditRecord(null);
-    };
-
-    // Get sale party name
-    const getSalePartyName = (sale) => {
-        if (sale.sale_type === 'client' && sale.sale_party) {
-            return sale.sale_party.name || '';
-        }
-        if (sale.sale_type === 'bank' && sale.sale_party) {
-            return sale.sale_party.holder || sale.sale_party.bank || '';
-        }
-        return '';
-    };
-
-    // Get sale type display name
-    const getSaleTypeDisplay = (saleType) => {
-        const typeMap = {
-            'client': 'Client',
-            'bank': 'Bank',
-            'cash': 'Cash',
-            'savings': 'Savings',
-            'current': 'Current',
-            'loan': 'Loan',
-            'capital': 'Capital'
+    setTimeout(async () => {
+      try {
+        const headers = await getHeaders();
+        const exportDataPayload = {
+          type: type,
+          data: data || sales,
+          date_range:
+            fromDate && toDate
+              ? `${isoToDdMmYyyy(fromDate)} - ${isoToDdMmYyyy(toDate)}`
+              : "",
+          search: searchTerm,
         };
-        return typeMap[saleType] || saleType;
+
+        const response = await axios.post(
+          `${API_BASE_URL}/sale/export`,
+          exportDataPayload,
+          {
+            headers,
+            responseType: type === "pdf" ? "blob" : "json",
+          },
+        );
+
+        if (type === "pdf") {
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute(
+            "download",
+            `sales_report_${new Date().toISOString()}.pdf`,
+          );
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+        } else if (type === "excel") {
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute(
+            "download",
+            `sales_report_${new Date().toISOString()}.xlsx`,
+          );
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+        } else {
+          toast.success(`${type.toUpperCase()} export completed successfully!`);
+        }
+      } catch (error) {
+        console.error(`Error exporting ${type}:`, error);
+        toast.error(`Failed to export ${type}. Please try again.`);
+      } finally {
+        setExportModal({ open: false, type: "", data: null });
+      }
+    }, 100);
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB");
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (!check("finance_balance_view")) {
+      return "*.*";
+    }
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount)) return "0.00";
+    return new Intl.NumberFormat("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numAmount);
+  };
+
+  const openEditModal = (record) => {
+    setEditRecord(record);
+    setEditModalOpen(true);
+    setShowActionMenu(null);
+    actionAnchorRef.current = null;
+    setActionMenuPosition(null);
+    setViewModalOpen(false);
+  };
+
+  const handleSaleEditAction = (sale) => {
+    if (!check("finance_entry_edit")) {
+      toast.error("Need Access Permission");
+      return;
+    }
+    if (isTaskOriginSale(sale)) {
+      const taskId = resolveSaleTaskId(sale);
+      if (!taskId) {
+        toast.error("Task ID not found for this sale");
+        return;
+      }
+      setShowActionMenu(null);
+      actionAnchorRef.current = null;
+      setActionMenuPosition(null);
+      setViewModalOpen(false);
+      setSelectedSale(null);
+      navigate(`/task/profile/${encodeURIComponent(taskId)}/details`);
+      return;
+    }
+    openEditModal(sale);
+  };
+
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setEditRecord(null);
+  };
+
+  const handleEditSubmit = () => {
+    closeEditModal();
+    fetchSalesData();
+  };
+
+  // Get sale party name
+  const getSalePartyName = (sale) => {
+    if (sale.sale_type === "client" && sale.sale_party) {
+      return sale.sale_party.name || "";
+    }
+    if (sale.sale_type === "bank" && sale.sale_party) {
+      return sale.sale_party.holder || sale.sale_party.bank || "";
+    }
+    return "";
+  };
+
+  // Get sale type display name
+  const getSaleTypeDisplay = (saleType) => {
+    const typeMap = {
+      client: "Client",
+      bank: "Bank",
+      cash: "Cash",
+      savings: "Savings",
+      current: "Current",
+      loan: "Loan",
+      capital: "Capital",
+    };
+    return typeMap[saleType] || saleType;
+  };
+
+  const closeViewModal = () => {
+    setViewModalOpen(false);
+    setSelectedSale(null);
+  };
+
+  const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+    if (!anchorEl) return null;
+
+    const itemCount = Math.max(1, Number(options.itemCount) || 4);
+    const rect = anchorEl.getBoundingClientRect();
+    const menuWidth = 176;
+    const menuHeight = 8 + itemCount * 36;
+    const gap = 8;
+    const margin = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const space = {
+      top: rect.top - margin,
+      bottom: vh - rect.bottom - margin,
+      right: vw - rect.right - margin,
+      left: rect.left - margin,
     };
 
-    // Get sale party details for display
-    const getSalePartyDetails = (sale) => {
-        if (sale.sale_type === 'client' && sale.sale_party) {
-            const sp = sale.sale_party;
-            return {
-                name: sp.name,
-                email: sp.email,
-                mobile: formatSalePartyMobile(sp),
-            };
-        }
-        if (sale.sale_type === 'bank' && sale.sale_party) {
-            return {
-                name: sale.sale_party.holder,
-                bank: sale.sale_party.bank,
-                account_no: sale.sale_party.account_no,
-                ifsc: sale.sale_party.ifsc,
-                branch: sale.sale_party.branch,
-                type: sale.sale_party.type
-            };
-        }
-        return null;
+    const fits = {
+      top: space.top >= menuHeight + gap,
+      bottom: space.bottom >= menuHeight + gap,
+      right: space.right >= menuWidth + gap,
+      left: space.left >= menuWidth + gap,
     };
 
-    // Toggle row dropdown (portal + fixed position so menu is not clipped by table overflow)
-    const toggleRowDropdown = (invoiceId, e) => {
-        if (activeRowDropdown === invoiceId) {
-            setActiveRowDropdown(null);
-            return;
-        }
-        const rect = e.currentTarget.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + 8;
-        setDropdownPos({
-            top: openUpward ? undefined : rect.bottom + 4,
-            bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
-            right: window.innerWidth - rect.right,
-        });
-        setActiveRowDropdown(invoiceId);
-    };
+    const preferred = ["top", "bottom", "right", "left"];
+    let placement = preferred.find((p) => fits[p]);
 
-    const activeSale = useMemo(
-        () => sales.find((s) => s.invoice_id === activeRowDropdown) || null,
-        [sales, activeRowDropdown]
+    if (!placement) {
+      placement = preferred.reduce(
+        (best, p) => (space[p] > space[best] ? p : best),
+        "bottom",
+      );
+    }
+
+    let top = 0;
+    let left = 0;
+
+    if (placement === "top") {
+      top = rect.top - menuHeight - gap;
+      left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === "bottom") {
+      top = rect.bottom + gap;
+      left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === "right") {
+      top = rect.top + rect.height / 2 - menuHeight / 2;
+      left = rect.right + gap;
+    } else {
+      top = rect.top + rect.height / 2 - menuHeight / 2;
+      left = rect.left - menuWidth - gap;
+    }
+
+    const clampedLeft = Math.max(
+      margin,
+      Math.min(left, vw - menuWidth - margin),
     );
-
-    // Close all dropdowns when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (
-                !event.target.closest('.dropdown-container') &&
-                !event.target.closest('[data-sale-actions-menu]')
-            ) {
-                setShowAddDropdown(false);
-                setActiveRowDropdown(null);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!activeRowDropdown) return undefined;
-        const close = () => setActiveRowDropdown(null);
-        window.addEventListener('scroll', close, true);
-        window.addEventListener('resize', close);
-        return () => {
-            window.removeEventListener('scroll', close, true);
-            window.removeEventListener('resize', close);
-        };
-    }, [activeRowDropdown]);
-
-    // List rows are server-paginated; `sales` is already the current page from the API
-    const currentItems = sales;
-
-    // Skeleton loader component
-    const SkeletonRow = () => (
-        <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div></td>
-        </tr>
+    const clampedTop = Math.max(
+      margin,
+      Math.min(top, vh - menuHeight - margin),
     );
+    const anchorCenterX = rect.left + rect.width / 2;
+    const anchorCenterY = rect.top + rect.height / 2;
 
-    // Skeleton Loading Component for full page
-    const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-                        {[...Array(4)].map((_, i) => (
-                            <div key={i} className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]" />
-                        ))}
-                    </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="border-b border-slate-200 px-6 py-4">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div><div className="h-6 bg-gray-200 rounded w-48 mb-2"></div><div className="h-4 bg-gray-200 rounded w-32"></div></div>
-                                <div className="flex gap-3"><div className="h-10 bg-gray-200 rounded w-40"></div><div className="h-10 bg-gray-200 rounded w-32"></div></div>
-                            </div>
-                        </div>
-                        <div className="overflow-hidden">
-                            <div className="border-b border-slate-200"><table className="w-full text-sm"><thead className="bg-gradient-to-r from-slate-50 to-slate-100"><tr>{[...Array(8)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr></thead></table></div>
-                            <div className="p-4">{[...Array(6)].map((_, index) => (<div key={index} className="mb-4"><div className="h-12 bg-gray-100 rounded"></div></div>))}</div>
-                        </div>
-                    </div>
+    return {
+      top: clampedTop,
+      left: clampedLeft,
+      placement,
+      arrowX: Math.max(
+        12,
+        Math.min(menuWidth - 12, anchorCenterX - clampedLeft),
+      ),
+      arrowY: Math.max(
+        12,
+        Math.min(menuHeight - 12, anchorCenterY - clampedTop),
+      ),
+    };
+  }, []);
+
+  const handleActionClick = useCallback(
+    (e, invoiceId) => {
+      e.stopPropagation();
+      if (showActionMenu === invoiceId) {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+        return;
+      }
+      actionAnchorRef.current = e.currentTarget;
+      setActionMenuPosition(
+        computeActionMenuPosition(e.currentTarget, { itemCount: 4 }),
+      );
+      setShowActionMenu(invoiceId);
+      setShowAddDropdown(false);
+    },
+    [showActionMenu, computeActionMenuPosition],
+  );
+
+  const activeSale = useMemo(
+    () => sales.find((s) => s.invoice_id === showActionMenu) || null,
+    [sales, showActionMenu],
+  );
+
+  // Close all dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowAddDropdown(false);
+      setShowActionMenu(null);
+      actionAnchorRef.current = null;
+      setActionMenuPosition(null);
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+    const updatePosition = () => {
+      setActionMenuPosition(
+        computeActionMenuPosition(actionAnchorRef.current, { itemCount: 4 }),
+      );
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+      }
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showActionMenu, computeActionMenuPosition]);
+
+  // List rows are server-paginated; `sales` is already the current page from the API
+  const currentItems = sales;
+
+  // Skeleton loader component
+  const SkeletonRow = () => (
+    <tr className="border-b border-slate-100 animate-pulse">
+      <td className="p-3 text-center">
+        <div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div>
+      </td>
+      <td className="p-3 text-center">
+        <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
+      </td>
+      <td className="p-3 text-center">
+        <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
+      </td>
+      <td className="p-3 text-center">
+        <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
+      </td>
+      <td className="p-3 text-center">
+        <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
+      </td>
+      <td className="p-3 text-center">
+        <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
+      </td>
+      <td className="p-3 text-center">
+        <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
+      </td>
+      <td className="p-3 text-center">
+        <div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div>
+      </td>
+    </tr>
+  );
+
+  // Skeleton Loading Component for full page
+  const SkeletonLoader = () => (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Header
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+      <div
+        className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
+      >
+        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]"
+              />
+            ))}
+          </div>
+          <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-slate-50/40">
+            <div className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                  <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-32"></div>
                 </div>
+                <div className="flex gap-3">
+                  <div className="h-10 bg-gray-200 rounded w-40"></div>
+                  <div className="h-10 bg-gray-200 rounded w-32"></div>
+                </div>
+              </div>
             </div>
+            <div className="overflow-hidden">
+              <div className="border-b border-slate-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      {[...Array(8)].map((_, i) => (
+                        <th key={i} className="text-center p-3">
+                          <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+              <div className="p-4">
+                {[...Array(6)].map((_, index) => (
+                  <div key={index} className="mb-4">
+                    <div className="h-12 bg-gray-100 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 
-    // View modal panel
-    const ViewSaleModalPanel = () => {
-        if (!selectedSale) return null;
+  // Show skeleton while loading
+  if (loading && sales.length === 0) {
+    return <SkeletonLoader />;
+  }
 
-        const partyDetails = getSalePartyDetails(selectedSale);
-        const calculation = selectedSale.calculation || {};
-        const lineItems = Array.isArray(selectedSale.items) ? selectedSale.items : [];
-        const firm = selectedSale.firm && typeof selectedSale.firm === 'object' ? selectedSale.firm : null;
-        const hasFirmDetails = Boolean(firm && (firm.firm_name || firm.firm_type || firm.pan_no || firm.gst_no));
-
-        return (
-            <motion.div
-                initial={{ opacity: 0, scale: 0.96, y: 16 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-                className="pointer-events-auto max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-t-2xl">
-                    <div className="flex justify-between items-center">
-                        <div><h2 className="text-lg font-bold">Sale Details</h2></div>
-                        <button onClick={() => setViewModalOpen(false)} className="p-2 hover:bg-white/20 rounded-lg transition-colors"><FiX className="w-5 h-5" /></button>
-                    </div>
-                </div>
-
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 gap-4">
-                        <div className="bg-slate-50 rounded-xl p-4">
-                            <div className="flex items-center gap-2 text-slate-600 mb-2"><FiCalendar className="w-4 h-4" /><span className="text-xs font-medium uppercase tracking-wider">Transaction Date</span></div>
-                            <p className="text-slate-800 font-semibold">{formatDate(selectedSale.transaction_date)}</p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2"><FiUsers className="w-4 h-4 text-blue-600" />Party Information</h3>
-                        <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl p-4 border border-slate-200">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><p className="text-xs text-slate-500 mb-1">Sale Type</p><span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${selectedSale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' : selectedSale.sale_type === 'bank' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>{getSaleTypeDisplay(selectedSale.sale_type)}</span></div>
-                                {partyDetails && (<><div><p className="text-xs text-slate-500 mb-1">Name</p><p className="text-slate-800 font-medium">{partyDetails.name || 'N/A'}</p></div>
-                                {partyDetails.email && (<div><p className="text-xs text-slate-500 mb-1">Email</p><p className="text-slate-800">{partyDetails.email}</p></div>)}
-                                {partyDetails.mobile && (<div><p className="text-xs text-slate-500 mb-1">Mobile</p><p className="text-slate-800">{partyDetails.mobile}</p></div>)}
-                                {partyDetails.bank && (<div><p className="text-xs text-slate-500 mb-1">Bank</p><p className="text-slate-800">{partyDetails.bank}</p></div>)}
-                                {partyDetails.account_no && (<div><p className="text-xs text-slate-500 mb-1">Account No</p><p className="text-slate-800 font-mono">{partyDetails.account_no}</p></div>)}
-                                {partyDetails.ifsc && (<div><p className="text-xs text-slate-500 mb-1">IFSC Code</p><p className="text-slate-800 font-mono">{partyDetails.ifsc}</p></div>)}
-                                </>)}
-                            </div>
-                        </div>
-                    </div>
-
-                    {selectedSale.sale_type === 'client' && hasFirmDetails && (
-                        <div><h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2"><FiBriefcase className="w-4 h-4 text-violet-600" />Firm Information</h3>
-                        <div className="rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-white p-4">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div><p className="text-xs text-slate-500 mb-1">Firm name</p><p className="text-slate-900 font-semibold">{firm?.firm_name || 'N/A'}</p></div>
-                                <div><p className="text-xs text-slate-500 mb-1">Firm type</p><p className="text-slate-800 capitalize">{String(firm?.firm_type || 'N/A').replace(/_/g, ' ')}</p></div>
-                                <div><p className="text-xs text-slate-500 mb-1">PAN</p><p className="text-slate-800 font-mono">{firm?.pan_no || 'N/A'}</p></div>
-                                <div><p className="text-xs text-slate-500 mb-1">GST</p><p className="text-slate-800 font-mono">{firm?.gst_no || 'N/A'}</p></div>
-                            </div>
-                        </div></div>
-                    )}
-
-                    {lineItems.length > 0 && (
-                        <div><h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2"><FiLayers className="w-4 h-4 text-indigo-600" />Services & items</h3>
-                        <div className="overflow-x-auto rounded-xl border border-slate-200">
-                            <table className="w-full min-w-[640px] text-sm">
-                                <thead><tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600"><th className="px-3 py-2 font-semibold">Service</th><th className="px-3 py-2 font-semibold text-right">Fees</th><th className="px-3 py-2 font-semibold text-right">Tax %</th><th className="px-3 py-2 font-semibold text-right">Tax</th><th className="px-3 py-2 font-semibold text-right">Line total</th></tr></thead>
-                                <tbody className="divide-y divide-slate-100 bg-white">
-                                    {lineItems.map((row) => {
-                                        const svc = row.service || {};
-                                        return (<tr key={row.item_id} className="text-slate-800"><td className="px-3 py-2"><div className="font-medium text-slate-900">{svc.name || '—'}</div>{svc.sac_code && <div className="text-xs text-slate-500">SAC {svc.sac_code}</div>}</td>
-                                        <td className="px-3 py-2 text-right tabular-nums">₹{formatCurrency(row.fees ?? 0)}</td>
-                                        <td className="px-3 py-2 text-right tabular-nums">{row.tax_perc ?? '—'}%</td>
-                                        <td className="px-3 py-2 text-right tabular-nums">₹{formatCurrency(row.tax_value ?? 0)}</td>
-                                        <td className="px-3 py-2 text-right font-semibold tabular-nums">₹{formatCurrency(row.total ?? 0)}</td></tr>);
-                                    })}
-                                </tbody>
-                            </table>
-                        </div></div>
-                    )}
-
-                    <div><h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2"><TbCurrencyRupee className="h-4 w-4 text-green-600" />Financial Details</h3>
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div><p className="text-xs text-slate-500 mb-1">Subtotal</p><p className="text-lg font-bold text-green-700">₹{formatCurrency(calculation.subtotal ?? selectedSale.amount ?? 0)}</p></div>
-                            <div><p className="text-xs text-slate-500 mb-1">Tax rate</p><p className="text-slate-800 font-medium">{calculation.tax_rate != null ? `${String(calculation.tax_rate).replace(/\.00$/, '')}%` : '—'}</p></div>
-                            <div><p className="text-xs text-slate-500 mb-1">GST value</p><p className="text-lg font-bold text-amber-600">₹{formatCurrency(calculation.gst_value ?? 0)}</p></div>
-                            <div><p className="text-xs text-slate-500 mb-1">Discount</p><p className="text-slate-800">₹{formatCurrency(calculation.discount_value ?? 0)}</p></div>
-                            <div><p className="text-xs text-slate-500 mb-1">Grand total</p><p className="text-2xl font-bold text-blue-600">₹{formatCurrency(calculation.grand_total ?? selectedSale.amount ?? 0)}</p></div>
-                        </div>
-                    </div></div>
-
-                    {selectedSale.remark && <div><h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2"><FiMessageSquare className="w-4 h-4 text-purple-600" />Invoice remark</h3><div className="bg-purple-50 rounded-xl p-4 border border-purple-200"><p className="text-slate-700 italic">&ldquo;{selectedSale.remark}&rdquo;</p></div></div>}
-                </div>
-
-                <div className="sticky bottom-0 bg-slate-50 px-6 py-4 rounded-b-2xl border-t border-slate-200 flex justify-end gap-3">
-                    <button onClick={() => setViewModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Close</button>
-                    <button onClick={() => {
-                        if (!check('finance_entry_edit')) {
-                            toast.error('Need Access Permission');
-                            return;
-                        }
-                        openEditModal(selectedSale);
-                    }} className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 ${
-                        !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-blue-600' : ''
-                    }`}><FiEdit className="w-4 h-4" />Edit Sale</button>
-                </div>
-            </motion.div>
-        );
-    };
-
-    // Show skeleton while loading
-    if (loading && sales.length === 0) {
-        return <SkeletonLoader />;
-    }
-
-    if (!check('finance_report')) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-                <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-                <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
-                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FiLock className="w-8 h-8 text-slate-400" />
-                        </div>
-                        <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
-                        <p className="text-slate-500 text-sm">You need the Finance Report access permission to view this report.</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+  if (!check("finance_report")) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Header
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <Sidebar
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <div
+          className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
+        >
+          <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FiLock className="w-8 h-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">
+              Access Denied
+            </h3>
+            <p className="text-slate-500 text-sm">
+              You need the Finance Report access permission to view this report.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Summary stats */}
-                    <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-                        {[
-                            { key: 'count', label: 'No. of sales', value: String(summary.count), icon: FiLayers, cardClass: 'bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 text-white' },
-                            { key: 'net', label: 'Net amount', value: `₹${formatCurrency(summary.net)}`, icon: TbCurrencyRupee, cardClass: 'bg-gradient-to-br from-emerald-600 via-teal-500 to-cyan-600 text-white' },
-                            { key: 'tax', label: 'Tax amount', value: `₹${formatCurrency(summary.tax)}`, icon: FiPercent, cardClass: 'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white' },
-                            { key: 'total', label: 'Total amount', value: `₹${formatCurrency(summary.total)}`, icon: TbCurrencyRupee, cardClass: 'bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-600 text-white' },
-                        ].map((card, i) => {
-                            const Icon = card.icon;
-                            return (
-                                <motion.div key={card.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: i * 0.04 }} className={`overflow-hidden rounded-xl border border-white/10 p-3 sm:p-3.5 ${card.cardClass}`}>
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">{card.label}</p><p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">{card.value}</p></div>
-                                        <div className="shrink-0 rounded-lg p-1.5 bg-white/20"><Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Header
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+
+      <div
+        className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
+      >
+        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          {/* Summary stats */}
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+            {[
+              {
+                key: "count",
+                label: "No. of sales",
+                value: String(summary.count),
+                icon: FiLayers,
+                cardClass:
+                  "bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 text-white",
+              },
+              {
+                key: "net",
+                label: "Net amount",
+                value: `₹${formatCurrency(summary.net)}`,
+                icon: TbCurrencyRupee,
+                cardClass:
+                  "bg-gradient-to-br from-emerald-600 via-teal-500 to-cyan-600 text-white",
+              },
+              {
+                key: "tax",
+                label: "Tax amount",
+                value: `₹${formatCurrency(summary.tax)}`,
+                icon: FiPercent,
+                cardClass:
+                  "bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white",
+              },
+              {
+                key: "total",
+                label: "Total amount",
+                value: `₹${formatCurrency(summary.total)}`,
+                icon: TbCurrencyRupee,
+                cardClass:
+                  "bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-600 text-white",
+              },
+            ].map((card, i) => {
+              const Icon = card.icon;
+              return (
+                <motion.div
+                  key={card.key}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: i * 0.04 }}
+                  className={`overflow-hidden rounded-xl border border-white/10 p-3 sm:p-3.5 ${card.cardClass}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">
+                        {card.label}
+                      </p>
+                      <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">
+                        {card.value}
+                      </p>
                     </div>
+                    <div className="shrink-0 rounded-lg p-1.5 bg-white/20">
+                      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
 
-                    {/* Main Card */}
-                    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }} className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
-                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
-                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">Sale Register</h5>
-                                    <input type="text" placeholder="Search…" value={searchTerm} onChange={handleSearchChange} className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]" />
-                                    <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
-                                        <DateRangePickerField value={{ start: fromDate, end: toDate }} onChange={(range) => { setFromDate(range?.start || ''); setToDate(range?.end || ''); }} placeholder="Select date range" mode="range" initialTab="quick" defaultQuickKey="tm" quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']} showRangeHint={false} showResetButton={false} truncateRangeLabel={false} buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all" wrapperClassName="w-full min-w-0" />
-                                    </div>
-                                </div>
-                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
-                                    <div className="dropdown-container relative shrink-0">
-                                        <motion.button type="button" onClick={() => setShowAddDropdown(!showAddDropdown)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                                            <PiExportBold className="h-4 w-4 shrink-0" /><span className="whitespace-nowrap">Export</span><FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
-                                        </motion.button>
-                                        <AnimatePresence>
-                                            {showAddDropdown && (
-                                                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-                                                    <div className="py-1">
-                                                        <button onClick={handleExportClick} className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group">
-                                                            <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors"><PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" /></div>
-                                                            <div className="text-left"><div className="font-medium text-xs">Export as PDF</div></div>
-                                                        </button>
-                                                        <button onClick={handleExportClick} className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group">
-                                                            <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors"><PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" /></div>
-                                                            <div className="text-left"><div className="font-medium text-xs">Export as Excel</div></div>
-                                                        </button>
-                                                        <button onClick={() => setWhatsappModalOpen(true)} className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group">
-                                                            <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors"><FaWhatsapp className="w-3.5 h-3.5 text-green-500" /></div>
-                                                            <div className="text-left"><div className="font-medium text-xs">Share via WhatsApp</div></div>
-                                                        </button>
-                                                        <button onClick={() => setIsEmailModalOpen(true)} className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group">
-                                                            <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors"><AiOutlineMail className="w-3.5 h-3.5 text-blue-500" /></div>
-                                                            <div className="text-left"><div className="font-medium text-xs">Share via Email</div></div>
-                                                        </button>
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                    <motion.button type="button" onClick={() => {
-                                        if (!check('finance_entry')) {
-                                            toast.error('Need Access Permission');
-                                        } else {
-                                            setSaleFormModal(true);
-                                        }
-                                    }} className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
-                                        !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
-                                    }`} whileHover={check('finance_entry') ? { scale: 1.02 } : {}} whileTap={check('finance_entry') ? { scale: 0.98 } : {}}>
-                                        {!check('finance_entry') ? <FiLock className="h-4 w-4 shrink-0" /> : <FiPlus className="h-4 w-4 shrink-0" />}<span className="whitespace-nowrap">Create</span>
-                                    </motion.button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Table Container */}
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                                <thead><tr className="bg-gradient-to-r from-slate-50 to-slate-100"><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">Sl No</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Date</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">Particulars</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Invoice No</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Total Value</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Tax</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Grand Total</th><th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Actions</th></tr></thead>
-                                <tbody className="bg-white divide-y divide-slate-100">
-                                    {loading ? [...Array(5)].map((_, index) => <SkeletonRow key={index} />) : currentItems.length === 0 ? (<tr><td colSpan="8" className="text-center py-8 text-slate-500"><div className="flex flex-col items-center justify-center"><div className="p-3 bg-slate-100 rounded-full mb-3"><FiFileText className="w-8 h-8 text-slate-400" /></div><p className="text-slate-600 text-sm font-medium mb-1">No sales records found</p></div></td></tr>) : currentItems.map((sale, index) => {
-                                        const actualIndex = (currentPage - 1) * itemsPerPage + index;
-                                        const firstServiceName = sale.items?.[0]?.service?.name;
-
-                                        return (
-                                            <motion.tr key={sale.invoice_id || sale.sale_id || index} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="hover:bg-blue-50/20 transition-colors duration-150">
-                                                <td className="text-center p-3 align-middle"><div className="text-slate-700 font-medium text-xs">{actualIndex + 1}</div></td>
-                                                <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(sale.transaction_date)}</div></td>
-                                                <td className="text-center p-3 align-middle"><div className="mx-auto max-w-[200px]"><div className="text-slate-800 font-semibold text-xs">{getSalePartyName(sale) || 'N/A'}</div><div className="flex flex-col items-center gap-1 mt-1">{sale.is_task ? <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">Task</span> : <span className="text-[9px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Direct</span>}</div>{firstServiceName && <div className="text-slate-500 text-[10px] mt-1 truncate max-w-[200px] mx-auto">{firstServiceName}</div>}</div></td>
-                                                <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50 shadow-xs">{sale.invoice_no}</span></td>
-                                                <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">₹{formatCurrency(sale.calculation?.total || sale.amount || 0)}</span></td>
-                                                <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-amber-50 to-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">₹{formatCurrency(sale.calculation?.gst_value || 0)}</span></td>
-                                                <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">₹{formatCurrency(sale.calculation?.grand_total || sale.amount || 0)}</span></td>
-                                                <td className="text-center p-3 align-middle">
-                                                    <div className="dropdown-container relative flex justify-center">
-                                                        <motion.button
-                                                            type="button"
-                                                            className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                            onClick={(e) => toggleRowDropdown(sale.invoice_id, e)}
-                                                            whileHover={{ scale: 1.05 }}
-                                                            whileTap={{ scale: 0.95 }}
-                                                        >
-                                                            <FiMenu className="w-3.5 h-3.5" />
-                                                        </motion.button>
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-
-                            {!loading && (currentItems.length > 0 || totalRecords > 0) && totalPages > 0 && (
-                                <TablePagination page={currentPage} limit={itemsPerPage} total={totalRecords} totalPages={totalPages} isLastPage={isLastPage} rowOptions={[5, 10, 20, 50, 100]} defaultRows={20} onPageChange={handlePageChange} onLimitChange={setItemsPerPage} />
-                            )}
-                        </div>
-                    </motion.div>
+          {/* Sale register — flat (no card shell) */}
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
+          >
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+              <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                  <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
+                    Sale Register
+                  </h5>
+                  <input
+                    type="text"
+                    placeholder="Search…"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
+                  />
+                  <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
+                    <DateRangePickerField
+                      value={{ start: fromDate, end: toDate }}
+                      onChange={(range) => {
+                        setFromDate(range?.start || "");
+                        setToDate(range?.end || "");
+                      }}
+                      placeholder="Select date range"
+                      mode="range"
+                      initialTab="quick"
+                      defaultQuickKey="tm"
+                      quickOptionKeys={["tw", "lw", "lm", "tm", "lf", "fy"]}
+                      showRangeHint={false}
+                      showResetButton={false}
+                      truncateRangeLabel={false}
+                      buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
+                      wrapperClassName="w-full min-w-0"
+                    />
+                  </div>
                 </div>
+                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
+                  <div className="dropdown-container relative shrink-0">
+                    <motion.button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAddDropdown(!showAddDropdown);
+                      }}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <PiExportBold className="h-4 w-4 shrink-0" />
+                      <span className="whitespace-nowrap">Export</span>
+                      <FiChevronDown
+                        className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? "rotate-180" : ""}`}
+                      />
+                    </motion.button>
+                    <AnimatePresence>
+                      {showAddDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="py-1">
+                            <button
+                              onClick={handleExportClick}
+                              className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                            >
+                              <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
+                                <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium text-xs">
+                                  Export as PDF
+                                </div>
+                              </div>
+                            </button>
+                            <button
+                              onClick={handleExportClick}
+                              className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                            >
+                              <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium text-xs">
+                                  Export as Excel
+                                </div>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => setWhatsappModalOpen(true)}
+                              className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                            >
+                              <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium text-xs">
+                                  Share via WhatsApp
+                                </div>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => setIsEmailModalOpen(true)}
+                              className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                            >
+                              <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
+                                <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium text-xs">
+                                  Share via Email
+                                </div>
+                              </div>
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <motion.button
+                    type="button"
+                    onClick={() => {
+                      if (!check("finance_entry")) {
+                        toast.error("Need Access Permission");
+                      } else {
+                        setSaleFormModal(true);
+                      }
+                    }}
+                    className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
+                      !check("finance_entry")
+                        ? "opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700"
+                        : ""
+                    }`}
+                    whileHover={check("finance_entry") ? { scale: 1.02 } : {}}
+                    whileTap={check("finance_entry") ? { scale: 0.98 } : {}}
+                  >
+                    {!check("finance_entry") ? (
+                      <FiLock className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <FiPlus className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="whitespace-nowrap">Create</span>
+                  </motion.button>
+                </div>
+              </div>
             </div>
 
-            {/* Modals */}
-            {activeRowDropdown && activeSale && createPortal(
-                <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    data-sale-actions-menu
-                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
-                    style={{
-                        top: dropdownPos.top,
-                        bottom: dropdownPos.bottom,
-                        right: dropdownPos.right,
-                        minWidth: ACTIONS_MENU_WIDTH,
-                    }}
-                >
-                    <button
-                        type="button"
-                        onClick={() => handleViewSale(activeSale)}
-                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
-                    >
-                        <div className="mr-2 rounded bg-blue-50 p-1"><FiEye className="h-3 w-3 text-blue-500" /></div>
-                        <div className="text-left font-medium">View Details</div>
-                    </button>
-                    <button
-                        type="button"
-                        className={`flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 ${
-                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
-                        }`}
-                        onClick={() => {
-                            if (!check('finance_entry_edit')) {
-                                toast.error('Need Access Permission');
-                                return;
-                            }
-                            openEditModal(activeSale);
-                        }}
-                    >
-                        <div className="mr-2 rounded bg-blue-50 p-1">
-                            {!check('finance_entry_edit') ? (
-                                <FiLock className="h-3 w-3 text-slate-400" />
-                            ) : (
-                                <FiEdit className="h-3 w-3 text-blue-500" />
-                            )}
+            {/* Table Container */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-slate-100/90 border-b border-slate-200">
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">
+                      Sl No
+                    </th>
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">
+                      Date
+                    </th>
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">
+                      Particulars
+                    </th>
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">
+                      Invoice No
+                    </th>
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
+                      Total Value
+                    </th>
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
+                      Tax
+                    </th>
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
+                      Grand Total
+                    </th>
+                    <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loading ? (
+                    [...Array(5)].map((_, index) => <SkeletonRow key={index} />)
+                  ) : currentItems.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="8"
+                        className="text-center py-8 text-slate-500"
+                      >
+                        <div className="flex flex-col items-center justify-center">
+                          <div className="p-3 bg-slate-100 rounded-full mb-3">
+                            <FiFileText className="w-8 h-8 text-slate-400" />
+                          </div>
+                          <p className="text-slate-600 text-sm font-medium mb-1">
+                            No sales records found
+                          </p>
                         </div>
-                        <div className="text-left font-medium">Edit Sale</div>
-                    </button>
-                    <button
-                        type="button"
-                        disabled={downloadingInvoice}
-                        onClick={() => handleDownloadInvoice(activeSale)}
-                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        <div className="mr-2 rounded bg-green-50 p-1"><FiDownload className="h-3 w-3 text-green-600" /></div>
-                        <div className="text-left font-medium">{downloadingInvoice ? 'Downloading…' : 'Download'}</div>
-                    </button>
-                    <div className="mt-1 border-t border-slate-100 pt-1">
-                        <button
-                            type="button"
-                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
-                            onClick={() => handleOtherExport('print', activeSale)}
-                        >
-                            <div className="mr-2 rounded bg-slate-50 p-1"><FiPrinter className="h-3 w-3 text-slate-600" /></div>
-                            <div className="text-left font-medium">Print</div>
-                        </button>
-                        <button
-                            type="button"
-                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
-                            onClick={() => handleOtherExport('whatsapp', activeSale)}
-                        >
-                            <div className="mr-2 rounded bg-green-50 p-1"><FaWhatsapp className="h-3 w-3 text-green-500" /></div>
-                            <div className="text-left font-medium">WhatsApp</div>
-                        </button>
-                        <button
-                            type="button"
-                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
-                            onClick={() => handleOtherExport('email', activeSale)}
-                        >
-                            <div className="mr-2 rounded bg-blue-50 p-1"><FiMail className="h-3 w-3 text-blue-500" /></div>
-                            <div className="text-left font-medium">Email</div>
-                        </button>
-                    </div>
-                </motion.div>,
-                document.body
-            )}
+                      </td>
+                    </tr>
+                  ) : (
+                    currentItems.map((sale, index) => {
+                      const actualIndex =
+                        (currentPage - 1) * itemsPerPage + index;
+                      const firstServiceName = sale.items?.[0]?.service?.name;
 
-            <SaleForm isOpen={saleFormModal} onClose={() => setSaleFormModal(false)} onSuccess={handleSaleSuccess} mode="modal" />
-            <EmailSelectionModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSubmit={handleEmailSubmit} />
-            <MobileSelectionModal isOpen={isWhatsappModalOpen} onClose={() => setWhatsappModalOpen(false)} onSubmit={handleWhatsappSubmit} />
+                      return (
+                        <motion.tr
+                          key={sale.invoice_id || sale.sale_id || index}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.15 }}
+                          className={`${index % 2 === 0 ? "bg-white" : "bg-slate-50/70"} hover:bg-indigo-50/40 transition-colors duration-150`}
+                        >
+                          <td className="text-center p-3 align-middle">
+                            <div className="text-slate-700 font-medium text-xs">
+                              {actualIndex + 1}
+                            </div>
+                          </td>
+                          <td className="text-center p-3 align-middle">
+                            <div className="font-medium text-slate-700 text-xs">
+                              {formatDate(sale.transaction_date)}
+                            </div>
+                          </td>
+                          <td className="text-center p-3 align-middle">
+                            <div className="mx-auto max-w-[200px]">
+                              <div className="text-slate-800 font-semibold text-xs">
+                                {getSalePartyName(sale) || "N/A"}
+                              </div>
+                              <div className="flex flex-col items-center gap-1 mt-1">
+                                {sale.is_task ? (
+                                  <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                                    Task
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    Direct
+                                  </span>
+                                )}
+                              </div>
+                              {firstServiceName && (
+                                <div className="text-slate-500 text-[10px] mt-1 truncate max-w-[200px] mx-auto">
+                                  {firstServiceName}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="text-center p-3 align-middle">
+                            <span className="inline-flex items-center justify-center bg-slate-100 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-200">
+                              {sale.invoice_no}
+                            </span>
+                          </td>
+                          <td className="text-center p-3 align-middle">
+                            <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px]">
+                              ₹
+                              {formatCurrency(
+                                sale.calculation?.total || sale.amount || 0,
+                              )}
+                            </span>
+                          </td>
+                          <td className="text-center p-3 align-middle">
+                            <span className="inline-flex items-center justify-center bg-amber-50 text-amber-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px]">
+                              ₹
+                              {formatCurrency(sale.calculation?.gst_value || 0)}
+                            </span>
+                          </td>
+                          <td className="text-center p-3 align-middle">
+                            <span className="inline-flex items-center justify-center bg-blue-50 text-blue-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px]">
+                              ₹
+                              {formatCurrency(
+                                sale.calculation?.grand_total ||
+                                  sale.amount ||
+                                  0,
+                              )}
+                            </span>
+                          </td>
+                          <td className="text-center p-3 align-middle">
+                            <div className="flex justify-center">
+                              <button
+                                type="button"
+                                aria-label="Actions"
+                                className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-150 border border-slate-200 hover:border-indigo-300"
+                                onClick={(e) =>
+                                  handleActionClick(e, sale.invoice_id)
+                                }
+                              >
+                                <FiMoreVertical className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
 
-            {/* View Sale Modal */}
-            <AnimatePresence>
-                {viewModalOpen && selectedSale && (
-                    <motion.div key="view-sale-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setViewModalOpen(false)}>
-                        <ViewSaleModalPanel />
-                    </motion.div>
+              {!loading &&
+                (currentItems.length > 0 || totalRecords > 0) &&
+                totalPages > 0 && (
+                  <TablePagination
+                    page={currentPage}
+                    limit={itemsPerPage}
+                    total={totalRecords}
+                    totalPages={totalPages}
+                    isLastPage={isLastPage}
+                    rowOptions={[5, 10, 20, 50, 100]}
+                    defaultRows={20}
+                    onPageChange={handlePageChange}
+                    onLimitChange={setItemsPerPage}
+                  />
                 )}
-            </AnimatePresence>
-
-            {/* Export Modal */}
-            <ExportModal
-                isOpen={exportModalOpen}
-                onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
-                exportData={exportData}
-                columns={exportColumns}
-                jobType="sales_report"
-            />
-
-            <EditTransactionModalManager
-                modalType="SALE"
-                isOpen={editModalOpen}
-                onClose={closeEditModal}
-                editRecord={editRecord}
-                onSubmit={closeEditModal}
-                formatCurrency={formatCurrency}
-            />
-
-            {/* Export Confirmation Modal (for other exports) */}
-            <AnimatePresence>
-                {exportModal.open && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <motion.div initial={{ opacity: 0, scale: 0.9, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 10 }} className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl">
-                            <div className="text-center"><div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4"><PiExportBold className="w-8 h-8 text-blue-600" /></div><h3 className="text-lg font-bold text-slate-800 mb-2">Exporting {exportModal.type.toUpperCase()}</h3><p className="text-slate-600 mb-6 text-sm">Your {exportModal.type} export is being processed...</p><div className="flex justify-center space-x-2 mb-6"><div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div><div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div><div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div></div><div className="text-xs text-slate-500">This will only take a moment...</div></div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            </div>
+          </motion.div>
         </div>
-    );
+      </div>
+
+      {/* Modals */}
+      {showActionMenu &&
+        activeSale &&
+        actionMenuPosition &&
+        createPortal(
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            className="fixed w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
+            style={{
+              top: actionMenuPosition.top,
+              left: actionMenuPosition.left,
+              height: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span
+              className="absolute w-2.5 h-2.5 bg-white border-slate-200 rotate-45"
+              style={{
+                left:
+                  actionMenuPosition.placement === "left" ||
+                  actionMenuPosition.placement === "right"
+                    ? undefined
+                    : `${actionMenuPosition.arrowX - 5}px`,
+                top:
+                  actionMenuPosition.placement === "bottom"
+                    ? "-5px"
+                    : actionMenuPosition.placement === "top"
+                      ? undefined
+                      : `${actionMenuPosition.arrowY - 5}px`,
+                bottom:
+                  actionMenuPosition.placement === "top" ? "-5px" : undefined,
+                right:
+                  actionMenuPosition.placement === "left" ? "-5px" : undefined,
+                borderTopWidth:
+                  actionMenuPosition.placement === "bottom" ? "1px" : "0",
+                borderLeftWidth:
+                  actionMenuPosition.placement === "bottom" ? "1px" : "0",
+                borderBottomWidth:
+                  actionMenuPosition.placement === "top" ? "1px" : "0",
+                borderRightWidth:
+                  actionMenuPosition.placement === "left"
+                    ? "1px"
+                    : actionMenuPosition.placement === "right"
+                      ? "1px"
+                      : "0",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => handleViewSale(activeSale)}
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+            >
+              <FiEye className="w-4 h-4 text-indigo-600" />
+              Details
+            </button>
+            <button
+              type="button"
+              className={`w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors ${
+                !check("finance_entry_edit")
+                  ? "cursor-not-allowed opacity-60 hover:bg-transparent"
+                  : ""
+              }`}
+              onClick={() => handleSaleEditAction(activeSale)}
+            >
+              {!check("finance_entry_edit") ? (
+                <FiLock className="w-4 h-4 text-slate-400" />
+              ) : (
+                <FiEdit2 className="w-4 h-4 text-blue-600" />
+              )}
+              {isTaskOriginSale(activeSale) ? "Edit (Task)" : "Edit"}
+            </button>
+            <button
+              type="button"
+              disabled={downloadingInvoice}
+              onClick={() => handleDownloadInvoice(activeSale)}
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-green-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloadingInvoice ? (
+                <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <FiDownload className="w-4 h-4 text-green-600" />
+              )}
+              {downloadingInvoice ? "Downloading…" : "Download"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenShareSale(activeSale)}
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-teal-50 flex items-center gap-2 transition-colors"
+            >
+              <FiShare2 className="w-4 h-4 text-teal-600" />
+              Share
+            </button>
+          </motion.div>,
+          document.body,
+        )}
+
+      <DocumentShareModal
+        isOpen={showDocumentShareModal}
+        onClose={() => {
+          setShowDocumentShareModal(false);
+          setShareSale(null);
+        }}
+        title="Share Invoice"
+        subtitle={
+          shareSale
+            ? `Invoice ${shareSale.invoice_no || shareSale.invoice_id}`
+            : undefined
+        }
+        onSend={handleShareSaleSend}
+      />
+
+      <SaleForm
+        isOpen={saleFormModal}
+        onClose={() => setSaleFormModal(false)}
+        onSuccess={handleSaleSuccess}
+        mode="modal"
+      />
+      <EmailSelectionModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        onSubmit={handleEmailSubmit}
+      />
+      <MobileSelectionModal
+        isOpen={isWhatsappModalOpen}
+        onClose={() => setWhatsappModalOpen(false)}
+        onSubmit={handleWhatsappSubmit}
+      />
+
+      <ViewTransactionModalManager
+        modalType="SALE"
+        isOpen={viewModalOpen}
+        record={selectedSale}
+        onClose={closeViewModal}
+        formatCurrency={formatCurrency}
+        canEdit={check("finance_entry_edit")}
+        onEdit={handleSaleEditAction}
+        onDownload={handleDownloadInvoice}
+        onShare={handleOpenShareSale}
+        isDownloading={downloadingInvoice}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => {
+          setExportModalOpen(false);
+          setExportData([]);
+          setExportColumns([]);
+        }}
+        exportData={exportData}
+        columns={exportColumns}
+        jobType="sales_report"
+      />
+
+      <EditTransactionModalManager
+        modalType="SALE"
+        isOpen={editModalOpen}
+        onClose={closeEditModal}
+        editRecord={editRecord}
+        onSubmit={handleEditSubmit}
+        formatCurrency={formatCurrency}
+      />
+
+      {/* Export Confirmation Modal (for other exports) */}
+      <AnimatePresence>
+        {exportModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl"
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <PiExportBold className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">
+                  Exporting {exportModal.type.toUpperCase()}
+                </h3>
+                <p className="text-slate-600 mb-6 text-sm">
+                  Your {exportModal.type} export is being processed...
+                </p>
+                <div className="flex justify-center space-x-2 mb-6">
+                  <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div>
+                  <div
+                    className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                </div>
+                <div className="text-xs text-slate-500">
+                  This will only take a moment...
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 export default ViewSales;

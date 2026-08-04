@@ -11,6 +11,7 @@ import {
     FiX,
     FiMail,
     FiPhone,
+    FiLock,
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +23,7 @@ import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
 import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
+import { useUserPermissions } from '../utils/permission-helper';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 
@@ -160,7 +162,7 @@ const DetailRow = ({ label, children }) => (
     </div>
 );
 
-const DiscountDetailsModal = ({ isOpen, discount, onClose }) => (
+const DiscountDetailsModal = ({ isOpen, discount, onClose, onEdit, canEdit = true }) => (
     createPortal(
         <AnimatePresence>
             {isOpen && discount ? (
@@ -245,7 +247,7 @@ const DiscountDetailsModal = ({ isOpen, discount, onClose }) => (
                                 </DetailRow>
                             </div>
                         </div>
-                        <div className="shrink-0 flex justify-end border-t border-slate-200 bg-slate-50/90 px-5 py-3">
+                        <div className="shrink-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/90 px-5 py-3">
                             <button
                                 type="button"
                                 onClick={onClose}
@@ -253,6 +255,25 @@ const DiscountDetailsModal = ({ isOpen, discount, onClose }) => (
                             >
                                 Close
                             </button>
+                            {typeof onEdit === 'function' ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!canEdit) {
+                                            toast.error('Need Access Permission');
+                                            return;
+                                        }
+                                        onEdit(discount);
+                                    }}
+                                    disabled={!canEdit}
+                                    className={`inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-medium text-white hover:bg-amber-700 ${
+                                        !canEdit ? 'cursor-not-allowed opacity-60 hover:bg-amber-600' : ''
+                                    }`}
+                                >
+                                    {!canEdit ? <FiLock className="h-3.5 w-3.5" /> : <FiEdit className="h-3.5 w-3.5" />}
+                                    Edit Discount
+                                </button>
+                            ) : null}
                         </div>
                     </motion.div>
                 </motion.div>
@@ -283,6 +304,7 @@ const SkeletonRow = () => (
 );
 
 const DiscountVoucherDetails = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -410,11 +432,18 @@ const DiscountVoucherDetails = () => {
         setEditModalOpen(true);
         setActiveRowDropdown(null);
         actionAnchorRef.current = null;
+        setDetailsOpen(false);
+        setDetailsRecord(null);
     };
 
     const closeEditModal = () => {
         setEditModalOpen(false);
         setEditRecord(null);
+    };
+
+    const handleEditSuccess = () => {
+        closeEditModal();
+        handleDiscountSuccess();
     };
 
     const openDetails = (row) => {
@@ -813,10 +842,22 @@ const DiscountVoucherDetails = () => {
                     </button>
                     <button
                         type="button"
-                        className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-amber-50"
-                        onClick={() => openEditModal(activeDiscount)}
+                        className={`flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-amber-50 ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
+                        onClick={() => {
+                            if (!check('finance_entry_edit')) {
+                                toast.error('Need Access Permission');
+                                return;
+                            }
+                            openEditModal(activeDiscount);
+                        }}
                     >
-                        <FiEdit className="h-4 w-4 text-blue-600" />
+                        {!check('finance_entry_edit') ? (
+                            <FiLock className="h-4 w-4 text-slate-400" />
+                        ) : (
+                            <FiEdit className="h-4 w-4 text-blue-600" />
+                        )}
                         Edit
                     </button>
                 </motion.div>,
@@ -837,7 +878,7 @@ const DiscountVoucherDetails = () => {
                 isOpen={editModalOpen}
                 onClose={closeEditModal}
                 editRecord={editRecord}
-                onSubmit={handleDiscountSuccess}
+                onSubmit={handleEditSuccess}
                 formatCurrency={formatCurrency}
                 summary={emptySummary}
             />
@@ -846,6 +887,8 @@ const DiscountVoucherDetails = () => {
                 isOpen={detailsOpen}
                 discount={detailsRecord}
                 onClose={closeDetails}
+                canEdit={check('finance_entry_edit')}
+                onEdit={openEditModal}
             />
         </div>
     );

@@ -3,17 +3,18 @@ import { createPortal } from 'react-dom';
 import {
     FiSearch,
     FiPlus,
-    FiEdit,
+    FiEdit2,
     FiFileText,
-    FiMenu,
+    FiMoreVertical,
     FiEye,
     FiChevronRight,
-    FiCreditCard,
     FiX,
     FiCheckCircle,
     FiAlertCircle,
     FiInfo,
-    FiLock
+    FiLock,
+    FiDownload,
+    FiShare2,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -21,20 +22,19 @@ import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
 import { Header, Sidebar } from '../components/header';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
 import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
+import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import toast from 'react-hot-toast';
 import { useUserPermissions } from '../utils/permission-helper';
-
-const ACTIONS_MENU_WIDTH = 192;
-const ACTIONS_MENU_HEIGHT = 140;
 
 const EMPTY_STATS = { count: 0, amount: 0 };
 
@@ -598,14 +598,16 @@ const ViewReceived = () => {
     const [editRecord, setEditRecord] = useState(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [detailsRecord, setDetailsRecord] = useState(null);
+    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+    const [shareReceived, setShareReceived] = useState(null);
+    const [showDocumentShareModal, setShowDocumentShareModal] = useState(false);
     const [stats, setStats] = useState(EMPTY_STATS);
 
     // State for dropdown menus
     const [showAddDropdown, setShowAddDropdown] = useState(false);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: undefined, right: 0, bottom: undefined, openUpward: false });
+    const [showActionMenu, setShowActionMenu] = useState(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState(null);
     const actionAnchorRef = useRef(null);
-    const dropdownModeRef = useRef('button');
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
     // Export Modal State
@@ -827,11 +829,16 @@ const ViewReceived = () => {
         fetchReceivedData();
     };
 
+    const closeActionMenu = () => {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+    };
+
     const openDetails = (record) => {
         setDetailsRecord(record);
         setDetailsOpen(true);
-        setActiveRowDropdown(null);
-        actionAnchorRef.current = null;
+        closeActionMenu();
     };
 
     const closeDetails = () => {
@@ -840,10 +847,13 @@ const ViewReceived = () => {
     };
 
     const openEditModal = (record) => {
+        if (!check('finance_entry_edit')) {
+            toast.error('Need Access Permission');
+            return;
+        }
         setEditRecord(record);
         setEditModalOpen(true);
-        setActiveRowDropdown(null);
-        actionAnchorRef.current = null;
+        closeActionMenu();
     };
 
     const closeEditModal = () => {
@@ -855,6 +865,96 @@ const ViewReceived = () => {
         closeEditModal();
         handleReceivedSuccess();
     };
+
+    const handleDownloadInvoice = async (record) => {
+        const invoiceId = record?.invoice_id;
+        if (!invoiceId) {
+            toast.error('Invoice ID not available for this receipt');
+            return;
+        }
+
+        closeActionMenu();
+        setDownloadingInvoice(true);
+        const toastId = toast.loading('Generating invoice…');
+        try {
+            const headers = getHeaders();
+            if (!headers) {
+                toast.error('Please log in again to download the invoice', { id: toastId });
+                return;
+            }
+
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/generate`,
+                { invoice_id: invoiceId, type: 'receive', response: 'pdf' },
+                { headers, responseType: 'blob' }
+            );
+
+            const filename = `receive-${record.invoice_no || invoiceId}.pdf`;
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Invoice downloaded', { id: toastId });
+        } catch (error) {
+            console.error('Invoice download error:', error);
+            let message = error.message || 'Failed to download invoice';
+            if (error.response?.data instanceof Blob) {
+                try {
+                    const text = await error.response.data.text();
+                    const parsed = JSON.parse(text);
+                    message = parsed.message || message;
+                } catch {
+                    // keep default
+                }
+            } else if (error.response?.data?.message) {
+                message = error.response.data.message;
+            }
+            toast.error(message, { id: toastId });
+        } finally {
+            setDownloadingInvoice(false);
+        }
+    };
+
+    const handleOpenShareReceived = (record) => {
+        if (!record?.invoice_id) {
+            toast.error('Invoice ID not available for this receipt');
+            return;
+        }
+        const partyType = String(record.payment_from?.type || '').toLowerCase();
+        if (partyType !== 'client') {
+            toast.error('Share is available for client receipts only');
+            return;
+        }
+        closeActionMenu();
+        setShareReceived(record);
+        setShowDocumentShareModal(true);
+    };
+
+    const handleShareReceivedSend = useCallback(
+        async (channels) => {
+            if (!shareReceived?.invoice_id) {
+                throw new Error('Invoice ID not available');
+            }
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/share`,
+                {
+                    invoice_id: shareReceived.invoice_id,
+                    type: 'receive',
+                    channels,
+                },
+                { headers: getHeaders() }
+            );
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Failed to share invoice');
+            }
+            return response.data;
+        },
+        [shareReceived]
+    );
 
     const handleEmailSubmit = (email) => {
         setSelectedEmail(email);
@@ -868,169 +968,141 @@ const ViewReceived = () => {
         console.log('Selected number:', number);
     };
 
-    // Get edit link and invoice link based on payment_from type
-    const getActionLinks = (item) => {
-        let editLink = '';
-        let invoiceLink = '';
-        const partyType = item.payment_from?.type || '';
+    const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+        if (!anchorEl) return null;
 
-        switch (partyType) {
-            case 'client':
-                editLink = `/edit-received-client?redirect=${window.location.href}&invoice_id=${item.invoice_id}`;
-                invoiceLink = `/preview-invoice-received?invoice_id=${item.invoice_id}`;
-                break;
-            case 'ca':
-                editLink = `/edit-received-ca?redirect=${window.location.href}&invoice_id=${item.invoice_id}`;
-                invoiceLink = `/preview-invoice-received?invoice_id=${item.invoice_id}`;
-                break;
-            case 'staff':
-                editLink = `/edit-received-staff?redirect=${window.location.href}&invoice_id=${item.invoice_id}`;
-                invoiceLink = `/preview-invoice-received?invoice_id=${item.invoice_id}`;
-                break;
-            case 'agent':
-                editLink = `/edit-received-agent?redirect=${window.location.href}&invoice_id=${item.invoice_id}`;
-                invoiceLink = `/preview-invoice-received?invoice_id=${item.invoice_id}`;
-                break;
-            case 'capital':
-                editLink = `/edit-received-client-capital?redirect=${window.location.href}&payment_id=${item.transaction_id}`;
-                break;
-            default:
-                editLink = '#';
-                invoiceLink = '#';
-        }
-
-        return { editLink, invoiceLink };
-    };
-
-    const updateDropdownPosition = useCallback((anchorEl) => {
-        if (!anchorEl) return;
+        const itemCount = Math.max(1, Number(options.itemCount) || 2);
         const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 176;
+        const menuHeight = 8 + itemCount * 36;
+        const gap = 8;
         const margin = 8;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const spaceAbove = rect.top;
-        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + margin && spaceAbove > spaceBelow;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
 
-        let top;
-        let bottom;
-        if (openUpward) {
-            top = undefined;
-            bottom = Math.max(margin, window.innerHeight - rect.top + 4);
-        } else {
-            top = Math.min(rect.bottom + 4, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
-            bottom = undefined;
+        const space = {
+            top: rect.top - margin,
+            bottom: vh - rect.bottom - margin,
+            right: vw - rect.right - margin,
+            left: rect.left - margin,
+        };
+
+        const fits = {
+            top: space.top >= menuHeight + gap,
+            bottom: space.bottom >= menuHeight + gap,
+            right: space.right >= menuWidth + gap,
+            left: space.left >= menuWidth + gap,
+        };
+
+        const preferred = ['top', 'bottom', 'right', 'left'];
+        let placement = preferred.find((p) => fits[p]);
+
+        if (!placement) {
+            placement = preferred.reduce((best, p) => (space[p] > space[best] ? p : best), 'bottom');
         }
 
-        const right = Math.max(
-            margin,
-            Math.min(window.innerWidth - rect.right, window.innerWidth - ACTIONS_MENU_WIDTH - margin)
-        );
+        let top = 0;
+        let left = 0;
 
-        setDropdownPos({ top, bottom, right, left: undefined, openUpward });
+        if (placement === 'top') {
+            top = rect.top - menuHeight - gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'bottom') {
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'right') {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.right + gap;
+        } else {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.left - menuWidth - gap;
+        }
+
+        const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+        const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+        const anchorCenterX = rect.left + rect.width / 2;
+        const anchorCenterY = rect.top + rect.height / 2;
+
+        return {
+            top: clampedTop,
+            left: clampedLeft,
+            placement,
+            arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+            arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
+        };
     }, []);
 
-    const openActionsFromButton = (e, transactionId) => {
+    const handleActionClick = useCallback((e, transactionId) => {
         e.stopPropagation();
-        if (activeRowDropdown === transactionId) {
-            setActiveRowDropdown(null);
-            actionAnchorRef.current = null;
+        if (showActionMenu === transactionId) {
+            closeActionMenu();
             return;
         }
-        dropdownModeRef.current = 'button';
         actionAnchorRef.current = e.currentTarget;
-        updateDropdownPosition(e.currentTarget);
-        setActiveRowDropdown(transactionId);
-    };
-
-    const openActionsFromContextMenu = (e, transactionId) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropdownModeRef.current = 'pointer';
-        actionAnchorRef.current = null;
-        const margin = 8;
-        const left = Math.min(e.clientX, window.innerWidth - ACTIONS_MENU_WIDTH - margin);
-        const top = Math.min(e.clientY, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
-        setDropdownPos({
-            top: Math.max(margin, top),
-            left: Math.max(margin, left),
-            right: undefined,
-            bottom: undefined,
-            openUpward: false,
-        });
-        setActiveRowDropdown(transactionId);
-    };
+        setActionMenuPosition(computeActionMenuPosition(e.currentTarget, { itemCount: 4 }));
+        setShowActionMenu(transactionId);
+        setShowAddDropdown(false);
+    }, [showActionMenu, computeActionMenuPosition]);
 
     const activeReceivedItem = useMemo(
-        () => received.find((item) => item.transaction_id === activeRowDropdown) || null,
-        [received, activeRowDropdown]
+        () => received.find((item) => item.transaction_id === showActionMenu) || null,
+        [received, showActionMenu]
     );
 
-    // Close export dropdown when clicking outside
+    // Close export / action menus when clicking outside
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
-                setShowAddDropdown(false);
-            }
+        const handleClickOutside = () => {
+            setShowAddDropdown(false);
+            closeActionMenu();
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('click', handleClickOutside);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('click', handleClickOutside);
         };
     }, []);
 
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (
-                !event.target.closest('[data-received-actions-menu]') &&
-                !event.target.closest('[data-received-actions-trigger]')
-            ) {
-                setActiveRowDropdown(null);
-                actionAnchorRef.current = null;
-            }
+        if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+        const updatePosition = () => {
+            setActionMenuPosition(
+                computeActionMenuPosition(actionAnchorRef.current, { itemCount: 4 })
+            );
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
-    useEffect(() => {
-        if (!activeRowDropdown) return undefined;
-
-        const handleScrollOrResize = () => {
-            if (dropdownModeRef.current === 'button' && actionAnchorRef.current) {
-                updateDropdownPosition(actionAnchorRef.current);
-                return;
-            }
-            if (dropdownModeRef.current === 'pointer') {
-                setActiveRowDropdown(null);
-                actionAnchorRef.current = null;
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeActionMenu();
             }
         };
 
-        window.addEventListener('scroll', handleScrollOrResize, true);
-        window.addEventListener('resize', handleScrollOrResize);
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        document.addEventListener('keydown', handleEscape);
+
         return () => {
-            window.removeEventListener('scroll', handleScrollOrResize, true);
-            window.removeEventListener('resize', handleScrollOrResize);
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+            document.removeEventListener('keydown', handleEscape);
         };
-    }, [activeRowDropdown, updateDropdownPosition]);
+    }, [showActionMenu, computeActionMenuPosition]);
 
     const StatCardSkeleton = () => (
-        <div className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 h-3 w-24 rounded bg-slate-200" />
-            <div className="h-6 w-20 rounded bg-slate-200" />
-        </div>
+        <div className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]" />
     );
 
     // Skeleton loader component
     const SkeletonRow = () => (
         <tr className="animate-pulse border-b border-slate-100">
-            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-6 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
-            <td className="p-2.5"><div className="mx-auto h-4 w-24 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-6 w-16 rounded bg-slate-200" /></td>
-            <td className="p-2.5"><div className="mx-auto h-4 w-20 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-8 w-8 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center"><div className="mx-auto h-4 w-6 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center"><div className="mx-auto h-4 w-24 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center"><div className="mx-auto h-6 w-16 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center"><div className="mx-auto h-4 w-20 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center"><div className="mx-auto h-8 w-8 rounded bg-slate-200" /></td>
         </tr>
     );
 
@@ -1072,8 +1144,8 @@ const ViewReceived = () => {
 
             {/* Main Content Area - Full Page Scroll */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
-                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2">
                         {listLoading && received.length === 0 ? (
                             <>
                                 <StatCardSkeleton />
@@ -1082,32 +1154,32 @@ const ViewReceived = () => {
                         ) : (
                             <>
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white shadow-md"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-blue-100">Received entries</p>
-                                            <h3 className="mt-1 text-lg font-bold tabular-nums">{stats.count}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Received entries</p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">{stats.count}</p>
                                         </div>
-                                        <FiFileText className="h-5 w-5 shrink-0 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5"><FiFileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></div>
                                     </div>
                                 </motion.div>
 
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, delay: 0.05 }}
-                                    className="rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 p-4 text-white shadow-md"
+                                    transition={{ duration: 0.2, delay: 0.04 }}
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-emerald-600 via-teal-500 to-cyan-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-emerald-100">Total received</p>
-                                            <h3 className="mt-1 text-lg font-bold tabular-nums">₹{formatCurrency(stats.amount)}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Total received</p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">₹{formatCurrency(stats.amount)}</p>
                                         </div>
-                                        <TbCurrencyRupee className="h-5 w-5 shrink-0 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5"><TbCurrencyRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></div>
                                     </div>
                                 </motion.div>
                             </>
@@ -1124,29 +1196,24 @@ const ViewReceived = () => {
                         </motion.div>
                     )}
 
+                    {/* Received register — flat (no card shell) */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
-                            <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
-                                <div className="flex shrink-0 items-center gap-2">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
-                                        <FiCreditCard className="h-4 w-4 text-blue-600" />
-                                    </div>
-                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="mr-4 shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:mr-6 sm:text-base lg:mr-8">
                                         Received Register
                                     </h5>
-                                </div>
-
-                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-                                    <div className="relative ml-auto w-full min-w-0 sm:ml-0 sm:w-60">
+                                    <div className="relative w-full min-w-0 flex-1 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]">
                                         <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search invoice, remark…"
+                                            placeholder="Search…"
                                             value={searchTerm}
                                             onChange={(e) => scheduleSearchUpdate(e.target.value)}
                                             onKeyUp={(e) => {
@@ -1159,8 +1226,7 @@ const ViewReceived = () => {
                                             className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
-
-                                    <div className="w-full min-w-0 sm:w-56">
+                                    <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] lg:max-w-[14rem] xl:max-w-[16rem]">
                                         <DateRangePickerField
                                             value={{ start: fromDate, end: toDate }}
                                             onChange={handleDateRangeChange}
@@ -1172,21 +1238,23 @@ const ViewReceived = () => {
                                             showRangeHint={false}
                                             showResetButton={false}
                                             truncateRangeLabel={false}
-                                            buttonClassName="w-full h-9 min-w-0 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-blue-400 focus:outline-none transition-all"
+                                            buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
                                             wrapperClassName="w-full min-w-0"
                                         />
                                     </div>
+                                </div>
 
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <div className="dropdown-container relative shrink-0">
                                         <motion.button
                                             type="button"
-                                            onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 sm:h-10 sm:w-auto sm:px-4"
+                                            onClick={(e) => { e.stopPropagation(); setShowAddDropdown(!showAddDropdown); }}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
                                             <PiExportBold className="h-4 w-4 shrink-0" />
-                                            <span>Export</span>
+                                            <span className="whitespace-nowrap">Export</span>
                                             <FiChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
                                         </motion.button>
 
@@ -1196,7 +1264,8 @@ const ViewReceived = () => {
                                                     initial={{ opacity: 0, y: 5 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     exit={{ opacity: 0, y: 5 }}
-                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                                                    onClick={(e) => e.stopPropagation()}
                                                 >
                                                     <div className="py-1">
                                                         <button type="button" onClick={handleExportClick} className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50">
@@ -1230,61 +1299,43 @@ const ViewReceived = () => {
                                                 setPaymentReceivedModal(true);
                                             }
                                         }}
-                                        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 sm:h-10 sm:px-4 ${
+                                        className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
                                             !check('finance_entry') ? 'cursor-not-allowed opacity-60 hover:from-emerald-600 hover:to-emerald-700' : ''
                                         }`}
                                         whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
                                         whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
                                     >
                                         {!check('finance_entry') ? <FiLock className="h-4 w-4 shrink-0" /> : <FiPlus className="h-4 w-4 shrink-0" />}
-                                        <span className="whitespace-nowrap">Add Received</span>
+                                        <span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
                         </div>
 
                         <div className="overflow-x-auto">
-                            <table className="w-full table-fixed text-sm">
+                            <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="w-[4%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">#</th>
-                                        <th className="w-[10%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Date</th>
-                                        <th className="w-[26%] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Particulars</th>
-                                        <th className="w-[12%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Voucher</th>
-                                        <th className="w-[12%] p-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">Amount</th>
-                                        <th className="w-[20%] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Received At</th>
-                                        <th className="w-[10%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Actions</th>
+                                    <tr className="border-b border-slate-200 bg-slate-100/90">
+                                        <th className="min-w-[60px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Sl No</th>
+                                        <th className="min-w-[80px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Date</th>
+                                        <th className="min-w-[200px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Particulars</th>
+                                        <th className="min-w-[120px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Voucher No</th>
+                                        <th className="min-w-[100px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Amount</th>
+                                        <th className="min-w-[160px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Received At</th>
+                                        <th className="min-w-[80px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 bg-white">
+                                <tbody className="divide-y divide-slate-100">
                                     {listLoading && received.length === 0 ? (
                                         [...Array(5)].map((_, index) => <SkeletonRow key={index} />)
                                     ) : received.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="text-center py-8 text-slate-500">
+                                            <td colSpan="7" className="py-8 text-center text-slate-500">
                                                 <div className="flex flex-col items-center justify-center">
-                                                    <div className="p-3 bg-slate-100 rounded-full mb-3">
-                                                        <FiFileText className="w-8 h-8 text-slate-400" />
+                                                    <div className="mb-3 rounded-full bg-slate-100 p-3">
+                                                        <FiFileText className="h-8 w-8 text-slate-400" />
                                                     </div>
-                                                    <p className="text-slate-600 text-sm font-medium mb-1">No received records found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">Start by creating your first received entry</p>
-                                                    <motion.button
-                                                        onClick={() => {
-                                                            if (!check('finance_entry')) {
-                                                                toast.error('Need Access Permission');
-                                                            } else {
-                                                                setPaymentReceivedModal(true);
-                                                            }
-                                                        }}
-                                                        className={`px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200 ${
-                                                            !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-blue-600 hover:to-blue-700' : ''
-                                                        }`}
-                                                        whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
-                                                        whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
-                                                    >
-                                                        {!check('finance_entry') ? <FiLock className="w-3.5 h-3.5 mr-1 inline-block shrink-0" /> : null}
-                                                        Create Your First Received Entry
-                                                    </motion.button>
+                                                    <p className="mb-1 text-sm font-medium text-slate-600">No received records found</p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1299,74 +1350,73 @@ const ViewReceived = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="transition-colors duration-150 hover:bg-blue-50/30"
-                                                    onContextMenu={(e) => openActionsFromContextMenu(e, item.transaction_id)}
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} transition-colors duration-150 hover:bg-indigo-50/40`}
                                                 >
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <span className="font-medium text-slate-700">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="text-xs font-medium text-slate-700">
                                                             {(currentPage - 1) * itemsPerPage + index + 1}
-                                                        </span>
+                                                        </div>
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <span className="font-medium text-slate-700">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="text-xs font-medium text-slate-700">
                                                             {formatDisplayDate(item.transaction_date)}
-                                                        </span>
+                                                        </div>
                                                     </td>
-                                                    <td className="p-2.5 align-middle">
-                                                        <div className="min-w-0">
-                                                            <div className="font-semibold text-slate-800">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="mx-auto max-w-[200px]">
+                                                            <div className="text-xs font-semibold text-slate-800">
                                                                 {partyInfo.displayName}
                                                             </div>
-                                                            <div className="mt-0.5">
+                                                            <div className="mt-1 flex flex-col items-center gap-1">
                                                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${partyInfo.bgColor} ${partyInfo.textColor}`}>
                                                                     {partyInfo.type}
                                                                 </span>
                                                             </div>
                                                             {item.remark ? (
-                                                                <div className="mt-0.5 truncate text-xs italic text-slate-500" title={item.remark}>
+                                                                <div className="mt-1 truncate text-[10px] italic text-slate-500" title={item.remark}>
                                                                     {item.remark}
                                                                 </div>
                                                             ) : null}
                                                         </div>
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <span className="inline-flex rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <span className="inline-flex items-center justify-center rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-800">
                                                             {item.invoice_no}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5 text-right align-middle">
-                                                        <span className="text-sm font-bold tabular-nums text-emerald-700">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <span className="inline-flex min-w-[90px] items-center justify-center rounded bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
                                                             ₹{formatCurrency(item.amount)}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5 align-middle">
-                                                        <div className="min-w-0">
-                                                            <div className="truncate text-sm font-medium text-slate-800" title={receivedAtInfo.displayName}>
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="mx-auto max-w-[160px]">
+                                                            <div className="truncate text-xs font-medium text-slate-800" title={receivedAtInfo.displayName}>
                                                                 {receivedAtInfo.displayName}
                                                             </div>
                                                             {receivedAtInfo.subtitle ? (
-                                                                <div className="mt-0.5 truncate text-xs text-slate-500" title={receivedAtInfo.subtitle}>
+                                                                <div className="mt-0.5 truncate text-[10px] text-slate-500" title={receivedAtInfo.subtitle}>
                                                                     {receivedAtInfo.subtitle}
                                                                 </div>
                                                             ) : null}
-                                                            <div className="mt-0.5">
+                                                            <div className="mt-1">
                                                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${receivedAtInfo.bgColor} ${receivedAtInfo.textColor}`}>
                                                                     {receivedAtInfo.badgeLabel}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <motion.button
-                                                            type="button"
-                                                            data-received-actions-trigger
-                                                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-                                                            onClick={(e) => openActionsFromButton(e, item.transaction_id)}
-                                                            whileHover={{ scale: 1.05 }}
-                                                            whileTap={{ scale: 0.95 }}
-                                                        >
-                                                            <FiMenu className="h-4 w-4" />
-                                                        </motion.button>
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="flex justify-center">
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Actions"
+                                                                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-colors duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                                                                onClick={(e) => handleActionClick(e, item.transaction_id)}
+                                                            >
+                                                                <FiMoreVertical className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </motion.tr>
                                             );
@@ -1374,78 +1424,92 @@ const ViewReceived = () => {
                                     )}
                                 </tbody>
                             </table>
-                        </div>
 
-                        {!error && (received.length > 0 || totalRecords > 0) && (
-                            <TablePagination
-                                page={currentPage}
-                                limit={itemsPerPage}
-                                total={totalRecords}
-                                totalPages={Math.max(1, Math.ceil(totalRecords / (itemsPerPage || 1)))}
-                                isLastPage={isLastPage}
-                                rowOptions={[10, 20, 50, 100]}
-                                defaultRows={20}
-                                onPageChange={handlePageChange}
-                                onLimitChange={handleLimitChange}
-                            />
-                        )}
+                            {!error && (received.length > 0 || totalRecords > 0) && (
+                                <TablePagination
+                                    page={currentPage}
+                                    limit={itemsPerPage}
+                                    total={totalRecords}
+                                    totalPages={Math.max(1, Math.ceil(totalRecords / (itemsPerPage || 1)))}
+                                    isLastPage={isLastPage}
+                                    rowOptions={[10, 20, 50, 100]}
+                                    defaultRows={20}
+                                    onPageChange={handlePageChange}
+                                    onLimitChange={handleLimitChange}
+                                />
+                            )}
+                        </div>
                     </motion.div>
                 </div>
             </div>
 
-            {activeRowDropdown && activeReceivedItem && createPortal(
+            {showActionMenu && activeReceivedItem && actionMenuPosition && createPortal(
                 <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    data-received-actions-menu
-                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
-                    style={{
-                        top: dropdownPos.top,
-                        bottom: dropdownPos.bottom,
-                        right: dropdownPos.right,
-                        left: dropdownPos.left,
-                        minWidth: ACTIONS_MENU_WIDTH,
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    className="fixed z-[99999] w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    style={{ top: actionMenuPosition.top, left: actionMenuPosition.left, height: 'auto' }}
+                    onClick={(e) => e.stopPropagation()}
                 >
+                    <span
+                        className="absolute h-2.5 w-2.5 rotate-45 border-slate-200 bg-white"
+                        style={{
+                            left: actionMenuPosition.placement === 'left' || actionMenuPosition.placement === 'right'
+                                ? undefined
+                                : `${actionMenuPosition.arrowX - 5}px`,
+                            top: actionMenuPosition.placement === 'bottom' ? '-5px' : actionMenuPosition.placement === 'top' ? undefined : `${actionMenuPosition.arrowY - 5}px`,
+                            bottom: actionMenuPosition.placement === 'top' ? '-5px' : undefined,
+                            right: actionMenuPosition.placement === 'left' ? '-5px' : undefined,
+                            borderTopWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderLeftWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderBottomWidth: actionMenuPosition.placement === 'top' ? '1px' : '0',
+                            borderRightWidth: actionMenuPosition.placement === 'left' ? '1px' : actionMenuPosition.placement === 'right' ? '1px' : '0',
+                        }}
+                    />
                     <button
                         type="button"
-                        className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-blue-50"
                         onClick={() => openDetails(activeReceivedItem)}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-indigo-50"
                     >
-                        <FiEye className="mr-2 h-4 w-4 text-blue-600" />
-                        View Details
+                        <FiEye className="h-4 w-4 text-indigo-600" />
+                        Details
                     </button>
                     <button
                         type="button"
-                        className={`flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-blue-50 ${
+                        className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50 ${
                             !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
                         }`}
-                        onClick={() => {
-                            if (!check('finance_entry_edit')) {
-                                toast.error('Need Access Permission');
-                                return;
-                            }
-                            openEditModal(activeReceivedItem);
-                        }}
+                        onClick={() => openEditModal(activeReceivedItem)}
                     >
-                        <FiEdit className="mr-2 h-4 w-4 text-blue-500" />
-                        Edit Received
+                        {!check('finance_entry_edit') ? (
+                            <FiLock className="h-4 w-4 text-slate-400" />
+                        ) : (
+                            <FiEdit2 className="h-4 w-4 text-blue-600" />
+                        )}
+                        Edit
                     </button>
-                    {getActionLinks(activeReceivedItem).invoiceLink ? (
-                        <a
-                            href={getActionLinks(activeReceivedItem).invoiceLink}
-                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 no-underline transition-colors hover:bg-blue-50"
-                            onClick={() => {
-                                setActiveRowDropdown(null);
-                                actionAnchorRef.current = null;
-                            }}
-                        >
-                            <FiFileText className="mr-2 h-4 w-4 text-purple-500" />
-                            View Invoice
-                        </a>
-                    ) : null}
+                    <button
+                        type="button"
+                        disabled={downloadingInvoice}
+                        onClick={() => handleDownloadInvoice(activeReceivedItem)}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        {downloadingInvoice ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
+                        ) : (
+                            <FiDownload className="h-4 w-4 text-green-600" />
+                        )}
+                        {downloadingInvoice ? 'Downloading…' : 'Download'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleOpenShareReceived(activeReceivedItem)}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-teal-50"
+                    >
+                        <FiShare2 className="h-4 w-4 text-teal-600" />
+                        Share
+                    </button>
                 </motion.div>,
                 document.body
             )}
@@ -1475,6 +1539,26 @@ const ViewReceived = () => {
                 onSubmit={handleEditSuccess}
                 formatCurrency={formatCurrency}
                 summary={emptySummary}
+            />
+
+            <DocumentShareModal
+                isOpen={showDocumentShareModal}
+                onClose={() => {
+                    setShowDocumentShareModal(false);
+                    setShareReceived(null);
+                }}
+                title="Share Receipt Invoice"
+                subtitle={
+                    shareReceived
+                        ? `Invoice ${shareReceived.invoice_no || shareReceived.invoice_id}`
+                        : undefined
+                }
+                recipientLabel={
+                    shareReceived?.payment_from?.details?.name
+                        ? `To ${shareReceived.payment_from.details.name}`
+                        : undefined
+                }
+                onSend={handleShareReceivedSend}
             />
 
             <EmailSelectionModal

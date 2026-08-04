@@ -229,7 +229,7 @@ const getCreatorTypeInfo = (item) => {
     return { type, bgColor, textColor, name: creator.name || '', mobile: creator.mobile || '', email: creator.email || '' };
 };
 
-const PaymentDetailsModal = ({ isOpen, record, onClose, formatCurrency }) => (
+const PaymentDetailsModal = ({ isOpen, record, onClose, formatCurrency, onEdit, canEdit = true }) => (
     createPortal(
         <AnimatePresence>
             {isOpen && record ? (
@@ -348,7 +348,7 @@ const PaymentDetailsModal = ({ isOpen, record, onClose, formatCurrency }) => (
                                 );
                             })()}
                         </div>
-                        <div className="flex shrink-0 justify-end border-t border-slate-200 bg-slate-50/90 px-5 py-3">
+                        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/90 px-5 py-3">
                             <button
                                 type="button"
                                 onClick={onClose}
@@ -356,6 +356,23 @@ const PaymentDetailsModal = ({ isOpen, record, onClose, formatCurrency }) => (
                             >
                                 Close
                             </button>
+                            {typeof onEdit === 'function' ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!canEdit) {
+                                            toast.error('Need Access Permission');
+                                            return;
+                                        }
+                                        onEdit(record);
+                                    }}
+                                    disabled={!canEdit}
+                                    className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 ${!canEdit ? 'cursor-not-allowed opacity-60 hover:bg-blue-600' : ''}`}
+                                >
+                                    <FiEdit className="h-3.5 w-3.5" />
+                                    Edit Payment
+                                </button>
+                            ) : null}
                         </div>
                     </motion.div>
                 </motion.div>
@@ -794,6 +811,8 @@ const ViewPayments = () => {
         setEditModalOpen(true);
         setActiveRowDropdown(null);
         actionAnchorRef.current = null;
+        setDetailsOpen(false);
+        setDetailsRecord(null);
     };
 
     const closeEditModal = () => {
@@ -1395,6 +1414,8 @@ const ViewPayments = () => {
                 record={detailsRecord}
                 onClose={closeDetails}
                 formatCurrency={formatCurrency}
+                canEdit={check('finance_entry_edit')}
+                onEdit={openEditModal}
             />
 
             <TransactionModalManager

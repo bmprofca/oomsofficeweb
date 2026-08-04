@@ -220,7 +220,7 @@ const getExpensePartyDetailLines = (expense) => {
     return [];
 };
 
-const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency }) => {
+const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency, onEdit, canEdit = true }) => {
     const lineItems = expense ? getExpenseLineItems(expense) : [];
     const itemName = getExpenseItemDisplayName(expense);
     const itemType = getExpenseItemDisplayType(expense);
@@ -243,6 +243,25 @@ const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency }) 
                     >
                         Close
                     </button>
+                    {typeof onEdit === 'function' ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!canEdit) {
+                                    toast.error('Need Access Permission');
+                                    return;
+                                }
+                                onEdit(expense);
+                            }}
+                            disabled={!canEdit}
+                            className={`inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 ${
+                                !canEdit ? 'cursor-not-allowed opacity-60 hover:bg-emerald-600' : ''
+                            }`}
+                        >
+                            {!canEdit ? <FiLock className="h-3.5 w-3.5" /> : <FiEdit className="h-3.5 w-3.5" />}
+                            Edit Expense
+                        </button>
+                    ) : null}
                 </div>
             )}
         >
@@ -547,6 +566,8 @@ const ViewExpenses = () => {
         setEditRecord(record);
         setEditModalOpen(true);
         setActiveRowDropdown(null);
+        setDetailsOpen(false);
+        setDetailsExpense(null);
     };
 
     const closeEditModal = () => {
@@ -949,6 +970,8 @@ const ViewExpenses = () => {
                 expense={detailsExpense}
                 onClose={closeExpenseDetails}
                 formatCurrency={formatCurrency}
+                canEdit={check('finance_entry_edit')}
+                onEdit={openEditModal}
             />
         </div>
     );

@@ -1,24 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FiPlus,
-    FiSettings,
-    FiEdit,
+    FiEdit2,
     FiFileText,
-    FiDollarSign,
     FiUsers,
-    FiUser,
-    FiCreditCard,
-    FiMenu,
-    FiPrinter,
-    FiMail,
-    FiMessageSquare,
-    FiChevronRight,
-    FiChevronDown,
     FiX,
     FiCheckCircle,
     FiAlertCircle,
     FiInfo,
-    FiLock
+    FiLock,
+    FiEye,
+    FiDownload,
+    FiShare2,
+    FiChevronDown,
+    FiMoreVertical,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -26,10 +22,13 @@ import { TbCurrencyRupee } from 'react-icons/tb';
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
-import PurchaseForm from '../components/purchase-form';
+import { PurchaseForm } from '../components/Modals/CreateTransactions';
 import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
+import { ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
+import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import { Header, Sidebar } from '../components/header';
 import TablePagination from '../components/TablePagination';
@@ -272,6 +271,11 @@ const ViewPurchase = () => {
     const [purchaseFormModal, setPurchaseFormModal] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editRecord, setEditRecord] = useState(null);
+    const [viewModalOpen, setViewModalOpen] = useState(false);
+    const [selectedPurchase, setSelectedPurchase] = useState(null);
+    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+    const [sharePurchase, setSharePurchase] = useState(null);
+    const [showDocumentShareModal, setShowDocumentShareModal] = useState(false);
     const [summary, setSummary] = useState({
         count: 0,
         total: 0,
@@ -279,7 +283,9 @@ const ViewPurchase = () => {
 
     // State for dropdown menus
     const [showAddDropdown, setShowAddDropdown] = useState(false);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [showActionMenu, setShowActionMenu] = useState(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState(null);
+    const actionAnchorRef = useRef(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
     // Export Modal State
@@ -420,16 +426,133 @@ const ViewPurchase = () => {
         }).format(amount);
     };
 
+    const closeActionMenu = () => {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+    };
+
     const openEditModal = (record) => {
+        if (!check('finance_entry_edit')) {
+            toast.error('Need Access Permission');
+            return;
+        }
         setEditRecord(record);
         setEditModalOpen(true);
-        setActiveRowDropdown(null);
+        closeActionMenu();
+        setViewModalOpen(false);
     };
 
     const closeEditModal = () => {
         setEditModalOpen(false);
         setEditRecord(null);
     };
+
+    const handleEditSubmit = () => {
+        closeEditModal();
+        fetchPurchaseData(fromDate, toDate, currentPage, itemsPerPage, debouncedSearchTerm);
+    };
+
+    const closeViewModal = () => {
+        setViewModalOpen(false);
+        setSelectedPurchase(null);
+    };
+
+    const handleViewPurchase = (purchase) => {
+        setSelectedPurchase(purchase);
+        setViewModalOpen(true);
+        closeActionMenu();
+    };
+
+    const handleDownloadInvoice = async (purchase) => {
+        const invoiceId = purchase?.invoice_id;
+        if (!invoiceId) {
+            toast.error('Invoice ID not available for this purchase');
+            return;
+        }
+
+        closeActionMenu();
+        setDownloadingInvoice(true);
+        const toastId = toast.loading('Generating invoice…');
+        try {
+            const headers = getHeaders();
+            if (!headers) {
+                toast.error('Please log in again to download the invoice', { id: toastId });
+                return;
+            }
+
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/generate`,
+                { invoice_id: invoiceId, type: 'purchase', response: 'pdf' },
+                { headers, responseType: 'blob' }
+            );
+
+            const filename = `purchase-${purchase.invoice_no || invoiceId}.pdf`;
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Invoice downloaded', { id: toastId });
+        } catch (error) {
+            console.error('Invoice download error:', error);
+            let message = error.message || 'Failed to download invoice';
+            if (error.response?.data instanceof Blob) {
+                try {
+                    const text = await error.response.data.text();
+                    const parsed = JSON.parse(text);
+                    message = parsed.message || message;
+                } catch {
+                    // keep default
+                }
+            } else if (error.response?.data?.message) {
+                message = error.response.data.message;
+            }
+            toast.error(message, { id: toastId });
+        } finally {
+            setDownloadingInvoice(false);
+        }
+    };
+
+    const handleOpenSharePurchase = (purchase) => {
+        if (!purchase?.invoice_id) {
+            toast.error('Invoice ID not available for this purchase');
+            return;
+        }
+        const pType = String(purchase.purchase_type || purchase.purchase_from || '').toLowerCase();
+        if (pType !== 'ca' && pType !== 'client') {
+            toast.error('Share is available for CA purchases only');
+            return;
+        }
+        closeActionMenu();
+        setSharePurchase(purchase);
+        setShowDocumentShareModal(true);
+    };
+
+    const handleSharePurchaseSend = useCallback(
+        async (channels) => {
+            if (!sharePurchase?.invoice_id) {
+                throw new Error('Invoice ID not available');
+            }
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/share`,
+                {
+                    invoice_id: sharePurchase.invoice_id,
+                    type: 'purchase',
+                    channels,
+                },
+                { headers: getHeaders() }
+            );
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Failed to share invoice');
+            }
+            return response.data;
+        },
+        [sharePurchase]
+    );
 
     // API call to fetch purchase data
     const fetchPurchaseData = useCallback(async (fromDateArg = null, toDateArg = null, pageNo = currentPage, limit = itemsPerPage, search = debouncedSearchTerm) => {
@@ -467,19 +590,17 @@ const ViewPurchase = () => {
 
             if (result.success) {
                 const transformedData = result.data.map(item => ({
-                    invoice_id: item.invoice_id,
-                    invoice_no: item.invoice_no,
+                    ...item,
                     date: item.transaction_date,
                     particulars: item.remark || 'No particulars',
                     purchase_from: item.purchase_type,
-                    firm_name: item.purchase_type === 'client' ? item.purchase_party?.name :
-                        item.purchase_type === 'bank' ? item.purchase_party?.holder : '',
-                    remark: item.remark,
-                    total: parseFloat(item.amount || 0),
-                    grand_total: parseFloat(item.amount || 0),
-                    task_id: null,
-                    purchase_party: item.purchase_party,
-                    calculation: item.calculation
+                    firm_name: item.purchase_type === 'client' || item.purchase_type === 'ca'
+                        ? item.purchase_party?.name
+                        : item.purchase_type === 'bank'
+                            ? (item.purchase_party?.holder || item.purchase_party?.bank)
+                            : '',
+                    total: parseFloat(item.amount || item.calculation?.grand_total || 0),
+                    grand_total: parseFloat(item.calculation?.grand_total || item.amount || 0),
                 }));
 
                 setPurchases(transformedData);
@@ -542,65 +663,132 @@ const ViewPurchase = () => {
         setItemsPerPage(newLimit);
     };
 
-    // Get edit link and invoice link based on purchase_from
-    const getActionLinks = (purchase) => {
-        let editLink = '';
-        let invoiceLink = '';
-
-        switch (purchase.purchase_from) {
-            case 'ca':
-                editLink = `/edit-purchase-ca?redirect=${window.location.href}&invoice_id=${purchase.invoice_id}`;
-                invoiceLink = `/preview-invoice-purchase?invoice_id=${purchase.invoice_id}`;
-                break;
-            case 'client':
-                editLink = `/edit-purchase-client?redirect=${window.location.href}&invoice_id=${purchase.invoice_id}`;
-                invoiceLink = `/preview-invoice-purchase?invoice_id=${purchase.invoice_id}`;
-                break;
-            case 'bank':
-            case 'cash':
-            case 'savings':
-            case 'current':
-            case 'loan':
-                editLink = `/edit-purchase-bank?redirect=${window.location.href}&invoice_id=${purchase.invoice_id}`;
-                invoiceLink = `/preview-invoice-purchase?invoice_id=${purchase.invoice_id}`;
-                break;
-            case 'capital':
-                editLink = `/edit-purchase-capital?redirect=${window.location.href}&invoice_id=${purchase.invoice_id}`;
-                invoiceLink = `/preview-invoice-purchase?invoice_id=${purchase.invoice_id}`;
-                break;
-            default:
-                editLink = '#';
-                invoiceLink = '#';
-        }
-
-        return { editLink, invoiceLink };
-    };
-
     // Format date
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-GB');
     };
 
-    // Toggle row dropdown
-    const toggleRowDropdown = (invoiceId) => {
-        setActiveRowDropdown(activeRowDropdown === invoiceId ? null : invoiceId);
-    };
+    const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+        if (!anchorEl) return null;
+
+        const itemCount = Math.max(1, Number(options.itemCount) || 4);
+        const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 176;
+        const menuHeight = 8 + itemCount * 36;
+        const gap = 8;
+        const margin = 8;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const space = {
+            top: rect.top - margin,
+            bottom: vh - rect.bottom - margin,
+            right: vw - rect.right - margin,
+            left: rect.left - margin,
+        };
+
+        const fits = {
+            top: space.top >= menuHeight + gap,
+            bottom: space.bottom >= menuHeight + gap,
+            right: space.right >= menuWidth + gap,
+            left: space.left >= menuWidth + gap,
+        };
+
+        const preferred = ['top', 'bottom', 'right', 'left'];
+        let placement = preferred.find((p) => fits[p]);
+
+        if (!placement) {
+            placement = preferred.reduce((best, p) => (space[p] > space[best] ? p : best), 'bottom');
+        }
+
+        let top = 0;
+        let left = 0;
+
+        if (placement === 'top') {
+            top = rect.top - menuHeight - gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'bottom') {
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'right') {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.right + gap;
+        } else {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.left - menuWidth - gap;
+        }
+
+        const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+        const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+        const anchorCenterX = rect.left + rect.width / 2;
+        const anchorCenterY = rect.top + rect.height / 2;
+
+        return {
+            top: clampedTop,
+            left: clampedLeft,
+            placement,
+            arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+            arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
+        };
+    }, []);
+
+    const handleActionClick = useCallback((e, invoiceId) => {
+        e.stopPropagation();
+        if (showActionMenu === invoiceId) {
+            closeActionMenu();
+            return;
+        }
+        actionAnchorRef.current = e.currentTarget;
+        setActionMenuPosition(computeActionMenuPosition(e.currentTarget, { itemCount: 4 }));
+        setShowActionMenu(invoiceId);
+        setShowAddDropdown(false);
+    }, [showActionMenu, computeActionMenuPosition]);
+
+    const activePurchase = useMemo(
+        () => purchases.find((p) => p.invoice_id === showActionMenu) || null,
+        [purchases, showActionMenu]
+    );
 
     // Close all dropdowns when clicking outside
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
-                setShowAddDropdown(false);
-                setActiveRowDropdown(null);
+        const handleClickOutside = () => {
+            setShowAddDropdown(false);
+            closeActionMenu();
+        };
+
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+        const updatePosition = () => {
+            setActionMenuPosition(
+                computeActionMenuPosition(actionAnchorRef.current, { itemCount: 4 })
+            );
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeActionMenu();
             }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        document.addEventListener('keydown', handleEscape);
+
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+            document.removeEventListener('keydown', handleEscape);
         };
-    }, []);
+    }, [showActionMenu, computeActionMenuPosition]);
 
     // Get current items based on pagination
     const currentItems = purchases;
@@ -626,22 +814,21 @@ const ViewPurchase = () => {
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        <div className="border-b border-slate-200 px-6 py-4">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2">
+                        {[...Array(2)].map((_, i) => (
+                            <div key={i} className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]" />
+                        ))}
+                    </div>
+                    <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-slate-50/40">
+                        <div className="border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                                 <div><div className="h-6 bg-gray-200 rounded w-48 mb-2"></div><div className="h-4 bg-gray-200 rounded w-32"></div></div>
                                 <div className="flex gap-3"><div className="h-10 bg-gray-200 rounded w-40"></div><div className="h-10 bg-gray-200 rounded w-32"></div></div>
                             </div>
                         </div>
                         <div className="overflow-hidden">
-                            <div className="border-b border-slate-200">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>{[...Array(8)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
-                                    </thead>
-                                </table>
-                            </div>
+                            <div className="border-b border-slate-200"><table className="w-full text-sm"><thead className="bg-slate-100"><tr>{[...Array(6)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr></thead></table></div>
                             <div className="p-4">{[...Array(6)].map((_, index) => (<div key={index} className="mb-4"><div className="h-12 bg-gray-100 rounded"></div></div>))}</div>
                         </div>
                     </div>
@@ -679,7 +866,7 @@ const ViewPurchase = () => {
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
                     {/* Error Alert */}
                     {error && (
                         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -690,27 +877,32 @@ const ViewPurchase = () => {
                         </motion.div>
                     )}
 
-                    {/* Header Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md">
-                            <div className="flex items-center justify-between">
-                                <div><p className="text-blue-100 text-xs font-medium">No. of Purchases</p><h3 className="text-lg font-bold mt-1">{summary.count}</h3></div>
-                                <FiFileText className="w-5 h-5 opacity-80" />
+                    {/* Header Stats */}
+                    <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 p-3 text-white sm:p-3.5">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">No. of purchases</p>
+                                    <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">{summary.count}</p>
+                                </div>
+                                <div className="shrink-0 rounded-lg bg-white/20 p-1.5"><FiFileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></div>
                             </div>
                         </motion.div>
 
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.1 }} className="bg-gradient-to-r from-violet-500 to-violet-600 rounded-lg p-4 text-white shadow-md">
-                            <div className="flex items-center justify-between">
-                                <div><p className="text-violet-100 text-xs font-medium">Total Amount</p><h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.total)}</h3></div>
-                                <TbCurrencyRupee className="w-5 h-5 opacity-80" />
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.04 }} className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-600 p-3 text-white sm:p-3.5">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Total amount</p>
+                                    <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">₹{formatCurrency(summary.total)}</p>
+                                </div>
+                                <div className="shrink-0 rounded-lg bg-white/20 p-1.5"><TbCurrencyRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></div>
                             </div>
                         </motion.div>
                     </div>
 
-                    {/* Main Card */}
-                    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }} className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-                        {/* Card Header */}
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                    {/* Purchase register — flat (no card shell) */}
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
                             <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                                     <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">Purchase Register</h5>
@@ -721,13 +913,13 @@ const ViewPurchase = () => {
                                 </div>
                                 <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <div className="dropdown-container relative shrink-0">
-                                        <motion.button type="button" onClick={() => setShowAddDropdown(!showAddDropdown)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                                        <motion.button type="button" onClick={(e) => { e.stopPropagation(); setShowAddDropdown(!showAddDropdown); }} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                                             <PiExportBold className="h-4 w-4 shrink-0" /><span className="whitespace-nowrap">Export</span><FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
                                         </motion.button>
 
                                         <AnimatePresence>
                                             {showAddDropdown && (
-                                                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                                                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
                                                     <div className="py-1">
                                                         <button onClick={handleExportClick} className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group">
                                                             <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors"><PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" /></div>
@@ -770,7 +962,7 @@ const ViewPurchase = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                    <tr className="bg-slate-100/90 border-b border-slate-200">
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">Sl No</th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Date</th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">Particulars</th>
@@ -779,7 +971,7 @@ const ViewPurchase = () => {
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-100">
                                     {loading ? (
                                         [...Array(5)].map((_, index) => <SkeletonRow key={index} />)
                                     ) : purchases.length === 0 ? (
@@ -793,13 +985,17 @@ const ViewPurchase = () => {
                                         </tr>
                                     ) : (
                                         currentItems.map((purchase, index) => {
-                                            const { editLink, invoiceLink } = getActionLinks(purchase);
                                             const showFirm = purchase.purchase_from && purchase.firm_name;
-                                            const isDropdownOpen = activeRowDropdown === purchase.invoice_id;
                                             const actualIndex = (currentPage - 1) * itemsPerPage + index;
 
                                             return (
-                                                <motion.tr key={purchase.invoice_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }} className="hover:bg-blue-50/20 transition-colors duration-150">
+                                                <motion.tr
+                                                    key={purchase.invoice_id}
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    transition={{ duration: 0.15 }}
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} hover:bg-indigo-50/40 transition-colors duration-150`}
+                                                >
                                                     <td className="text-center p-3 align-middle"><div className="text-slate-700 font-medium text-xs">{actualIndex + 1}</div></td>
                                                     <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(purchase.date)}</div></td>
                                                     <td className="text-center p-3 align-middle">
@@ -824,55 +1020,18 @@ const ViewPurchase = () => {
                                                             {purchase.remark && <div className="text-slate-500 text-[10px] text-center mt-1 italic truncate">"{purchase.remark}"</div>}
                                                         </div>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50 shadow-xs">{purchase.invoice_no}</span></td>
-                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">₹{formatCurrency(purchase.grand_total)}</span></td>
+                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-slate-100 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-200">{purchase.invoice_no}</span></td>
+                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-blue-50 text-blue-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px]">₹{formatCurrency(purchase.grand_total)}</span></td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="dropdown-container relative flex justify-center">
-                                                            <motion.button className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300" onClick={() => toggleRowDropdown(purchase.invoice_id)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}><FiMenu className="w-3.5 h-3.5" /></motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && (
-                                                                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden">
-                                                                        <div className="py-1">
-                                                                            <button
-                                                                                type="button"
-                                                                                className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
-                                                                                    !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
-                                                                                }`}
-                                                                                onClick={() => {
-                                                                                    if (!check('finance_entry_edit')) {
-                                                                                        toast.error('Need Access Permission');
-                                                                                        return;
-                                                                                    }
-                                                                                    openEditModal(purchase);
-                                                                                }}
-                                                                            >
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    {!check('finance_entry_edit') ? (
-                                                                                        <FiLock className="w-3 h-3 text-slate-400" />
-                                                                                    ) : (
-                                                                                        <FiEdit className="w-3 h-3 text-blue-500" />
-                                                                                    )}
-                                                                                </div>
-                                                                                <div className="text-left"><div className="font-medium">Edit Purchase</div></div>
-                                                                            </button>
-                                                                            <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                                <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('print', purchase)}>
-                                                                                    <div className="p-1 bg-slate-50 rounded mr-2"><FiPrinter className="w-3 h-3 text-slate-600" /></div>
-                                                                                    <div className="text-left"><div className="font-medium">Print</div></div>
-                                                                                </button>
-                                                                                <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('whatsapp', purchase)}>
-                                                                                    <div className="p-1 bg-green-50 rounded mr-2"><FaWhatsapp className="w-3 h-3 text-green-500" /></div>
-                                                                                    <div className="text-left"><div className="font-medium">WhatsApp</div></div>
-                                                                                </button>
-                                                                                <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('email', purchase)}>
-                                                                                    <div className="p-1 bg-blue-50 rounded mr-2"><FiMail className="w-3 h-3 text-blue-500" /></div>
-                                                                                    <div className="text-left"><div className="font-medium">Email</div></div>
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
+                                                        <div className="flex justify-center">
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Actions"
+                                                                className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-150 border border-slate-200 hover:border-indigo-300"
+                                                                onClick={(e) => handleActionClick(e, purchase.invoice_id)}
+                                                            >
+                                                                <FiMoreVertical className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -890,17 +1049,126 @@ const ViewPurchase = () => {
                 </div>
             </div>
 
+            {/* Row actions (portal) */}
+            {showActionMenu && activePurchase && actionMenuPosition && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    className="fixed w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
+                    style={{ top: actionMenuPosition.top, left: actionMenuPosition.left, height: 'auto' }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span
+                        className="absolute w-2.5 h-2.5 bg-white border-slate-200 rotate-45"
+                        style={{
+                            left: actionMenuPosition.placement === 'left' || actionMenuPosition.placement === 'right'
+                                ? undefined
+                                : `${actionMenuPosition.arrowX - 5}px`,
+                            top: actionMenuPosition.placement === 'bottom' ? '-5px' : actionMenuPosition.placement === 'top' ? undefined : `${actionMenuPosition.arrowY - 5}px`,
+                            bottom: actionMenuPosition.placement === 'top' ? '-5px' : undefined,
+                            right: actionMenuPosition.placement === 'left' ? '-5px' : undefined,
+                            borderTopWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderLeftWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderBottomWidth: actionMenuPosition.placement === 'top' ? '1px' : '0',
+                            borderRightWidth: actionMenuPosition.placement === 'left' ? '1px' : actionMenuPosition.placement === 'right' ? '1px' : '0',
+                        }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => handleViewPurchase(activePurchase)}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+                    >
+                        <FiEye className="w-4 h-4 text-indigo-600" />
+                        Details
+                    </button>
+                    <button
+                        type="button"
+                        className={`w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
+                        onClick={() => openEditModal(activePurchase)}
+                    >
+                        {!check('finance_entry_edit') ? (
+                            <FiLock className="w-4 h-4 text-slate-400" />
+                        ) : (
+                            <FiEdit2 className="w-4 h-4 text-blue-600" />
+                        )}
+                        Edit
+                    </button>
+                    <button
+                        type="button"
+                        disabled={downloadingInvoice}
+                        onClick={() => handleDownloadInvoice(activePurchase)}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-green-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {downloadingInvoice ? (
+                            <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <FiDownload className="w-4 h-4 text-green-600" />
+                        )}
+                        {downloadingInvoice ? 'Downloading…' : 'Download'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleOpenSharePurchase(activePurchase)}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-teal-50 flex items-center gap-2 transition-colors"
+                    >
+                        <FiShare2 className="w-4 h-4 text-teal-600" />
+                        Share
+                    </button>
+                </motion.div>,
+                document.body
+            )}
+
             {/* Modals */}
             <PurchaseForm isOpen={purchaseFormModal} onClose={() => setPurchaseFormModal(false)} onSuccess={handlePurchaseSuccess} mode="modal" />
+
+            <ViewTransactionModalManager
+                modalType="PURCHASE"
+                isOpen={viewModalOpen}
+                record={selectedPurchase}
+                onClose={closeViewModal}
+                formatCurrency={formatCurrency}
+                canEdit={check('finance_entry_edit')}
+                onEdit={(purchase) => {
+                    closeViewModal();
+                    openEditModal(purchase);
+                }}
+                onDownload={handleDownloadInvoice}
+                onShare={handleOpenSharePurchase}
+                isDownloading={downloadingInvoice}
+            />
 
             <EditTransactionModalManager
                 modalType="PURCHASE"
                 isOpen={editModalOpen}
                 onClose={closeEditModal}
                 editRecord={editRecord}
-                onSubmit={closeEditModal}
+                onSubmit={handleEditSubmit}
                 formatCurrency={formatCurrency}
             />
+
+            <DocumentShareModal
+                isOpen={showDocumentShareModal}
+                onClose={() => {
+                    setShowDocumentShareModal(false);
+                    setSharePurchase(null);
+                }}
+                title="Share Purchase Invoice"
+                subtitle={
+                    sharePurchase
+                        ? `Invoice ${sharePurchase.invoice_no || sharePurchase.invoice_id}`
+                        : undefined
+                }
+                recipientLabel={
+                    sharePurchase?.purchase_party?.name
+                        ? `To ${sharePurchase.purchase_party.name}`
+                        : undefined
+                }
+                onSend={handleSharePurchaseSend}
+            />
+
             <EmailSelectionModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSubmit={handleEmailSubmit} />
             <MobileSelectionModal isOpen={isWhatsappModalOpen} onClose={() => setWhatsappModalOpen(false)} onSubmit={handleWhatsappSubmit} />
 
