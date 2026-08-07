@@ -38,7 +38,7 @@ Also used from: ledger tabs (Client / CA / Agent), journal, billing, bank / capi
 POST /invoice/share
 ```
 
-Body: `{ invoice_id, type, channels }` — opens via `DocumentShareModal`.
+Body: `{ invoice_id, type, channels: ['whatsapp'|'email'], mobile?, email? }` — opens via `DocumentShareModal` (WhatsApp / Email only; recipient fields editable; prefilled from party snippet). Server sends to payload mobile/email (falls back to profile if omitted).
 
 | Register | Share when |
 |----------|------------|
@@ -46,7 +46,7 @@ Body: `{ invoice_id, type, channels }` — opens via `DocumentShareModal`.
 | Purchase | party `client` or `ca` |
 | Received | `payment_from.type === 'client'` |
 
-Server resolves the recipient client/CA from the transaction parties; toast a clear message if the party is not shareable.
+Server resolves the party username for templates/WhatsApp identity; delivery address comes from the request body when provided.
 
 ---
 

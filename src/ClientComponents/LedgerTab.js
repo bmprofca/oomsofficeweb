@@ -37,6 +37,9 @@ const ClientLedger = ({
     clientUsername,
     clientId,
     clientName: clientNameProp,
+    clientMobile: clientMobileProp,
+    clientEmail: clientEmailProp,
+    clientCountryCode: clientCountryCodeProp,
     onProfileRefresh,
 }) => {
     const params = useParams();
@@ -465,7 +468,7 @@ const ClientLedger = ({
     }, []);
 
     const handleShareLedgerSend = useCallback(
-        async (channels) => {
+        async ({ channels, mobile, email, country_code }) => {
             const response = await axios.post(
                 `${API_BASE_URL}/transaction/ledger/share`,
                 {
@@ -474,6 +477,9 @@ const ClientLedger = ({
                     from_date: fromDate,
                     to_date: toDate,
                     channels,
+                    mobile,
+                    email,
+                    country_code,
                 },
                 { headers: getHeaders() }
             );
@@ -808,6 +814,9 @@ const ClientLedger = ({
                         ? `${clientNameProp} · ${fromDate} to ${toDate}`
                         : `${username} · ${fromDate} to ${toDate}`
                 }
+                defaultMobile={clientMobileProp || ''}
+                defaultEmail={clientEmailProp || ''}
+                defaultCountryCode={clientCountryCodeProp || '91'}
                 onSend={handleShareLedgerSend}
             />
 

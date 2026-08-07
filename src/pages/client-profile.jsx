@@ -1799,6 +1799,9 @@ const ClientProfile = () => {
         <LedgerTab
           clientUsername={username}
           clientName={clientData.name}
+          clientMobile={clientData.mobile}
+          clientEmail={clientData.email}
+          clientCountryCode={clientData.country_code || "91"}
           onProfileRefresh={() => fetchClientData(username, { silent: true })}
         />
       ),

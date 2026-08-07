@@ -26,11 +26,12 @@ CA / Agent mirrors: `CAComponents/LedgerTab.js`, `AgentComponents/LedgerTab.js` 
 | Action | Behavior |
 |--------|----------|
 | Share → Download | `GET /transaction/download/ledger?party_type=client&party_id=…&from_date=…&to_date=…&format=pdf` |
-| Share → Share | Opens `DocumentShareModal` → `POST /transaction/ledger/share` |
+| Share → Share | Opens `DocumentShareModal` (editable mobile/email, prefilled from client) → `POST /transaction/ledger/share` with `{ channels, mobile, email }` |
 
 **UI pieces**
 
-- `src/components/Modals/DocumentShareModal.jsx` — reusable channel picker (WhatsApp / Email / SMS); availability pattern matches payment reminder (`document sharing` notification type).
+- `src/components/Modals/DocumentShareModal.jsx` — compact header; WhatsApp / Email cards; recipient inputs only for available channels; when available, WhatsApp shows provider (OneChatting / WhatsApp Web / OOMS System) and Email shows SMTP name from `/utils/notification-availability`. `onSend({ channels, mobile, email })`. SMS is not supported.
+- Prefill: `clientMobile` / `clientEmail` props from client profile (or task client profile).
 - Share dropdown is a **portal** anchored to the Share button (`shareAnchorRef`). Reposition on `scroll` (capture) + `resize`; close on outside click / Escape (same pattern as row action menu).
 
 **Permissions:** Share/Download gated by `task_fees_view` (same as viewing ledger fees).
@@ -39,10 +40,18 @@ CA / Agent mirrors: `CAComponents/LedgerTab.js`, `AgentComponents/LedgerTab.js` 
 
 - Position the Share menu once and leave it fixed while the page scrolls
 - Hardcode channel availability — load from server like payment reminder
+- Send only to profile contacts — always pass modal mobile/email in the share payload (server prefers payload, falls back to profile if omitted)
 
 ## Particulars / remarks (table)
 
 Long remarks must **wrap** (no ellipsis). Implemented in `TransactionTable` `getParticularsDisplay` — see [`TransactionTable.md`](./TransactionTable.md).
+
+### Sale rows
+
+- **Primary (larger):** service name(s) from `particular.sale_items`, joined with `, ` when more than one.
+- **Secondary (smaller):** firm name from `particular.firm.firm_name` when the sale has a linked firm.
+- Remark wraps underneath when present.
+- List API (`GET /transaction/list`) attaches both `sale_items` and `particular.firm`. Ledger PDF mirrors the same order (services line, then firm line).
 
 ## Download / generate invoice (per row)
 

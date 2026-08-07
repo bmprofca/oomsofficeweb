@@ -73,16 +73,24 @@ The component does not fetch data; it renders whatever you pass. Amounts follow 
   "transaction_type": "payment",
   "invoice_no": "INV-001",
   "payment": { "debit": 0, "credit": 1000, "balance": 5000 },
-  "particular": { "type": "…", "remark": "…", "details": {}, "sale_items": [] },
+  "particular": { "type": "…", "remark": "…", "details": {}, "sale_items": [], "firm": { "firm_id": "…", "firm_name": "…" } },
   "create_by": { "name": "…", "email": "…" }
 }
 ```
 
-`particular` drives the **Particulars** column (sale items, bank details, create_by + remark, or fallback to formatted `transaction_type`).
+`particular` drives the **Particulars** column:
+
+| `transaction_type` | Primary label |
+|--------------------|---------------|
+| `sale` | Service name(s) comma-separated (larger); firm name underneath in smaller text when present |
+| bank opposite | bank name + account meta |
+| other | `create_by` / type label |
+
+Remark always wraps under the primary line when present.
 
 ### Remarks — no ellipsis
 
-In `getParticularsDisplay`, remark (and sale items title) must **wrap**, not truncate:
+In `getParticularsDisplay`, remark (and sale title) must **wrap**, not truncate:
 
 - Use `whitespace-normal break-words`
 - Do **not** use `truncate` or `max-w-[200px]` on remark lines

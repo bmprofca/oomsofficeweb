@@ -935,7 +935,7 @@ const ViewReceived = () => {
     };
 
     const handleShareReceivedSend = useCallback(
-        async (channels) => {
+        async ({ channels, mobile, email, country_code }) => {
             if (!shareReceived?.invoice_id) {
                 throw new Error('Invoice ID not available');
             }
@@ -945,6 +945,9 @@ const ViewReceived = () => {
                     invoice_id: shareReceived.invoice_id,
                     type: 'receive',
                     channels,
+                    mobile,
+                    email,
+                    country_code,
                 },
                 { headers: getHeaders() }
             );
@@ -1557,6 +1560,21 @@ const ViewReceived = () => {
                     shareReceived?.payment_from?.details?.name
                         ? `To ${shareReceived.payment_from.details.name}`
                         : undefined
+                }
+                defaultMobile={
+                    shareReceived?.payment_from?.details?.mobile ||
+                    shareReceived?.payment_from?.mobile ||
+                    ''
+                }
+                defaultEmail={
+                    shareReceived?.payment_from?.details?.email ||
+                    shareReceived?.payment_from?.email ||
+                    ''
+                }
+                defaultCountryCode={
+                    shareReceived?.payment_from?.details?.country_code ||
+                    shareReceived?.payment_from?.country_code ||
+                    '91'
                 }
                 onSend={handleShareReceivedSend}
             />

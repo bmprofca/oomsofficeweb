@@ -11,6 +11,9 @@ const LedgerTab = ({
     task_id,
     clientId,
     clientName,
+    clientMobile,
+    clientEmail,
+    clientCountryCode,
 }) => {
     const username = clientId;
 
@@ -34,6 +37,9 @@ const LedgerTab = ({
             clientUsername={username}
             clientId={username}
             clientName={clientName}
+            clientMobile={clientMobile}
+            clientEmail={clientEmail}
+            clientCountryCode={clientCountryCode}
             taskId={taskId || task_id}
         />
     );

@@ -343,6 +343,9 @@ const TaskProfile = () => {
               task_id={task_id}
               clientId={taskData?.client?.username}
               clientName={taskData?.client?.profile?.name}
+              clientMobile={taskData?.client?.profile?.mobile}
+              clientEmail={taskData?.client?.profile?.email}
+              clientCountryCode={taskData?.client?.profile?.country_code || "91"}
             />
           </motion.div>
         );

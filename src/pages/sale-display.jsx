@@ -393,7 +393,7 @@ const ViewSales = () => {
   };
 
   const handleShareSaleSend = useCallback(
-    async (channels) => {
+    async ({ channels, mobile, email, country_code }) => {
       if (!shareSale?.invoice_id) {
         throw new Error("Invoice ID not available");
       }
@@ -403,6 +403,9 @@ const ViewSales = () => {
           invoice_id: shareSale.invoice_id,
           type: "sale",
           channels,
+          mobile,
+          email,
+          country_code,
         },
         { headers: getHeaders() },
       );
@@ -1394,6 +1397,14 @@ const ViewSales = () => {
             ? `Invoice ${shareSale.invoice_no || shareSale.invoice_id}`
             : undefined
         }
+        recipientLabel={
+          shareSale?.sale_party?.name
+            ? `To ${shareSale.sale_party.name}`
+            : undefined
+        }
+        defaultMobile={shareSale?.sale_party?.mobile || ""}
+        defaultEmail={shareSale?.sale_party?.email || ""}
+        defaultCountryCode={shareSale?.sale_party?.country_code || "91"}
         onSend={handleShareSaleSend}
       />
 

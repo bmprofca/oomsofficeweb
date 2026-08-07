@@ -533,7 +533,7 @@ const ViewPurchase = () => {
     };
 
     const handleSharePurchaseSend = useCallback(
-        async (channels) => {
+        async ({ channels, mobile, email, country_code }) => {
             if (!sharePurchase?.invoice_id) {
                 throw new Error('Invoice ID not available');
             }
@@ -543,6 +543,9 @@ const ViewPurchase = () => {
                     invoice_id: sharePurchase.invoice_id,
                     type: 'purchase',
                     channels,
+                    mobile,
+                    email,
+                    country_code,
                 },
                 { headers: getHeaders() }
             );
@@ -1166,6 +1169,9 @@ const ViewPurchase = () => {
                         ? `To ${sharePurchase.purchase_party.name}`
                         : undefined
                 }
+                defaultMobile={sharePurchase?.purchase_party?.mobile || ''}
+                defaultEmail={sharePurchase?.purchase_party?.email || ''}
+                defaultCountryCode={sharePurchase?.purchase_party?.country_code || '91'}
                 onSend={handleSharePurchaseSend}
             />
 

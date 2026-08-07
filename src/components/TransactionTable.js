@@ -71,25 +71,37 @@ function getTransactionTypeColor(transaction) {
 function getParticularsDisplay(transaction) {
     const particular = transaction.particular;
     const remark = particular?.remark;
-    if ((transaction.transaction_type || '').toLowerCase() === 'sale' && Array.isArray(particular?.sale_items)) {
-        const items = particular.sale_items.filter((item) => item?.name);
-        const firstItemName = items[0]?.name || 'Sale item';
-        const itemsLabel = items.length > 1
-            ? `${firstItemName}, ... (+${items.length - 1})`
-            : firstItemName;
+    if ((transaction.transaction_type || '').toLowerCase() === 'sale') {
+        const firmName =
+            (particular?.firm?.firm_name && String(particular.firm.firm_name).trim()) ||
+            (particular?.firm_name && String(particular.firm_name).trim()) ||
+            '';
+        const items = Array.isArray(particular?.sale_items)
+            ? particular.sale_items.map((item) => String(item?.name || '').trim()).filter(Boolean)
+            : [];
+        const itemsLabel = items.length > 0 ? items.join(', ') : '';
 
-        return (
-            <div className="flex flex-col min-w-0">
-                <div className="font-medium text-slate-800 whitespace-normal break-words">
-                    {itemsLabel}
+        if (itemsLabel || firmName) {
+            return (
+                <div className="flex flex-col min-w-0">
+                    {itemsLabel ? (
+                        <div className="font-medium text-slate-800 whitespace-normal break-words">
+                            {itemsLabel}
+                        </div>
+                    ) : null}
+                    {firmName ? (
+                        <div className="text-xs text-slate-500 mt-0.5 whitespace-normal break-words">
+                            {firmName}
+                        </div>
+                    ) : null}
+                    {remark ? (
+                        <div className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
+                            {remark}
+                        </div>
+                    ) : null}
                 </div>
-                {remark && (
-                    <div className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
-                        {remark}
-                    </div>
-                )}
-            </div>
-        );
+            );
+        }
     }
     if (particular?.type === 'bank' && particular?.details) {
         const d = particular.details;
