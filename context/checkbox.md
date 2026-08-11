@@ -1,6 +1,6 @@
-# Selection toggles (“checkbox”) — Billing View pattern
+# Selection checkboxes — Client View pattern
 
-Reference implementation: `src/pages/billing-view.js` (pending bills table). The UI uses **pill / iOS-style toggles** (not native `<input type="checkbox">`) with **indigo** active state, **gray** inactive state, **white** thumb, and **`FiCheckCircle`** when on.
+Reference implementation: `src/pages/client-view.jsx`. The UI uses a reusable **`AnimatedCheckbox`** component: **18×18 px rounded square**, **indigo** active state, **gray** inactive border, animated **checkmark** or **indeterminate dash**, with optional **cross-page “Select all N”** banner and a **floating bulk-action bar**.
 
 Use this document as context when building the same selection UX on other pages.
 
@@ -8,13 +8,15 @@ Use this document as context when building the same selection UX on other pages.
 
 ## Dependencies
 
-- `framer-motion`: `motion`, `AnimatePresence` (for thumb spring + bottom bar).
-- `react-icons/fi`: **`FiCheckCircle`** (inside toggles when selected), **`FiXCircle`** (dropdown “Deselect”, “Clear” in bar), **`FiInfo`** (selection bar hint).
+- `framer-motion`: `motion`, `AnimatePresence` (checkbox scale/tap + check/dash enter/exit + floating bar).
+- `react`: `useRef`, `useEffect`, `useState`.
 
 ```javascript
+import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiCheckCircle, FiXCircle, FiInfo } from 'react-icons/fi';
 ```
+
+Extract `AnimatedCheckbox` into a shared component (e.g. `src/components/AnimatedCheckbox.jsx`) when reusing across pages — the markup below matches `client-view.jsx` lines ~86–160.
 
 ---
 
@@ -22,203 +24,303 @@ import { FiCheckCircle, FiXCircle, FiInfo } from 'react-icons/fi';
 
 | Element | Role | Classes / values |
 |--------|------|-------------------|
-| **Track (Select All)** | Header “select all” | Container: `relative w-8 h-4 rounded-full transition-colors duration-300` + **`bg-indigo-600`** if on, **`bg-gray-300`** if off |
-| **Thumb (Select All)** | Sliding circle | `absolute top-0.5 w-3 h-3 bg-white rounded-full shadow` + position **`left-4`** when on, **`left-0.5`** when off |
-| **Check icon (Select All)** | Only when on | Wrapper: `absolute inset-0 flex items-center justify-center`. Icon: **`FiCheckCircle`** `w-1.5 h-1.5 text-white absolute left-1` |
-| **Track (row)** | Per-row toggle | `relative w-7 h-3.5 rounded-full transition-colors duration-300 flex-shrink-0` + same **`bg-indigo-600` / `bg-gray-300`** |
-| **Thumb (row)** | Smaller thumb | `absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow` + **`left-3.5`** on / **`left-0.5`** off |
-| **Check icon (row)** | Same as header | Same **`FiCheckCircle`** `w-1.5 h-1.5 text-white absolute left-1` |
-| **Thumb motion** | Spring | `layout` on thumb `motion.div` with `transition={{ type: 'spring', stiffness: 500, damping: 30 }}` |
-| **Row tap** | Row toggle only | `whileTap={{ scale: 0.95 }}` on the row toggle `motion.button` |
-| **Selected row background** | Table row | Append when selected: **`bg-indigo-50/50`** (with existing hover: `group hover:bg-gray-50/50 …`) |
-| **“N selected” pill** (table toolbar) | Count next to title | Badge: **`w-6 h-6 … bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold`**. Label: **`text-sm text-gray-600`** “selected” |
-| **Select All label** | Button text | Wrapper button: **`flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900`** |
+| **Wrapper** | Click target | `label`: `relative inline-flex items-center group` + **`cursor-pointer`** or **`cursor-not-allowed opacity-60`** when disabled |
+| **Native input** | A11y | `input type="checkbox"`: **`sr-only`**, wired to `checked`, `onChange`, `aria-label`, `disabled` |
+| **Box (unchecked)** | Default | `motion.span`: **`h-[18px] w-[18px] rounded-[4px] border-2 border-gray-300 bg-white group-hover:border-indigo-400`** |
+| **Box (checked / indeterminate)** | Active | Same box + **`border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200`** |
+| **Checkmark** | Checked only | `motion.svg` **`h-3 w-3 text-white`**, path stroke **`strokeWidth="1.8"`**, rounded caps/joins |
+| **Indeterminate dash** | Partial “Select all” | `motion.span`: **`h-0.5 w-2 rounded-full bg-white`** |
+| **Box scale (active)** | Pop on check | `animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}`, **`duration: 0.18`** |
+| **Tap feedback** | Press | `whileTap={{ scale: 0.92 }}` (skip when disabled) |
+| **Icon enter/exit** | Check / dash | `AnimatePresence mode="wait"`, opacity + scale **`0.12–0.15s`** |
+| **Table header column** | Select-all slot | Container: **`w-12 p-3 flex-shrink-0 flex justify-center`** |
+| **Table row column** | Per-row slot | Same **`w-12 p-3 flex-shrink-0 flex justify-center`** |
+| **Card selected state** | Grid/card view | Append to card: **`ring-2 ring-blue-500`** |
+| **Cross-page banner** | All on page selected | **`border-b border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs text-indigo-800`**; links **`font-semibold underline hover:text-indigo-950`** |
+| **Floating action bar** | Bulk actions | **`fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50`**, enter/exit **`opacity` + `y: 20`**, **`duration: 0.2`** |
 
-**Color summary:** active = **`indigo-600`**, inactive track = **`gray-300`**, thumb = **white + shadow**, check = **white** on track. Selection accents = **`indigo-50/50`** row, **`indigo-100` / `indigo-700`** count badge.
+**Color summary:** active box = **`indigo-600`** + **`shadow-indigo-200`**; inactive = **`gray-300`** border, hover **`indigo-400`**; check/dash = **white**. Card selection ring = **`blue-500`**. Cross-page banner = **`indigo-50` / `indigo-800`**.
+
+---
+
+## `AnimatedCheckbox` component (copy-paste)
+
+```jsx
+const AnimatedCheckbox = ({
+  checked,
+  indeterminate = false,
+  onChange,
+  ariaLabel,
+  disabled = false,
+}) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = indeterminate;
+    }
+  }, [indeterminate, checked]);
+
+  const isActive = checked || indeterminate;
+
+  return (
+    <label
+      className={`relative inline-flex items-center group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+    >
+      <input
+        ref={inputRef}
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={onChange}
+        aria-label={ariaLabel}
+        disabled={disabled}
+      />
+      <motion.span
+        className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
+          isActive
+            ? 'border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200'
+            : 'border-gray-300 bg-white group-hover:border-indigo-400'
+        }`}
+        animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
+        transition={{ duration: 0.18 }}
+        whileTap={disabled ? {} : { scale: 0.92 }}
+      >
+        <AnimatePresence initial={false} mode="wait">
+          {indeterminate ? (
+            <motion.span
+              key="dash"
+              className="block h-0.5 w-2 rounded-full bg-white"
+              initial={{ opacity: 0, scaleX: 0.4 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              exit={{ opacity: 0, scaleX: 0.4 }}
+              transition={{ duration: 0.12 }}
+            />
+          ) : checked ? (
+            <motion.svg
+              key="check"
+              viewBox="0 0 12 12"
+              className="h-3 w-3 text-white"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.15 }}
+            >
+              <path
+                d="M2.5 6l2.2 2.2 4.8-4.8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </motion.svg>
+          ) : null}
+        </AnimatePresence>
+      </motion.span>
+    </label>
+  );
+};
+```
+
+**Props:** `checked` (bool), `indeterminate` (bool, header “select all” when some rows selected), `onChange` (handler), `ariaLabel` (string), `disabled` (bool).
 
 ---
 
 ## State and handlers (generic pattern)
 
-Replace `task_id` / `displayData` with your entity id and current page rows.
+Client view stores selection in a **`Set`** of ids (not an array). Replace `_id` / `clients` with your entity id field and current page rows.
 
 ```javascript
-const [selectedItems, setSelectedItems] = useState([]); // array of string | number ids
+const [selectedItems, setSelectedItems] = useState(new Set());
 const [selectAll, setSelectAll] = useState(false);
+const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
 
-const handleToggleSelect = (id) => {
-    setSelectedItems((prev) =>
-        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+// Keep header checkbox in sync (including indeterminate)
+useEffect(() => {
+  if (selectAllAcrossPages) {
+    setSelectAll(true);
+    return;
+  }
+  setSelectAll(
+    rows.length > 0 && rows.every((item) => selectedItems.has(item._id)),
+  );
+}, [rows, selectedItems, selectAllAcrossPages]);
+
+const handleItemSelect = (id) => {
+  const newSelected = selectAllAcrossPages
+    ? new Set(rows.map((item) => item._id))
+    : new Set(selectedItems);
+  if (selectAllAcrossPages) setSelectAllAcrossPages(false);
+  if (newSelected.has(id)) {
+    newSelected.delete(id);
+  } else {
+    newSelected.add(id);
+  }
+  setSelectedItems(newSelected);
+  if (rows.length > 0) {
+    setSelectAll(newSelected.size === rows.length);
+  }
 };
 
 const handleSelectAll = () => {
-    if (selectAll) {
-        setSelectedItems([]);
-    } else {
-        setSelectedItems(displayData.map((item) => item.task_id)); // use your id field
-    }
-    setSelectAll(!selectAll);
+  if (selectAll) {
+    setSelectedItems(new Set());
+  } else {
+    setSelectedItems(new Set(rows.map((item) => item._id)));
+  }
+  setSelectAllAcrossPages(false);
+  setSelectAll(!selectAll);
 };
 
-// Keep “Select All” toggle in sync when user toggles rows manually
-useEffect(() => {
-    if (selectedItems.length === 0) {
-        setSelectAll(false);
-    } else if (selectedItems.length === displayData.length) {
-        setSelectAll(true);
+const effectiveSelectedItems = selectAllAcrossPages
+  ? new Set(rows.map((item) => item._id))
+  : selectedItems;
+
+const selectedCount = selectAllAcrossPages
+  ? pagination.total
+  : selectedItems.size;
+```
+
+Clear selection after bulk action success or when filters/page change as needed.
+
+---
+
+## UI snippets (copy-paste aligned with client-view)
+
+### 1) Table header — Select all (with indeterminate)
+
+```jsx
+<div className="w-12 p-3 flex-shrink-0 flex justify-center">
+  <AnimatedCheckbox
+    checked={selectAll}
+    indeterminate={
+      selectedItems.size > 0 && selectedItems.size < rows.length
     }
-}, [selectedItems, displayData.length]);
-
-// Clear selection when page or filter context changes (billing clears on tab + page)
-useEffect(() => {
-    setSelectedItems([]);
-    setSelectAll(false);
-}, [pagination.page_no, selectedBillType]); // adapt to your filters
+    onChange={handleSelectAll}
+    ariaLabel="Select all"
+  />
+</div>
 ```
 
----
+Mobile sticky header uses the same checkbox beside a section title (`flex items-center gap-2`).
 
-## UI snippets (copy-paste aligned with billing-view)
-
-### 1) Toolbar: “N selected” + Select All
+### 2) Table row — first column
 
 ```jsx
-{showSelectionMode && selectedItems.length > 0 && (
-    <div className="flex items-center gap-2">
-        <div className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">
-            {selectedItems.length}
-        </div>
-        <span className="text-sm text-gray-600">selected</span>
-    </div>
-)}
+<div className="w-12 p-3 flex-shrink-0 flex justify-center">
+  <AnimatedCheckbox
+    checked={selectedItems.has(item._id)}
+    onChange={() => handleItemSelect(item._id)}
+    ariaLabel={`Select ${item.name || 'item'}`}
+  />
+</div>
+```
 
-{showSelectionMode && (
-    <div className="flex items-center gap-2">
+Row wrapper: `flex items-center border-b border-gray-100 hover:bg-gray-50 transition-colors group bg-white` (no special selected row background in table view — selection is shown on the checkbox only).
+
+### 3) Card / grid view — checkbox + selected ring
+
+```jsx
+<motion.div
+  className={`bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 overflow-hidden ${
+    selectedItems.has(item._id) ? 'ring-2 ring-blue-500' : ''
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <AnimatedCheckbox
+      checked={selectedItems.has(item._id)}
+      onChange={() => handleItemSelect(item._id)}
+      ariaLabel={`Select ${item.name || 'item'}`}
+    />
+    {/* row index, avatar, title… */}
+  </div>
+</motion.div>
+```
+
+### 4) Cross-page selection banner (optional)
+
+Show when **`selectAll && pagination.total > rows.length`**:
+
+```jsx
+{selectAll && pagination.total > rows.length && (
+  <div className="border-b border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs text-indigo-800">
+    {selectAllAcrossPages ? (
+      <>
+        All {pagination.total.toLocaleString()} items are selected.{' '}
         <button
-            type="button"
-            onClick={handleSelectAll}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+          type="button"
+          onClick={() => {
+            setSelectedItems(new Set());
+            setSelectAll(false);
+            setSelectAllAcrossPages(false);
+          }}
+          className="font-semibold underline hover:text-indigo-950"
         >
-            <div
-                className={`relative w-8 h-4 rounded-full transition-colors duration-300 ${
-                    selectAll ? 'bg-indigo-600' : 'bg-gray-300'
-                }`}
-            >
-                <motion.div
-                    className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow ${
-                        selectAll ? 'left-4' : 'left-0.5'
-                    }`}
-                    layout
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-                {selectAll && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <FiCheckCircle className="w-1.5 h-1.5 text-white absolute left-1" />
-                    </div>
-                )}
-            </div>
-            <span>Select All</span>
+          Clear selection
         </button>
-    </div>
+      </>
+    ) : (
+      <>
+        All {rows.length.toLocaleString()} items on this page are selected.{' '}
+        <button
+          type="button"
+          onClick={() => setSelectAllAcrossPages(true)}
+          className="font-semibold underline hover:text-indigo-950"
+        >
+          Select all {pagination.total.toLocaleString()} items
+        </button>
+      </>
+    )}
+  </div>
 )}
 ```
 
-`showSelectionMode` in billing is `selectedBillType === 'pending'` — gate toggles the same way on your page.
+Pass **`effectiveSelectedItems`** (not raw `selectedItems`) to child table/card components when cross-page mode is on.
 
-### 2) Row toggle (first column, beside row index)
-
-```jsx
-const isSelected = selectedItems.includes(item.task_id);
-
-<motion.tr
-    className={`group hover:bg-gray-50/50 transition-colors duration-150 ${
-        showSelectionMode && isSelected ? 'bg-indigo-50/50' : ''
-    }`}
->
-    <td className="py-3 px-4">
-        <div className="flex items-center gap-2">
-            <div className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded text-xs font-medium text-gray-700 flex-shrink-0">
-                {rowNum}
-            </div>
-            {showSelectionMode && (
-                <motion.button
-                    type="button"
-                    onClick={() => handleToggleSelect(item.task_id)}
-                    className={`relative w-7 h-3.5 rounded-full transition-colors duration-300 flex-shrink-0 ${
-                        isSelected ? 'bg-indigo-600' : 'bg-gray-300'
-                    }`}
-                    whileTap={{ scale: 0.95 }}
-                >
-                    <motion.div
-                        className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow ${
-                            isSelected ? 'left-3.5' : 'left-0.5'
-                        }`}
-                        layout
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    />
-                    {isSelected && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <FiCheckCircle className="w-1.5 h-1.5 text-white absolute left-1" />
-                        </div>
-                    )}
-                </motion.button>
-            )}
-        </div>
-    </td>
-</motion.tr>
-```
-
-### 3) Dropdown actions: Select / Deselect (same icons as billing)
+### 5) Floating bulk-action bar (optional)
 
 ```jsx
-<button
-    type="button"
-    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-    onClick={() => handleToggleSelect(item.task_id)}
->
-    {isItemSelected ? (
-        <>
-            <FiXCircle className="w-4 h-4 mr-3 text-red-500" />
-            Deselect
-        </>
-    ) : (
-        <>
-            <FiCheckCircle className="w-4 h-4 mr-3 text-emerald-500" />
-            Select
-        </>
-    )}
-</button>
+<AnimatePresence>
+  {selectedCount > 0 && (
+    <motion.div
+      className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
+        <motion.button
+          type="button"
+          onClick={onBulkAction}
+          className="px-3 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-purple-800 flex items-center gap-2 shadow-xl"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          {/* icon + label; show count on small screens: ({selectedCount}) */}
+        </motion.button>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
 ```
-
-### 4) Fixed bottom selection bar (optional; billing pending + count > 0)
-
-Same **visual language**: count chip **`h-8 w-8 … rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-bold text-white shadow-sm`**, slate copy, amber hint with **`FiInfo`**, **Clear** uses **`FiXCircle`** `h-4 w-4 text-slate-500` on outline button. See `billing-view.js` lines ~1594–1675 for full markup (includes `AnimatePresence`, `motion.div`, sidebar offset `left: isMinimized ? '80px' : '260px'`, and `z-[46]`).
-
----
-
-## Layout note (billing)
-
-When the bottom bar is shown, the main column adds bottom padding so content is not hidden:
-
-```javascript
-style={{
-    paddingBottom:
-        selectedBillType === 'pending' && selectedItems.length > 0 ? '7.5rem' : '0',
-}}
-```
-
-Mirror this if you use a fixed selection bar.
 
 ---
 
 ## Checklist for new pages
 
-1. Same **track / thumb / icon** sizes and Tailwind classes as above.  
-2. **`motion.div`** thumbs with **spring** `stiffness: 500`, `damping: 30`.  
-3. **Indigo** on-state; **gray-300** off-state; **white** thumb; **`FiCheckCircle`** only when on (inside track).  
-4. Selected rows: **`bg-indigo-50/50`**.  
-5. Toolbar count badge: **`bg-indigo-100 text-indigo-700`**.  
-6. Dropdown select lines: **emerald `FiCheckCircle`** / **red `FiXCircle`** for select vs deselect labels.
+1. Use **`AnimatedCheckbox`** — same **18×18**, **`rounded-[4px]`**, **`border-2`** classes.  
+2. **`indigo-600`** when checked or indeterminate; **`gray-300`** + hover **`indigo-400`** when off.  
+3. Header “Select all”: pass **`indeterminate`** when `0 < selected < pageLength`.  
+4. Store ids in a **`Set`**; derive **`selectAll`** from current page rows in **`useEffect`**.  
+5. Table: fixed **`w-12`** checkbox column in header and every row.  
+6. Cards: **`ring-2 ring-blue-500`** on selected card (not table rows).  
+7. Paginated lists: optional cross-page banner + **`selectAllAcrossPages`** + **`effectiveSelectedItems`**.  
+8. Bulk actions: **`AnimatePresence`** floating bar at **`z-50`**, clear selection on success.
 
-Do not substitute native checkboxes if the goal is **pixel-consistent** UI with Billing.
+---
+
+## Alternate pattern: Billing View pill toggles
+
+`src/pages/billing-view.js` uses **iOS-style pill toggles** (not square checkboxes): **`bg-indigo-600` / `bg-gray-300`** tracks, white thumb, **`FiCheckCircle`** inside track, selected table rows **`bg-indigo-50/50`**. See [`billing-view.md`](./billing-view.md) for that API-specific flow. Use **Client View `AnimatedCheckbox`** for list/table pages like clients; use **Billing toggles** only when matching the billing pending-bills UX pixel-for-pixel.

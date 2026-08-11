@@ -276,7 +276,42 @@ const SaleParticulars = ({ transaction }) => {
     );
 };
 
-const PurchaseParticulars = ({ transaction }) => <CommonParticulars transaction={transaction} />;
+const PurchaseParticulars = ({ transaction }) => {
+    const particular = transaction?.particular || {};
+    const summary =
+        (particular.summary && String(particular.summary).trim()) ||
+        (() => {
+            const items = Array.isArray(particular.purchase_items)
+                ? particular.purchase_items.map((item) => String(item?.name || '').trim()).filter(Boolean)
+                : [];
+            const firmName = particular.firm_name ? String(particular.firm_name).trim() : '';
+            const taskId =
+                particular.task_id != null && String(particular.task_id).trim() !== ''
+                    ? String(particular.task_id).trim()
+                    : '';
+            const partyName =
+                particular?.details?.name ||
+                particular?.details?.holder ||
+                particular?.details?.bank ||
+                '';
+            const parts = ['Purchase'];
+            if (firmName) parts.push(`for firm ${firmName}`);
+            else if (partyName) parts.push(`for ${partyName}`);
+            if (items.length) parts.push(`for service ${items.join(', ')}`);
+            let label = parts.join(' ');
+            if (taskId) label = `${label} (TASK)`;
+            return label === 'Purchase' || label === 'Purchase (TASK)' ? '' : label;
+        })();
+
+    if (!summary) {
+        return <CommonParticulars transaction={transaction} />;
+    }
+    return (
+        <p className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-relaxed text-slate-800">
+            {summary}
+        </p>
+    );
+};
 const ReceiveParticulars = ({ transaction }) => <CommonParticulars transaction={transaction} />;
 const PaymentParticulars = ({ transaction }) => <CommonParticulars transaction={transaction} />;
 const ExpenseParticulars = ({ transaction }) => <CommonParticulars transaction={transaction} />;
@@ -679,6 +714,18 @@ export const SaleDetailsModal = ({
 /**
  * Purchase register details (list/API shape from GET /purchase/list).
  */
+export const resolvePurchaseTaskId = (purchase) => {
+    if (!purchase) return '';
+    if (purchase.task_id != null && String(purchase.task_id).trim() !== '') {
+        return String(purchase.task_id).trim();
+    }
+    const particularTask = purchase?.particular?.task_id;
+    if (particularTask != null && String(particularTask).trim() !== '') {
+        return String(particularTask).trim();
+    }
+    return '';
+};
+
 export const PurchaseDetailsModal = ({
     isOpen,
     record,
@@ -703,11 +750,28 @@ export const PurchaseDetailsModal = ({
         typeof onShare === 'function' &&
         Boolean(record.invoice_id) &&
         (purchaseType === 'ca' || purchaseType === 'client');
-
+    const taskId = resolvePurchaseTaskId(record);
+    const fromTask = Boolean(taskId);
+    const editLabel = fromTask ? 'Edit (Task)' : 'Edit Purchase';
     const partyName =
         purchaseType === 'bank'
             ? (party.holder || party.bank || '—')
             : (party.name || '—');
+    const particularsLabel =
+        (record.particulars && String(record.particulars).trim()) ||
+        (() => {
+            const serviceNames = lineItems
+                .map((row) => String(row?.service?.name || '').trim())
+                .filter(Boolean);
+            const firm = record.task_firm_name || '';
+            const parts = ['Purchase'];
+            if (firm) parts.push(`for firm ${firm}`);
+            else if (partyName && partyName !== '—') parts.push(`for ${partyName}`);
+            if (serviceNames.length) parts.push(`for service ${serviceNames.join(', ')}`);
+            let label = parts.join(' ');
+            if (fromTask) label = `${label} (TASK)`;
+            return label === 'Purchase' || label === 'Purchase (TASK)' ? '' : label;
+        })();
 
     const handleEdit = () => {
         if (!canEdit) {
@@ -759,7 +823,7 @@ export const PurchaseDetailsModal = ({
                                 disabled={!canEdit}
                             >
                                 <FiEdit2 className="w-3.5 h-3.5" />
-                                Edit Purchase
+                                {editLabel}
                             </button>
                         ) : null}
                     </div>
@@ -777,6 +841,11 @@ export const PurchaseDetailsModal = ({
                 <DetailRow label="Invoice no.">
                     <span className="font-mono">{record.invoice_no || '—'}</span>
                 </DetailRow>
+                {particularsLabel ? (
+                    <DetailRow label="Particulars">
+                        <span className="text-left leading-snug">{particularsLabel}</span>
+                    </DetailRow>
+                ) : null}
                 <DetailRow label="Party" last>{partyName}</DetailRow>
             </div>
 
@@ -843,10 +912,10 @@ export const PurchaseDetailsModal = ({
                 </DetailRow>
             </SectionCard>
 
-            {(record.remark || record.particulars) ? (
+            {record.remark ? (
                 <SectionCard title="Remark" icon={FiMessageSquare} iconClass="text-purple-500">
                     <p className="text-sm leading-relaxed text-slate-700">
-                        {record.remark || record.particulars}
+                        {record.remark}
                     </p>
                 </SectionCard>
             ) : null}

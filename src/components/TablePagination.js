@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId } from 'react';
+import React, { useState, useEffect, useId, useMemo } from 'react';
 import {
     FiChevronsLeft,
     FiChevronLeft,
@@ -6,6 +6,8 @@ import {
     FiChevronsRight,
     FiCornerDownLeft,
 } from 'react-icons/fi';
+import CustomSelect from './CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 
 const DEFAULT_ROW_OPTIONS = [5, 10, 20, 50, 100];
 
@@ -14,7 +16,7 @@ const DEFAULT_ROW_OPTIONS = [5, 10, 20, 50, 100];
  *
  * Props:
  * @param {boolean} [showRange=true] — “Showing X to Y of Z”
- * @param {boolean} [showRows=true] — rows-per-page `<select>`
+ * @param {boolean} [showRows=true] — rows-per-page select
  * @param {number[]} [rowOptions] — option values (default 5…100)
  * @param {number} [defaultRows=20] — fallback limit if `limit` is invalid; also used when coercing select value
  * @param {boolean} [showJump=true] — jump-to-page field + submit
@@ -61,6 +63,13 @@ const TablePagination = ({
                 ? numericOptions
                 : [...numericOptions, safeLimit].sort((a, b) => a - b)
             : DEFAULT_ROW_OPTIONS;
+
+    const rowSelectOptions = useMemo(
+        () => effectiveRowOptions.map((n) => ({ value: String(n), label: String(n) })),
+        // effectiveRowOptions is recreated each render; stringify for stable memo key
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [effectiveRowOptions.join(',')]
+    );
 
     const rangeStart = safeTotal === 0 ? 0 : (safePage - 1) * safeLimit + 1;
     const rangeEnd = Math.min(safePage * safeLimit, safeTotal);
@@ -119,9 +128,9 @@ const TablePagination = ({
         if (safePage < resolvedTotalPages && onPageChange) onPageChange(resolvedTotalPages);
     };
 
-    const handleRowsChange = (e) => {
+    const handleRowsChange = (opt) => {
         if (!onLimitChange) return;
-        const raw = Number(e.target.value);
+        const raw = Number(opt?.value);
         const next = Math.min(100, Math.max(1, Number.isFinite(raw) ? raw : defaultRows));
         onLimitChange(next);
     };
@@ -151,18 +160,15 @@ const TablePagination = ({
                                 <label htmlFor={rowsFieldId} className="text-xs font-medium text-slate-500">
                                     Rows per page
                                 </label>
-                                <select
-                                    id={rowsFieldId}
-                                    value={safeLimit}
-                                    onChange={handleRowsChange}
-                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                                >
-                                    {effectiveRowOptions.map((n) => (
-                                        <option key={n} value={n}>
-                                            {n}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="w-[5.5rem]" id={rowsFieldId}>
+                                    <CustomSelect
+                                        options={rowSelectOptions}
+                                        value={optionByValue(rowSelectOptions, String(safeLimit))}
+                                        onChange={handleRowsChange}
+                                        isClearable={false}
+                                        isSearchable={false}
+                                    />
+                                </div>
                             </div>
                         )}
                     </div>

@@ -3392,6 +3392,8 @@ export const SaleForm = ({
     const [sendEmail, setSendEmail] = useState(true);
     const [sendSms, setSendSms] = useState(true);
     const [sendWhatsApp, setSendWhatsApp] = useState(true);
+    const [notificationLoading, setNotificationLoading] = useState(false);
+    const [channelStatus, setChannelStatus] = useState(DEFAULT_NOTIFICATION_CHANNEL_STATUS);
     const [serviceOptions, setServiceOptions] = useState([]);
     const [isLoadingServices, setIsLoadingServices] = useState(false);
     const [clientFirms, setClientFirms] = useState([]);
@@ -3417,6 +3419,10 @@ export const SaleForm = ({
         setClientFirms([]);
         setSelectedSaleFirmId('');
         setIsSubmitting(false);
+        setSendEmail(true);
+        setSendSms(true);
+        setSendWhatsApp(true);
+        setChannelStatus(DEFAULT_NOTIFICATION_CHANNEL_STATUS);
 
         if (isEditMode && editRecord) {
             const calc = editRecord.calculation || {};
@@ -3504,6 +3510,48 @@ export const SaleForm = ({
             apply_round_off: false
         });
     }, [isOpen, initialPartyId, hidePartySelector, fixedParty?.id, fixedParty?.username, lockedPartyType, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!isOpen || isEditMode || !showNotificationToggles) return undefined;
+        let cancelled = false;
+
+        const loadNotificationAvailability = async () => {
+            setNotificationLoading(true);
+            try {
+                const response = await axios.get(
+                    `${API_BASE_URL}/utils/notification-availability`,
+                    {
+                        params: { type: 'sale' },
+                        headers: getHeaders(),
+                    }
+                );
+
+                const channels = ensureChannelStatusShape(response.data?.data?.channels);
+                if (cancelled) return;
+                setChannelStatus(channels);
+                if (!channels.sms.available) setSendSms(false);
+                if (!channels.whatsapp.available) setSendWhatsApp(false);
+                if (!channels.email.available) setSendEmail(false);
+            } catch (error) {
+                if (cancelled) return;
+                setChannelStatus({
+                    sms: { available: false, reason: 'Failed to check SMS availability' },
+                    whatsapp: { available: false, reason: 'Failed to check WhatsApp availability' },
+                    email: { available: false, reason: 'Failed to check email availability' },
+                });
+                setSendSms(false);
+                setSendWhatsApp(false);
+                setSendEmail(false);
+            } finally {
+                if (!cancelled) setNotificationLoading(false);
+            }
+        };
+
+        loadNotificationAvailability();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, isEditMode, showNotificationToggles]);
 
     useEffect(() => {
         const party = partyLookup.selectedFirm;
@@ -3745,6 +3793,11 @@ export const SaleForm = ({
                 round_off: formData.apply_round_off,
                 party_id: resolvedParty.party_id,
                 party_type: resolvedParty.party_type,
+                notification: {
+                    email: sendEmail,
+                    sms: sendSms,
+                    whatsapp: sendWhatsApp,
+                },
             };
 
             const discountNum = parseDecimalValue(formData.discount);
@@ -4351,61 +4404,16 @@ export const SaleForm = ({
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                         {showNotificationToggles && (
                             <div className="w-full lg:w-auto">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                                    <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Send Invoice:</span>
-                                    <div className="flex items-center gap-4">
-                                        <label className="flex items-center cursor-pointer">
-                                            <div className="relative">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={sendEmail}
-                                                    onChange={(e) => setSendEmail(e.target.checked)}
-                                                    className="sr-only"
-                                                />
-                                                <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${sendEmail ? 'bg-indigo-600' : 'bg-gray-300'}`}></div>
-                                                <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 transform ${sendEmail ? 'translate-x-4' : ''}`}></div>
-                                            </div>
-                                            <div className="ml-2 flex items-center">
-                                                <FiMail className="w-4 h-4 text-gray-600 mr-1.5" aria-hidden />
-                                                <span className="text-xs text-gray-700 font-medium">Email</span>
-                                            </div>
-                                        </label>
-
-                                        <label className="flex items-center cursor-pointer">
-                                            <div className="relative">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={sendSms}
-                                                    onChange={(e) => setSendSms(e.target.checked)}
-                                                    className="sr-only"
-                                                />
-                                                <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${sendSms ? 'bg-sky-600' : 'bg-gray-300'}`}></div>
-                                                <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 transform ${sendSms ? 'translate-x-4' : ''}`}></div>
-                                            </div>
-                                            <div className="ml-2 flex items-center">
-                                                <FiMessageSquare className="w-4 h-4 text-sky-600 mr-1.5" aria-hidden />
-                                                <span className="text-xs text-gray-700 font-medium">SMS</span>
-                                            </div>
-                                        </label>
-
-                                        <label className="flex items-center cursor-pointer">
-                                            <div className="relative">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={sendWhatsApp}
-                                                    onChange={(e) => setSendWhatsApp(e.target.checked)}
-                                                    className="sr-only"
-                                                />
-                                                <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${sendWhatsApp ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                                <div className={`absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 transform ${sendWhatsApp ? 'translate-x-4' : ''}`}></div>
-                                            </div>
-                                            <div className="ml-2 flex items-center">
-                                                <FiMessageCircle className="w-4 h-4 text-emerald-600 mr-1.5" aria-hidden />
-                                                <span className="text-xs text-gray-700 font-medium">WhatsApp</span>
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
+                                <TransactionNotifyCheckboxes
+                                    sendSms={sendSms}
+                                    setSendSms={setSendSms}
+                                    sendWhatsApp={sendWhatsApp}
+                                    setSendWhatsApp={setSendWhatsApp}
+                                    sendEmail={sendEmail}
+                                    setSendEmail={setSendEmail}
+                                    channelStatus={channelStatus}
+                                    loading={notificationLoading}
+                                />
                             </div>
                         )}
 
@@ -4479,6 +4487,8 @@ export const SaleForm = ({
                                 setSendWhatsApp={setSendWhatsApp}
                                 sendEmail={sendEmail}
                                 setSendEmail={setSendEmail}
+                                channelStatus={channelStatus}
+                                loading={notificationLoading}
                             />
                         ) : (
                             <div />

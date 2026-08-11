@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
     FiPlus,
     FiEdit2,
     FiFileText,
-    FiUsers,
     FiX,
     FiCheckCircle,
     FiAlertCircle,
@@ -27,7 +27,7 @@ import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
 import { PurchaseForm } from '../components/Modals/CreateTransactions';
 import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
-import { ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
+import { resolvePurchaseTaskId, ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
 import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import { Header, Sidebar } from '../components/header';
@@ -36,6 +36,7 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import toast from 'react-hot-toast';
 import { useUserPermissions } from '../utils/permission-helper';
+import { buildPurchaseParticularsLabel } from '../utils/purchaseParticulars';
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -254,6 +255,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 };
 
 const ViewPurchase = () => {
+    const navigate = useNavigate();
     const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -352,7 +354,7 @@ const ViewPurchase = () => {
             { header: 'Sl No', key: 'sl_no', width: 10 },
             { header: 'Date', key: 'date', width: 15 },
             { header: 'Voucher No', key: 'voucher_no', width: 20 },
-            { header: 'Particulars', key: 'particulars', width: 25 },
+            { header: 'Particulars', key: 'particulars', width: 40 },
             { header: 'Purchase From', key: 'purchase_from', width: 15 },
             { header: 'Firm/Party', key: 'firm_name', width: 20 },
             { header: 'Total Amount (₹)', key: 'total_amount', width: 18 },
@@ -435,6 +437,14 @@ const ViewPurchase = () => {
     const openEditModal = (record) => {
         if (!check('finance_entry_edit')) {
             toast.error('Need Access Permission');
+            return;
+        }
+        const taskId = resolvePurchaseTaskId(record);
+        if (taskId) {
+            closeActionMenu();
+            setViewModalOpen(false);
+            setSelectedPurchase(null);
+            navigate(`/task/profile/${encodeURIComponent(taskId)}/details`);
             return;
         }
         setEditRecord(record);
@@ -592,19 +602,23 @@ const ViewPurchase = () => {
             const result = await response.json();
 
             if (result.success) {
-                const transformedData = result.data.map(item => ({
-                    ...item,
-                    date: item.transaction_date,
-                    particulars: item.remark || 'No particulars',
-                    purchase_from: item.purchase_type,
-                    firm_name: item.purchase_type === 'client' || item.purchase_type === 'ca'
-                        ? item.purchase_party?.name
-                        : item.purchase_type === 'bank'
-                            ? (item.purchase_party?.holder || item.purchase_party?.bank)
-                            : '',
-                    total: parseFloat(item.amount || item.calculation?.grand_total || 0),
-                    grand_total: parseFloat(item.calculation?.grand_total || item.amount || 0),
-                }));
+                const transformedData = result.data.map(item => {
+                    const particulars = buildPurchaseParticularsLabel(item) || item.remark || 'No particulars';
+                    return {
+                        ...item,
+                        date: item.transaction_date,
+                        particulars,
+                        purchase_from: item.purchase_type,
+                        firm_name: item.task_firm_name
+                            || ((item.purchase_type === 'client' || item.purchase_type === 'ca')
+                                ? item.purchase_party?.name
+                                : item.purchase_type === 'bank'
+                                    ? (item.purchase_party?.holder || item.purchase_party?.bank)
+                                    : ''),
+                        total: parseFloat(item.amount || item.calculation?.grand_total || 0),
+                        grand_total: parseFloat(item.calculation?.grand_total || item.amount || 0),
+                    };
+                });
 
                 setPurchases(transformedData);
 
@@ -988,7 +1002,6 @@ const ViewPurchase = () => {
                                         </tr>
                                     ) : (
                                         currentItems.map((purchase, index) => {
-                                            const showFirm = purchase.purchase_from && purchase.firm_name;
                                             const actualIndex = (currentPage - 1) * itemsPerPage + index;
 
                                             return (
@@ -1002,25 +1015,15 @@ const ViewPurchase = () => {
                                                     <td className="text-center p-3 align-middle"><div className="text-slate-700 font-medium text-xs">{actualIndex + 1}</div></td>
                                                     <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(purchase.date)}</div></td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="mx-auto max-w-[180px]">
-                                                            <div className="text-slate-800 font-semibold text-xs">{purchase.particulars}</div>
-                                                            <div className="flex flex-col items-center gap-1 mt-1">
-                                                                {purchase.purchase_from && (
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${purchase.purchase_from === 'client' ? 'bg-blue-100 text-blue-700' :
-                                                                        purchase.purchase_from === 'ca' ? 'bg-purple-100 text-purple-700' :
-                                                                            purchase.purchase_from === 'bank' ? 'bg-amber-100 text-amber-700' :
-                                                                                purchase.purchase_from === 'capital' ? 'bg-emerald-100 text-emerald-700' :
-                                                                                    'bg-slate-100 text-slate-700'}`}>
-                                                                        {purchase.purchase_from}
-                                                                    </span>
-                                                                )}
-                                                                {showFirm && (
-                                                                    <span className="flex items-center justify-center gap-1 text-slate-600 text-[10px] bg-slate-100 px-2 py-0.5 rounded">
-                                                                        <FiUsers className="w-2.5 h-2.5" />{purchase.firm_name}
-                                                                    </span>
-                                                                )}
+                                                        <div className="mx-auto max-w-[260px]">
+                                                            <div className="text-slate-800 font-semibold text-xs leading-snug whitespace-normal break-words">
+                                                                {purchase.particulars}
                                                             </div>
-                                                            {purchase.remark && <div className="text-slate-500 text-[10px] text-center mt-1 italic truncate">"{purchase.remark}"</div>}
+                                                            {purchase.remark ? (
+                                                                <div className="text-slate-500 text-[10px] text-center mt-1 italic truncate">
+                                                                    "{purchase.remark}"
+                                                                </div>
+                                                            ) : null}
                                                         </div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-slate-100 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-200">{purchase.invoice_no}</span></td>

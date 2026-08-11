@@ -1,24 +1,34 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiFile, FiUpload, FiEye, FiDownload, FiFolder, FiSearch,
-  FiHardDrive, FiCheckCircle, FiClock, FiFileText, FiImage,
+  FiHardDrive, FiCheckCircle, FiXCircle, FiClock, FiFileText, FiImage,
   FiArchive, FiPrinter, FiTrash2, FiPlus, FiX,
   FiChevronDown, FiChevronUp, FiGrid, FiList, FiCalendar,
-  FiBriefcase, FiDollarSign, FiUsers, FiHome, FiCheckSquare,
+  FiBriefcase, FiUsers, FiHome, FiCheckSquare,
   FiSquare, FiChevronLeft, FiChevronRight, FiMoreVertical,
   FiMail, FiMessageCircle, FiSend, FiPaperclip, FiLoader,
-  FiAlertCircle, FiCheck, FiEdit2, FiMenu, FiExternalLink
+  FiAlertCircle, FiCheck, FiEdit2, FiExternalLink
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { SiWhatsapp } from 'react-icons/si';
 import axios from 'axios';
-import Pagination from '../components/paging-nation-component';
+import TablePagination from '../components/TablePagination';
+import DocumentStorageUsageModal from '../components/Modals/DocumentStorageUsageModal';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import { uploadOneSaasFile } from '../utils/onesaas-upload';
 import { toast, Toaster } from 'react-hot-toast';
 import CustomSelect from '../components/CustomSelect';
 import { optionByValue } from '../utils/customSelectHelpers';
+
+const formatUnderscoreLabel = (value) =>
+  String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
 
 // Professional Toast Configuration - No Icons
 const toastConfig = {
@@ -126,6 +136,86 @@ const showToast = {
     },
 };
 
+// Animated checkbox (match `CLIENT/context/checkbox.md` AnimatedCheckbox)
+const AnimatedCheckbox = ({
+    checked,
+    indeterminate = false,
+    onChange,
+    ariaLabel,
+    disabled = false
+}) => {
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.indeterminate = indeterminate;
+        }
+    }, [indeterminate, checked]);
+
+    const isActive = checked || indeterminate;
+
+    return (
+        <label
+            className={`relative inline-flex items-center group ${
+                disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+            }`}
+        >
+            <input
+                ref={inputRef}
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={onChange}
+                aria-label={ariaLabel}
+                disabled={disabled}
+            />
+
+            <motion.span
+                className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
+                    isActive
+                        ? "border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200"
+                        : "border-gray-300 bg-white group-hover:border-indigo-400"
+                }`}
+                animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
+                transition={{ duration: 0.18 }}
+                whileTap={disabled ? {} : { scale: 0.92 }}
+            >
+                <AnimatePresence initial={false} mode="wait">
+                    {indeterminate ? (
+                        <motion.span
+                            key="dash"
+                            className="block h-0.5 w-2 rounded-full bg-white"
+                            initial={{ opacity: 0, scaleX: 0.4 }}
+                            animate={{ opacity: 1, scaleX: 1 }}
+                            exit={{ opacity: 0, scaleX: 0.4 }}
+                            transition={{ duration: 0.12 }}
+                        />
+                    ) : checked ? (
+                        <motion.svg
+                            key="check"
+                            viewBox="0 0 12 12"
+                            className="h-3 w-3 text-white"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            transition={{ duration: 0.15 }}
+                        >
+                            <path
+                                d="M2.5 6l2.2 2.2 4.8-4.8"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </motion.svg>
+                    ) : null}
+                </AnimatePresence>
+            </motion.span>
+        </label>
+    );
+};
+
 // View Modal Component
 const ViewModal = ({ document: doc, onClose }) => {
  const handleDownload = async () => {
@@ -219,7 +309,7 @@ const ViewModal = ({ document: doc, onClose }) => {
               </div>
             )}
             {doc && Object.entries(doc).map(([key, value]) =>
-              key !== 'id' && key !== 'firm_id' && key !== 'file_url' && key !== 'mime_type' && key !== 'size' && key !== 'create_date' && key !== 'type_value' && (
+              key !== 'id' && key !== 'firm_id' && key !== 'firm_name' && key !== 'firm_type' && key !== 'file_url' && key !== 'mime_type' && key !== 'size' && key !== 'create_date' && key !== 'type_value' && (
                 <div key={key} className="flex border-b border-gray-100 pb-3">
                   <span className="w-1/3 text-xs font-semibold text-slate-600 capitalize">
                     {key.replace(/([A-Z])/g, ' $1').trim()}:
@@ -808,12 +898,12 @@ const DocumentEntry = ({ index, document, onUpdate, onRemove, showRemove, tab, d
             <CustomSelect
               options={currentTabTypes.map((type) => ({
                 value: type.value,
-                label: type.name,
+                label: formatUnderscoreLabel(type.name || type.value),
               }))}
               value={optionByValue(
                 currentTabTypes.map((type) => ({
                   value: type.value,
-                  label: type.name,
+                  label: formatUnderscoreLabel(type.name || type.value),
                 })),
                 document.type || '',
               )}
@@ -1083,8 +1173,17 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">Document Type *</label>
                       <CustomSelect
-                        options={getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name }))}
-                        value={optionByValue(getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name })), doc.type)}
+                        options={getCurrentTabTypes().map((type) => ({
+                          value: type.value,
+                          label: formatUnderscoreLabel(type.name || type.value),
+                        }))}
+                        value={optionByValue(
+                          getCurrentTabTypes().map((type) => ({
+                            value: type.value,
+                            label: formatUnderscoreLabel(type.name || type.value),
+                          })),
+                          doc.type
+                        )}
                         onChange={(opt) => updateDocument(index, { ...doc, type: opt?.value || '' })}
                         placeholder="Select type"
                         searchPlaceholder="Search type..."
@@ -1139,8 +1238,17 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                       <div>
                         <label className="block text-xs text-slate-500 mb-1">Category *</label>
                         <CustomSelect
-                          options={categories.map((cat) => ({ value: cat.name, label: cat.name }))}
-                          value={optionByValue(categories.map((cat) => ({ value: cat.name, label: cat.name })), doc.category)}
+                          options={categories.map((cat) => ({
+                            value: cat.category_id || cat.id,
+                            label: cat.name,
+                          }))}
+                          value={optionByValue(
+                            categories.map((cat) => ({
+                              value: cat.category_id || cat.id,
+                              label: cat.name,
+                            })),
+                            doc.category
+                          )}
                           onChange={(opt) => updateDocument(index, { ...doc, category: opt?.value || '' })}
                           placeholder="Select category"
                           searchPlaceholder="Search category..."
@@ -1286,21 +1394,29 @@ const DocumentsTab = ({ clientUsername }) => {
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showStorageModal, setShowStorageModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [selectedCategoryForEdit, setSelectedCategoryForEdit] = useState(null);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showGeneralDropdown, setShowGeneralDropdown] = useState(false);
   const [showGeneralSubTab, setShowGeneralSubTab] = useState('documents'); // 'documents' or 'categories'
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
-  const actionMenuRef = useRef(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Action menu portal state
+  const [actionMenuPosition, setActionMenuPosition] = useState(null);
+  const actionAnchorRef = useRef(null);
+  const firmsRef = useRef([]);
+  const documentTypesRef = useRef({ it: [], gst: [], mca: [] });
+  const fetchSeqRef = useRef(0);
 
   // Storage usage state
   const [storageUsed, setStorageUsed] = useState(0);
@@ -1325,23 +1441,21 @@ const DocumentsTab = ({ clientUsername }) => {
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
 
+  useEffect(() => {
+    firmsRef.current = firms;
+  }, [firms]);
+
+  useEffect(() => {
+    documentTypesRef.current = documentTypes;
+  }, [documentTypes]);
+
   // Documents State
   const [documents, setDocuments] = useState({
     'income-tax': [],
     'gst': [],
     'mca': [],
-    'task': [
-      { id: 17, firm: 'ABC Enterprises', service: 'Income Tax', name: 'ITR Filing 2024', remark: 'Complete by Jan 30 - This is a long remark that should be truncated to show ellipsis' },
-      { id: 18, firm: 'XYZ Pvt Ltd', service: 'GST', name: 'GSTR-1 Filing', remark: 'Monthly return - Another long remark that needs truncation' },
-      { id: 19, firm: 'Tech Solutions', service: 'MCA', name: 'Annual Return', remark: 'Due date Feb 15 - This is a very long remark that will be truncated' },
-      { id: 20, firm: 'Global Traders', service: 'Income Tax', name: 'Advance Tax Payment', remark: 'Q4 payment - Long remark example for testing truncation' },
-    ],
-    'general': [
-      { id: 21, firm: 'ABC Enterprises', name: 'PAN Card', category: 'Identity', remark: 'Verified document - This is a long remark that should be truncated' },
-      { id: 22, firm: 'XYZ Pvt Ltd', name: 'Bank Statement', category: 'Financial', remark: 'December 2023 - Another long remark example' },
-      { id: 23, firm: 'Tech Solutions', name: 'GST Certificate', category: 'Registration', remark: 'New registration - Very long remark that needs to be truncated' },
-      { id: 24, firm: 'Global Traders', name: 'Partnership Deed', category: 'Legal', remark: 'Original - Long remark for testing purposes' },
-    ]
+    'task': [],
+    'general': []
   });
 
   // Pagination state
@@ -1363,28 +1477,168 @@ const DocumentsTab = ({ clientUsername }) => {
   // Service Types for Task tab
   const serviceTypes = useMemo(() => ['Income Tax', 'GST', 'MCA', 'ROC', 'Audit'], []);
 
-  // Tabs configuration
+  // Tabs configuration (explicit Tailwind classes — avoid dynamic color strings)
   const tabs = useMemo(() => [
-    { id: 'income-tax', label: 'Income Tax', icon: FiBriefcase, color: 'blue' },
-    { id: 'gst', label: 'GST', icon: FiDollarSign, color: 'green' },
-    { id: 'mca', label: 'MCA', icon: FiUsers, color: 'purple' },
-    { id: 'task', label: 'Task', icon: FiCheckCircle, color: 'orange' },
-    { id: 'general', label: 'General', icon: FiHome, color: 'gray' },
+    {
+      id: 'income-tax',
+      label: 'Income Tax',
+      shortLabel: 'IT',
+      icon: FiBriefcase,
+      activeText: 'text-blue-700',
+      iconWrap: 'bg-blue-100 text-blue-700',
+      indicator: 'bg-blue-600',
+    },
+    {
+      id: 'gst',
+      label: 'GST',
+      shortLabel: 'GST',
+      icon: TbCurrencyRupee,
+      activeText: 'text-emerald-700',
+      iconWrap: 'bg-emerald-100 text-emerald-700',
+      indicator: 'bg-emerald-600',
+    },
+    {
+      id: 'mca',
+      label: 'MCA',
+      shortLabel: 'MCA',
+      icon: FiUsers,
+      activeText: 'text-violet-700',
+      iconWrap: 'bg-violet-100 text-violet-700',
+      indicator: 'bg-violet-600',
+    },
+    {
+      id: 'task',
+      label: 'Task',
+      shortLabel: 'Task',
+      icon: FiCheckCircle,
+      activeText: 'text-amber-700',
+      iconWrap: 'bg-amber-100 text-amber-700',
+      indicator: 'bg-amber-600',
+    },
+    {
+      id: 'general',
+      label: 'General',
+      shortLabel: 'Gen',
+      icon: FiHome,
+      activeText: 'text-slate-800',
+      iconWrap: 'bg-slate-200 text-slate-700',
+      indicator: 'bg-slate-700',
+    },
   ], []);
 
-  // Close action menu when clicking outside
-  const handleClickOutside = useCallback((event) => {
-    if (actionMenuRef.current && !actionMenuRef.current.contains(event.target)) {
-      setActiveActionMenu(null);
+  // Compute floating action menu position (mirrors sale-display.jsx pattern)
+  const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+    if (!anchorEl) return null;
+
+    const itemCount = Math.max(1, Number(options.itemCount) || 4);
+    const rect = anchorEl.getBoundingClientRect();
+    const menuWidth = 176;
+    const menuHeight = 8 + itemCount * 36;
+    const gap = 8;
+    const margin = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const space = {
+      top: rect.top - margin,
+      bottom: vh - rect.bottom - margin,
+      right: vw - rect.right - margin,
+      left: rect.left - margin,
+    };
+
+    const fits = {
+      top: space.top >= menuHeight + gap,
+      bottom: space.bottom >= menuHeight + gap,
+      right: space.right >= menuWidth + gap,
+      left: space.left >= menuWidth + gap,
+    };
+
+    const preferred = ['top', 'bottom', 'right', 'left'];
+    let placement = preferred.find((p) => fits[p]);
+
+    if (!placement) {
+      placement = preferred.reduce(
+        (best, p) => (space[p] > space[best] ? p : best),
+        'bottom'
+      );
     }
+
+    let top = 0;
+    let left = 0;
+
+    if (placement === 'top') {
+      top = rect.top - menuHeight - gap;
+      left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === 'bottom') {
+      top = rect.bottom + gap;
+      left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === 'right') {
+      top = rect.top + rect.height / 2 - menuHeight / 2;
+      left = rect.right + gap;
+    } else {
+      top = rect.top + rect.height / 2 - menuHeight / 2;
+      left = rect.left - menuWidth - gap;
+    }
+
+    const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+    const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+
+    return {
+      top: clampedTop,
+      left: clampedLeft,
+      placement,
+    };
   }, []);
 
+  const closeActionMenu = useCallback(() => {
+    setActiveActionMenu(null);
+    actionAnchorRef.current = null;
+    setActionMenuPosition(null);
+  }, []);
+
+  const handleActionMenuToggle = useCallback((e, docId, itemCount) => {
+    e.stopPropagation();
+    if (activeActionMenu === docId) {
+      closeActionMenu();
+      return;
+    }
+    actionAnchorRef.current = e.currentTarget;
+    setActionMenuPosition(computeActionMenuPosition(e.currentTarget, { itemCount }));
+    setActiveActionMenu(docId);
+  }, [activeActionMenu, closeActionMenu, computeActionMenuPosition]);
+
+  // Close action menu on outside click / Escape / scroll, recalc on resize
   useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+    if (!activeActionMenu) return undefined;
+
+    const handleOutsideClick = () => {
+      closeActionMenu();
     };
-  }, [handleClickOutside]);
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        closeActionMenu();
+      }
+    };
+
+    const updatePosition = () => {
+      if (actionAnchorRef.current) {
+        setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current, { itemCount: 4 }));
+      }
+    };
+
+    document.addEventListener('click', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', handleOutsideClick, true);
+
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', handleOutsideClick, true);
+    };
+  }, [activeActionMenu, closeActionMenu, computeActionMenuPosition]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -1591,22 +1845,33 @@ const DocumentsTab = ({ clientUsername }) => {
     fetchCategories();
   }, [activeTab, searchTerm]);
 
-  // Calculate total storage used
+  // Fetch total storage used (all documents for this client)
   useEffect(() => {
-    const calculateStorage = () => {
-      let total = 0;
-      Object.values(documents).forEach(docArray => {
-        docArray.forEach(doc => {
-          if (doc.size) {
-            total += doc.size;
+    const fetchStorageUsage = async () => {
+      if (!clientUsername) return;
+
+      const headers = getHeaders();
+      if (!headers) return;
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/client/details/documents/storage-usage?username=${encodeURIComponent(clientUsername)}`,
+          { method: 'GET', headers }
+        );
+        const result = await response.json();
+        if (result.success && result.data) {
+          setStorageUsed(Number(result.data.used_bytes) || 0);
+          if (result.data.limit_bytes) {
+            setStorageTotal(Number(result.data.limit_bytes));
           }
-        });
-      });
-      setStorageUsed(total);
+        }
+      } catch (error) {
+        console.error('Error fetching storage usage:', error);
+      }
     };
 
-    calculateStorage();
-  }, [documents]);
+    fetchStorageUsage();
+  }, [clientUsername, refreshTrigger]);
 
   // Fetch Documents based on active tab
   useEffect(() => {
@@ -1616,13 +1881,43 @@ const DocumentsTab = ({ clientUsername }) => {
         return;
       }
 
+      const seq = ++fetchSeqRef.current;
+      const isCurrent = () => seq === fetchSeqRef.current;
+      const firmMap = {};
+      (firmsRef.current || []).forEach((firm) => {
+        const firmId = firm.firm_id || firm.id;
+        if (!firmId) return;
+        firmMap[firmId] = {
+          name: firm.firm_name || firm.name || '',
+          type: firm.firm_type || firm.type || '',
+        };
+      });
+      const resolveFirmFields = (doc) => {
+        const mapped = firmMap[doc.firm_id];
+        const firmName =
+          doc.firm_name || mapped?.name || doc.firm_id || '-';
+        const firmType = formatUnderscoreLabel(doc.firm_type || mapped?.type || '');
+        const firm =
+          firmType && firmName !== '-'
+            ? `${firmName} (${firmType})`
+            : firmName || '-';
+        return { firmName, firmType, firm };
+      };
+      const formatYearLabel = (year, prefix) => {
+        if (!year) return '-';
+        const cleaned = String(year).replace(/^(AY|FY)\s*/i, '').trim();
+        if (!cleaned) return '-';
+        return `${prefix} ${cleaned}`;
+      };
+      const types = documentTypesRef.current || {};
+
       if (activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') {
         setLoading(true);
 
         const headers = getHeaders();
         if (!headers) {
           console.error('Authentication headers not found');
-          setLoading(false);
+          if (isCurrent()) setLoading(false);
           return;
         }
 
@@ -1666,38 +1961,31 @@ const DocumentsTab = ({ clientUsername }) => {
           });
 
           const result = await response.json();
+          if (!isCurrent()) return;
 
           if (result.success && Array.isArray(result.data)) {
-            const firmMap = {};
-            firms.forEach(firm => {
-              const firmId = firm.firm_id || firm.id;
-              const firmName = firm.firm_name || firm.name;
-              if (firmId) {
-                firmMap[firmId] = firmName;
-              }
-            });
-
-            // First, filter documents to only include those with valid firms in the firmMap
-            const validDocuments = result.data.filter(doc => {
-              return firmMap[doc.firm_id] !== undefined;
-            });
-
-            const transformedData = validDocuments.map((doc, index) => {
-              const firmName = firmMap[doc.firm_id]; // No need for fallback since we filtered
-
+            const transformedData = result.data.map((doc, index) => {
               let typeName = doc.type;
-              if (documentTypes[endpoint]) {
-                const typeObj = documentTypes[endpoint].find(t => t.value === doc.type);
+              if (types[endpoint]) {
+                const typeObj = types[endpoint].find(t => t.value === doc.type);
                 if (typeObj) {
                   typeName = typeObj.name;
                 }
               }
+              typeName = formatUnderscoreLabel(typeName || doc.type);
+
+              const { firmName, firmType, firm } = resolveFirmFields(doc);
 
               const baseDoc = {
                 id: doc.document_id || index + 1,
                 firm_id: doc.firm_id,
-                firm: firmName,
-                year: doc.f_year,
+                firm_name: firmName,
+                firm_type: firmType,
+                firm,
+                year:
+                  activeTab === 'income-tax'
+                    ? formatYearLabel(doc.f_year, 'AY')
+                    : formatYearLabel(doc.f_year, 'FY'),
                 type: typeName,
                 type_value: doc.type,
                 remark: doc.remark,
@@ -1732,13 +2020,162 @@ const DocumentsTab = ({ clientUsername }) => {
             }));
           }
         } catch (error) {
+          if (!isCurrent()) return;
           console.error(`Error fetching ${activeTab} documents:`, error);
           setDocuments(prev => ({
             ...prev,
             [activeTab]: []
           }));
         } finally {
-          setLoading(false);
+          if (isCurrent()) setLoading(false);
+        }
+      } else if (activeTab === 'general') {
+        setLoading(true);
+
+        const headers = getHeaders();
+        if (!headers) {
+          console.error('Authentication headers not found');
+          if (isCurrent()) setLoading(false);
+          return;
+        }
+
+        const params = new URLSearchParams();
+        params.append('username', clientUsername);
+        params.append('page', currentPage);
+        params.append('limit', itemsPerPage);
+
+        if (selectedFirm !== 'all') {
+          params.append('firm_id', selectedFirm);
+        }
+
+        if (selectedCategory !== 'all') {
+          params.append('category_id', selectedCategory);
+        }
+
+        if (searchTerm) {
+          params.append('search', searchTerm);
+        }
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/client/details/documents/list/general?${params.toString()}`, {
+            method: 'GET',
+            headers: headers
+          });
+
+          const result = await response.json();
+          if (!isCurrent()) return;
+
+          if (result.success && Array.isArray(result.data)) {
+            const transformedData = result.data.map((doc, index) => {
+              const { firmName, firmType, firm } = resolveFirmFields(doc);
+              return {
+              id: doc.document_id || index + 1,
+              firm_id: doc.firm_id,
+              firm_name: firmName,
+              firm_type: firmType,
+              firm,
+              name: doc.name,
+              category: doc.category_name,
+              remark: doc.remark,
+              file_url: doc.file,
+              size: doc.size,
+              mime_type: doc.mime_type,
+              create_date: doc.create_date
+            };
+            });
+
+            setDocuments(prev => ({
+              ...prev,
+              general: transformedData
+            }));
+
+            if (result.pagination) {
+              setPagination(result.pagination);
+            }
+          } else {
+            console.error('Failed to fetch general documents:', result.message);
+            setDocuments(prev => ({ ...prev, general: [] }));
+          }
+        } catch (error) {
+          if (!isCurrent()) return;
+          console.error('Error fetching general documents:', error);
+          setDocuments(prev => ({ ...prev, general: [] }));
+        } finally {
+          if (isCurrent()) setLoading(false);
+        }
+      } else if (activeTab === 'task') {
+        setLoading(true);
+
+        const headers = getHeaders();
+        if (!headers) {
+          console.error('Authentication headers not found');
+          if (isCurrent()) setLoading(false);
+          return;
+        }
+
+        const params = new URLSearchParams();
+        params.append('username', clientUsername);
+        params.append('page', currentPage);
+        params.append('limit', itemsPerPage);
+
+        if (selectedFirm !== 'all') {
+          params.append('firm_id', selectedFirm);
+        }
+
+        if (selectedService !== 'all') {
+          params.append('service', selectedService);
+        }
+
+        if (searchTerm) {
+          params.append('search', searchTerm);
+        }
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/client/details/documents/list/task?${params.toString()}`, {
+            method: 'GET',
+            headers: headers
+          });
+
+          const result = await response.json();
+          if (!isCurrent()) return;
+
+          if (result.success && Array.isArray(result.data)) {
+            const transformedData = result.data.map((doc, index) => {
+              const { firmName, firmType, firm } = resolveFirmFields(doc);
+              return {
+              id: doc.document_id || index + 1,
+              firm_id: doc.firm_id,
+              firm_name: firmName,
+              firm_type: firmType,
+              firm,
+              service: doc.service_name,
+              name: doc.name,
+              remark: doc.remark,
+              file_url: doc.file,
+              size: doc.size,
+              mime_type: doc.mime_type,
+              create_date: doc.create_date
+            };
+            });
+
+            setDocuments(prev => ({
+              ...prev,
+              task: transformedData
+            }));
+
+            if (result.pagination) {
+              setPagination(result.pagination);
+            }
+          } else {
+            console.error('Failed to fetch task documents:', result.message);
+            setDocuments(prev => ({ ...prev, task: [] }));
+          }
+        } catch (error) {
+          if (!isCurrent()) return;
+          console.error('Error fetching task documents:', error);
+          setDocuments(prev => ({ ...prev, task: [] }));
+        } finally {
+          if (isCurrent()) setLoading(false);
         }
       }
     };
@@ -1752,10 +2189,10 @@ const DocumentsTab = ({ clientUsername }) => {
     selectedYear,
     selectedType,
     selectedMonth,
+    selectedService,
+    selectedCategory,
     searchTerm,
     clientUsername,
-    firms,
-    documentTypes,
     refreshTrigger
   ]);
   
@@ -1763,6 +2200,12 @@ const DocumentsTab = ({ clientUsername }) => {
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedFirm, selectedYear, selectedType, selectedMonth, selectedService, selectedCategory, searchTerm, activeTab]);
+
+  // Clear selection when page, tab, or filters change
+  useEffect(() => {
+    setSelectedDocuments([]);
+    setSelectAll(false);
+  }, [activeTab, currentPage, itemsPerPage, selectedFirm, selectedYear, selectedType, selectedMonth, selectedService, selectedCategory, searchTerm]);
 
   // File upload function
   const uploadFileToServer = async (file) => {
@@ -1864,8 +2307,9 @@ const DocumentsTab = ({ clientUsername }) => {
       if (activeTab === 'income-tax') endpoint = 'it';
       else if (activeTab === 'gst') endpoint = 'gst';
       else if (activeTab === 'mca') endpoint = 'mca';
-      else if (activeTab === 'general') {
-        showToast.error('General tab upload not implemented yet');
+      else if (activeTab === 'general') endpoint = 'general';
+      else {
+        showToast.error('Upload is not available for this tab');
         setUploadLoading(false);
         return;
       }
@@ -2148,13 +2592,67 @@ const DocumentsTab = ({ clientUsername }) => {
     setActiveActionMenu(null);
   };
 
+  // Soft-delete one or more documents (DB only; B2 files kept)
+  const handleDeleteDocuments = async (documentIds) => {
+    const ids = [...new Set((documentIds || []).map((id) => String(id).trim()).filter(Boolean))];
+    if (ids.length === 0) {
+      showToast.error('No documents selected');
+      return;
+    }
+    if (!clientUsername) {
+      showToast.error('Client username is required');
+      return;
+    }
+
+    const label = ids.length === 1 ? 'this document' : `${ids.length} documents`;
+    if (!window.confirm(`Delete ${label}? This will hide them from the list (soft delete).`)) {
+      return;
+    }
+
+    try {
+      const headers = getHeaders();
+      if (!headers) {
+        throw new Error('Authentication headers not found');
+      }
+
+      const response = await axios.delete(
+        `${API_BASE_URL}/client/details/documents/delete`,
+        {
+          headers,
+          data: {
+            username: clientUsername,
+            document_ids: ids,
+          },
+        }
+      );
+
+      if (response.data?.success) {
+        showToast.success(
+          ids.length === 1 ? 'Document deleted successfully' : `${ids.length} documents deleted successfully`
+        );
+        setSelectedDocuments((prev) => prev.filter((id) => !ids.includes(String(id))));
+        setSelectAll(false);
+        closeActionMenu();
+        setRefreshTrigger(Date.now());
+      } else {
+        showToast.error(response.data?.message || 'Failed to delete documents');
+      }
+    } catch (error) {
+      console.error('Error deleting documents:', error);
+      showToast.error(
+        error.response?.data?.message || error.message || 'Failed to delete documents'
+      );
+    }
+  };
+
   // Handle select all
   const handleSelectAll = () => {
-    if (selectedDocuments.length === currentItems.length) {
+    if (selectAll) {
       setSelectedDocuments([]);
     } else {
       setSelectedDocuments(currentItems.map(doc => doc.id));
     }
+    setSelectAll(!selectAll);
   };
 
   // Handle select single
@@ -2179,12 +2677,15 @@ const DocumentsTab = ({ clientUsername }) => {
   // Get year label based on active tab
   const getYearLabel = useCallback(() => {
     if (activeTab === 'income-tax') {
-      return 'ALL AY';
+      return 'Assessment Year';
     } else if (activeTab === 'gst' || activeTab === 'mca') {
-      return 'ALL FY';
+      return 'Financial Year';
     }
-    return 'All Years';
+    return 'Year';
   }, [activeTab]);
+
+  // "All" option label based on active tab (e.g. "All Assessment Years" / "All Financial Years")
+  const getAllYearLabel = useCallback(() => `All ${getYearLabel()}s`, [getYearLabel]);
 
   // Get document types for current tab
   const getCurrentTabTypes = useCallback(() => {
@@ -2198,52 +2699,31 @@ const DocumentsTab = ({ clientUsername }) => {
     return [];
   }, [activeTab, documentTypes]);
 
-  // Filter documents based on selected filters
+  // All tabs are API-backed with server-side pagination/filtering (filters are query params),
+  // so the current page rows are simply the fetched documents for the active tab.
   const getFilteredDocuments = useCallback(() => {
-    let filtered = documents[activeTab] || [];
-
-    if (selectedFirm !== 'all') {
-      filtered = filtered.filter(doc => doc.firm_id === selectedFirm);
-    }
-
-    if (selectedYear !== 'all') {
-      filtered = filtered.filter(doc => doc.year === selectedYear);
-    }
-
-    if (selectedType !== 'all' && activeTab !== 'task' && activeTab !== 'general') {
-      filtered = filtered.filter(doc => doc.type_value === selectedType);
-    }
-
-    if (activeTab === 'gst' && selectedMonth !== 'all') {
-      filtered = filtered.filter(doc => doc.month === selectedMonth);
-    }
-
-    if (activeTab === 'task' && selectedService !== 'all') {
-      filtered = filtered.filter(doc => doc.service === selectedService);
-    }
-
-    if (activeTab === 'general' && selectedCategory !== 'all') {
-      filtered = filtered.filter(doc => doc.category === selectedCategory);
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(doc =>
-        Object.values(doc).some(value =>
-          String(value).toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    }
-
-    return filtered;
-  }, [activeTab, documents, selectedFirm, selectedYear, selectedType, selectedMonth, selectedService, selectedCategory, searchTerm]);
+    return documents[activeTab] || [];
+  }, [activeTab, documents]);
 
   const filteredDocuments = getFilteredDocuments();
 
-  // Pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredDocuments.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
+  // Server pagination — `pagination` state is populated from the API response.
+  const currentItems = filteredDocuments;
+
+  // Keep "Select All" toggle in sync when user toggles rows manually
+  useEffect(() => {
+    if (selectedDocuments.length === 0) {
+      setSelectAll(false);
+    } else if (selectedDocuments.length === currentItems.length) {
+      setSelectAll(true);
+    }
+  }, [selectedDocuments, currentItems.length]);
+
+  // Active document for the floating (portal) action menu
+  const activeActionDoc = useMemo(
+    () => currentItems.find((d) => d.id === activeActionMenu) || null,
+    [currentItems, activeActionMenu]
+  );
 
   // Format storage for display
   const formatStorage = (bytes) => {
@@ -2261,12 +2741,33 @@ const DocumentsTab = ({ clientUsername }) => {
     return text.substring(0, maxLength) + '...';
   };
 
+  const getDocumentFirmLabel = useCallback(
+    (doc) => {
+      if (!doc) return '-';
+      const matched = (firms || []).find(
+        (firm) => String(firm.firm_id || firm.id) === String(doc.firm_id)
+      );
+      const name =
+        doc.firm_name ||
+        matched?.firm_name ||
+        matched?.name ||
+        (doc.firm && !String(doc.firm).includes(' (') ? doc.firm : null) ||
+        '-';
+      const type = formatUnderscoreLabel(
+        doc.firm_type || matched?.firm_type || matched?.type || ''
+      );
+      if (type && name !== '-') return `${name} (${type})`;
+      return name || '-';
+    },
+    [firms]
+  );
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-xl"
+      exit={{ opacity: 0, y: -12 }}
+      className="w-full rounded-xl border border-slate-200 bg-white"
     >
       {/* Toaster Component */}
       <Toaster
@@ -2291,41 +2792,60 @@ const DocumentsTab = ({ clientUsername }) => {
       />
 
       {/* Header with Tabs and Storage Info */}
-      <div className="border-b border-gray-200 px-6 pt-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
-              Document Management System
+      <div className="border-b border-slate-200 px-3 md:px-4 pt-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-800">
+              Documents
             </h2>
-            {/* Storage Usage Indicator */}
-            <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200">
-              <FiHardDrive className="w-5 h-5 text-slate-500" />
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">Storage:</span>
-                  <span className="text-sm text-slate-600">{formatStorage(storageUsed)} / 5 GB</span>
+            {/* Storage Usage Indicator — click for breakdown */}
+            <button
+              type="button"
+              onClick={() => setShowStorageModal(true)}
+              title="View storage by file type"
+              className="group flex items-center gap-2.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-white transition-all text-left"
+            >
+              <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center shrink-0">
+                <FiHardDrive className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex flex-col min-w-[6.5rem]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-slate-500">Storage</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Details
+                  </span>
                 </div>
-                <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <span className="text-xs font-semibold text-slate-800 tabular-nums">
+                  {formatStorage(storageUsed)}
+                  <span className="text-slate-400 font-medium"> / 5 GB</span>
+                </span>
+                <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden mt-1">
                   <div
-                    className={`h-full transition-all duration-300 ${storagePercentage > 90 ? 'bg-red-500' : 'bg-green-500'}`}
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      storagePercentage > 90
+                        ? 'bg-rose-500'
+                        : storagePercentage > 70
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                    }`}
                     style={{ width: `${Math.min(storagePercentage, 100)}%` }}
                   />
                 </div>
               </div>
-            </div>
+            </button>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {activeTab === 'general' ? (
               <div className="relative dropdown-container">
                 <motion.button
                   onClick={() => setShowGeneralDropdown(!showGeneralDropdown)}
-                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium"
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all font-medium text-xs shadow-sm"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <FiPlus className="w-5 h-5" />
+                  <FiPlus className="w-3.5 h-3.5" />
                   Add New
-                  <FiChevronDown className="w-4 h-4" />
+                  <FiChevronDown className="w-3.5 h-3.5" />
                 </motion.button>
 
                 {showGeneralDropdown && (
@@ -2335,7 +2855,7 @@ const DocumentsTab = ({ clientUsername }) => {
                         setShowUploadModal(true);
                         setShowGeneralDropdown(false);
                       }}
-                      className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
                     >
                       <FiUpload className="w-4 h-4" />
                       Upload Document
@@ -2345,7 +2865,7 @@ const DocumentsTab = ({ clientUsername }) => {
                         setShowCreateCategoryModal(true);
                         setShowGeneralDropdown(false);
                       }}
-                      className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
                     >
                       <FiPlus className="w-4 h-4" />
                       Create Category
@@ -2357,11 +2877,11 @@ const DocumentsTab = ({ clientUsername }) => {
               activeTab !== 'task' && (
                 <motion.button
                   onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium"
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all font-medium text-xs shadow-sm"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <FiPlus className="w-5 h-5" />
+                  <FiPlus className="w-3.5 h-3.5" />
                   Add Document
                 </motion.button>
               )
@@ -2369,59 +2889,81 @@ const DocumentsTab = ({ clientUsername }) => {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setSelectedDocuments([]);
-                  setActiveActionMenu(null);
-                  setSelectedYear('all');
-                  setSelectedType('all');
-                  setShowGeneralSubTab('documents');
-                }}
-                className={`flex items-center gap-2 px-6 py-3 rounded-t-xl font-medium transition-all relative whitespace-nowrap ${activeTab === tab.id
-                    ? `text-${tab.color}-600 bg-white border-t-2 border-l border-r border-gray-200 -mb-px`
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-gray-50'
+        {/* Segmented tabs */}
+        <div className="pb-3">
+          <div
+            role="tablist"
+            aria-label="Document categories"
+            className="inline-flex max-w-full overflow-x-auto p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-0.5 custom-scrollbar"
+          >
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setSelectedDocuments([]);
+                    setActiveActionMenu(null);
+                    setSelectedYear('all');
+                    setSelectedType('all');
+                    setShowGeneralSubTab('documents');
+                  }}
+                  className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                    isActive
+                      ? `bg-white shadow-sm border border-slate-200/80 ${tab.activeText}`
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 border border-transparent'
                   }`}
-              >
-                <Icon className={`w-5 h-5 ${activeTab === tab.id ? `text-${tab.color}-600` : ''}`} />
-                {tab.label}
-                {activeTab === tab.id && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${tab.color}-600`}
-                  />
-                )}
-              </button>
-            );
-          })}
+                >
+                  <span
+                    className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                      isActive ? tab.iconWrap : 'bg-white/70 text-slate-400'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.shortLabel}</span>
+                  {isActive && (
+                    <motion.span
+                      layoutId="documentsActiveTabDot"
+                      className={`absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full ${tab.indicator}`}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* General Tab Sub-tabs */}
       {activeTab === 'general' && (
-        <div className="px-6 pt-4 border-b border-gray-200">
-          <div className="flex gap-2">
+        <div className="px-3 md:px-4 pt-2.5 pb-1 border-b border-slate-200">
+          <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/80 gap-0.5">
             <button
+              type="button"
               onClick={() => setShowGeneralSubTab('documents')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${showGeneralSubTab === 'documents'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-slate-600 hover:bg-gray-100'
-                }`}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                showGeneralSubTab === 'documents'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
               Documents
             </button>
             <button
+              type="button"
               onClick={() => setShowGeneralSubTab('categories')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${showGeneralSubTab === 'categories'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-slate-600 hover:bg-gray-100'
-                }`}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                showGeneralSubTab === 'categories'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
               Categories
             </button>
@@ -2429,484 +2971,467 @@ const DocumentsTab = ({ clientUsername }) => {
         </div>
       )}
 
-      {/* Filters Bar - Show only for documents view */}
+      {/* Documents: filters + table + pagination (single section) */}
       {(activeTab !== 'general' || (activeTab === 'general' && showGeneralSubTab === 'documents')) && (
-        <div className="p-6 border-b border-gray-200 bg-gray-50/50">
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="min-w-[220px]">
-              <CustomSelect
-                options={[
-                  { value: 'all', label: 'All Firms' },
-                  ...firms.map((firm) => ({
-                    value: firm.firm_id || firm.id,
-                    label: firm.firm_name || firm.name,
-                  })),
-                ]}
-                value={optionByValue([
-                  { value: 'all', label: 'All Firms' },
-                  ...firms.map((firm) => ({
-                    value: firm.firm_id || firm.id,
-                    label: firm.firm_name || firm.name,
-                  })),
-                ], selectedFirm)}
-                onChange={(opt) => setSelectedFirm(opt?.value || 'all')}
-                searchPlaceholder="Search firm..."
-                isDisabled={loadingFirms}
-                isClearable={false}
-              />
-            </div>
-
-            {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
-              <div className="min-w-[190px]">
-                <CustomSelect
-                  options={[
-                    { value: 'all', label: getYearLabel() },
-                    ...getYearOptions().map((year) => ({ value: year, label: year })),
-                  ]}
-                  value={optionByValue([
-                    { value: 'all', label: getYearLabel() },
-                    ...getYearOptions().map((year) => ({ value: year, label: year })),
-                  ], selectedYear)}
-                  onChange={(opt) => setSelectedYear(opt?.value || 'all')}
-                  searchPlaceholder="Search year..."
-                  isDisabled={loadingYears}
-                  isClearable={false}
-                />
-              </div>
-            )}
-
-            {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
-              <div className="min-w-[220px]">
-                <CustomSelect
-                  options={[
-                    { value: 'all', label: 'All Types' },
-                    ...getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name })),
-                  ]}
-                  value={optionByValue([
-                    { value: 'all', label: 'All Types' },
-                    ...getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name })),
-                  ], selectedType)}
-                  onChange={(opt) => setSelectedType(opt?.value || 'all')}
-                  searchPlaceholder="Search type..."
-                  isDisabled={loadingTypes}
-                  isClearable={false}
-                />
-              </div>
-            )}
-
-            {activeTab === 'gst' && (
-              <div className="min-w-[180px]">
-                <CustomSelect
-                  options={[
-                    { value: 'all', label: 'All Months' },
-                    ...months.map((month) => ({ value: month, label: month })),
-                  ]}
-                  value={optionByValue([
-                    { value: 'all', label: 'All Months' },
-                    ...months.map((month) => ({ value: month, label: month })),
-                  ], selectedMonth)}
-                  onChange={(opt) => setSelectedMonth(opt?.value || 'all')}
-                  searchPlaceholder="Search month..."
-                  isClearable={false}
-                />
-              </div>
-            )}
-
-            {activeTab === 'task' && (
-              <div className="min-w-[220px]">
-                <CustomSelect
-                  options={[
-                    { value: 'all', label: 'All Services' },
-                    ...serviceTypes.map((service) => ({ value: service, label: service })),
-                  ]}
-                  value={optionByValue([
-                    { value: 'all', label: 'All Services' },
-                    ...serviceTypes.map((service) => ({ value: service, label: service })),
-                  ], selectedService)}
-                  onChange={(opt) => setSelectedService(opt?.value || 'all')}
-                  searchPlaceholder="Search service..."
-                  isClearable={false}
-                />
-              </div>
-            )}
-
-            {activeTab === 'general' && showGeneralSubTab === 'documents' && (
-              <>
+        <div className="px-3 md:px-4 py-3">
+          <div className="rounded-lg border border-slate-200/80 bg-white/70 overflow-hidden">
+            {/* Filters */}
+            <div className="p-3 border-b border-slate-200/80">
+              <div className="flex flex-wrap gap-2.5 items-center">
                 <div className="min-w-[220px]">
                   <CustomSelect
                     options={[
-                      { value: 'all', label: 'All Categories' },
-                      ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
+                      { value: 'all', label: 'All Firms' },
+                      ...firms.map((firm) => ({
+                        value: firm.firm_id || firm.id,
+                        label: firm.firm_name || firm.name,
+                      })),
                     ]}
                     value={optionByValue([
-                      { value: 'all', label: 'All Categories' },
-                      ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
-                    ], selectedCategory)}
-                    onChange={(opt) => setSelectedCategory(opt?.value || 'all')}
-                    searchPlaceholder="Search category..."
-                    isDisabled={loadingCategories}
+                      { value: 'all', label: 'All Firms' },
+                      ...firms.map((firm) => ({
+                        value: firm.firm_id || firm.id,
+                        label: firm.firm_name || firm.name,
+                      })),
+                    ], selectedFirm)}
+                    onChange={(opt) => setSelectedFirm(opt?.value || 'all')}
+                    searchPlaceholder="Search firm..."
+                    isDisabled={loadingFirms}
                     isClearable={false}
                   />
                 </div>
-                <div className="flex-1 relative min-w-[200px]">
-                  <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    placeholder="Search documents..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+
+                {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
+                  <div className="min-w-[190px]">
+                    <CustomSelect
+                      options={[
+                        { value: 'all', label: getAllYearLabel() },
+                        ...getYearOptions().map((year) => ({ value: year, label: year })),
+                      ]}
+                      value={optionByValue([
+                        { value: 'all', label: getAllYearLabel() },
+                        ...getYearOptions().map((year) => ({ value: year, label: year })),
+                      ], selectedYear)}
+                      onChange={(opt) => setSelectedYear(opt?.value || 'all')}
+                      searchPlaceholder="Search year..."
+                      isDisabled={loadingYears}
+                      isClearable={false}
+                    />
+                  </div>
+                )}
+
+                {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
+                  <div className="min-w-[220px]">
+                    <CustomSelect
+                      options={[
+                        { value: 'all', label: 'All Types' },
+                        ...getCurrentTabTypes().map((type) => ({
+                          value: type.value,
+                          label: formatUnderscoreLabel(type.name || type.value),
+                        })),
+                      ]}
+                      value={optionByValue([
+                        { value: 'all', label: 'All Types' },
+                        ...getCurrentTabTypes().map((type) => ({
+                          value: type.value,
+                          label: formatUnderscoreLabel(type.name || type.value),
+                        })),
+                      ], selectedType)}
+                      onChange={(opt) => setSelectedType(opt?.value || 'all')}
+                      searchPlaceholder="Search type..."
+                      isDisabled={loadingTypes}
+                      isClearable={false}
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'gst' && (
+                  <div className="min-w-[180px]">
+                    <CustomSelect
+                      options={[
+                        { value: 'all', label: 'All Months' },
+                        ...months.map((month) => ({ value: month, label: month })),
+                      ]}
+                      value={optionByValue([
+                        { value: 'all', label: 'All Months' },
+                        ...months.map((month) => ({ value: month, label: month })),
+                      ], selectedMonth)}
+                      onChange={(opt) => setSelectedMonth(opt?.value || 'all')}
+                      searchPlaceholder="Search month..."
+                      isClearable={false}
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'task' && (
+                  <div className="min-w-[220px]">
+                    <CustomSelect
+                      options={[
+                        { value: 'all', label: 'All Services' },
+                        ...serviceTypes.map((service) => ({ value: service, label: service })),
+                      ]}
+                      value={optionByValue([
+                        { value: 'all', label: 'All Services' },
+                        ...serviceTypes.map((service) => ({ value: service, label: service })),
+                      ], selectedService)}
+                      onChange={(opt) => setSelectedService(opt?.value || 'all')}
+                      searchPlaceholder="Search service..."
+                      isClearable={false}
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'general' && showGeneralSubTab === 'documents' && (
+                  <div className="min-w-[220px]">
+                    <CustomSelect
+                      options={[
+                        { value: 'all', label: 'All Categories' },
+                        ...categories.map((cat) => ({ value: cat.category_id || cat.id, label: cat.name })),
+                      ]}
+                      value={optionByValue([
+                        { value: 'all', label: 'All Categories' },
+                        ...categories.map((cat) => ({ value: cat.category_id || cat.id, label: cat.name })),
+                      ], selectedCategory)}
+                      onChange={(opt) => setSelectedCategory(opt?.value || 'all')}
+                      searchPlaceholder="Search category..."
+                      isDisabled={loadingCategories}
+                      isClearable={false}
+                    />
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <FiSearch className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search documents..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className={`w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 text-sm text-slate-700 outline-none placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-indigo-500 ${
+                        searchTerm ? 'pr-9' : 'pr-3'
+                      }`}
+                    />
+                    {searchTerm ? (
+                      <button
+                        type="button"
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Clear search"
+                      >
+                        <FiX className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </>
-            )}
-          </div>
-
-          {/* Bulk Actions Bar */}
-          {selectedDocuments.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 flex items-center justify-between bg-blue-50 p-3 rounded-xl border border-blue-200"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-blue-700">
-                  {selectedDocuments.length} document(s) selected
-                </span>
-                <button
-                  onClick={() => setSelectedDocuments([])}
-                  className="text-xs text-blue-600 hover:text-blue-800 underline"
-                >
-                  Clear selection
-                </button>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleBulkSend}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  <FiSend className="w-4 h-4" />
-                  Send Selected
-                </button>
-                <button
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                  Delete Selected
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      )}
 
-      {/* Table Section - Documents */}
-      {(activeTab !== 'general' || (activeTab === 'general' && showGeneralSubTab === 'documents')) && (
-        <div className="p-6">
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            {/* Loading State */}
-            {loading && (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
-            )}
+              {selectedDocuments.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-3 flex flex-wrap items-center justify-between gap-2 bg-indigo-50/80 p-2.5 rounded-xl border border-indigo-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">
+                      {selectedDocuments.length}
+                    </div>
+                    <span className="text-sm text-gray-600">selected</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDocuments([]);
+                        setSelectAll(false);
+                      }}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 underline ml-1"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleBulkSend}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-xs font-medium"
+                    >
+                      <FiSend className="w-3.5 h-3.5" />
+                      Send Selected
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteDocuments(selectedDocuments)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                    >
+                      <FiTrash2 className="w-3.5 h-3.5" />
+                      Delete Selected
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
 
-            {/* Table Container */}
-            {!loading && (
-              <div className="overflow-x-auto">
-                <table className="w-full table-fixed">
+            {/* Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                      <th className="w-16 px-6 py-4 text-left">
-                        <button
-                          onClick={handleSelectAll}
-                          className="text-slate-500 hover:text-slate-700"
-                          title={selectedDocuments.length === currentItems.length ? "Deselect all" : "Select all"}
-                        >
-                          {selectedDocuments.length === currentItems.length && currentItems.length > 0 ? (
-                            <div className="relative inline-block">
-                              <div className="w-10 h-5 bg-blue-600 rounded-full transition-colors"></div>
-                              <div className="absolute top-0.5 right-0.5 w-4 h-4 bg-white rounded-full shadow transform transition-transform"></div>
-                            </div>
-                          ) : (
-                            <div className="relative inline-block">
-                              <div className="w-10 h-5 bg-gray-300 rounded-full transition-colors"></div>
-                              <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition-transform"></div>
-                            </div>
-                          )}
-                        </button>
+                    <tr className="bg-slate-100/90 border-b border-slate-200">
+                      <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[44px] w-12">
+                        <div className="flex items-center justify-center">
+                          <AnimatedCheckbox
+                            checked={selectAll}
+                            indeterminate={
+                              selectedDocuments.length > 0 &&
+                              selectedDocuments.length < currentItems.length
+                            }
+                            onChange={handleSelectAll}
+                            ariaLabel="Select all documents"
+                          />
+                        </div>
+                      </th>
+                      <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[48px] w-14">
+                        #
                       </th>
 
-                      {/* Dynamic Table Headers based on active tab */}
                       {activeTab === 'income-tax' && (
                         <>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Assessment Year</th>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">Firm</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Assessment Year</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[140px]">Type</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">View</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'gst' && (
                         <>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Financial Year</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Month</th>
-                          <th className="w-1/4 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[180px]">Firm</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Financial Year</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Type</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Month</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">View</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'mca' && (
                         <>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Financial Year</th>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">Firm</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Financial Year</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[140px]">Type</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">View</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'task' && (
                         <>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Service</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[180px]">Firm</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[140px]">Service</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[140px]">Name</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">View</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'general' && (
                         <>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Category</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[180px]">Firm</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[140px]">Name</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[140px]">Category</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">View</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
                         </>
                       )}
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-slate-100">
+                    {loading ? (
+                      Array.from({ length: 7 }).map((_, i) => (
+                        <tr key={`skeleton-${i}`} className={`animate-pulse ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}`}>
+                          <td className="p-3"><div className="h-4 bg-gray-200 rounded w-4 mx-auto"></div></td>
+                          <td className="p-3"><div className="h-4 bg-gray-200 rounded w-6 mx-auto"></div></td>
+                          <td className="p-3"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                          <td className="p-3"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                          <td className="p-3"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                          {activeTab === 'gst' && (
+                            <td className="p-3"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                          )}
+                          <td className="p-3"><div className="h-5 bg-gray-200 rounded w-8 mx-auto"></div></td>
+                          <td className="p-3"><div className="h-5 bg-gray-200 rounded w-8 mx-auto"></div></td>
+                        </tr>
+                      ))
+                    ) : (
                     <AnimatePresence>
                       {currentItems.length > 0 ? (
-                        currentItems.map((doc, index) => (
+                        currentItems.map((doc, index) => {
+                          const rowNum = (currentPage - 1) * itemsPerPage + index + 1;
+                          const isSelected = selectedDocuments.includes(doc.id);
+                          return (
                           <motion.tr
                             key={doc.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ delay: index * 0.05 }}
-                            className={`hover:bg-gray-50 transition-colors ${selectedDocuments.includes(doc.id) ? 'bg-blue-50/50' : ''
-                              }`}
+                            className={`${
+                              isSelected
+                                ? 'bg-indigo-50/50'
+                                : index % 2 === 0
+                                  ? 'bg-white'
+                                  : 'bg-slate-50/70'
+                            } hover:bg-indigo-50/40 transition-colors duration-150`}
                           >
-                            <td className="px-6 py-4 align-middle">
-                              <button
-                                onClick={() => handleSelect(doc.id)}
-                                className="text-slate-500 hover:text-slate-700"
-                                title={selectedDocuments.includes(doc.id) ? "Deselect" : "Select"}
-                              >
-                                {selectedDocuments.includes(doc.id) ? (
-                                  <div className="relative inline-block">
-                                    <div className="w-10 h-5 bg-blue-600 rounded-full transition-colors"></div>
-                                    <div className="absolute top-0.5 right-0.5 w-4 h-4 bg-white rounded-full shadow transform transition-transform"></div>
-                                  </div>
-                                ) : (
-                                  <div className="relative inline-block">
-                                    <div className="w-10 h-5 bg-gray-300 rounded-full transition-colors"></div>
-                                    <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transform transition-transform"></div>
-                                  </div>
-                                )}
-                              </button>
+                            <td className="p-3 text-center align-middle">
+                              <div className="flex items-center justify-center">
+                                <AnimatedCheckbox
+                                  checked={isSelected}
+                                  onChange={() => handleSelect(doc.id)}
+                                  ariaLabel={`Select document ${doc?.name || doc?.file_name || ''}`}
+                                />
+                              </div>
+                            </td>
+                            <td className="p-3 text-center align-middle">
+                              <div className="text-slate-700 font-medium text-xs">{rowNum}</div>
                             </td>
 
                             {/* Dynamic Table Cells based on active tab */}
                             {activeTab === 'income-tax' && (
                               <>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={getDocumentFirmLabel(doc)}>{getDocumentFirmLabel(doc)}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600">{doc.year}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs text-slate-600">{doc.year}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.type}>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-700 truncate max-w-[160px]" title={doc.type}>
                                     {doc.type}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  </div>
                                 </td>
                               </>
                             )}
 
                             {activeTab === 'gst' && (
                               <>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={getDocumentFirmLabel(doc)}>{getDocumentFirmLabel(doc)}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600">{doc.year}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs text-slate-600">{doc.year}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.type}>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-700 truncate max-w-[140px]" title={doc.type}>
                                     {doc.type}
-                                  </span>
+                                  </div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600 truncate" title={doc.month}>{doc.month}</div>
-                                </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs text-slate-600 truncate" title={doc.month}>{doc.month}</div>
                                 </td>
                               </>
                             )}
 
                             {activeTab === 'mca' && (
                               <>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={getDocumentFirmLabel(doc)}>{getDocumentFirmLabel(doc)}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600">{doc.year}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs text-slate-600">{doc.year}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.type}>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-700 truncate max-w-[160px]" title={doc.type}>
                                     {doc.type}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  </div>
                                 </td>
                               </>
                             )}
 
                             {activeTab === 'task' && (
                               <>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={getDocumentFirmLabel(doc)}>{getDocumentFirmLabel(doc)}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <span className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.service}>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-700 truncate max-w-[140px]" title={doc.service}>
                                     {doc.service}
-                                  </span>
+                                  </div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</div>
-                                </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</div>
                                 </td>
                               </>
                             )}
 
                             {activeTab === 'general' && (
                               <>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={getDocumentFirmLabel(doc)}>{getDocumentFirmLabel(doc)}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</div>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</div>
                                 </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <span className="px-3 py-1 bg-gray-50 text-slate-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.category}>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-700 truncate max-w-[140px]" title={doc.category}>
                                     {doc.category}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  </div>
                                 </td>
                               </>
                             )}
 
                             {/* View Column */}
-                            <td className="px-6 py-4 text-center align-middle">
+                            <td className="p-3 text-center align-middle">
                               <button
                                 onClick={() => handleView(doc)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="View"
                               >
-                                <FiEye className="w-5 h-5" />
+                                <FiEye className="w-4 h-4" />
                               </button>
                             </td>
 
                             {/* Actions Column with 3-dot menu */}
-                            <td className="px-6 py-4 text-center align-middle relative action-menu-container" ref={actionMenuRef}>
+                            <td className="p-3 text-center align-middle">
                               <button
-                                onClick={() => setActiveActionMenu(activeActionMenu === doc.id ? null : doc.id)}
-                                className="p-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                type="button"
+                                onClick={(e) => handleActionMenuToggle(e, doc.id, doc.file_url ? 4 : 3)}
+                                className="p-1.5 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                aria-label="Actions"
                               >
-                                <FiMenu className="w-3.5 h-3.5" />
+                                <FiMoreVertical className="w-4 h-4" />
                               </button>
-
-                              {/* Action Menu */}
-                              {activeActionMenu === doc.id && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
-                                  <button
-                                    onClick={() => {
-                                      handleView(doc);
-                                      setActiveActionMenu(null);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <FiEye className="w-4 h-4" />
-                                    View
-                                  </button>
-                                  {doc.file_url && (
-                                    <a
-                                      href={doc.file_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
-                                    >
-                                      <FiDownload className="w-4 h-4" />
-                                      Download
-                                    </a>
-                                  )}
-                                  <button
-                                    onClick={() => handleSend(doc)}
-                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <FiSend className="w-4 h-4" />
-                                    Send
-                                  </button>
-                                  <button
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                  >
-                                    <FiTrash2 className="w-4 h-4" />
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
                             </td>
                           </motion.tr>
-                        ))
+                          );
+                        })
                       ) : (
                         <tr>
-                          <td colSpan="10" className="px-6 py-12 text-center">
+                          <td colSpan="9" className="px-3 py-10 text-center">
                             <div className="flex flex-col items-center justify-center">
-                              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                <FiFolder className="w-8 h-8 text-slate-400" />
+                              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                <FiFolder className="w-6 h-6 text-slate-400" />
                               </div>
-                              <h3 className="text-sm font-semibold text-slate-800 mb-2">No documents found</h3>
-                              <p className="text-slate-600">Try adjusting your search or filter criteria</p>
+                              <h3 className="text-sm font-semibold text-slate-800 mb-1">No documents found</h3>
+                              <p className="text-xs text-slate-500">Try adjusting your search or filter criteria</p>
                             </div>
                           </td>
                         </tr>
                       )}
                     </AnimatePresence>
+                    )}
                   </tbody>
                 </table>
-              </div>
+            </div>
+
+            {(!loading || pagination.total > 0) && (
+              <TablePagination
+                  page={currentPage}
+                  limit={itemsPerPage}
+                  total={pagination.total || 0}
+                  totalPages={pagination.total_pages || 1}
+                  isLastPage={pagination.is_last_page}
+                  onPageChange={setCurrentPage}
+                  onLimitChange={(limit) => {
+                    setItemsPerPage(limit);
+                    setCurrentPage(1);
+                  }}
+                />
             )}
           </div>
         </div>
@@ -2914,63 +3439,63 @@ const DocumentsTab = ({ clientUsername }) => {
 
       {/* Categories Table for General Tab */}
       {activeTab === 'general' && showGeneralSubTab === 'categories' && (
-        <div className="p-6">
-          <h3 className="text-sm font-semibold text-slate-800 mb-4">Categories</h3>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="px-3 md:px-4 py-3">
+          <h3 className="text-sm font-semibold text-slate-800 mb-2.5">Categories</h3>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created By</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified By</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified Date</th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created By</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created Date</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified By</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified Date</th>
+                    <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-100">
                   {categories.map((category) => (
-                    <tr key={category.category_id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
+                    <tr key={category.category_id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-3 py-2.5">
                         <div className="text-sm font-medium text-slate-800">{category.name}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-2.5">
                         <div className="text-sm text-slate-600">{category.remark || '-'}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-2.5">
                         <div className="text-sm text-slate-600">
                           {category.create_by?.name || category.create_by?.username || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-2.5">
                         <div className="text-sm text-slate-600">
                           {category.create_date ? new Date(category.create_date).toLocaleDateString() : '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-2.5">
                         <div className="text-sm text-slate-600">
                           {category.modify_by?.name || category.modify_by?.username || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-2.5">
                         <div className="text-sm text-slate-600">
                           {category.modify_date ? new Date(category.modify_date).toLocaleDateString() : '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="px-3 py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => openEditCategoryModal(category)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Edit Category"
                           >
                             <FiEdit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteCategory(category.category_id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete Category"
                           >
                             <FiTrash2 className="w-4 h-4" />
@@ -2986,27 +3511,70 @@ const DocumentsTab = ({ clientUsername }) => {
         </div>
       )}
 
-      {/* Pagination */}
-      {filteredDocuments.length > 0 && !loading && (
-        <div className="px-6 pb-6">
-          <Pagination
-            pagination={{
-              page: currentPage,
-              limit: itemsPerPage,
-              total: filteredDocuments.length,
-              total_pages: totalPages,
-              is_last_page: currentPage === totalPages
+      {/* Floating action menu (portal) */}
+      {activeActionMenu &&
+        activeActionDoc &&
+        actionMenuPosition &&
+        createPortal(
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            className="fixed w-44 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-[99999] overflow-hidden"
+            style={{
+              top: actionMenuPosition.top,
+              left: actionMenuPosition.left,
+              height: 'auto',
             }}
-            onPageChange={setCurrentPage}
-            onLimitChange={setItemsPerPage}
-            onCustomPageChange={setCurrentPage}
-            loading={false}
-            showPageInfo={true}
-            showLimitSelector={true}
-            showCustomInput={true}
-          />
-        </div>
-      )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                handleView(activeActionDoc);
+                closeActionMenu();
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <FiEye className="w-4 h-4" />
+              View
+            </button>
+            {activeActionDoc.file_url && (
+              <a
+                href={activeActionDoc.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeActionMenu}
+                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2 no-underline hover:no-underline"
+              >
+                <FiDownload className="w-4 h-4" />
+                Download
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                handleSend(activeActionDoc);
+                closeActionMenu();
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <FiSend className="w-4 h-4" />
+              Send
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDeleteDocuments([activeActionDoc.id]);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+            >
+              <FiTrash2 className="w-4 h-4" />
+              Delete
+            </button>
+          </motion.div>,
+          document.body
+        )}
 
       {/* Modals */}
       <AnimatePresence>
@@ -3062,6 +3630,13 @@ const DocumentsTab = ({ clientUsername }) => {
           />
         )}
       </AnimatePresence>
+
+      <DocumentStorageUsageModal
+        open={showStorageModal}
+        onClose={() => setShowStorageModal(false)}
+        clientUsername={clientUsername}
+        storageLimitBytes={storageTotal}
+      />
 
       {/* Custom Scrollbar Styles */}
       <style jsx>{`

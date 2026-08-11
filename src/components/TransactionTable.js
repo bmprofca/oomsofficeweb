@@ -71,7 +71,8 @@ function getTransactionTypeColor(transaction) {
 function getParticularsDisplay(transaction) {
     const particular = transaction.particular;
     const remark = particular?.remark;
-    if ((transaction.transaction_type || '').toLowerCase() === 'sale') {
+    const txLower = (transaction.transaction_type || '').toLowerCase();
+    if (txLower === 'sale') {
         const firmName =
             (particular?.firm?.firm_name && String(particular.firm.firm_name).trim()) ||
             (particular?.firm_name && String(particular.firm_name).trim()) ||
@@ -99,6 +100,45 @@ function getParticularsDisplay(transaction) {
                             {remark}
                         </div>
                     ) : null}
+                </div>
+            );
+        }
+    }
+    if (txLower === 'purchase') {
+        const summary =
+            (particular?.summary && String(particular.summary).trim()) ||
+            '';
+        if (summary) {
+            return (
+                <div className="font-medium text-slate-800 whitespace-normal break-words min-w-0">
+                    {summary}
+                </div>
+            );
+        }
+        const items = Array.isArray(particular?.purchase_items)
+            ? particular.purchase_items.map((item) => String(item?.name || '').trim()).filter(Boolean)
+            : [];
+        const firmName =
+            (particular?.firm_name && String(particular.firm_name).trim()) || '';
+        const taskId =
+            particular?.task_id != null && String(particular.task_id).trim() !== ''
+                ? String(particular.task_id).trim()
+                : '';
+        const partyName =
+            particular?.details?.name ||
+            particular?.details?.holder ||
+            particular?.details?.bank ||
+            '';
+        const parts = ['Purchase'];
+        if (firmName) parts.push(`for firm ${firmName}`);
+        else if (partyName) parts.push(`for ${partyName}`);
+        if (items.length) parts.push(`for service ${items.join(', ')}`);
+        let label = parts.join(' ');
+        if (taskId) label = `${label} (TASK)`;
+        if (label && label !== 'Purchase' && label !== 'Purchase (TASK)') {
+            return (
+                <div className="font-medium text-slate-800 whitespace-normal break-words min-w-0">
+                    {label}
                 </div>
             );
         }
