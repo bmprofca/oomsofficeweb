@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,13 +12,18 @@ import {
   FiAlertCircle, FiCheck, FiEdit2, FiExternalLink
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
-import { SiWhatsapp } from 'react-icons/si';
 import axios from 'axios';
 import TablePagination from '../components/TablePagination';
 import DocumentStorageUsageModal from '../components/Modals/DocumentStorageUsageModal';
+import {
+  DocumentViewModal,
+  DocumentCreateCategoryModal,
+  DocumentEditCategoryModal,
+  DocumentUploadModal,
+} from '../components/Modals/DocumentManagement';
+import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
-import { uploadOneSaasFile } from '../utils/onesaas-upload';
 import { toast, Toaster } from 'react-hot-toast';
 import CustomSelect from '../components/CustomSelect';
 import { optionByValue } from '../utils/customSelectHelpers';
@@ -216,1171 +221,14 @@ const AnimatedCheckbox = ({
     );
 };
 
-// View Modal Component
-const ViewModal = ({ document: doc, onClose }) => {
- const handleDownload = async () => {
-  if (!doc?.file_url) return;
-
-  try {
-    const response = await fetch(doc.file_url, {
-      method: 'GET',
-    });
-
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-
-    // filename
-    const fileName = doc.file_url.split('/').pop() || 'download';
-    a.download = fileName;
-
-    document.body.appendChild(a);
-    a.click();
-
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('Download failed:', error);
-    showToast.error('Download failed');
-  }
-};
-
-  const handleViewInNewTab = () => {
-    if (doc?.file_url) {
-      window.open(doc.file_url, '_blank', 'noopener,noreferrer');
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-          <h3 className="text-base font-bold text-slate-800">Document Details</h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <FiX className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] custom-scrollbar">
-          <div className="space-y-4">
-            {doc?.file_url && (
-              <div className="flex justify-center mb-4">
-                {doc.mime_type?.startsWith('image/') ? (
-                  <img
-                    src={doc.file_url}
-                    alt="Document"
-                    className="max-w-full max-h-64 rounded-lg border border-gray-200 cursor-pointer"
-                    onClick={handleViewInNewTab}
-                  />
-                ) : (
-                  <div className="w-full p-8 bg-gray-50 rounded-lg text-center">
-                    <FiFileText className="w-16 h-16 text-slate-400 mx-auto mb-2" />
-                    <p className="text-sm text-slate-600 mb-4">Preview not available</p>
-                    <button
-                      onClick={handleViewInNewTab}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <FiExternalLink className="w-4 h-4" />
-                      View in New Tab
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            {doc && Object.entries(doc).map(([key, value]) =>
-              key !== 'id' && key !== 'firm_id' && key !== 'firm_name' && key !== 'firm_type' && key !== 'file_url' && key !== 'mime_type' && key !== 'size' && key !== 'create_date' && key !== 'type_value' && (
-                <div key={key} className="flex border-b border-gray-100 pb-3">
-                  <span className="w-1/3 text-xs font-semibold text-slate-600 capitalize">
-                    {key.replace(/([A-Z])/g, ' $1').trim()}:
-                  </span>
-                  <span className="w-2/3 text-sm text-slate-800 break-words">{value || '-'}</span>
-                </div>
-              )
-            )}
-            {doc?.size && (
-              <div className="flex border-b border-gray-100 pb-3">
-                <span className="w-1/3 text-xs font-semibold text-slate-600">File Size:</span>
-                <span className="w-2/3 text-sm text-slate-800">{(doc.size / 1024).toFixed(2)} KB</span>
-              </div>
-            )}
-            {doc?.create_date && (
-              <div className="flex border-b border-gray-100 pb-3">
-                <span className="w-1/3 text-xs font-semibold text-slate-600">Uploaded On:</span>
-                <span className="w-2/3 text-sm text-slate-800">{new Date(doc.create_date).toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex justify-end gap-2">
-            {doc?.file_url && (
-              <>
-                <button
-                  onClick={handleViewInNewTab}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors font-medium flex items-center gap-2"
-                >
-                  <FiExternalLink className="w-4 h-4" />
-                  View
-                </button>
-                <button
-                  onClick={handleDownload}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-                >
-                  <FiDownload className="w-4 h-4" />
-                  Download
-                </button>
-              </>
-            )}
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-gray-100 text-slate-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// Create Category Modal
-const CreateCategoryModal = ({ onClose, onCreate, loading }) => {
-  const [name, setName] = useState('');
-  const [remark, setRemark] = useState('');
-
-  const handleSubmit = () => {
-    if (name.trim()) {
-      onCreate({ name: name.trim(), remark: remark.trim() });
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h3 className="text-base font-bold text-slate-800">Create Category</h3>
-        </div>
-
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] custom-scrollbar">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">Name *</label>
-              <input
-                type="text"
-                placeholder="Enter category name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={loading}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">Remark</label>
-              <textarea
-                rows="3"
-                placeholder="Enter remark (optional)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
-                disabled={loading}
-              ></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border-t border-gray-200 sticky bottom-0 bg-white">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !name.trim()}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <FiLoader className="w-5 h-5 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create Category'
-              )}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// Edit Category Modal
-const EditCategoryModal = ({ onClose, onEdit, loading, category }) => {
-  const [name, setName] = useState(category?.name || '');
-  const [remark, setRemark] = useState(category?.remark || '');
-
-  useEffect(() => {
-    if (category) {
-      setName(category.name);
-      setRemark(category.remark || '');
-    }
-  }, [category]);
-
-  const handleSubmit = () => {
-    if (name.trim()) {
-      onEdit({ name: name.trim(), remark: remark.trim() });
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h3 className="text-base font-bold text-slate-800">Edit Category</h3>
-        </div>
-
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] custom-scrollbar">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">Name *</label>
-              <input
-                type="text"
-                placeholder="Enter category name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={loading}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">Remark</label>
-              <textarea
-                rows="3"
-                placeholder="Enter remark (optional)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
-                disabled={loading}
-              ></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border-t border-gray-200 sticky bottom-0 bg-white">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !name.trim()}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <FiLoader className="w-5 h-5 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                'Update Category'
-              )}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// Send Modal Component
-const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) => {
-  const [sendOption, setSendOption] = useState('whatsapp');
-  const [recipient, setRecipient] = useState('');
-  const [attachments, setAttachments] = useState([]);
-  const [message, setMessage] = useState('');
-
-  const handleFileAttachment = (e) => {
-    const files = Array.from(e.target.files);
-    setAttachments([...attachments, ...files]);
-  };
-
-  const removeAttachment = (index) => {
-    setAttachments(attachments.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = () => {
-    if (recipient.trim()) {
-      onSubmit({
-        sendOption,
-        recipient: recipient.trim(),
-        message: message.trim(),
-        attachments
-      });
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-          <h3 className="text-base font-bold text-slate-800">
-            Send {document ? 'Document' : 'Documents'}
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <FiX className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] custom-scrollbar">
-          <div className="space-y-6">
-            {!document && selectedDocuments?.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  Sending {selectedDocuments.length} selected document(s)
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">Send via *</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setSendOption('whatsapp')}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${sendOption === 'whatsapp'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  type="button"
-                >
-                  <SiWhatsapp className="w-5 h-5" />
-                  <span className="text-sm font-medium">WhatsApp</span>
-                </button>
-                <button
-                  onClick={() => setSendOption('email')}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${sendOption === 'email'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  type="button"
-                >
-                  <FiMail className="w-5 h-5" />
-                  <span className="text-sm font-medium">Email</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">
-                {sendOption === 'whatsapp' ? 'Phone Number *' : 'Email Address *'}
-              </label>
-              <input
-                type={sendOption === 'whatsapp' ? 'tel' : 'email'}
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-                placeholder={sendOption === 'whatsapp' ? 'Enter phone number' : 'Enter email address'}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">Message (Optional)</label>
-              <textarea
-                rows="3"
-                placeholder="Enter your message"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                disabled={loading}
-              ></textarea>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600">Attachments</label>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-blue-500 transition-colors">
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileAttachment}
-                  className="hidden"
-                  id="file-upload"
-                  disabled={loading}
-                />
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  <FiPaperclip className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                  <p className="text-sm text-slate-600">Click to attach files</p>
-                  <p className="text-xs text-slate-500 mt-1">PDF, JPG, PNG up to 10MB each</p>
-                </label>
-              </div>
-
-              {attachments.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {attachments.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
-                      <span className="text-sm text-slate-700 truncate">{file.name}</span>
-                      <button
-                        onClick={() => removeAttachment(index)}
-                        className="text-red-500 hover:text-red-700"
-                        type="button"
-                        disabled={loading}
-                      >
-                        <FiX className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-xs text-slate-500 flex items-center gap-2">
-                <FiFile className="w-4 h-4" />
-                {document ? 'Selected document will be attached automatically' : 'Selected documents will be attached automatically'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border-t border-gray-200 sticky bottom-0 bg-white">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !recipient.trim()}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <FiLoader className="w-5 h-5 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <FiSend className="w-4 h-4" />
-                  Send
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// Document Entry Component for Multiple Uploads
-const DocumentEntry = ({ index, document, onUpdate, onRemove, showRemove, tab, documentTypes, loadingTypes, months, uploadLoading }) => {
-  const currentTabTypes = (() => {
-    if (tab === 'income-tax') return documentTypes.it || [];
-    if (tab === 'gst') return documentTypes.gst || [];
-    if (tab === 'mca') return documentTypes.mca || [];
-    return [];
-  })();
-
-  const handleChange = (field, value) => {
-    onUpdate(index, { ...document, [field]: value });
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const maxSize = 10 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      showToast.error(`File exceeds the 10MB limit. Please upload a smaller file.`);
-      return;
-    }
-
-    handleChange('file', file);
-
-    if (tab === 'general' && !document.name) {
-      const fileNameWithoutExt = file.name.split('.').slice(0, -1).join('.');
-      handleChange('name', fileNameWithoutExt);
-    }
-  };
-
-  const removeFile = () => {
-    handleChange('file', null);
-    if (document.fileInputRef?.current) {
-      document.fileInputRef.current.value = '';
-    }
-  };
-
-  return (
-    <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
-      <div className="flex justify-between items-center mb-3">
-        <h4 className="text-sm font-semibold text-slate-700">Document #{index + 1}</h4>
-        {showRemove && (
-          <button
-            onClick={() => onRemove(index)}
-            className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-            disabled={uploadLoading}
-          >
-            <FiX className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {/* File Upload */}
-        <div className="col-span-2">
-          {!document.file ? (
-            <div
-              className="border-2 border-dashed border-gray-300 rounded-xl p-3 text-center hover:border-blue-500 transition-colors cursor-pointer"
-              onClick={() => document.fileInputRef?.current?.click()}
-            >
-              <input
-                type="file"
-                ref={document.fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={uploadLoading}
-              />
-              <FiPaperclip className="w-5 h-5 text-slate-400 mx-auto mb-1" />
-              <p className="text-xs text-slate-600">Click to upload file</p>
-            </div>
-          ) : (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FiFile className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-800 truncate max-w-[150px]">{document.file.name}</p>
-                    <p className="text-xs text-slate-500">{(document.file.size / 1024).toFixed(2)} KB</p>
-                  </div>
-                </div>
-                <button
-                  onClick={removeFile}
-                  className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  disabled={uploadLoading}
-                >
-                  <FiX className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Name Field (for General tab) */}
-        {tab === 'general' && (
-          <div className="col-span-2">
-            <input
-              type="text"
-              placeholder="Document Name *"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={document.name || ''}
-              onChange={(e) => handleChange('name', e.target.value)}
-              disabled={uploadLoading}
-            />
-          </div>
-        )}
-
-        {/* Year Field */}
-        {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
-          <div>
-            <input
-              type="text"
-              placeholder={tab === 'income-tax' ? 'AY (e.g., 2025-26)' : 'FY (e.g., 2025-26)'}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={document.year || ''}
-              onChange={(e) => handleChange('year', e.target.value)}
-              disabled={uploadLoading}
-            />
-          </div>
-        )}
-
-        {/* Month Field (for GST) */}
-        {tab === 'gst' && (
-          <div>
-            <CustomSelect
-              options={months.map((month) => ({
-                value: month.split(' ')[0].toLowerCase(),
-                label: month,
-              }))}
-              value={optionByValue(
-                months.map((month) => ({
-                  value: month.split(' ')[0].toLowerCase(),
-                  label: month,
-                })),
-                document.month || '',
-              )}
-              onChange={(opt) => handleChange('month', opt?.value || '')}
-              placeholder="Select Month"
-              searchPlaceholder="Search month..."
-              isDisabled={uploadLoading}
-              isClearable={false}
-            />
-          </div>
-        )}
-
-        {/* Type Field */}
-        {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
-          <div>
-            <CustomSelect
-              options={currentTabTypes.map((type) => ({
-                value: type.value,
-                label: formatUnderscoreLabel(type.name || type.value),
-              }))}
-              value={optionByValue(
-                currentTabTypes.map((type) => ({
-                  value: type.value,
-                  label: formatUnderscoreLabel(type.name || type.value),
-                })),
-                document.type || '',
-              )}
-              onChange={(opt) => handleChange('type', opt?.value || '')}
-              placeholder={loadingTypes ? 'Loading...' : 'Select Type'}
-              searchPlaceholder="Search type..."
-              isDisabled={uploadLoading || loadingTypes}
-              isClearable={false}
-            />
-          </div>
-        )}
-
-        {/* Category Field (for General) */}
-        {tab === 'general' && (
-          <div>
-            <input
-              type="text"
-              placeholder="Category *"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={document.category || ''}
-              onChange={(e) => handleChange('category', e.target.value)}
-              disabled={uploadLoading}
-            />
-          </div>
-        )}
-
-        {/* Remark Field */}
-        <div className={tab === 'gst' ? 'col-span-2' : 'col-span-1'}>
-          <input
-            type="text"
-            placeholder="Remark"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={document.remark || ''}
-            onChange={(e) => handleChange('remark', e.target.value)}
-            disabled={uploadLoading}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Upload Modal Component
-const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, financialYears, loadingYears, documentTypes, loadingTypes, categories, loadingCategories, months, onSubmit, uploadLoading, uploadProgress }) => {
-  const [documents, setDocuments] = useState([]);
-  const [selectedFirm, setSelectedFirm] = useState('');
-  const fileInputRefs = useRef([]);
-  
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
-
-  // Get current tab's years
-  const getYearOptions = () => {
-    if (tab === 'income-tax') return assessmentYears;
-    if (tab === 'gst' || tab === 'mca') return financialYears;
-    return [];
-  };
-
-  const getYearLabel = () => {
-    if (tab === 'income-tax') return 'Assessment Year';
-    if (tab === 'gst' || tab === 'mca') return 'Financial Year';
-    return 'Year';
-  };
-
-  // Get current tab's document types
-  const getCurrentTabTypes = () => {
-    if (tab === 'income-tax') return documentTypes.it || [];
-    if (tab === 'gst') return documentTypes.gst || [];
-    if (tab === 'mca') return documentTypes.mca || [];
-    return [];
-  };
-
-  // Add first document entry on mount
-  useEffect(() => {
-    addDocumentEntry();
-  }, []);
-
-  const addDocumentEntry = () => {
-    const newDoc = {
-      file: null,
-      year: '',
-      month: '',
-      type: '',
-      name: '',
-      category: '',
-      remark: '',
-      fileInputRef: React.createRef()
-    };
-    setDocuments([...documents, newDoc]);
-  };
-
-  const removeDocumentEntry = (index) => {
-    setDocuments(documents.filter((_, i) => i !== index));
-  };
-
-  const updateDocument = (index, updatedDoc) => {
-    const newDocs = [...documents];
-    newDocs[index] = updatedDoc;
-    setDocuments(newDocs);
-  };
-
-  const handleFileSelect = (index, e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const maxSize = 10 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      showToast.error(`File size exceeds 10MB limit`);
-      return;
-    }
-
-    const updatedDoc = { ...documents[index], file };
-
-    if (tab === 'general' && !documents[index].name) {
-      const fileNameWithoutExt = file.name.split('.').slice(0, -1).join('.');
-      updatedDoc.name = fileNameWithoutExt;
-    }
-
-    updateDocument(index, updatedDoc);
-  };
-
-  const removeFile = (index) => {
-    const updatedDoc = { ...documents[index], file: null };
-    updateDocument(index, updatedDoc);
-    if (fileInputRefs.current[index]) {
-      fileInputRefs.current[index].value = '';
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!selectedFirm) {
-      showToast.error('Please select a firm');
-      return;
-    }
-
-    const invalidDocs = documents.filter(doc => {
-      if (!doc.file) return true;
-      if (tab === 'general') return !doc.name || !doc.category;
-      if (!doc.type) return true;
-      if (!doc.year) return true;
-      if (tab === 'gst' && !doc.month) return true;
-      return false;
-    });
-
-    if (invalidDocs.length > 0) {
-      showToast.error('Please complete all required fields');
-      return;
-    }
-
-    onSubmit(selectedFirm, documents);
-  };
-
-  const getTabTitle = () => {
-    switch (tab) {
-      case 'income-tax': return 'Income Tax Documents';
-      case 'gst': return 'GST Documents';
-      case 'mca': return 'MCA Documents';
-      case 'general': return 'General Documents';
-      default: return 'Documents';
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, y: 10 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 10 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 bg-white flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <FiUpload className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-slate-800">Upload {getTabTitle()}</h2>
-              <p className="text-sm text-slate-500">Add multiple documents at once</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <FiX className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        {/* Firm Selection */}
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 max-w-md">
-              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
-                Select Firm <span className="text-red-500">*</span>
-              </label>
-              <CustomSelect
-                options={firms.map((firm) => ({
-                  value: firm.firm_id || firm.id,
-                  label: firm.firm_name || firm.name,
-                }))}
-                value={optionByValue(
-                  firms.map((firm) => ({
-                    value: firm.firm_id || firm.id,
-                    label: firm.firm_name || firm.name,
-                  })),
-                  selectedFirm,
-                )}
-                onChange={(opt) => setSelectedFirm(opt?.value || '')}
-                placeholder={loadingFirms ? 'Loading firms...' : 'Choose a firm'}
-                searchPlaceholder="Search firm..."
-                isDisabled={uploadLoading || loadingFirms}
-                isClearable={false}
-              />
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-slate-600">
-              <FiHardDrive className="w-4 h-4" />
-              <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Document List */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {documents.map((doc, index) => (
-            <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-              {/* Document Header */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-semibold text-slate-600">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm font-medium text-slate-700">Document Details</span>
-                  {!doc.file && (
-                    <span className="px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded-full">File Required</span>
-                  )}
-                </div>
-                {documents.length > 1 && (
-                  <button
-                    onClick={() => removeDocumentEntry(index)}
-                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  >
-                    <FiTrash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Document Fields - File Upload Now Takes Full Width in Next Row */}
-              <div className="space-y-3">
-                {/* First Row: Type, Year, Month, etc. */}
-                <div className="grid grid-cols-4 gap-3">
-                  {/* Document Type - Column 1 */}
-                  {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">Document Type *</label>
-                      <CustomSelect
-                        options={getCurrentTabTypes().map((type) => ({
-                          value: type.value,
-                          label: formatUnderscoreLabel(type.name || type.value),
-                        }))}
-                        value={optionByValue(
-                          getCurrentTabTypes().map((type) => ({
-                            value: type.value,
-                            label: formatUnderscoreLabel(type.name || type.value),
-                          })),
-                          doc.type
-                        )}
-                        onChange={(opt) => updateDocument(index, { ...doc, type: opt?.value || '' })}
-                        placeholder="Select type"
-                        searchPlaceholder="Search type..."
-                        isClearable={false}
-                      />
-                    </div>
-                  )}
-
-                  {/* Year Field - Column 2 */}
-                  {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">{getYearLabel()} *</label>
-                      <CustomSelect
-                        options={getYearOptions().map((year) => ({ value: year, label: year }))}
-                        value={optionByValue(getYearOptions().map((year) => ({ value: year, label: year })), doc.year)}
-                        onChange={(opt) => updateDocument(index, { ...doc, year: opt?.value || '' })}
-                        placeholder="Select year"
-                        searchPlaceholder="Search year..."
-                        isClearable={false}
-                      />
-                    </div>
-                  )}
-
-                  {/* Month Field - For GST only */}
-                  {tab === 'gst' && (
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">Month *</label>
-                      <CustomSelect
-                        options={months.map((month) => ({ value: month.split(' ')[0].toLowerCase(), label: month }))}
-                        value={optionByValue(months.map((month) => ({ value: month.split(' ')[0].toLowerCase(), label: month })), doc.month)}
-                        onChange={(opt) => updateDocument(index, { ...doc, month: opt?.value || '' })}
-                        placeholder="Select month"
-                        searchPlaceholder="Search month..."
-                        isClearable={false}
-                      />
-                    </div>
-                  )}
-
-                  {/* General Tab Fields (Name and Category) */}
-                  {tab === 'general' && (
-                    <>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Document Name *</label>
-                        <input
-                          type="text"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          value={doc.name || ''}
-                          onChange={(e) => updateDocument(index, { ...doc, name: e.target.value })}
-                          placeholder="Enter name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Category *</label>
-                        <CustomSelect
-                          options={categories.map((cat) => ({
-                            value: cat.category_id || cat.id,
-                            label: cat.name,
-                          }))}
-                          value={optionByValue(
-                            categories.map((cat) => ({
-                              value: cat.category_id || cat.id,
-                              label: cat.name,
-                            })),
-                            doc.category
-                          )}
-                          onChange={(opt) => updateDocument(index, { ...doc, category: opt?.value || '' })}
-                          placeholder="Select category"
-                          searchPlaceholder="Search category..."
-                          isClearable={false}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {/* Remark Field - Takes remaining space */}
-                  <div className={`
-                    ${tab === 'gst' ? 'col-span-1' : ''}
-                    ${tab === 'income-tax' || tab === 'mca' ? 'col-span-2' : ''}
-                    ${tab === 'general' ? 'col-span-2' : ''}
-                  `}>
-                    <label className="block text-xs text-slate-500 mb-1">Remark</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      value={doc.remark || ''}
-                      onChange={(e) => updateDocument(index, { ...doc, remark: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                </div>
-
-                {/* Second Row: File Upload - Full Width */}
-                <div className="w-full">
-                  <label className="block text-xs text-slate-500 mb-1">Upload File *</label>
-                  {!doc.file ? (
-                    <div
-                      onClick={() => fileInputRefs.current[index]?.click()}
-                      className="border-2 border-gray-300 border-dashed rounded-lg p-4 text-center hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors w-full"
-                    >
-                      <input
-                        type="file"
-                        ref={el => fileInputRefs.current[index] = el}
-                        onChange={(e) => handleFileSelect(index, e)}
-                        className="hidden"
-                      />
-                      <FiPaperclip className="w-5 h-5 text-slate-400 mx-auto mb-2" />
-                      <span className="text-sm text-slate-600">Click to choose file or drag and drop</span>
-                      <p className="text-xs text-slate-500 mt-1">PDF, JPG, PNG up to 10MB</p>
-                    </div>
-                  ) : (
-                    <div className="border border-green-200 bg-green-50 rounded-lg p-3 w-full flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                          <FiFile className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">{doc.file.name}</p>
-                          <p className="text-xs text-green-600">{(doc.file.size / 1024).toFixed(1)} KB</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <FiX className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Add More Button */}
-          <button
-            onClick={addDocumentEntry}
-            className="w-full py-3 border border-gray-300 border-dashed rounded-lg text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2"
-          >
-            <FiPlus className="w-4 h-4" />
-            <span className="text-sm">Add Another Document</span>
-          </button>
-
-          {/* Progress Bar */}
-          {uploadProgress > 0 && uploadProgress < 100 && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex justify-between text-xs text-blue-700 mb-1">
-                <span>Uploading...</span>
-                <span className="font-medium">{uploadProgress}%</span>
-              </div>
-              <div className="w-full h-1.5 bg-blue-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
-            <span className="text-slate-700 font-medium">{documents.length}</span> document(s) ready to upload
-          </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-100 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!selectedFirm || documents.some(d => !d.file) || uploadLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              {uploadLoading ? (
-                <>
-                  <FiLoader className="w-4 h-4 animate-spin" />
-                  <span>Uploading...</span>
-                </>
-              ) : (
-                <>
-                  <FiUpload className="w-4 h-4" />
-                  <span>Upload {documents.length} Document{documents.length !== 1 ? 's' : ''}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
 // Main DocumentsTab Component
-const DocumentsTab = ({ clientUsername }) => {
+const DocumentsTab = ({
+  clientUsername,
+  clientName,
+  clientMobile,
+  clientEmail,
+  clientCountryCode = '91',
+}) => {
   const [activeTab, setActiveTab] = useState('income-tax');
   const [selectedFirm, setSelectedFirm] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
@@ -1408,11 +256,11 @@ const DocumentsTab = ({ clientUsername }) => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [categoryLoading, setCategoryLoading] = useState(false);
-  const [sendLoading, setSendLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Action menu portal state
+  // Action menu portal state (documents + categories)
   const [actionMenuPosition, setActionMenuPosition] = useState(null);
+  const [actionMenuKind, setActionMenuKind] = useState('document'); // 'document' | 'category'
   const actionAnchorRef = useRef(null);
   const firmsRef = useRef([]);
   const documentTypesRef = useRef({ it: [], gst: [], mca: [] });
@@ -1477,53 +325,13 @@ const DocumentsTab = ({ clientUsername }) => {
   // Service Types for Task tab
   const serviceTypes = useMemo(() => ['Income Tax', 'GST', 'MCA', 'ROC', 'Audit'], []);
 
-  // Tabs configuration (explicit Tailwind classes — avoid dynamic color strings)
+  // Tabs configuration
   const tabs = useMemo(() => [
-    {
-      id: 'income-tax',
-      label: 'Income Tax',
-      shortLabel: 'IT',
-      icon: FiBriefcase,
-      activeText: 'text-blue-700',
-      iconWrap: 'bg-blue-100 text-blue-700',
-      indicator: 'bg-blue-600',
-    },
-    {
-      id: 'gst',
-      label: 'GST',
-      shortLabel: 'GST',
-      icon: TbCurrencyRupee,
-      activeText: 'text-emerald-700',
-      iconWrap: 'bg-emerald-100 text-emerald-700',
-      indicator: 'bg-emerald-600',
-    },
-    {
-      id: 'mca',
-      label: 'MCA',
-      shortLabel: 'MCA',
-      icon: FiUsers,
-      activeText: 'text-violet-700',
-      iconWrap: 'bg-violet-100 text-violet-700',
-      indicator: 'bg-violet-600',
-    },
-    {
-      id: 'task',
-      label: 'Task',
-      shortLabel: 'Task',
-      icon: FiCheckCircle,
-      activeText: 'text-amber-700',
-      iconWrap: 'bg-amber-100 text-amber-700',
-      indicator: 'bg-amber-600',
-    },
-    {
-      id: 'general',
-      label: 'General',
-      shortLabel: 'Gen',
-      icon: FiHome,
-      activeText: 'text-slate-800',
-      iconWrap: 'bg-slate-200 text-slate-700',
-      indicator: 'bg-slate-700',
-    },
+    { id: 'income-tax', label: 'Income Tax', shortLabel: 'IT', icon: FiBriefcase },
+    { id: 'gst', label: 'GST', shortLabel: 'GST', icon: TbCurrencyRupee },
+    { id: 'mca', label: 'MCA', shortLabel: 'MCA', icon: FiUsers },
+    { id: 'task', label: 'Task', shortLabel: 'Task', icon: FiCheckCircle },
+    { id: 'general', label: 'General', shortLabel: 'Gen', icon: FiHome },
   ], []);
 
   // Compute floating action menu position (mirrors sale-display.jsx pattern)
@@ -1592,20 +400,22 @@ const DocumentsTab = ({ clientUsername }) => {
 
   const closeActionMenu = useCallback(() => {
     setActiveActionMenu(null);
+    setActionMenuKind('document');
     actionAnchorRef.current = null;
     setActionMenuPosition(null);
   }, []);
 
-  const handleActionMenuToggle = useCallback((e, docId, itemCount) => {
+  const handleActionMenuToggle = useCallback((e, id, itemCount, kind = 'document') => {
     e.stopPropagation();
-    if (activeActionMenu === docId) {
+    if (activeActionMenu === id && actionMenuKind === kind) {
       closeActionMenu();
       return;
     }
     actionAnchorRef.current = e.currentTarget;
     setActionMenuPosition(computeActionMenuPosition(e.currentTarget, { itemCount }));
-    setActiveActionMenu(docId);
-  }, [activeActionMenu, closeActionMenu, computeActionMenuPosition]);
+    setActionMenuKind(kind);
+    setActiveActionMenu(id);
+  }, [activeActionMenu, actionMenuKind, closeActionMenu, computeActionMenuPosition]);
 
   // Close action menu on outside click / Escape / scroll, recalc on resize
   useEffect(() => {
@@ -1623,7 +433,8 @@ const DocumentsTab = ({ clientUsername }) => {
 
     const updatePosition = () => {
       if (actionAnchorRef.current) {
-        setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current, { itemCount: 4 }));
+        const itemCount = actionMenuKind === 'category' ? 2 : 4;
+        setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current, { itemCount }));
       }
     };
 
@@ -1638,7 +449,7 @@ const DocumentsTab = ({ clientUsername }) => {
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', handleOutsideClick, true);
     };
-  }, [activeActionMenu, closeActionMenu, computeActionMenuPosition]);
+  }, [activeActionMenu, actionMenuKind, closeActionMenu, computeActionMenuPosition]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -2207,47 +1018,7 @@ const DocumentsTab = ({ clientUsername }) => {
     setSelectAll(false);
   }, [activeTab, currentPage, itemsPerPage, selectedFirm, selectedYear, selectedType, selectedMonth, selectedService, selectedCategory, searchTerm]);
 
-  // File upload function
-  const uploadFileToServer = async (file) => {
-    try {
-      setUploadProgress(0);
-
-      const { url, meta } = await uploadOneSaasFile(file, (progress) => {
-        setUploadProgress(progress);
-      });
-
-      return {
-        success: true,
-        url,
-        filename: meta?.storedName || meta?.originalName || file.name,
-        message: 'File uploaded successfully',
-      };
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      if (error.response) {
-        const { status, data } = error.response;
-        if (status === 400) {
-          throw new Error(`Bad request: ${data?.message || 'Invalid file'}`);
-        } else if (status === 413) {
-          throw new Error('File too large. Maximum size is 10MB.');
-        } else if (status === 415) {
-          throw new Error('Unsupported file type.');
-        } else if (status >= 500) {
-          throw new Error('Server error. Please try again later.');
-        } else {
-          throw new Error(data?.message || `Upload failed with status ${status}`);
-        }
-      } else if (error.request) {
-        throw new Error('No response from server. Check your internet connection.');
-      } else {
-        throw new Error(error.message || 'Upload failed');
-      }
-    } finally {
-      setTimeout(() => setUploadProgress(0), 2000);
-    }
-  };
-
-  // Handle upload submit
+  // Handle upload submit (files already uploaded to OneSaaS in the modal)
   const handleUploadSubmit = async (firmId, documents) => {
     if (!clientUsername) {
       showToast.error('Client username is required');
@@ -2258,26 +1029,22 @@ const DocumentsTab = ({ clientUsername }) => {
     setUploadProgress(0);
 
     try {
-      // Upload all files first
       const uploadedDocs = [];
-      let totalProgress = 0;
 
       for (let i = 0; i < documents.length; i++) {
         const doc = documents[i];
-        const uploadResult = await uploadFileToServer(doc.file);
+        const url = doc.file_url || doc.url;
 
-        if (!uploadResult.success || !uploadResult.url) {
-          throw new Error(`Failed to upload file for document #${i + 1}`);
+        if (!url) {
+          throw new Error(`Missing uploaded file URL for document #${i + 1}`);
         }
 
-        // Calculate progress based on number of files
-        totalProgress = Math.round(((i + 1) / documents.length) * 100);
-        setUploadProgress(totalProgress);
+        setUploadProgress(Math.round(((i + 1) / documents.length) * 100));
 
         const docData = {
-          url: uploadResult.url,
-          name: doc.name || doc.file.name.split('.')[0],
-          remark: doc.remark || ''
+          url,
+          name: doc.name || doc.file?.name?.split('.')[0] || 'document',
+          remark: doc.remark || '',
         };
 
         if (activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') {
@@ -2458,9 +1225,9 @@ const DocumentsTab = ({ clientUsername }) => {
     }
   };
 
-  // Handle delete category
+  // Handle delete category (backend blocks if any document with is_deleted = '0' uses it)
   const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+    if (!window.confirm('Delete this category? It can only be deleted if no active documents are assigned to it.')) {
       return;
     }
 
@@ -2505,65 +1272,42 @@ const DocumentsTab = ({ clientUsername }) => {
     }
   };
 
-  // Handle send submit
-  const handleSendSubmit = async (sendData) => {
-    if (!clientUsername) {
-      console.error('Client username is required');
-      return;
-    }
-
-    setSendLoading(true);
-    const headers = getHeaders();
-    if (!headers) {
-      setSendLoading(false);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('username', clientUsername);
-    formData.append('sendOption', sendData.sendOption);
-    formData.append('recipient', sendData.recipient);
-    formData.append('message', sendData.message);
-
-    if (selectedDocument) {
-      formData.append('document_id', selectedDocument.id);
-    } else {
-      selectedDocuments.forEach((docId, index) => {
-        formData.append(`document_ids[${index}]`, docId);
-      });
-    }
-
-    sendData.attachments.forEach((file, index) => {
-      formData.append(`attachments[${index}]`, file);
-    });
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/upload`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-        },
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        showToast.success('Documents sent successfully');
-        setShowSendModal(false);
-        if (!selectedDocument) {
-          setSelectedDocuments([]);
-        }
-      } else {
-        showToast.error('Failed to send documents: ' + (result.message || 'Unknown error'));
+  // Handle document share (single or bulk) — same flow as ledger DocumentShareModal
+  const handleShareDocumentsSend = useCallback(
+    async ({ channels, mobile, email, country_code }) => {
+      if (!clientUsername) {
+        throw new Error('Client username is required');
       }
-    } catch (error) {
-      console.error('Error sending documents:', error);
-      showToast.error('Failed to send documents. Please try again.');
-    } finally {
-      setSendLoading(false);
-    }
-  };
+
+      const documentIds = selectedDocument?.id
+        ? [String(selectedDocument.id)]
+        : selectedDocuments.map((id) => String(id)).filter(Boolean);
+
+      if (documentIds.length === 0) {
+        throw new Error('No documents selected');
+      }
+
+      const response = await axios.post(
+        `${API_BASE_URL}/client/details/documents/share`,
+        {
+          username: clientUsername,
+          document_ids: documentIds,
+          channels,
+          mobile,
+          email,
+          country_code,
+        },
+        { headers: getHeaders() }
+      );
+
+      return {
+        success: response.data?.success,
+        message: response.data?.message,
+        data: response.data?.data,
+      };
+    },
+    [clientUsername, selectedDocument, selectedDocuments]
+  );
 
   // Handle view document
   const handleView = (doc) => {
@@ -2707,7 +1451,7 @@ const DocumentsTab = ({ clientUsername }) => {
 
   const filteredDocuments = getFilteredDocuments();
 
-  // Server pagination — `pagination` state is populated from the API response.
+  // Server pagination â€” `pagination` state is populated from the API response.
   const currentItems = filteredDocuments;
 
   // Keep "Select All" toggle in sync when user toggles rows manually
@@ -2719,11 +1463,44 @@ const DocumentsTab = ({ clientUsername }) => {
     }
   }, [selectedDocuments, currentItems.length]);
 
-  // Active document for the floating (portal) action menu
+  // Active document / category for the floating (portal) action menu
   const activeActionDoc = useMemo(
-    () => currentItems.find((d) => d.id === activeActionMenu) || null,
-    [currentItems, activeActionMenu]
+    () =>
+      actionMenuKind === 'document'
+        ? currentItems.find((d) => d.id === activeActionMenu) || null
+        : null,
+    [currentItems, activeActionMenu, actionMenuKind]
   );
+
+  const activeActionCategory = useMemo(
+    () =>
+      actionMenuKind === 'category'
+        ? categories.find((c) => c.category_id === activeActionMenu) || null
+        : null,
+    [categories, activeActionMenu, actionMenuKind]
+  );
+
+  const downloadFileByUrl = useCallback(async (url, fallbackName = 'download') => {
+    if (!url) return;
+    try {
+      const response = await fetch(url, { method: 'GET' });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = decodeURIComponent(url.split('/').pop()?.split('?')[0] || fallbackName);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      showToast.error('Download failed');
+    }
+  }, []);
 
   // Format storage for display
   const formatStorage = (bytes) => {
@@ -2794,52 +1571,51 @@ const DocumentsTab = ({ clientUsername }) => {
       {/* Header with Tabs and Storage Info */}
       <div className="border-b border-slate-200 px-3 md:px-4 pt-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-3">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-800">
-              Documents
-            </h2>
-            {/* Storage Usage Indicator — click for breakdown */}
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800">
+            Documents
+          </h2>
+          <div className="flex items-center gap-2">
+            {/* Storage Usage Indicator â€” click for breakdown */}
             <button
               type="button"
               onClick={() => setShowStorageModal(true)}
               title="View storage by file type"
-              className="group flex items-center gap-2.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-white transition-all text-left"
+              className="group inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-left hover:border-slate-300 hover:bg-white transition-all"
             >
-              <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center shrink-0">
-                <FiHardDrive className="w-3.5 h-3.5" />
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-900 text-white">
+                <FiHardDrive className="h-3.5 w-3.5" />
               </div>
-              <div className="flex flex-col min-w-[6.5rem]">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-medium text-slate-500">Storage</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                    Details
+              <div className="flex min-w-[6.5rem] flex-col justify-center leading-tight">
+                <span className="text-[10px] font-medium text-slate-500">
+                  Storage
+                  <span className="ml-1 text-indigo-600 opacity-0 transition-opacity group-hover:opacity-100">
+                    Â· Details
                   </span>
-                </div>
-                <span className="text-xs font-semibold text-slate-800 tabular-nums">
-                  {formatStorage(storageUsed)}
-                  <span className="text-slate-400 font-medium"> / 5 GB</span>
                 </span>
-                <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden mt-1">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      storagePercentage > 90
-                        ? 'bg-rose-500'
-                        : storagePercentage > 70
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500'
-                    }`}
-                    style={{ width: `${Math.min(storagePercentage, 100)}%` }}
-                  />
-                </div>
+                <span className="text-[11px] font-semibold tabular-nums text-slate-800">
+                  {formatStorage(storageUsed)}
+                  <span className="font-medium text-slate-400"> / 5 GB</span>
+                </span>
+              </div>
+              <div className="h-1 w-12 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    storagePercentage > 90
+                      ? 'bg-rose-500'
+                      : storagePercentage > 70
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(storagePercentage, 100)}%` }}
+                />
               </div>
             </button>
-          </div>
-          <div className="flex items-center gap-2">
+
             {activeTab === 'general' ? (
               <div className="relative dropdown-container">
                 <motion.button
                   onClick={() => setShowGeneralDropdown(!showGeneralDropdown)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all font-medium text-xs shadow-sm"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-slate-800"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -2877,7 +1653,7 @@ const DocumentsTab = ({ clientUsername }) => {
               activeTab !== 'task' && (
                 <motion.button
                   onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all font-medium text-xs shadow-sm"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-slate-800"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -2889,55 +1665,41 @@ const DocumentsTab = ({ clientUsername }) => {
           </div>
         </div>
 
-        {/* Segmented tabs */}
-        <div className="pb-3">
-          <div
-            role="tablist"
-            aria-label="Document categories"
-            className="inline-flex max-w-full overflow-x-auto p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 gap-0.5 custom-scrollbar"
-          >
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setSelectedDocuments([]);
-                    setActiveActionMenu(null);
-                    setSelectedYear('all');
-                    setSelectedType('all');
-                    setShowGeneralSubTab('documents');
-                  }}
-                  className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                    isActive
-                      ? `bg-white shadow-sm border border-slate-200/80 ${tab.activeText}`
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/60 border border-transparent'
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                      isActive ? tab.iconWrap : 'bg-white/70 text-slate-400'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                  </span>
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.shortLabel}</span>
-                  {isActive && (
-                    <motion.span
-                      layoutId="documentsActiveTabDot"
-                      className={`absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full ${tab.indicator}`}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        {/* Simple underline tabs */}
+        <div
+          role="tablist"
+          aria-label="Document categories"
+          className="flex max-w-full gap-0 overflow-x-auto custom-scrollbar"
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setSelectedDocuments([]);
+                  setActiveActionMenu(null);
+                  setSelectedYear('all');
+                  setSelectedType('all');
+                  setShowGeneralSubTab('documents');
+                }}
+                className={`relative inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'border-slate-800 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800'
+                }`}
+              >
+                <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-slate-700' : 'text-slate-400'}`} />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.shortLabel}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -3101,22 +1863,20 @@ const DocumentsTab = ({ clientUsername }) => {
                 )}
 
                 <div className="flex-1 min-w-[200px]">
-                  <div className="relative">
-                    <FiSearch className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500">
+                    <FiSearch className="h-4 w-4 shrink-0 pointer-events-none text-slate-400" />
                     <input
                       type="text"
                       placeholder="Search documents..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className={`w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 text-sm text-slate-700 outline-none placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-indigo-500 ${
-                        searchTerm ? 'pr-9' : 'pr-3'
-                      }`}
+                      className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-slate-700 outline-none focus:ring-0 placeholder:text-gray-400"
                     />
                     {searchTerm ? (
                       <button
                         type="button"
                         onClick={() => setSearchTerm('')}
-                        className="absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                         aria-label="Clear search"
                       >
                         <FiX className="h-3.5 w-3.5" />
@@ -3440,70 +2200,78 @@ const DocumentsTab = ({ clientUsername }) => {
       {/* Categories Table for General Tab */}
       {activeTab === 'general' && showGeneralSubTab === 'categories' && (
         <div className="px-3 md:px-4 py-3">
-          <h3 className="text-sm font-semibold text-slate-800 mb-2.5">Categories</h3>
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="rounded-lg border border-slate-200/80 bg-white/70 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created By</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created Date</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified By</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified Date</th>
-                    <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                  <tr className="bg-slate-100/90 border-b border-slate-200">
+                    <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[48px] w-14">#</th>
+                    <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider">Name</th>
+                    <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider">Remark</th>
+                    <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider">Created By</th>
+                    <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider">Created Date</th>
+                    <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider">Modified By</th>
+                    <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider">Modified Date</th>
+                    <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {categories.map((category) => (
-                    <tr key={category.category_id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-3 py-2.5">
-                        <div className="text-sm font-medium text-slate-800">{category.name}</div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="text-sm text-slate-600">{category.remark || '-'}</div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="text-sm text-slate-600">
-                          {category.create_by?.name || category.create_by?.username || '-'}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="text-sm text-slate-600">
-                          {category.create_date ? new Date(category.create_date).toLocaleDateString() : '-'}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="text-sm text-slate-600">
-                          {category.modify_by?.name || category.modify_by?.username || '-'}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="text-sm text-slate-600">
-                          {category.modify_date ? new Date(category.modify_date).toLocaleDateString() : '-'}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => openEditCategoryModal(category)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit Category"
-                          >
-                            <FiEdit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCategory(category.category_id)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete Category"
-                          >
-                            <FiTrash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                  {categories.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="px-3 py-10 text-center text-slate-500">
+                        No categories found
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    categories.map((category, index) => (
+                      <tr
+                        key={category.category_id}
+                        className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} hover:bg-indigo-50/40 transition-colors`}
+                      >
+                        <td className="p-3 text-center align-middle">
+                          <div className="text-slate-700 font-medium text-xs">{index + 1}</div>
+                        </td>
+                        <td className="p-3 align-middle">
+                          <div className="text-xs font-medium text-slate-800">{category.name}</div>
+                        </td>
+                        <td className="p-3 align-middle">
+                          <div className="text-xs text-slate-600">{category.remark || '-'}</div>
+                        </td>
+                        <td className="p-3 align-middle">
+                          <div className="text-xs text-slate-600">
+                            {category.create_by?.name || category.create_by?.username || '-'}
+                          </div>
+                        </td>
+                        <td className="p-3 align-middle">
+                          <div className="text-xs text-slate-600">
+                            {category.create_date ? new Date(category.create_date).toLocaleDateString() : '-'}
+                          </div>
+                        </td>
+                        <td className="p-3 align-middle">
+                          <div className="text-xs text-slate-600">
+                            {category.modify_by?.name || category.modify_by?.username || '-'}
+                          </div>
+                        </td>
+                        <td className="p-3 align-middle">
+                          <div className="text-xs text-slate-600">
+                            {category.modify_date ? new Date(category.modify_date).toLocaleDateString() : '-'}
+                          </div>
+                        </td>
+                        <td className="p-3 text-center align-middle">
+                          <button
+                            type="button"
+                            onClick={(e) =>
+                              handleActionMenuToggle(e, category.category_id, 2, 'category')
+                            }
+                            className="p-1.5 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label="Actions"
+                          >
+                            <FiMoreVertical className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -3513,8 +2281,9 @@ const DocumentsTab = ({ clientUsername }) => {
 
       {/* Floating action menu (portal) */}
       {activeActionMenu &&
-        activeActionDoc &&
         actionMenuPosition &&
+        ((actionMenuKind === 'document' && activeActionDoc) ||
+          (actionMenuKind === 'category' && activeActionCategory)) &&
         createPortal(
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
@@ -3528,108 +2297,160 @@ const DocumentsTab = ({ clientUsername }) => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => {
-                handleView(activeActionDoc);
-                closeActionMenu();
-              }}
-              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <FiEye className="w-4 h-4" />
-              View
-            </button>
-            {activeActionDoc.file_url && (
-              <a
-                href={activeActionDoc.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={closeActionMenu}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2 no-underline hover:no-underline"
-              >
-                <FiDownload className="w-4 h-4" />
-                Download
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                handleSend(activeActionDoc);
-                closeActionMenu();
-              }}
-              className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <FiSend className="w-4 h-4" />
-              Send
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                handleDeleteDocuments([activeActionDoc.id]);
-              }}
-              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-            >
-              <FiTrash2 className="w-4 h-4" />
-              Delete
-            </button>
+            {actionMenuKind === 'document' && activeActionDoc ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleView(activeActionDoc);
+                    closeActionMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <FiEye className="w-4 h-4" />
+                  View
+                </button>
+                {activeActionDoc.file_url && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      closeActionMenu();
+                      await downloadFileByUrl(
+                        activeActionDoc.file_url,
+                        activeActionDoc.name || activeActionDoc.type || 'document'
+                      );
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <FiDownload className="w-4 h-4" />
+                    Download
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSend(activeActionDoc);
+                    closeActionMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <FiSend className="w-4 h-4" />
+                  Send
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDeleteDocuments([activeActionDoc.id]);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </>
+            ) : null}
+
+            {actionMenuKind === 'category' && activeActionCategory ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openEditCategoryModal(activeActionCategory);
+                    closeActionMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <FiEdit2 className="w-4 h-4" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeActionMenu();
+                    handleDeleteCategory(activeActionCategory.category_id);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  disabled={categoryLoading}
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </>
+            ) : null}
           </motion.div>,
           document.body
         )}
 
       {/* Modals */}
-      <AnimatePresence>
-        {showUploadModal && (
-          <UploadModal
-            onClose={() => setShowUploadModal(false)}
-            tab={activeTab}
-            firms={firms}
-            loadingFirms={loadingFirms}
-            assessmentYears={assessmentYears}
-            financialYears={financialYears}
-            loadingYears={loadingYears}
-            documentTypes={documentTypes}
-            loadingTypes={loadingTypes}
-            categories={categories}
-            loadingCategories={loadingCategories}
-            months={months}
-            onSubmit={handleUploadSubmit}
-            uploadLoading={uploadLoading}
-            uploadProgress={uploadProgress}
-          />
-        )}
-        {showCreateCategoryModal && (
-          <CreateCategoryModal
-            onClose={() => setShowCreateCategoryModal(false)}
-            onCreate={handleCreateCategory}
-            loading={categoryLoading}
-          />
-        )}
-        {showEditCategoryModal && (
-          <EditCategoryModal
-            onClose={() => {
-              setShowEditCategoryModal(false);
-              setSelectedCategoryForEdit(null);
-            }}
-            onEdit={handleEditCategory}
-            loading={categoryLoading}
-            category={selectedCategoryForEdit}
-          />
-        )}
-        {showViewModal && selectedDocument && (
-          <ViewModal document={selectedDocument} onClose={() => setShowViewModal(false)} />
-        )}
-        {showSendModal && (
-          <SendModal
-            document={selectedDocument}
-            selectedDocuments={selectedDocuments}
-            onClose={() => {
-              setShowSendModal(false);
-            }}
-            onSubmit={handleSendSubmit}
-            loading={sendLoading}
-          />
-        )}
-      </AnimatePresence>
+      <DocumentUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        tab={activeTab}
+        firms={firms}
+        loadingFirms={loadingFirms}
+        assessmentYears={assessmentYears}
+        financialYears={financialYears}
+        loadingYears={loadingYears}
+        documentTypes={documentTypes}
+        loadingTypes={loadingTypes}
+        categories={categories}
+        loadingCategories={loadingCategories}
+        months={months}
+        onSubmit={handleUploadSubmit}
+        uploadLoading={uploadLoading}
+        uploadProgress={uploadProgress}
+      />
+      <DocumentCreateCategoryModal
+        isOpen={showCreateCategoryModal}
+        onClose={() => setShowCreateCategoryModal(false)}
+        onCreate={handleCreateCategory}
+        loading={categoryLoading}
+      />
+      <DocumentEditCategoryModal
+        isOpen={showEditCategoryModal}
+        onClose={() => {
+          setShowEditCategoryModal(false);
+          setSelectedCategoryForEdit(null);
+        }}
+        onEdit={handleEditCategory}
+        loading={categoryLoading}
+        category={selectedCategoryForEdit}
+      />
+      <DocumentViewModal
+        isOpen={showViewModal && Boolean(selectedDocument)}
+        document={selectedDocument}
+        onClose={() => setShowViewModal(false)}
+      />
+      <DocumentShareModal
+        isOpen={showSendModal}
+        onClose={() => {
+          setShowSendModal(false);
+        }}
+        onSuccess={() => {
+          if (!selectedDocument) {
+            setSelectedDocuments([]);
+            setSelectAll(false);
+          }
+        }}
+        title={
+          selectedDocument
+            ? 'Share Document'
+            : `Share ${selectedDocuments.length} Document${
+                selectedDocuments.length === 1 ? '' : 's'
+              }`
+        }
+        subtitle="Choose delivery channels"
+        notificationType="document sharing"
+        recipientLabel={
+          clientName
+            ? `${clientName}${selectedDocument?.name ? ` · ${selectedDocument.name}` : ''}`
+            : clientUsername
+        }
+        defaultMobile={clientMobile || ''}
+        defaultEmail={clientEmail || ''}
+        defaultCountryCode={clientCountryCode || '91'}
+        onSend={handleShareDocumentsSend}
+      />
 
       <DocumentStorageUsageModal
         open={showStorageModal}

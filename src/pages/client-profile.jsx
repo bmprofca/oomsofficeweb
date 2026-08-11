@@ -1807,7 +1807,15 @@ const ClientProfile = () => {
       ),
       notes: <NotesTab clientUsername={username} />,
       compliance: <RecurringTab clientUsername={username} />,
-      documents: <DocumentsTab clientUsername={username} />,
+      documents: (
+        <DocumentsTab
+          clientUsername={username}
+          clientName={clientData.name}
+          clientMobile={clientData.mobile}
+          clientEmail={clientData.email}
+          clientCountryCode={clientData.country_code || "91"}
+        />
+      ),
       chatting: <ChattingTab clientData={clientData} loading={loading} />,
       automation: <AutomationTab clientUsername={username} />,
     };
