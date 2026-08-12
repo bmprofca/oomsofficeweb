@@ -81,8 +81,12 @@ function getParticularsDisplay(transaction) {
             ? particular.sale_items.map((item) => String(item?.name || '').trim()).filter(Boolean)
             : [];
         const itemsLabel = items.length > 0 ? items.join(', ') : '';
+        const periodLabel =
+            (particular?.compliance_period_label &&
+                String(particular.compliance_period_label).trim()) ||
+            '';
 
-        if (itemsLabel || firmName) {
+        if (itemsLabel || firmName || periodLabel) {
             return (
                 <div className="flex flex-col min-w-0">
                     {itemsLabel ? (
@@ -93,6 +97,11 @@ function getParticularsDisplay(transaction) {
                     {firmName ? (
                         <div className="text-xs text-slate-500 mt-0.5 whitespace-normal break-words">
                             {firmName}
+                        </div>
+                    ) : null}
+                    {periodLabel ? (
+                        <div className="text-xs text-gray-500 mt-0.5 whitespace-normal break-words leading-snug">
+                            {periodLabel}
                         </div>
                     ) : null}
                     {remark ? (

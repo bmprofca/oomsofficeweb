@@ -385,7 +385,7 @@ const CAList = () => {
                                                             <div>
                                                                 {row.username ? (
                                                                     <Link
-                                                                        to={`/staff/office-assistance/ca-profile/${encodeURIComponent(row.username)}/profile`}
+                                                                        to={`/staff/office-assistance/ca-profile/${encodeURIComponent(row.username)}/tasks`}
                                                                         state={{ caRow: row }}
                                                                         className="font-semibold text-indigo-600 hover:text-indigo-800 no-underline"
                                                                     >
@@ -492,7 +492,7 @@ const CAList = () => {
                                 onClick={() => {
                                     setActiveRowDropdown(null);
                                     navigate(
-                                        `/staff/office-assistance/ca-profile/${encodeURIComponent(activeItem.username)}/profile`,
+                                        `/staff/office-assistance/ca-profile/${encodeURIComponent(activeItem.username)}/tasks`,
                                         { state: { caRow: activeItem } }
                                     );
                                 }}

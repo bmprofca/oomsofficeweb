@@ -16,10 +16,11 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import { checkPermissionSync } from '../utils/permission-helper';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
-import { DateRangePickerField } from '../components/PortalDatePicker';
+import { DateRangePickerField, toIsoDate } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import OpeningBalanceModal from '../components/OpeningBalanceModal';
 import { ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
+import { buildLedgerDownloadFilename } from '../utils/ledgerFilename';
 import TransactionTable, {
     getTransactionAmounts,
     formatLedgerCurrency,
@@ -65,9 +66,9 @@ export default function LedgerTab({
     const [fromDate, setFromDate] = useState(() => {
         const date = new Date();
         date.setDate(1);
-        return date.toISOString().split('T')[0];
+        return toIsoDate(date);
     });
-    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [toDate, setToDate] = useState(() => toIsoDate(new Date()));
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
@@ -95,7 +96,7 @@ export default function LedgerTab({
     const [openingBalanceForm, setOpeningBalanceForm] = useState({
         amount: '',
         type: 'credit',
-        transaction_date: new Date().toISOString().split('T')[0],
+        transaction_date: toIsoDate(new Date()),
         remark: '',
     });
 
@@ -281,7 +282,7 @@ export default function LedgerTab({
                     type: d.type || 'credit',
                     transaction_date: d.transaction_date
                         ? d.transaction_date.split('T')[0]
-                        : new Date().toISOString().split('T')[0],
+                        : toIsoDate(new Date()),
                     remark: d.remark || '',
                 });
             } else {
@@ -289,7 +290,7 @@ export default function LedgerTab({
                 setOpeningBalanceForm({
                     amount: '',
                     type: 'credit',
-                    transaction_date: new Date().toISOString().split('T')[0],
+                    transaction_date: toIsoDate(new Date()),
                     remark: '',
                 });
             }
@@ -381,7 +382,12 @@ export default function LedgerTab({
                 link.href = url;
                 link.setAttribute(
                     'download',
-                    `agent_ledger_${agentUsername}_${fromDate}_to_${toDate}.${format}`
+                    buildLedgerDownloadFilename({
+                        name: agentName || agentUsername,
+                        fromDate,
+                        toDate,
+                        extension: format,
+                    })
                 );
                 document.body.appendChild(link);
                 link.click();
@@ -394,7 +400,7 @@ export default function LedgerTab({
                 toast.error(error.response?.data?.message || 'Failed to export ledger', { id: toastId });
             }
         },
-        [agentUsername, fromDate, toDate]
+        [agentUsername, agentName, fromDate, toDate]
     );
 
     const handleTransactionTypeClick = (type) => {

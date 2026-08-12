@@ -25,7 +25,7 @@ CA / Agent mirrors: `CAComponents/LedgerTab.js`, `AgentComponents/LedgerTab.js` 
 
 | Action | Behavior |
 |--------|----------|
-| Share → Download | `GET /transaction/download/ledger?party_type=client&party_id=…&from_date=…&to_date=…&format=pdf` |
+| Share → Download | `GET /transaction/download/ledger?…` — file name `LEDGER_{NAME}_{DD-MM-YYYY}_{DD-MM-YYYY}.PDF` (uppercase; name from party display name) |
 | Share → Share | Opens `DocumentShareModal` (editable mobile/email, prefilled from client) → `POST /transaction/ledger/share` with `{ channels, mobile, email }` |
 
 **UI pieces**
@@ -50,8 +50,9 @@ Long remarks must **wrap** (no ellipsis). Implemented in `TransactionTable` `get
 
 - **Primary (larger):** service name(s) from `particular.sale_items`, joined with `, ` when more than one.
 - **Secondary (smaller):** firm name from `particular.firm.firm_name` when the sale has a linked firm.
+- **Compliance period (smaller):** `particular.compliance_period_label` when the sale is from a **compliance** task (same `{period} · {year}` label as the task table).
 - Remark wraps underneath when present.
-- List API (`GET /transaction/list`) attaches both `sale_items` and `particular.firm`. Ledger PDF mirrors the same order (services line, then firm line).
+- List API (`GET /transaction/list`) attaches `sale_items`, `particular.firm`, and optionally `compliance_period_label`. Ledger PDF mirrors the same order (services → firm → period → remark).
 
 ## Download / generate invoice (per row)
 

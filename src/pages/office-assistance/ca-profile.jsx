@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   FiCheckSquare,
-  FiDollarSign,
   FiFileText,
   FiMail,
   FiMaximize2,
@@ -13,6 +12,7 @@ import {
   FiUser,
   FiX,
 } from "react-icons/fi";
+import { HiOutlineCurrencyRupee } from "react-icons/hi2";
 import { Header, Sidebar } from "../../components/header";
 import ProfileTab from "../../CAComponents/ProfileTab";
 import TaskTab from "../../CAComponents/TaskTab";
@@ -235,8 +235,9 @@ const CAProfilePageSkeleton = ({ tabsMinimized = true, tabCount = 4 }) => {
 };
 
 const CAProfile = () => {
-  const { username: usernameParam, tab = "profile" } = useParams();
+  const { username: usernameParam, tab: tabParam } = useParams();
   const username = decodeURIComponent(usernameParam || "").trim();
+  const tab = tabParam || "tasks";
   const navigate = useNavigate();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -254,10 +255,10 @@ const CAProfile = () => {
   const [caData, setCaData] = useState(EMPTY_CA_DATA);
 
   const profileTabs = [
-    { id: "profile", name: "Profile", icon: FiUser },
     { id: "tasks", name: "Tasks", icon: FiCheckSquare },
     { id: "billing", name: "Billing", icon: FiFileText },
-    { id: "ledger", name: "Ledger", icon: FiDollarSign },
+    { id: "ledger", name: "Ledger", icon: HiOutlineCurrencyRupee },
+    { id: "profile", name: "Profile", icon: FiUser },
   ];
 
   const fetchCaData = useCallback(
@@ -334,15 +335,15 @@ const CAProfile = () => {
       fetchCaData(username);
     }
 
-    if (username && !tab) {
+    if (username && !tabParam) {
       navigate(
-        `/staff/office-assistance/ca-profile/${encodeURIComponent(username)}/profile`,
+        `/staff/office-assistance/ca-profile/${encodeURIComponent(username)}/tasks`,
         {
           replace: true,
         },
       );
     }
-  }, [username, tab, previousUsername, fetchCaData, navigate]);
+  }, [username, tab, tabParam, previousUsername, fetchCaData, navigate]);
 
   useEffect(() => {
     if (username && !previousUsername) {
@@ -383,7 +384,7 @@ const CAProfile = () => {
       billing: "billing",
       ledger: "ledger",
     };
-    const componentKey = tabMap[tab] || "profile";
+    const componentKey = tabMap[tab] || "tasks";
 
     const tabComponents = {
       profile: (
@@ -408,7 +409,7 @@ const CAProfile = () => {
       ),
     };
 
-    return tabComponents[componentKey] || tabComponents.profile;
+    return tabComponents[componentKey] || tabComponents.tasks;
   };
 
   return (

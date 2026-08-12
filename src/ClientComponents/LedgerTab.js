@@ -19,11 +19,12 @@ import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import { checkPermissionSync } from '../utils/permission-helper';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
-import { DateRangePickerField } from '../components/PortalDatePicker';
+import { DateRangePickerField, toIsoDate } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import OpeningBalanceModal from '../components/OpeningBalanceModal';
 import { ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
 import DocumentShareModal from '../components/Modals/DocumentShareModal';
+import { buildLedgerDownloadFilename } from '../utils/ledgerFilename';
 import TransactionTable, {
     getTransactionAmounts,
     formatLedgerCurrency,
@@ -53,11 +54,9 @@ const ClientLedger = ({
     const [fromDate, setFromDate] = useState(() => {
         const date = new Date();
         date.setDate(1);
-        return date.toISOString().split('T')[0];
+        return toIsoDate(date);
     });
-    const [toDate, setToDate] = useState(() => {
-        return new Date().toISOString().split('T')[0];
-    });
+    const [toDate, setToDate] = useState(() => toIsoDate(new Date()));
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
@@ -89,7 +88,7 @@ const ClientLedger = ({
     const [openingBalanceForm, setOpeningBalanceForm] = useState({
         amount: '',
         type: 'credit',
-        transaction_date: new Date().toISOString().split('T')[0],
+        transaction_date: toIsoDate(new Date()),
         remark: ''
     });
 
@@ -347,7 +346,7 @@ const ClientLedger = ({
                 setOpeningBalanceForm({
                     amount: String(d.amount || ''),
                     type: d.type || 'credit',
-                    transaction_date: d.transaction_date ? d.transaction_date.split('T')[0] : new Date().toISOString().split('T')[0],
+                    transaction_date: d.transaction_date ? d.transaction_date.split('T')[0] : toIsoDate(new Date()),
                     remark: d.remark || ''
                 });
             } else {
@@ -355,7 +354,7 @@ const ClientLedger = ({
                 setOpeningBalanceForm({
                     amount: '',
                     type: 'credit',
-                    transaction_date: new Date().toISOString().split('T')[0],
+                    transaction_date: toIsoDate(new Date()),
                     remark: ''
                 });
             }
@@ -437,7 +436,12 @@ const ClientLedger = ({
                 `${API_BASE_URL}/transaction/download/ledger?${params}`,
                 { headers: getHeaders(), responseType: 'blob' }
             );
-            const filename = `ledger_${username}_${fromDate}_to_${toDate}.pdf`;
+            const filename = buildLedgerDownloadFilename({
+                name: clientNameProp || username,
+                fromDate,
+                toDate,
+                extension: 'pdf',
+            });
             const url = window.URL.createObjectURL(
                 new Blob([response.data], { type: 'application/pdf' })
             );
@@ -458,7 +462,7 @@ const ClientLedger = ({
         } finally {
             setDownloadingLedger(false);
         }
-    }, [username, fromDate, toDate]);
+    }, [username, clientNameProp, fromDate, toDate]);
 
     const handleOpenShareLedger = useCallback(() => {
         setShowShareMenu(false);
