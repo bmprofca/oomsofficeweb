@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import {
-  FiSettings,
   FiSearch,
   FiUsers,
   FiLoader,
@@ -18,7 +17,12 @@ import { Header, Sidebar } from "../../../components/header";
 import TablePagination from "../../../components/TablePagination";
 import ConfirmActionModal from "../../../components/ConfirmActionModal";
 import OneChattingTokenModal from "../../../components/Modals/OneChattingTokenModal";
-import { whatsappApi, normalizeList, normalizePagination } from "../../../services/whatsappApi";
+import OneChattingProjectTokenModal from "../../../components/Modals/OneChattingProjectTokenModal";
+import {
+  whatsappApi,
+  normalizeList,
+  normalizePagination,
+} from "../../../services/whatsappApi";
 import { useUserPermissions } from "../../../utils/permission-helper";
 
 /** Task-table typography baseline — see CLIENT/context/typography.md */
@@ -57,9 +61,7 @@ const ContactCell = ({ profile }) => {
   }
   return (
     <div className="min-w-0 overflow-hidden">
-      {mobile ? (
-        <p className={`${CELL_BODY} truncate`}>{mobile}</p>
-      ) : null}
+      {mobile ? <p className={`${CELL_BODY} truncate`}>{mobile}</p> : null}
       {email ? (
         <p
           className={`${mobile ? "text-xs text-gray-400 mt-0.5" : CELL_BODY} truncate`}
@@ -242,6 +244,32 @@ const OneChattingConfigure = () => {
   const [syncingClients, setSyncingClients] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
 
+  const [projectTokenLoading, setProjectTokenLoading] = useState(true);
+  const [projectTokenConfigured, setProjectTokenConfigured] = useState(false);
+  const [projectDeveloperToken, setProjectDeveloperToken] = useState("");
+  const [projectTokenModalOpen, setProjectTokenModalOpen] = useState(false);
+  const [projectTokenSaving, setProjectTokenSaving] = useState(false);
+
+  const fetchProjectToken = useCallback(async () => {
+    setProjectTokenLoading(true);
+    try {
+      const res = await whatsappApi.getProjectDeveloperToken();
+      const configured = Boolean(res?.data?.configured);
+      setProjectTokenConfigured(configured);
+      setProjectDeveloperToken(
+        configured ? String(res?.data?.developer_token || "") : "",
+      );
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to load project developer token",
+      );
+    } finally {
+      setProjectTokenLoading(false);
+    }
+  }, []);
+
   const fetchData = useCallback(
     async (page = 1, limit = 20, searchTerm = "") => {
       setLoading(true);
@@ -270,6 +298,10 @@ const OneChattingConfigure = () => {
   }, [isMinimized]);
 
   useEffect(() => {
+    fetchProjectToken();
+  }, [fetchProjectToken]);
+
+  useEffect(() => {
     fetchData(1, pagination.limit, search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, fetchData]);
@@ -290,7 +322,7 @@ const OneChattingConfigure = () => {
   };
 
   const closeConfirm = () => {
-    if (syncingClients || savingMapId) return;
+    if (syncingClients || savingMapId || projectTokenSaving) return;
     setConfirmState(null);
   };
 
@@ -366,8 +398,50 @@ const OneChattingConfigure = () => {
       runSyncClients();
       return;
     }
+    if (confirmState.type === "clear-project-token") {
+      runClearProjectToken();
+      return;
+    }
     if (confirmState.type === "disable" && confirmState.row) {
       runDisable(confirmState.row);
+    }
+  };
+
+  const runClearProjectToken = async () => {
+    setProjectTokenSaving(true);
+    try {
+      await whatsappApi.updateProjectDeveloperToken({ clear: true });
+      toast.success("Project developer token cleared");
+      setConfirmState(null);
+      setProjectTokenConfigured(false);
+      setProjectDeveloperToken("");
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to clear project developer token",
+      );
+    } finally {
+      setProjectTokenSaving(false);
+    }
+  };
+
+  const handleProjectTokenSubmit = async (payload) => {
+    setProjectTokenSaving(true);
+    try {
+      const res = await whatsappApi.updateProjectDeveloperToken(payload);
+      toast.success(res?.message || "Project developer token saved");
+      setProjectTokenModalOpen(false);
+      setProjectTokenConfigured(Boolean(res?.data?.configured));
+      setProjectDeveloperToken(res?.data?.developer_token || "");
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to save project developer token",
+      );
+    } finally {
+      setProjectTokenSaving(false);
     }
   };
 
@@ -424,7 +498,9 @@ const OneChattingConfigure = () => {
   const confirmLoading =
     confirmState?.type === "sync"
       ? syncingClients
-      : Boolean(confirmState?.row && savingMapId === confirmState.row.map_id);
+      : confirmState?.type === "clear-project-token"
+        ? projectTokenSaving
+        : Boolean(confirmState?.row && savingMapId === confirmState.row.map_id);
 
   if (!check("broadcast_config_edit")) {
     return (
@@ -478,19 +554,84 @@ const OneChattingConfigure = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 space-y-3 md:space-y-4">
+          {/* Project developer token (branch-level) */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
+              <div className="flex items-center gap-2 shrink-0 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                  <FiKey className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-gray-800 leading-tight truncate m-0">
+                    Project Developer Token
+                  </h2>
+                  <p className="text-xs text-gray-500 truncate m-0 mt-0.5">
+                    Branch token for templates, contacts sync, and project APIs
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto shrink-0">
+                {projectTokenLoading ? (
+                  <FiLoader className="w-4 h-4 animate-spin text-gray-400" />
+                ) : (
+                  <StatusBadge enabled={projectTokenConfigured} />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setProjectTokenModalOpen(true)}
+                  disabled={projectTokenLoading || projectTokenSaving}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
+                >
+                  <FiKey className="w-3.5 h-3.5" />
+                  {projectTokenConfigured ? "Update" : "Set token"}
+                </button>
+                {projectTokenConfigured ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConfirmState({ type: "clear-project-token" })
+                    }
+                    disabled={projectTokenLoading || projectTokenSaving}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                  >
+                    <FiPower className="w-3.5 h-3.5" />
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <div className="px-3 md:px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+              <p className="text-xs text-gray-500 m-0 leading-relaxed">
+                This is the{" "}
+                <span className="font-semibold text-gray-700">project</span>{" "}
+                developer token for the branch. Staff and admin{" "}
+                <span className="font-semibold text-gray-700">user</span> tokens
+                are managed in the list below.
+              </p>
+              {projectTokenConfigured && projectDeveloperToken ? (
+                <p className="mt-2 text-xs font-mono text-gray-600 truncate m-0">
+                  {projectDeveloperToken.length > 16
+                    ? `${projectDeveloperToken.slice(0, 8)}…${projectDeveloperToken.slice(-6)}`
+                    : "••••••••"}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className={`${TOOLBAR_ROW} flex-wrap`}>
               <div className="flex items-center gap-2 shrink-0 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-                  <FiSettings className="w-4 h-4 text-green-600" />
+                  <FiUsers className="w-4 h-4 text-green-600" />
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate">
-                    OneChatting Configuration
+                    User Developer Tokens
                   </h1>
                   <p className="text-xs text-gray-500 truncate">
-                    Manage developer tokens and OneChatting access
+                    Enable OneChatting for admins and staff
                   </p>
                 </div>
               </div>
@@ -680,6 +821,14 @@ const OneChattingConfigure = () => {
         saving={modalSaving}
       />
 
+      <OneChattingProjectTokenModal
+        isOpen={projectTokenModalOpen}
+        initialToken={projectDeveloperToken}
+        onClose={() => !projectTokenSaving && setProjectTokenModalOpen(false)}
+        onSubmit={handleProjectTokenSubmit}
+        saving={projectTokenSaving}
+      />
+
       <ConfirmActionModal
         isOpen={Boolean(confirmState)}
         loading={confirmLoading}
@@ -695,17 +844,26 @@ const OneChattingConfigure = () => {
               confirmLabel: syncingClients ? "Syncing…" : "Sync clients",
               tone: "primary",
             }
-          : {
-              title: "Disable OneChatting",
-              heading: "Disable OneChatting?",
-              message: `OneChatting access will be turned off for ${
-                confirmState?.row?.profile?.name ||
-                confirmState?.row?.username ||
-                "this user"
-              }.`,
-              confirmLabel: confirmLoading ? "Disabling…" : "Disable",
-              tone: "danger",
-            })}
+          : confirmState?.type === "clear-project-token"
+            ? {
+                title: "Clear project token",
+                heading: "Clear project developer token?",
+                message:
+                  "Template list, contact sync, and other project APIs will stop working until a new project token is set.",
+                confirmLabel: projectTokenSaving ? "Clearing…" : "Clear token",
+                tone: "danger",
+              }
+            : {
+                title: "Disable OneChatting",
+                heading: "Disable OneChatting?",
+                message: `OneChatting access will be turned off for ${
+                  confirmState?.row?.profile?.name ||
+                  confirmState?.row?.username ||
+                  "this user"
+                }.`,
+                confirmLabel: confirmLoading ? "Disabling…" : "Disable",
+                tone: "danger",
+              })}
       />
     </div>
   );

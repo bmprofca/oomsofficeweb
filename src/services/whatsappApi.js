@@ -37,6 +37,14 @@ export const whatsappApi = {
     whatsappAxios.get('/broadcast/whatsapp/onechatting/developer-tokens', { params }).then(unwrap),
   updateDeveloperToken: (payload) =>
     whatsappAxios.put('/broadcast/whatsapp/onechatting/developer-token', payload).then(unwrap),
+  getProjectDeveloperToken: () =>
+    whatsappAxios
+      .get('/broadcast/whatsapp/onechatting/project-developer-token')
+      .then(unwrap),
+  updateProjectDeveloperToken: (payload) =>
+    whatsappAxios
+      .put('/broadcast/whatsapp/onechatting/project-developer-token', payload)
+      .then(unwrap),
   syncClientsToOneChatting: (payload = {}) =>
     whatsappAxios
       .post('/broadcast/whatsapp/onechatting/sync-clients', payload, { timeout: 180000 })
