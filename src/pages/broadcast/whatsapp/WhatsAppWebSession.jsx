@@ -24,15 +24,13 @@ const SECTION_LABEL =
 const CELL_TITLE = "font-semibold text-gray-800 text-sm";
 const CELL_BODY = "text-sm font-medium text-gray-700";
 const CELL_META = "text-xs text-gray-400";
-const FIELD_INPUT =
-  "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 placeholder:text-gray-400";
 const EMPTY_WRAP =
   "flex flex-col items-center justify-center py-12 text-gray-500 px-4";
 const EMPTY_TITLE = "text-sm font-medium text-gray-500";
 const EMPTY_SUBTITLE = "text-xs text-gray-400 mt-1";
 
 const STATUS_POLL_MS = 3000;
-const QR_POLL_MS = 2500;
+const QR_POLL_MS = 2000;
 
 const STATUS_META = {
   not_configured: {
@@ -47,9 +45,9 @@ const STATUS_META = {
     label: "Scan QR code",
     className: "bg-blue-100 text-blue-700",
   },
-  pairing: {
-    label: "Enter pairing code",
-    className: "bg-blue-100 text-blue-700",
+  reconnecting: {
+    label: "Reconnecting",
+    className: "bg-amber-100 text-amber-700",
   },
   connected: {
     label: "Connected",
@@ -64,6 +62,12 @@ const STATUS_META = {
     className: "bg-gray-100 text-gray-600",
   },
 };
+
+function withCacheBust(url) {
+  if (!url) return null;
+  const base = String(url).split("?")[0];
+  return `${base}?t=${Date.now()}`;
+}
 
 const SessionStatusBadge = ({ status, connected }) => {
   const normalized = connected ? "connected" : status || "not_configured";
@@ -91,18 +95,16 @@ const WhatsAppWebSession = () => {
   const [statusLoading, setStatusLoading] = useState(true);
   const [sessionStatus, setSessionStatus] = useState(null);
 
-  const [loginMethod, setLoginMethod] = useState("qr");
-  const [phone, setPhone] = useState("");
   const [creatingSession, setCreatingSession] = useState(false);
-  const [requestingPairing, setRequestingPairing] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const [qrCode, setQrCode] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
-  const [pairingCode, setPairingCode] = useState(null);
 
   const statusPollRef = useRef(null);
   const qrPollRef = useRef(null);
+  const connectedToastShownRef = useRef(false);
 
   const clearPollers = useCallback(() => {
     if (statusPollRef.current) {
@@ -137,25 +139,31 @@ const WhatsAppWebSession = () => {
       const res = await whatsappApi.getWhatsAppWebQr();
       const qrImage = res?.data?.imageUrl || res?.data?.qr;
       if (res?.success && qrImage) {
-        setQrCode(qrImage);
+        setQrCode(withCacheBust(qrImage));
         return true;
       }
+      // QR_NOT_FOUND often means already connected — refresh status
+      await fetchStatus(true);
       return false;
     } catch (error) {
+      await fetchStatus(true);
       return false;
     } finally {
       setQrLoading(false);
     }
-  }, []);
+  }, [fetchStatus]);
 
   const startStatusPolling = useCallback(() => {
-    clearPollers();
+    if (statusPollRef.current) return;
     statusPollRef.current = setInterval(async () => {
       const data = await fetchStatus(true);
       if (data?.connected || data?.status === "connected") {
         clearPollers();
         setQrCode(null);
-        toast.success("WhatsApp connected successfully");
+        if (!connectedToastShownRef.current) {
+          connectedToastShownRef.current = true;
+          toast.success("WhatsApp connected successfully");
+        }
       }
     }, STATUS_POLL_MS);
   }, [clearPollers, fetchStatus]);
@@ -182,25 +190,31 @@ const WhatsAppWebSession = () => {
 
     if (connected) {
       clearPollers();
+      setQrCode(null);
       return;
     }
 
-    if (status === "qr" || status === "connecting") {
+    connectedToastShownRef.current = false;
+
+    if (
+      status === "qr" ||
+      status === "connecting" ||
+      status === "reconnecting"
+    ) {
       startStatusPolling();
-      if (loginMethod === "qr") {
+      if (status !== "reconnecting") {
         fetchQr();
         startQrPolling();
       }
       return;
     }
 
-    if (status === "pairing") {
+    if (status === "disconnected") {
       startStatusPolling();
     }
   }, [
     sessionStatus?.status,
     sessionStatus?.connected,
-    loginMethod,
     clearPollers,
     startStatusPolling,
     startQrPolling,
@@ -210,10 +224,10 @@ const WhatsAppWebSession = () => {
   const handleCreateQrSession = async () => {
     setCreatingSession(true);
     setQrCode(null);
-    setPairingCode(null);
+    connectedToastShownRef.current = false;
     try {
       await whatsappApi.createWhatsAppWebSession({});
-      toast.success("Session created. Scan the QR code with WhatsApp.");
+      toast.success("Session started. Scan the QR code with WhatsApp.");
       await fetchStatus(true);
       await fetchQr();
       startStatusPolling();
@@ -225,56 +239,18 @@ const WhatsAppWebSession = () => {
     }
   };
 
-  const handleCreatePairingSession = async () => {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 10 || digits.length > 15) {
-      toast.error(
-        "Enter a valid phone number (10–15 digits, country code included)",
-      );
-      return;
-    }
-
-    setCreatingSession(true);
-    setQrCode(null);
-    setPairingCode(null);
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    connectedToastShownRef.current = false;
     try {
-      const payload = { pairingCodeEnabled: true };
-
-      await whatsappApi.createWhatsAppWebSession(payload);
-      setRequestingPairing(true);
-      const res = await whatsappApi.requestWhatsAppWebPairingCode({
-        phone: digits,
-      });
-      setPairingCode(res?.data?.pairingCode || null);
-      toast.success("Pairing code generated. Enter it on your phone.");
+      const res = await whatsappApi.reconnectWhatsAppWebSession();
+      toast.success(res?.message || "Reconnecting…");
       await fetchStatus(true);
       startStatusPolling();
     } catch (error) {
-      toast.error(extractApiError(error, "Failed to start pairing login"));
+      toast.error(extractApiError(error, "Failed to reconnect session"));
     } finally {
-      setCreatingSession(false);
-      setRequestingPairing(false);
-    }
-  };
-
-  const handleRefreshPairingCode = async () => {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 10 || digits.length > 15) {
-      toast.error("Enter a valid phone number first");
-      return;
-    }
-
-    setRequestingPairing(true);
-    try {
-      const res = await whatsappApi.requestWhatsAppWebPairingCode({
-        phone: digits,
-      });
-      setPairingCode(res?.data?.pairingCode || null);
-      toast.success("Pairing code refreshed");
-    } catch (error) {
-      toast.error(extractApiError(error, "Failed to get pairing code"));
-    } finally {
-      setRequestingPairing(false);
+      setReconnecting(false);
     }
   };
 
@@ -287,7 +263,7 @@ const WhatsAppWebSession = () => {
       const res = await whatsappApi.deleteWhatsAppWebSession();
       toast.success(res?.message || "Session disconnected");
       setQrCode(null);
-      setPairingCode(null);
+      connectedToastShownRef.current = false;
       await fetchStatus(true);
     } catch (error) {
       toast.error(extractApiError(error, "Failed to disconnect session"));
@@ -301,13 +277,19 @@ const WhatsAppWebSession = () => {
   const showLoginForm = !connected && status === "not_configured";
   const showQrPanel =
     !connected &&
-    loginMethod === "qr" &&
-    (status === "connecting" || status === "qr" || qrCode);
-  const showPairingPanel =
-    !connected &&
-    (loginMethod === "pairing" || status === "pairing") &&
-    (pairingCode || status === "pairing");
-  const busy = creatingSession || requestingPairing || loggingOut;
+    (status === "connecting" ||
+      status === "qr" ||
+      Boolean(qrCode) ||
+      (sessionStatus?.sessionId &&
+        status !== "disconnected" &&
+        status !== "reconnecting" &&
+        status !== "destroyed"));
+  const showReconnecting = !connected && status === "reconnecting";
+  const busy = creatingSession || reconnecting || loggingOut;
+
+  const linkedUserName =
+    sessionStatus?.user?.name || sessionStatus?.displayName || null;
+  const linkedUserId = sessionStatus?.user?.id || null;
 
   if (!check("broadcast_config_edit")) {
     return (
@@ -377,7 +359,7 @@ const WhatsAppWebSession = () => {
                     WhatsApp Web Session
                   </h1>
                   <p className={`${CELL_META} m-0 mt-0.5`}>
-                    Connect this branch via QR scan or pairing code
+                    Connect this branch by scanning a QR code
                   </p>
                 </div>
               </div>
@@ -451,12 +433,14 @@ const WhatsAppWebSession = () => {
                             WhatsApp is connected
                           </p>
                           <p className="text-sm font-medium text-green-700 mt-1 m-0">
-                            {sessionStatus.displayName
-                              ? sessionStatus.displayName
+                            {linkedUserName
+                              ? linkedUserName
                               : "Ready to send messages"}
-                            {sessionStatus.phone
-                              ? ` · +${sessionStatus.phone}`
-                              : ""}
+                            {linkedUserId ? (
+                              <span className="block text-xs font-mono text-green-700/80 mt-0.5">
+                                {linkedUserId}
+                              </span>
+                            ) : null}
                           </p>
                         </div>
                       </div>
@@ -464,10 +448,47 @@ const WhatsAppWebSession = () => {
                   ) : null}
 
                   {status === "disconnected" ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 space-y-3">
                       <p className="text-sm font-medium text-amber-800 m-0">
-                        Connection was lost. The server may reconnect
-                        automatically, or disconnect and sign in again.
+                        Connection was lost. Reconnect if auth files are still
+                        valid, or start a new QR login.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleReconnect}
+                          disabled={busy}
+                          className={`${TOOLBAR_BTN} inline-flex items-center gap-2 text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50`}
+                        >
+                          {reconnecting ? (
+                            <FiLoader className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <FiRefreshCw className="w-4 h-4" />
+                          )}
+                          Reconnect
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCreateQrSession}
+                          disabled={busy}
+                          className={`${TOOLBAR_BTN} inline-flex items-center gap-2 text-amber-900 border border-amber-300 bg-white hover:bg-amber-50 disabled:opacity-50`}
+                        >
+                          {creatingSession ? (
+                            <FiLoader className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <FiSmartphone className="w-4 h-4" />
+                          )}
+                          New QR login
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {showReconnecting ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-2">
+                      <FiLoader className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                      <p className={`${CELL_BODY} text-amber-900 m-0`}>
+                        Reconnecting… status will update when linked again.
                       </p>
                     </div>
                   ) : null}
@@ -476,75 +497,25 @@ const WhatsAppWebSession = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-5 pt-1">
                       <div className="space-y-4 min-w-0">
                         <div>
-                          <p className={`${SECTION_LABEL} mb-2`}>
-                            Login method
+                          <p className={`${SECTION_LABEL} mb-2`}>Connect</p>
+                          <p className={`${CELL_BODY} m-0 mb-4`}>
+                            Start a session and scan the QR code from WhatsApp
+                            on your phone (Linked devices).
                           </p>
-                          <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-gray-50">
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() => setLoginMethod("qr")}
-                              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
-                                loginMethod === "qr"
-                                  ? "bg-white text-green-700 shadow-sm"
-                                  : "text-gray-600 hover:text-gray-800"
-                              }`}
-                            >
-                              QR code
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() => setLoginMethod("pairing")}
-                              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 ${
-                                loginMethod === "pairing"
-                                  ? "bg-white text-green-700 shadow-sm"
-                                  : "text-gray-600 hover:text-gray-800"
-                              }`}
-                            >
-                              Pairing code
-                            </button>
-                          </div>
                         </div>
-
-                        {loginMethod === "pairing" ? (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Phone number
-                            </label>
-                            <input
-                              type="tel"
-                              value={phone}
-                              onChange={(e) => setPhone(e.target.value)}
-                              placeholder="919999999999"
-                              disabled={busy}
-                              className={`${FIELD_INPUT} font-mono`}
-                            />
-                            <p className={`${CELL_META} mt-1 m-0`}>
-                              Country code + number, digits only (10–15
-                              digits)
-                            </p>
-                          </div>
-                        ) : null}
 
                         <button
                           type="button"
-                          onClick={
-                            loginMethod === "qr"
-                              ? handleCreateQrSession
-                              : handleCreatePairingSession
-                          }
+                          onClick={handleCreateQrSession}
                           disabled={busy}
                           className={`${TOOLBAR_BTN} inline-flex items-center gap-2 text-white bg-green-600 hover:bg-green-700 disabled:opacity-50`}
                         >
-                          {creatingSession || requestingPairing ? (
+                          {creatingSession ? (
                             <FiLoader className="w-4 h-4 animate-spin" />
                           ) : (
                             <FiSmartphone className="w-4 h-4" />
                           )}
-                          {loginMethod === "qr"
-                            ? "Connect with QR code"
-                            : "Generate pairing code"}
+                          Connect with QR code
                         </button>
                       </div>
 
@@ -554,10 +525,10 @@ const WhatsAppWebSession = () => {
                         </p>
                         <ol className="m-0 pl-4 space-y-2 list-decimal">
                           <li className={CELL_BODY}>
-                            Choose QR or pairing code login.
+                            Click Connect with QR code.
                           </li>
                           <li className={CELL_BODY}>
-                            Complete the link on your WhatsApp phone app.
+                            Open WhatsApp → Linked devices → Link a device.
                           </li>
                           <li className={CELL_BODY}>
                             Keep this page open until status shows Connected.
@@ -576,6 +547,7 @@ const WhatsAppWebSession = () => {
                           </p>
                           <p className={`${CELL_META} m-0 mb-4`}>
                             Open WhatsApp → Linked devices → Link a device
+                            (scan within about 60 seconds)
                           </p>
                           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                             <ul className="m-0 pl-4 space-y-2 list-disc">
@@ -622,46 +594,10 @@ const WhatsAppWebSession = () => {
                     </div>
                   ) : null}
 
-                  {showPairingPanel ? (
-                    <div className="border-t border-gray-100 pt-5">
-                      <p className={`${CELL_TITLE} m-0 mb-1`}>
-                        Enter this pairing code on your phone
-                      </p>
-                      <p className={`${CELL_META} m-0 mb-4`}>
-                        WhatsApp → Linked devices → Link with phone number
-                      </p>
-                      {pairingCode ? (
-                        <div className="rounded-xl border border-green-200 bg-green-50 px-6 py-6 text-center max-w-md">
-                          <p className="text-3xl font-bold tracking-widest text-green-800 font-mono m-0">
-                            {pairingCode}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex items-center py-6 text-gray-500">
-                          <FiLoader className="w-4 h-4 animate-spin mr-2" />
-                          <span className={CELL_BODY}>
-                            Generating pairing code…
-                          </span>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleRefreshPairingCode}
-                        disabled={requestingPairing}
-                        className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-green-700 hover:text-green-800 disabled:opacity-50"
-                      >
-                        <FiRefreshCw
-                          className={`w-4 h-4 ${requestingPairing ? "animate-spin" : ""}`}
-                        />
-                        Refresh pairing code
-                      </button>
-                    </div>
-                  ) : null}
-
                   {!connected &&
                   !showLoginForm &&
                   !showQrPanel &&
-                  !showPairingPanel &&
+                  !showReconnecting &&
                   status !== "disconnected" ? (
                     <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-2">
                       <FiWifiOff className="w-4 h-4 text-gray-400 shrink-0" />

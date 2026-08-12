@@ -52,11 +52,11 @@ export const whatsappApi = {
         const body = unwrap(res);
         const nested =
           body?.data &&
-          typeof body.data === 'object' &&
-          !Array.isArray(body.data) &&
-          ('can_assign' in body.data ||
-            'can_manage' in body.data ||
-            'assigning' in body.data)
+            typeof body.data === 'object' &&
+            !Array.isArray(body.data) &&
+            ('can_assign' in body.data ||
+              'can_manage' in body.data ||
+              'assigning' in body.data)
             ? body.data
             : null;
         if (!nested) return body;
@@ -136,9 +136,9 @@ export const whatsappApi = {
       .then(unwrap),
   getWhatsAppWebQr: () =>
     whatsappAxios.get('/broadcast/whatsapp/whatsappweb/qr').then(unwrap),
-  requestWhatsAppWebPairingCode: (payload) =>
+  reconnectWhatsAppWebSession: () =>
     whatsappAxios
-      .post('/broadcast/whatsapp/whatsappweb/pairing-code', payload)
+      .post('/broadcast/whatsapp/whatsappweb/session/reconnect')
       .then(unwrap),
   deleteWhatsAppWebSession: () =>
     whatsappAxios.delete('/broadcast/whatsapp/whatsappweb/session').then(unwrap),
