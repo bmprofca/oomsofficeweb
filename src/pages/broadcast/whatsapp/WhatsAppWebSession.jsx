@@ -29,7 +29,6 @@ const EMPTY_WRAP =
 const EMPTY_TITLE = "text-sm font-medium text-gray-500";
 const EMPTY_SUBTITLE = "text-xs text-gray-400 mt-1";
 
-const STATUS_POLL_MS = 3000;
 const QR_POLL_MS = 2000;
 
 const STATUS_META = {
@@ -49,9 +48,21 @@ const STATUS_META = {
     label: "Reconnecting",
     className: "bg-amber-100 text-amber-700",
   },
+  ready: {
+    label: "Connected",
+    className: "bg-green-100 text-green-700",
+  },
   connected: {
     label: "Connected",
     className: "bg-green-100 text-green-700",
+  },
+  needs_qr: {
+    label: "Needs QR",
+    className: "bg-amber-100 text-amber-800",
+  },
+  unreachable: {
+    label: "Unreachable",
+    className: "bg-red-100 text-red-700",
   },
   disconnected: {
     label: "Disconnected",
@@ -63,6 +74,23 @@ const STATUS_META = {
   },
 };
 
+function isSessionConnected(data) {
+  if (!data) return false;
+  if (data.connected === true) return true;
+  const status = String(data.status || "").toLowerCase();
+  if (status === "connected" || status === "ready") return true;
+  if (
+    data.linked === true &&
+    status !== "disconnected" &&
+    status !== "destroyed" &&
+    status !== "needs_qr" &&
+    status !== "unreachable"
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function withCacheBust(url) {
   if (!url) return null;
   const base = String(url).split("?")[0];
@@ -70,7 +98,11 @@ function withCacheBust(url) {
 }
 
 const SessionStatusBadge = ({ status, connected }) => {
-  const normalized = connected ? "connected" : status || "not_configured";
+  const normalized = connected
+    ? "connected"
+    : status === "ready"
+      ? "connected"
+      : status || "not_configured";
   const meta = STATUS_META[normalized] || STATUS_META.not_configured;
 
   return (
@@ -101,28 +133,47 @@ const WhatsAppWebSession = () => {
 
   const [qrCode, setQrCode] = useState(null);
   const [qrLoading, setQrLoading] = useState(false);
+  const [pairingActive, setPairingActive] = useState(false);
 
-  const statusPollRef = useRef(null);
   const qrPollRef = useRef(null);
   const connectedToastShownRef = useRef(false);
+  /** True once a QR image was shown this pairing — later 404 means check status once. */
+  const qrSeenRef = useRef(false);
+  const pairingActiveRef = useRef(false);
 
   const clearPollers = useCallback(() => {
-    if (statusPollRef.current) {
-      clearInterval(statusPollRef.current);
-      statusPollRef.current = null;
-    }
     if (qrPollRef.current) {
       clearInterval(qrPollRef.current);
       qrPollRef.current = null;
     }
   }, []);
 
+  const finishPairingConnected = useCallback(() => {
+    clearPollers();
+    setQrCode(null);
+    setPairingActive(false);
+    pairingActiveRef.current = false;
+    qrSeenRef.current = false;
+    if (!connectedToastShownRef.current) {
+      connectedToastShownRef.current = true;
+      toast.success("WhatsApp connected successfully");
+    }
+  }, [clearPollers]);
+
   const fetchStatus = useCallback(async (silent = false) => {
     if (!silent) setStatusLoading(true);
     try {
       const res = await whatsappApi.getWhatsAppWebStatus();
-      setSessionStatus(res?.data || null);
-      return res?.data || null;
+      const data = res?.data || null;
+      setSessionStatus(data);
+      if (isSessionConnected(data)) {
+        clearPollers();
+        setPairingActive(false);
+        pairingActiveRef.current = false;
+        setQrCode(null);
+        qrSeenRef.current = false;
+      }
+      return data;
     } catch (error) {
       if (!silent) {
         toast.error(extractApiError(error, "Failed to fetch session status"));
@@ -131,42 +182,63 @@ const WhatsAppWebSession = () => {
     } finally {
       if (!silent) setStatusLoading(false);
     }
-  }, []);
+  }, [clearPollers]);
 
   const fetchQr = useCallback(async () => {
     setQrLoading(true);
     try {
       const res = await whatsappApi.getWhatsAppWebQr();
       const qrImage = res?.data?.imageUrl || res?.data?.qr;
-      if (res?.success && qrImage) {
+      if (qrImage) {
+        qrSeenRef.current = true;
         setQrCode(withCacheBust(qrImage));
         return true;
       }
-      // QR_NOT_FOUND often means already connected — refresh status
-      await fetchStatus(true);
+
+      // Docs: QR_NOT_FOUND = PNG not ready yet OR already linked.
+      // Before we've ever seen a QR, keep polling (do not stop pairing).
+      if (!qrSeenRef.current) {
+        return false;
+      }
+
+      // QR was shown, then gone — check status once (do not poll status)
+      clearPollers();
+      const data = await fetchStatus(true);
+      if (isSessionConnected(data)) {
+        finishPairingConnected();
+      } else {
+        setQrCode(null);
+        // Stay in pairing UI so user can retry / new QR if needed
+      }
       return false;
     } catch (error) {
-      await fetchStatus(true);
+      const httpStatus = error?.response?.status;
+      const code =
+        error?.response?.data?.error?.code ||
+        error?.response?.data?.error_code;
+
+      // Soft miss while waiting for first QR
+      if (
+        (httpStatus === 404 || code === "QR_NOT_FOUND") &&
+        !qrSeenRef.current
+      ) {
+        return false;
+      }
+
+      if (qrSeenRef.current || !pairingActiveRef.current) {
+        clearPollers();
+        const data = await fetchStatus(true);
+        if (isSessionConnected(data)) {
+          finishPairingConnected();
+        } else {
+          setQrCode(null);
+        }
+      }
       return false;
     } finally {
       setQrLoading(false);
     }
-  }, [fetchStatus]);
-
-  const startStatusPolling = useCallback(() => {
-    if (statusPollRef.current) return;
-    statusPollRef.current = setInterval(async () => {
-      const data = await fetchStatus(true);
-      if (data?.connected || data?.status === "connected") {
-        clearPollers();
-        setQrCode(null);
-        if (!connectedToastShownRef.current) {
-          connectedToastShownRef.current = true;
-          toast.success("WhatsApp connected successfully");
-        }
-      }
-    }, STATUS_POLL_MS);
-  }, [clearPollers, fetchStatus]);
+  }, [clearPollers, fetchStatus, finishPairingConnected]);
 
   const startQrPolling = useCallback(() => {
     if (qrPollRef.current) return;
@@ -185,57 +257,54 @@ const WhatsAppWebSession = () => {
   }, [fetchStatus, clearPollers]);
 
   useEffect(() => {
-    const status = sessionStatus?.status;
-    const connected = Boolean(sessionStatus?.connected);
-
-    if (connected) {
+    if (isSessionConnected(sessionStatus)) {
       clearPollers();
       setQrCode(null);
-      return;
+      setPairingActive(false);
+      pairingActiveRef.current = false;
+      qrSeenRef.current = false;
     }
-
-    connectedToastShownRef.current = false;
-
-    if (
-      status === "qr" ||
-      status === "connecting" ||
-      status === "reconnecting"
-    ) {
-      startStatusPolling();
-      if (status !== "reconnecting") {
-        fetchQr();
-        startQrPolling();
-      }
-      return;
-    }
-
-    if (status === "disconnected") {
-      startStatusPolling();
-    }
-  }, [
-    sessionStatus?.status,
-    sessionStatus?.connected,
-    clearPollers,
-    startStatusPolling,
-    startQrPolling,
-    fetchQr,
-  ]);
+  }, [sessionStatus, clearPollers]);
 
   const handleCreateQrSession = async () => {
     setCreatingSession(true);
     setQrCode(null);
+    setPairingActive(true);
+    pairingActiveRef.current = true;
+    qrSeenRef.current = false;
     connectedToastShownRef.current = false;
+    clearPollers();
     try {
-      await whatsappApi.createWhatsAppWebSession({});
+      const createRes = await whatsappApi.createWhatsAppWebSession({});
+      const sessionId =
+        createRes?.data?.sessionId || createRes?.data?.session || null;
+      if (sessionId) {
+        setSessionStatus((prev) => ({
+          ...(prev || {}),
+          sessionId,
+          status: "connecting",
+          connected: false,
+        }));
+      }
       toast.success("Session started. Scan the QR code with WhatsApp.");
-      await fetchStatus(true);
-      await fetchQr();
-      startStatusPolling();
+      // Start poller first so early QR_NOT_FOUND does not leave us without retries
       startQrPolling();
+      await fetchQr();
     } catch (error) {
+      setPairingActive(false);
+      pairingActiveRef.current = false;
+      clearPollers();
       toast.error(extractApiError(error, "Failed to create session"));
     } finally {
       setCreatingSession(false);
+    }
+  };
+
+  const handleCheckConnection = async () => {
+    connectedToastShownRef.current = false;
+    const data = await fetchStatus(false);
+    if (isSessionConnected(data)) {
+      toast.success("WhatsApp connection is ready");
     }
   };
 
@@ -244,9 +313,12 @@ const WhatsAppWebSession = () => {
     connectedToastShownRef.current = false;
     try {
       const res = await whatsappApi.reconnectWhatsAppWebSession();
-      toast.success(res?.message || "Reconnecting…");
-      await fetchStatus(true);
-      startStatusPolling();
+      toast.success(res?.message || "Connection checked");
+      const data = await fetchStatus(true);
+      if (isSessionConnected(data) && !connectedToastShownRef.current) {
+        connectedToastShownRef.current = true;
+        toast.success("WhatsApp connected successfully");
+      }
     } catch (error) {
       toast.error(extractApiError(error, "Failed to reconnect session"));
     } finally {
@@ -259,6 +331,9 @@ const WhatsAppWebSession = () => {
 
     setLoggingOut(true);
     clearPollers();
+    setPairingActive(false);
+    pairingActiveRef.current = false;
+    qrSeenRef.current = false;
     try {
       const res = await whatsappApi.deleteWhatsAppWebSession();
       toast.success(res?.message || "Session disconnected");
@@ -272,19 +347,26 @@ const WhatsAppWebSession = () => {
     }
   };
 
-  const connected = Boolean(sessionStatus?.connected);
-  const status = sessionStatus?.status || "not_configured";
-  const showLoginForm = !connected && status === "not_configured";
+  const connected = isSessionConnected(sessionStatus);
+  const status = connected
+    ? "connected"
+    : sessionStatus?.status || "not_configured";
+  const showLoginForm =
+    !connected &&
+    !pairingActive &&
+    (status === "not_configured" || status === "needs_qr");
   const showQrPanel =
     !connected &&
-    (status === "connecting" ||
-      status === "qr" ||
+    (pairingActive ||
       Boolean(qrCode) ||
-      (sessionStatus?.sessionId &&
-        status !== "disconnected" &&
-        status !== "reconnecting" &&
-        status !== "destroyed"));
+      status === "connecting" ||
+      status === "qr");
   const showReconnecting = !connected && status === "reconnecting";
+  const showUnreachable = !connected && status === "unreachable";
+  const showDisconnected =
+    !connected &&
+    !pairingActive &&
+    (status === "disconnected" || status === "destroyed");
   const busy = creatingSession || reconnecting || loggingOut;
 
   const linkedUserName =
@@ -367,10 +449,10 @@ const WhatsAppWebSession = () => {
               <div className="flex items-center gap-2 ml-auto shrink-0">
                 <button
                   type="button"
-                  onClick={() => fetchStatus()}
+                  onClick={handleCheckConnection}
                   disabled={statusLoading}
                   className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                  title="Refresh"
+                  title="Check connection"
                 >
                   <FiRefreshCw
                     className={`w-4 h-4 ${statusLoading ? "animate-spin" : ""}`}
@@ -407,10 +489,7 @@ const WhatsAppWebSession = () => {
               ) : (
                 <div className="space-y-5">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <SessionStatusBadge
-                      status={status}
-                      connected={connected}
-                    />
+                    <SessionStatusBadge status={status} connected={connected} />
                     {sessionStatus?.sessionId ? (
                       <span className={`${CELL_META} font-mono truncate`}>
                         {sessionStatus.sessionId}
@@ -447,11 +526,11 @@ const WhatsAppWebSession = () => {
                     </div>
                   ) : null}
 
-                  {status === "disconnected" ? (
+                  {showDisconnected ? (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 space-y-3">
                       <p className="text-sm font-medium text-amber-800 m-0">
-                        Connection was lost. Reconnect if auth files are still
-                        valid, or start a new QR login.
+                        Connection was lost. Check connection if auth files are
+                        still valid, or start a new QR login.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -465,7 +544,7 @@ const WhatsAppWebSession = () => {
                           ) : (
                             <FiRefreshCw className="w-4 h-4" />
                           )}
-                          Reconnect
+                          Check connection
                         </button>
                         <button
                           type="button"
@@ -484,11 +563,48 @@ const WhatsAppWebSession = () => {
                     </div>
                   ) : null}
 
+                  {showUnreachable ? (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 space-y-3">
+                      <p className="text-sm font-medium text-red-800 m-0">
+                        Session is unreachable. Check connection, or start a new
+                        QR login.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleReconnect}
+                          disabled={busy}
+                          className={`${TOOLBAR_BTN} inline-flex items-center gap-2 text-white bg-red-600 hover:bg-red-700 disabled:opacity-50`}
+                        >
+                          {reconnecting ? (
+                            <FiLoader className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <FiRefreshCw className="w-4 h-4" />
+                          )}
+                          Check connection
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCreateQrSession}
+                          disabled={busy}
+                          className={`${TOOLBAR_BTN} inline-flex items-center gap-2 text-red-900 border border-red-300 bg-white hover:bg-red-50 disabled:opacity-50`}
+                        >
+                          {creatingSession ? (
+                            <FiLoader className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <FiSmartphone className="w-4 h-4" />
+                          )}
+                          New QR login
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
                   {showReconnecting ? (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-2">
                       <FiLoader className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
                       <p className={`${CELL_BODY} text-amber-900 m-0`}>
-                        Reconnecting… status will update when linked again.
+                        Reconnecting… use Check connection to refresh status.
                       </p>
                     </div>
                   ) : null}
@@ -531,7 +647,8 @@ const WhatsAppWebSession = () => {
                             Open WhatsApp → Linked devices → Link a device.
                           </li>
                           <li className={CELL_BODY}>
-                            Keep this page open until status shows Connected.
+                            Keep this page open and scan the QR; connection is
+                            confirmed when pairing finishes.
                           </li>
                         </ol>
                       </div>
@@ -546,8 +663,8 @@ const WhatsAppWebSession = () => {
                             Scan this QR code with WhatsApp
                           </p>
                           <p className={`${CELL_META} m-0 mb-4`}>
-                            Open WhatsApp → Linked devices → Link a device
-                            (scan within about 60 seconds)
+                            Open WhatsApp → Linked devices → Link a device (scan
+                            within about 60 seconds)
                           </p>
                           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                             <ul className="m-0 pl-4 space-y-2 list-disc">
@@ -556,10 +673,11 @@ const WhatsAppWebSession = () => {
                                 broadcasts.
                               </li>
                               <li className={CELL_BODY}>
-                                QR refreshes automatically while connecting.
+                                QR refreshes automatically while pairing.
                               </li>
                               <li className={CELL_BODY}>
-                                Status updates every few seconds after scan.
+                                After scan, status is checked once when the QR
+                                is no longer available.
                               </li>
                             </ul>
                           </div>
@@ -598,12 +716,23 @@ const WhatsAppWebSession = () => {
                   !showLoginForm &&
                   !showQrPanel &&
                   !showReconnecting &&
-                  status !== "disconnected" ? (
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex items-center gap-2">
+                  !showDisconnected &&
+                  !showUnreachable ? (
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex flex-wrap items-center gap-3">
                       <FiWifiOff className="w-4 h-4 text-gray-400 shrink-0" />
-                      <p className={`${CELL_BODY} m-0`}>
-                        Session is preparing. Status will update automatically.
+                      <p className={`${CELL_BODY} m-0 flex-1`}>
+                        Session is not ready. Check connection or start a new QR
+                        login.
                       </p>
+                      <button
+                        type="button"
+                        onClick={handleCheckConnection}
+                        disabled={statusLoading || busy}
+                        className={`${TOOLBAR_BTN} inline-flex items-center gap-2 text-gray-700 border border-gray-300 hover:bg-white disabled:opacity-50`}
+                      >
+                        <FiRefreshCw className="w-4 h-4" />
+                        Check connection
+                      </button>
                     </div>
                   ) : null}
                 </div>

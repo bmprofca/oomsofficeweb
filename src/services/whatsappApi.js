@@ -143,7 +143,13 @@ export const whatsappApi = {
       .post('/broadcast/whatsapp/whatsappweb/session/create', payload)
       .then(unwrap),
   getWhatsAppWebQr: () =>
-    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/qr').then(unwrap),
+    whatsappAxios
+      .get('/broadcast/whatsapp/whatsappweb/qr', {
+        // 404 QR_NOT_FOUND = not ready yet OR already linked — caller decides
+        validateStatus: (status) =>
+          (status >= 200 && status < 300) || status === 404,
+      })
+      .then(unwrap),
   reconnectWhatsAppWebSession: () =>
     whatsappAxios
       .post('/broadcast/whatsapp/whatsappweb/session/reconnect')
