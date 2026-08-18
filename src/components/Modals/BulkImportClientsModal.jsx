@@ -8,6 +8,7 @@ import {
   FiFileText,
   FiSettings,
   FiSearch,
+  FiDownload,
 } from "react-icons/fi";
 import getHeaders from "../../utils/get-headers";
 import API_BASE_URL from "../../utils/api-controller";
@@ -99,6 +100,52 @@ const OPTIONAL_FIELD_DEFS = [
   { key: "opening_balance_date", label: "Balance Date" },
 ];
 
+const STANDARD_IMPORT_HEADERS = [
+  "Client Name",
+  "Mobile",
+  "Email",
+  "PAN",
+  "Gender",
+  "DOB",
+  "State",
+  "District",
+  "City",
+  "Pincode",
+  "Care Of",
+  "Guardian",
+  "firm",
+  "business type",
+  "gst",
+  "firm pan",
+  "opening balance",
+  "opening balance type",
+  "opening balance date",
+];
+
+const escapeCsvCell = (value) => {
+  const cellString = String(value ?? "");
+  if (
+    cellString.includes(",") ||
+    cellString.includes('"') ||
+    cellString.includes("\n")
+  ) {
+    return `"${cellString.replace(/"/g, '""')}"`;
+  }
+  return cellString;
+};
+
+const downloadCsvFile = (filename, csvContent) => {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 /**
  * Bulk client import via CSV/Excel — reusable across pages.
  */
@@ -116,6 +163,7 @@ export default function BulkImportClientsModal({
   const [fileHeaders, setFileHeaders] = useState([]);
   const [parsedRows, setParsedRows] = useState([]);
   const [columnMappings, setColumnMappings] = useState({ ...DEFAULT_MAPPINGS });
+  const [disputeRows, setDisputeRows] = useState([]);
   const bulkFileInputRef = useRef(null);
 
   const resetBulkState = () => {
@@ -127,6 +175,7 @@ export default function BulkImportClientsModal({
     setFileHeaders([]);
     setParsedRows([]);
     setColumnMappings({ ...DEFAULT_MAPPINGS });
+    setDisputeRows([]);
     if (bulkFileInputRef.current) {
       bulkFileInputRef.current.value = "";
     }
@@ -382,6 +431,7 @@ export default function BulkImportClientsModal({
       setBulkPreview(null);
       setBulkError(null);
       setBulkSuccessResult(null);
+      setDisputeRows([]);
       parseFile(file);
     } else {
       setBulkError(
@@ -550,6 +600,72 @@ export default function BulkImportClientsModal({
     return new File([blob], "transformed_clients.csv", { type: "text/csv" });
   };
 
+  const downloadDisputeRecords = () => {
+    const disputes =
+      (Array.isArray(disputeRows) && disputeRows.length > 0
+        ? disputeRows
+        : bulkPreview?.errors) || [];
+    if (!disputes.length) return;
+
+    const mappingByHeader = {
+      "Client Name": columnMappings.name,
+      Mobile: columnMappings.mobile,
+      Email: columnMappings.email,
+      PAN: columnMappings.pan_number,
+      Gender: columnMappings.gender,
+      DOB: columnMappings.date_of_birth,
+      State: columnMappings.state,
+      District: columnMappings.district,
+      City: columnMappings.city,
+      Pincode: columnMappings.pincode,
+      "Care Of": columnMappings.care_of,
+      Guardian: columnMappings.guardian_name,
+      firm: columnMappings.firm_name,
+      "business type": columnMappings.firm_type,
+      gst: columnMappings.gst,
+      "firm pan": columnMappings.firm_pan,
+      "opening balance": columnMappings.opening_balance,
+      "opening balance type": columnMappings.opening_balance_type,
+      "opening balance date": columnMappings.opening_balance_date,
+    };
+
+    const csvRows = [
+      [...STANDARD_IMPORT_HEADERS, "Issues"].map(escapeCsvCell).join(","),
+    ];
+
+    disputes.forEach((err) => {
+      const record = err.record && typeof err.record === "object" ? err.record : {};
+      const fallbackRow =
+        Array.isArray(parsedRows) && Number(err.row) >= 2
+          ? parsedRows[Number(err.row) - 2]
+          : null;
+
+      const cells = STANDARD_IMPORT_HEADERS.map((header) => {
+        if (record[header] !== undefined && record[header] !== null && record[header] !== "") {
+          return escapeCsvCell(record[header]);
+        }
+        const matchedKey = Object.keys(record).find(
+          (key) => String(key).toLowerCase() === header.toLowerCase(),
+        );
+        if (matchedKey) return escapeCsvCell(record[matchedKey]);
+
+        if (fallbackRow && fileHeaders.length) {
+          const sourceHeader = mappingByHeader[header];
+          const headerIdx = sourceHeader ? fileHeaders.indexOf(sourceHeader) : -1;
+          if (headerIdx >= 0) {
+            return escapeCsvCell(fallbackRow[headerIdx]);
+          }
+        }
+        return "";
+      });
+
+      cells.push(escapeCsvCell((err.errors || []).join("; ")));
+      csvRows.push(cells.join(","));
+    });
+
+    downloadCsvFile("client_import_disputes.csv", csvRows.join("\n"));
+  };
+
   const handleBulkPreview = async () => {
     const mappedFile = generateMappedCSVFile();
     if (!mappedFile) return;
@@ -576,6 +692,7 @@ export default function BulkImportClientsModal({
 
       if (response.data.success) {
         setBulkPreview(response.data.data);
+        setDisputeRows(response.data.data?.errors || []);
       } else {
         setBulkError(response.data.message || "Failed to analyze the file.");
       }
@@ -615,11 +732,14 @@ export default function BulkImportClientsModal({
       );
 
       if (response.data.success) {
-        setBulkSuccessResult(response.data.data);
+        const result = response.data.data || {};
+        setBulkSuccessResult(result);
+        setDisputeRows(result.errors || disputeRows);
         setBulkPreview(null);
-        onImported?.(response.data.data);
+        onImported?.(result);
       } else {
         if (response.data.errors) {
+          setDisputeRows(response.data.errors);
           setBulkPreview((prev) => ({
             ...prev,
             invalid_count: response.data.errors.length,
@@ -632,6 +752,7 @@ export default function BulkImportClientsModal({
       console.error("Bulk Import Commit Error:", err);
       const errs = err.response?.data?.errors;
       if (errs && Array.isArray(errs)) {
+        setDisputeRows(errs);
         setBulkPreview((prev) => ({
           ...prev,
           invalid_count: errs.length,
@@ -639,7 +760,7 @@ export default function BulkImportClientsModal({
         }));
         setBulkError(
           err.response?.data?.message ||
-            "Import blocked due to validation errors.",
+            "No valid rows were imported. Download the dispute records, fix them, and re-import.",
         );
       } else {
         const errMsg =
@@ -705,12 +826,23 @@ export default function BulkImportClientsModal({
               </div>
               <div>
                 <h4 className="text-xl font-bold text-gray-900">
-                  Import Successful!
+                  {Number(bulkSuccessResult.skipped_count || 0) > 0
+                    ? "Partial import complete"
+                    : "Import Successful!"}
                 </h4>
                 <p className="text-sm text-gray-500 mt-1">
                   Successfully imported{" "}
                   <strong>{bulkSuccessResult.imported_count}</strong> clients.
                 </p>
+                {Number(bulkSuccessResult.skipped_count || disputeRows.length || 0) > 0 && (
+                  <p className="text-sm text-rose-600 mt-1">
+                    {bulkSuccessResult.skipped_count || disputeRows.length} row
+                    {(Number(bulkSuccessResult.skipped_count || disputeRows.length) === 1)
+                      ? ""
+                      : "s"}{" "}
+                    had issues and were skipped.
+                  </p>
+                )}
                 {bulkSuccessResult.opening_balance_applied > 0 && (
                   <p className="text-xs text-indigo-600 mt-1 font-medium">
                     Opening balance applied to{" "}
@@ -718,7 +850,18 @@ export default function BulkImportClientsModal({
                   </p>
                 )}
               </div>
-              <div className="pt-4">
+              {disputeRows.length > 0 && (
+                <button
+                  type="button"
+                  onClick={downloadDisputeRecords}
+                  className="px-5 py-2.5 bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <FiDownload className="w-4 h-4" />
+                  Download {disputeRows.length} dispute record
+                  {disputeRows.length === 1 ? "" : "s"}
+                </button>
+              )}
+              <div className="pt-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1103,10 +1246,20 @@ export default function BulkImportClientsModal({
                     bulkPreview.errors &&
                     bulkPreview.errors.length > 0 && (
                       <div className="bg-rose-50/60 border border-rose-200/80 rounded-xl p-4 shadow-sm">
-                        <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5 mb-3">
-                          <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0 animate-ping"></span>
-                          Validation Errors (Must be resolved to proceed)
-                        </h4>
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                          <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0"></span>
+                            Dispute records ({bulkPreview.invalid_count}) — skipped on import
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={downloadDisputeRecords}
+                            className="px-3 py-1.5 bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] font-semibold rounded-lg flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <FiDownload className="w-3.5 h-3.5" />
+                            Download dispute records
+                          </button>
+                        </div>
                         <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
                           {bulkPreview.errors.map((err, idx) => (
                             <div
@@ -1231,16 +1384,23 @@ export default function BulkImportClientsModal({
                   )}
                 </button>
               ) : (
-                <button
+                <>
+                  {disputeRows.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={downloadDisputeRecords}
+                      disabled={bulkLoading}
+                      className="px-4 py-2 bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-semibold rounded-lg flex items-center gap-2 shadow-sm cursor-pointer"
+                    >
+                      <FiDownload className="w-4 h-4" />
+                      Download disputes
+                    </button>
+                  )}
+                  <button
                   type="button"
                   onClick={handleBulkImport}
-                  disabled={
-                    bulkLoading ||
-                    bulkPreview.invalid_count > 0 ||
-                    bulkPreview.valid_count === 0
-                  }
+                  disabled={bulkLoading || bulkPreview.valid_count === 0}
                   className={`px-5 py-2 text-white text-sm font-semibold rounded-lg flex items-center gap-2 shadow-md transition-all cursor-pointer ${
-                    bulkPreview.invalid_count > 0 ||
                     bulkPreview.valid_count === 0
                       ? "bg-slate-300 cursor-not-allowed shadow-none"
                       : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
@@ -1254,10 +1414,14 @@ export default function BulkImportClientsModal({
                   ) : (
                     <>
                       <FiCheck className="w-4 h-4" />
-                      <span>Import {bulkPreview.valid_count} Clients</span>
+                      <span>
+                        Import {bulkPreview.valid_count} valid client
+                        {bulkPreview.valid_count === 1 ? "" : "s"}
+                      </span>
                     </>
                   )}
                 </button>
+                </>
               )}
             </div>
           </div>
