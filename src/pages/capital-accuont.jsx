@@ -637,10 +637,7 @@ const CapitalAccounts = () => {
     }, [activeRowDropdown]);
 
     const StatCardSkeleton = () => (
-        <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm animate-pulse">
-            <div className="h-3 bg-slate-200 rounded w-24 mb-2" />
-            <div className="h-6 bg-slate-200 rounded w-20" />
-        </div>
+        <div className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]" />
     );
 
     // Skeleton loader component
@@ -680,9 +677,8 @@ const CapitalAccounts = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header Stats Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {listLoading && accounts.length === 0 ? (
                             <>
                                 <StatCardSkeleton />
@@ -693,111 +689,111 @@ const CapitalAccounts = () => {
                         ) : (
                             <>
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-blue-500 to-blue-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-blue-100 text-xs font-medium">Total Accounts</p>
-                                            <h3 className="text-lg font-bold mt-1">{stats.total_accounts}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Total Accounts</p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">{stats.total_accounts}</p>
                                         </div>
-                                        <FiTrendingUp className="w-5 h-5 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <FiTrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
 
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, delay: 0.05 }}
-                                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg p-4 text-white shadow-md"
+                                    transition={{ duration: 0.2, delay: 0.04 }}
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-indigo-100 text-xs font-medium">Total Balance</p>
-                                            <h3 className="text-lg font-bold mt-1">₹{formatCurrency(stats.total_balance)}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Total Balance</p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">₹{formatCurrency(stats.total_balance)}</p>
                                         </div>
-                                        <TbCurrencyRupee className="w-5 h-5 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <TbCurrencyRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
 
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, delay: 0.1 }}
-                                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg p-4 text-white shadow-md"
+                                    transition={{ duration: 0.2, delay: 0.08 }}
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-emerald-100 text-xs font-medium">Total Credit</p>
-                                            <h3 className="text-lg font-bold mt-1">₹{formatCurrency(stats.total_credit)}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Total Credit</p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">₹{formatCurrency(stats.total_credit)}</p>
                                         </div>
-                                        <FiTrendingUp className="w-5 h-5 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <FiTrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
 
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, delay: 0.15 }}
-                                    className="bg-gradient-to-r from-rose-500 to-rose-600 rounded-lg p-4 text-white shadow-md"
+                                    transition={{ duration: 0.2, delay: 0.12 }}
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-rose-500 to-rose-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-rose-100 text-xs font-medium">Total Debit</p>
-                                            <h3 className="text-lg font-bold mt-1">₹{formatCurrency(stats.total_debit)}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Total Debit</p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">₹{formatCurrency(stats.total_debit)}</p>
                                         </div>
-                                        <TbCurrencyRupee className="w-5 h-5 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <TbCurrencyRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
                             </>
                         )}
                     </div>
 
-                    {/* Main Card */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        {/* Card Header */}
-                        <div className="border-b border-slate-200 px-4 sm:px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100">
-                                        <FiTrendingUp className="w-4 h-4 text-blue-600" />
-                                    </div>
-                                    <h5 className="text-lg font-bold leading-none text-slate-800">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="mr-4 shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:mr-6 sm:text-base lg:mr-8">
                                         Capital Accounts
                                     </h5>
-                                </div>
-
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                    {/* Search Input */}
-                                    <div className="relative w-full sm:w-64">
-                                        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                    <div className="relative w-full min-w-0 flex-1 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]">
+                                        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search accounts..."
+                                            placeholder="Search…"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
+                                </div>
 
-                                    {/* Export Dropdown */}
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <div className="dropdown-container relative shrink-0">
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:w-auto"
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
                                             <PiExportBold className="h-4 w-4 shrink-0" />
-                                            <span>Export</span>
+                                            <span className="whitespace-nowrap">Export</span>
                                             <FiChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
                                         </motion.button>
 
@@ -849,16 +845,15 @@ const CapitalAccounts = () => {
                                         </AnimatePresence>
                                     </div>
 
-                                    {/* Add Account Button */}
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowAddModal(true)}
-                                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:w-auto"
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
-                                        <span>Add Account</span>
+                                        <span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
@@ -868,7 +863,7 @@ const CapitalAccounts = () => {
                         <div className="w-full overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                    <tr className="border-b border-slate-200 bg-slate-100/90">
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">
                                             #
                                         </th>
@@ -922,7 +917,7 @@ const CapitalAccounts = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="hover:bg-blue-50/20 transition-colors duration-150"
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} transition-colors duration-150 hover:bg-indigo-50/40`}
                                                 >
                                                     <td className="text-center p-3 align-middle">
                                                         <div className="text-slate-700 font-medium text-xs">

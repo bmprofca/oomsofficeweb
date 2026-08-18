@@ -13,6 +13,7 @@ import {
     FiInfo,
     FiEye,
     FiLock,
+    FiSearch,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -965,8 +966,8 @@ const ViewJournal = () => {
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70">
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                                 <div><div className="h-6 bg-gray-200 rounded w-48 mb-2"></div><div className="h-4 bg-gray-200 rounded w-32"></div></div>
@@ -1005,26 +1006,29 @@ const ViewJournal = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
                             <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                                     <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
                                         Journal Register
                                     </h5>
-                                    <input
-                                        type="text"
-                                        placeholder="Search by invoice no, remark, name…"
-                                        value={searchTerm}
-                                        onChange={handleSearchChange}
-                                        className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
-                                    />
+                                    <div className="relative w-full min-w-0 flex-1 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]">
+                                        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search…"
+                                            value={searchTerm}
+                                            onChange={handleSearchChange}
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
                                     <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
                                         <DateRangePickerField
                                             value={{ start: fromDate, end: toDate }}
@@ -1116,7 +1120,7 @@ const ViewJournal = () => {
                                         whileTap={{ scale: 0.98 }}
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
-                                        <span className="whitespace-nowrap">Add Journal</span>
+                                        <span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
@@ -1125,7 +1129,7 @@ const ViewJournal = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                    <tr className="border-b border-slate-200 bg-slate-100/90">
                                         <th className="min-w-[50px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">#</th>
                                         <th className="min-w-[80px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Date</th>
                                         <th className="min-w-[110px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Voucher No</th>
@@ -1172,7 +1176,7 @@ const ViewJournal = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="hover:bg-blue-50/20 transition-colors duration-150"
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} transition-colors duration-150 hover:bg-indigo-50/40`}
                                                 >
                                                     <td className="text-center p-3 align-middle"><div className="text-slate-700 font-medium text-xs">{serialNumber}</div></td>
                                                     <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(journal.date)}</div></td>

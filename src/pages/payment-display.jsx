@@ -8,12 +8,11 @@ import {
     FiMenu,
     FiEye,
     FiChevronRight,
-    FiCreditCard,
     FiX,
     FiCheckCircle,
     FiAlertCircle,
     FiInfo,
-    FiLock
+    FiLock,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -982,21 +981,34 @@ const ViewPayments = () => {
     }, [activeRowDropdown, updateDropdownPosition]);
 
     const StatCardSkeleton = () => (
-        <div className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 h-3 w-24 rounded bg-slate-200" />
-            <div className="h-6 w-20 rounded bg-slate-200" />
-        </div>
+        <div className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]" />
     );
 
     const SkeletonRow = () => (
         <tr className="animate-pulse border-b border-slate-100">
-            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-6 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
-            <td className="p-2.5"><div className="mx-auto h-4 w-24 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-6 w-16 rounded bg-slate-200" /></td>
-            <td className="p-2.5"><div className="mx-auto h-4 w-20 rounded bg-slate-200" /></td>
-            <td className="p-2.5 text-center"><div className="mx-auto h-8 w-8 rounded bg-slate-200" /></td>
+            <td className="p-3 text-center">
+                <div className="mx-auto h-4 w-6 rounded bg-slate-200" />
+            </td>
+            <td className="p-3 text-center">
+                <div className="mx-auto h-4 w-16 rounded bg-slate-200" />
+            </td>
+            <td className="p-3 text-center">
+                <div className="mx-auto h-4 w-28 rounded bg-slate-200" />
+                <div className="mx-auto mt-1.5 h-4 w-14 rounded-full bg-slate-200" />
+            </td>
+            <td className="p-3 text-center">
+                <div className="mx-auto h-7 w-20 rounded bg-slate-200" />
+            </td>
+            <td className="p-3 text-center">
+                <div className="mx-auto h-7 w-20 rounded bg-slate-200" />
+            </td>
+            <td className="p-3 text-center">
+                <div className="mx-auto h-4 w-24 rounded bg-slate-200" />
+                <div className="mx-auto mt-1.5 h-4 w-14 rounded-full bg-slate-200" />
+            </td>
+            <td className="p-3 text-center">
+                <div className="mx-auto h-8 w-8 rounded bg-slate-200" />
+            </td>
         </tr>
     );
 
@@ -1035,9 +1047,9 @@ const ViewPayments = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
-                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {listLoading ? (
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2">
+                        {listLoading && payments.length === 0 ? (
                             <>
                                 <StatCardSkeleton />
                                 <StatCardSkeleton />
@@ -1045,32 +1057,44 @@ const ViewPayments = () => {
                         ) : (
                             <>
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white shadow-md"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-blue-100">Payment entries</p>
-                                            <h3 className="mt-1 text-lg font-bold tabular-nums">{stats.count}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">
+                                                Payment entries
+                                            </p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">
+                                                {stats.count}
+                                            </p>
                                         </div>
-                                        <FiFileText className="h-5 w-5 shrink-0 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <FiFileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
 
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, delay: 0.05 }}
-                                    className="rounded-lg bg-gradient-to-r from-red-500 to-red-600 p-4 text-white shadow-md"
+                                    transition={{ duration: 0.2, delay: 0.04 }}
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-rose-600 via-red-500 to-orange-500 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-red-100">Total paid</p>
-                                            <h3 className="mt-1 text-lg font-bold tabular-nums">₹{formatCurrency(stats.amount)}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">
+                                                Total paid
+                                            </p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">
+                                                ₹{formatCurrency(stats.amount)}
+                                            </p>
                                         </div>
-                                        <TbCurrencyRupee className="h-5 w-5 shrink-0 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <TbCurrencyRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
                             </>
@@ -1088,35 +1112,28 @@ const ViewPayments = () => {
                     )}
 
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
-                            <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
-                                <div className="flex shrink-0 items-center gap-2">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
-                                        <FiCreditCard className="h-4 w-4 text-blue-600" />
-                                    </div>
-                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
-                                        Payments Register
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="mr-4 shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:mr-6 sm:text-base lg:mr-8">
+                                        Payment Register
                                     </h5>
-                                </div>
-
-                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-                                    <div className="relative ml-auto w-full min-w-0 sm:ml-0 sm:w-60">
+                                    <div className="relative w-full min-w-0 flex-1 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]">
                                         <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search invoice, remark…"
+                                            placeholder="Search…"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
-
-                                    <div className="w-full min-w-0 sm:w-56">
+                                    <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] lg:max-w-[14rem] xl:max-w-[16rem]">
                                         <DateRangePickerField
                                             value={{ start: fromDate, end: toDate }}
                                             onChange={(range) => {
@@ -1131,21 +1148,26 @@ const ViewPayments = () => {
                                             showRangeHint={false}
                                             showResetButton={false}
                                             truncateRangeLabel={false}
-                                            buttonClassName="w-full h-9 min-w-0 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-blue-400 focus:outline-none transition-all"
+                                            buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
                                             wrapperClassName="w-full min-w-0"
                                         />
                                     </div>
+                                </div>
 
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <div className="dropdown-container relative shrink-0">
                                         <motion.button
                                             type="button"
-                                            onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 sm:h-10 sm:w-auto sm:px-4"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowAddDropdown(!showAddDropdown);
+                                            }}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
                                             <PiExportBold className="h-4 w-4 shrink-0" />
-                                            <span>Export</span>
+                                            <span className="whitespace-nowrap">Export</span>
                                             <FiChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
                                         </motion.button>
 
@@ -1155,7 +1177,8 @@ const ViewPayments = () => {
                                                     initial={{ opacity: 0, y: 5 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     exit={{ opacity: 0, y: 5 }}
-                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                                                    onClick={(e) => e.stopPropagation()}
                                                 >
                                                     <div className="py-1">
                                                         <button type="button" onClick={handleExportClick} className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50">
@@ -1189,61 +1212,59 @@ const ViewPayments = () => {
                                                 setPaymentSendModal(true);
                                             }
                                         }}
-                                        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 sm:h-10 sm:px-4 ${
+                                        className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
                                             !check('finance_entry') ? 'cursor-not-allowed opacity-60 hover:from-emerald-600 hover:to-emerald-700' : ''
                                         }`}
                                         whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
                                         whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
                                     >
                                         {!check('finance_entry') ? <FiLock className="h-4 w-4 shrink-0" /> : <FiPlus className="h-4 w-4 shrink-0" />}
-                                        <span className="whitespace-nowrap">Add Payment</span>
+                                        <span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
                         </div>
 
                         <div className="overflow-x-auto">
-                            <table className="w-full table-fixed text-sm">
+                            <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="w-[4%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">#</th>
-                                        <th className="w-[10%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Date</th>
-                                        <th className="w-[26%] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Particulars</th>
-                                        <th className="w-[12%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Voucher</th>
-                                        <th className="w-[12%] p-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">Amount</th>
-                                        <th className="w-[20%] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Paid From</th>
-                                        <th className="w-[10%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Actions</th>
+                                    <tr className="border-b border-slate-200 bg-slate-100/90">
+                                        <th className="min-w-[60px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Sl No
+                                        </th>
+                                        <th className="min-w-[80px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Date
+                                        </th>
+                                        <th className="min-w-[200px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Particulars
+                                        </th>
+                                        <th className="min-w-[120px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Voucher No
+                                        </th>
+                                        <th className="min-w-[100px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Amount
+                                        </th>
+                                        <th className="min-w-[160px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Paid From
+                                        </th>
+                                        <th className="min-w-[80px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Actions
+                                        </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 bg-white">
+                                <tbody className="divide-y divide-slate-100">
                                     {listLoading ? (
                                         [...Array(5)].map((_, index) => <SkeletonRow key={index} />)
                                     ) : payments.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="text-center py-8 text-slate-500">
+                                            <td colSpan="7" className="py-8 text-center text-slate-500">
                                                 <div className="flex flex-col items-center justify-center">
-                                                    <div className="p-3 bg-slate-100 rounded-full mb-3">
-                                                        <FiFileText className="w-8 h-8 text-slate-400" />
+                                                    <div className="mb-3 rounded-full bg-slate-100 p-3">
+                                                        <FiFileText className="h-8 w-8 text-slate-400" />
                                                     </div>
-                                                    <p className="text-slate-600 text-sm font-medium mb-1">No payment records found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">Start by creating your first payment entry</p>
-                                                    <motion.button
-                                                        onClick={() => {
-                                                            if (!check('finance_entry')) {
-                                                                toast.error('Need Access Permission');
-                                                            } else {
-                                                                setPaymentSendModal(true);
-                                                            }
-                                                        }}
-                                                        className={`px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200 ${
-                                                            !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-blue-600 hover:to-blue-700' : ''
-                                                        }`}
-                                                        whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
-                                                        whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
-                                                    >
-                                                        {!check('finance_entry') ? <FiLock className="w-3.5 h-3.5 mr-1 inline-block shrink-0" /> : null}
-                                                        Create Your First Payment
-                                                    </motion.button>
+                                                    <p className="mb-1 text-sm font-medium text-slate-600">
+                                                        No payment records found
+                                                    </p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1258,74 +1279,75 @@ const ViewPayments = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="transition-colors duration-150 hover:bg-blue-50/30"
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} transition-colors duration-150 hover:bg-indigo-50/40`}
                                                     onContextMenu={(e) => openActionsFromContextMenu(e, item.transaction_id)}
                                                 >
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <span className="font-medium text-slate-700">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="text-xs font-medium text-slate-700">
                                                             {(currentPage - 1) * itemsPerPage + index + 1}
-                                                        </span>
+                                                        </div>
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <span className="font-medium text-slate-700">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="text-xs font-medium text-slate-700">
                                                             {formatDisplayDate(item.transaction_date)}
-                                                        </span>
+                                                        </div>
                                                     </td>
-                                                    <td className="p-2.5 align-middle">
-                                                        <div className="min-w-0">
-                                                            <div className="font-semibold text-slate-800">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="mx-auto max-w-[200px]">
+                                                            <div className="text-xs font-semibold text-slate-800">
                                                                 {partyInfo.displayName}
                                                             </div>
-                                                            <div className="mt-0.5">
+                                                            <div className="mt-1 flex flex-col items-center gap-1">
                                                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${partyInfo.bgColor} ${partyInfo.textColor}`}>
                                                                     {partyInfo.type}
                                                                 </span>
                                                             </div>
                                                             {item.remark ? (
-                                                                <div className="mt-0.5 truncate text-xs italic text-slate-500" title={item.remark}>
+                                                                <div className="mt-1 truncate text-[10px] italic text-slate-500" title={item.remark}>
                                                                     {item.remark}
                                                                 </div>
                                                             ) : null}
                                                         </div>
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <span className="inline-flex rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <span className="inline-flex items-center justify-center rounded border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-800">
                                                             {item.invoice_no}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5 text-right align-middle">
-                                                        <span className="text-sm font-bold tabular-nums text-red-700">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <span className="inline-flex min-w-[90px] items-center justify-center rounded bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-800">
                                                             ₹{formatCurrency(item.amount)}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5 align-middle">
-                                                        <div className="min-w-0">
-                                                            <div className="truncate text-sm font-medium text-slate-800" title={paidFromInfo.displayName}>
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="mx-auto max-w-[160px]">
+                                                            <div className="truncate text-xs font-medium text-slate-800" title={paidFromInfo.displayName}>
                                                                 {paidFromInfo.displayName}
                                                             </div>
                                                             {paidFromInfo.subtitle ? (
-                                                                <div className="mt-0.5 truncate text-xs text-slate-500" title={paidFromInfo.subtitle}>
+                                                                <div className="mt-0.5 truncate text-[10px] text-slate-500" title={paidFromInfo.subtitle}>
                                                                     {paidFromInfo.subtitle}
                                                                 </div>
                                                             ) : null}
-                                                            <div className="mt-0.5">
+                                                            <div className="mt-1">
                                                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${paidFromInfo.bgColor} ${paidFromInfo.textColor}`}>
                                                                     {paidFromInfo.badgeLabel}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
-                                                        <motion.button
-                                                            type="button"
-                                                            data-payment-actions-trigger
-                                                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-                                                            onClick={(e) => openActionsFromButton(e, item.transaction_id)}
-                                                            whileHover={{ scale: 1.05 }}
-                                                            whileTap={{ scale: 0.95 }}
-                                                        >
-                                                            <FiMenu className="h-4 w-4" />
-                                                        </motion.button>
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="flex justify-center">
+                                                            <button
+                                                                type="button"
+                                                                data-payment-actions-trigger
+                                                                aria-label="Actions"
+                                                                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-colors duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                                                                onClick={(e) => openActionsFromButton(e, item.transaction_id)}
+                                                            >
+                                                                <FiMenu className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </motion.tr>
                                             );
@@ -1335,7 +1357,7 @@ const ViewPayments = () => {
                             </table>
                         </div>
 
-                        {!error && !listLoading && (payments.length > 0 || totalRecords > 0) && (
+                        {!error && (payments.length > 0 || totalRecords > 0) && (
                             <TablePagination
                                 page={currentPage}
                                 limit={itemsPerPage}

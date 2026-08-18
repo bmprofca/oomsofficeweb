@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
-  FiHome,
   FiTrendingUp,
   FiShoppingCart,
   FiCreditCard,
   FiRepeat,
   FiFileText,
   FiPieChart,
-  FiUsers,
-  FiPackage,
-  FiBarChart2,
-  FiActivity,
   FiLock,
 } from "react-icons/fi";
 import { TbCurrencyRupee } from "react-icons/tb";
@@ -140,41 +135,6 @@ const FinanceEntry = () => {
           <div className="grid grid-cols-1 lg:grid-cols-[70%_30%] gap-3 h-full">
             {/* Main Content Area - 70% */}
             <div className="flex flex-col gap-3">
-              {/* Graphs Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {/* Graph 1 */}
-                <div className="bg-white rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-800">
-                      Revenue Overview
-                    </h3>
-                    <FiBarChart2 className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <div className="h-48 bg-slate-100 rounded-lg flex items-center justify-center">
-                    <div className="text-center text-slate-500">
-                      <FiBarChart2 className="w-12 h-12 mx-auto mb-2" />
-                      <p className="text-sm">Revenue Chart</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Graph 2 */}
-                <div className="bg-white rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-800">
-                      Expense Analysis
-                    </h3>
-                    <FiPieChart className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <div className="h-48 bg-slate-100 rounded-lg flex items-center justify-center">
-                    <div className="text-center text-slate-500">
-                      <FiPieChart className="w-12 h-12 mx-auto mb-2" />
-                      <p className="text-sm">Expense Chart</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div className="bg-white rounded-lg border border-slate-200 p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-slate-800">

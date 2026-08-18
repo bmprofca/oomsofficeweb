@@ -1353,42 +1353,38 @@ const BankList = () => {
 
     // Skeleton loader component
     const StatCardSkeleton = () => (
-        <div className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 h-3 w-20 rounded bg-slate-200" />
-            <div className="mb-2 h-5 w-16 rounded bg-slate-200" />
-            <div className="h-4 w-24 rounded bg-slate-200" />
-        </div>
+        <div className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[5.25rem]" />
     );
 
     const SkeletonRow = useCallback(() => (
         <tr className="animate-pulse border-b border-slate-100">
-            <td className="p-2.5">
+            <td className="p-3">
                 <div className="mx-auto h-4 w-6 rounded bg-slate-200" />
             </td>
-            <td className="p-2.5">
+            <td className="p-3">
                 <div className="mb-2 h-4 w-32 rounded bg-slate-200" />
                 <div className="h-3 w-24 rounded bg-slate-200" />
             </td>
-            <td className="p-2.5">
+            <td className="p-3">
                 <div className="h-4 w-28 rounded bg-slate-200" />
             </td>
-            <td className="p-2.5">
+            <td className="p-3">
                 <div className="h-4 w-20 rounded bg-slate-200" />
             </td>
-            <td className="p-2.5">
+            <td className="p-3">
                 <div className="h-6 w-16 rounded bg-slate-200" />
             </td>
-            <td className="p-2.5">
+            <td className="p-3">
                 <div className="ml-auto h-4 w-20 rounded bg-slate-200" />
             </td>
-            <td className="p-2.5">
+            <td className="p-3">
                 <div className="mx-auto h-8 w-8 rounded bg-slate-200" />
             </td>
         </tr>
     ), []);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1404,8 +1400,8 @@ const BankList = () => {
 
             {/* Main Content Area */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
-                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {fetchLoading && banks.length === 0 ? (
                             <>
                                 <StatCardSkeleton />
@@ -1414,29 +1410,31 @@ const BankList = () => {
                                 <StatCardSkeleton />
                             </>
                         ) : (
-                            BANK_TYPE_CARDS.map(({ key, label, gradient, labelClass, Icon }, index) => {
+                            BANK_TYPE_CARDS.map(({ key, label, gradient, Icon }, index) => {
                                 const typeStats = stats.by_type[key] || EMPTY_TYPE_STATS;
                                 const accountLabel = typeStats.count === 1 ? 'account' : 'accounts';
 
                                 return (
                                     <motion.div
                                         key={key}
-                                        initial={{ opacity: 0, y: 10 }}
+                                        initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                                        className={`rounded-lg bg-gradient-to-r ${gradient} p-4 text-white shadow-md`}
+                                        transition={{ duration: 0.2, delay: index * 0.04 }}
+                                        className={`overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br ${gradient} p-3 text-white sm:p-3.5`}
                                     >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className={`text-xs font-medium ${labelClass}`}>{label}</p>
-                                                <h3 className="mt-1 text-lg font-bold tabular-nums">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">{label}</p>
+                                                <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">
                                                     {typeStats.count} {accountLabel}
-                                                </h3>
-                                                <p className="mt-1 text-sm font-semibold tabular-nums opacity-95">
+                                                </p>
+                                                <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-white/90">
                                                     ₹{formatCurrency(typeStats.balance)}
                                                 </p>
                                             </div>
-                                            <Icon className="h-5 w-5 shrink-0 opacity-80" />
+                                            <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                            </div>
                                         </div>
                                     </motion.div>
                                 );
@@ -1445,39 +1443,35 @@ const BankList = () => {
                     </div>
 
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
-                            <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
-                                <div className="flex shrink-0 items-center gap-2">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
-                                        <FiCreditCard className="h-4 w-4 text-blue-600" />
-                                    </div>
-                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="mr-4 shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:mr-6 sm:text-base lg:mr-8">
                                         Bank Register
                                     </h5>
-                                </div>
-
-                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-                                    <div className="relative ml-auto w-full min-w-0 sm:ml-0 sm:w-60">
+                                    <div className="relative w-full min-w-0 flex-1 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]">
                                         <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search banks..."
+                                            placeholder="Search…"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
+                                </div>
 
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <motion.button
                                         type="button"
                                         onClick={handleRefresh}
                                         title="Refresh"
-                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition-all hover:bg-slate-50"
+                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition-all hover:bg-slate-50 sm:h-10"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
@@ -1488,12 +1482,12 @@ const BankList = () => {
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 sm:h-10 sm:w-auto sm:px-4"
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
                                             <PiExportBold className="h-4 w-4 shrink-0" />
-                                            <span>Export</span>
+                                            <span className="whitespace-nowrap">Export</span>
                                             <FiChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
                                         </motion.button>
 
@@ -1545,28 +1539,28 @@ const BankList = () => {
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowAddModal(true)}
-                                        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-800 sm:h-10 sm:px-4"
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 sm:mr-3 sm:h-10 sm:px-3"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
-                                        <span className="whitespace-nowrap">Add Bank</span>
+                                        <span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
                         </div>
 
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[820px] text-sm">
+                            <table className="w-full min-w-[820px] text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="w-12 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">#</th>
-                                        <th className="min-w-[140px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Account Holder</th>
-                                        <th className="min-w-[180px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Bank Details</th>
-                                        <th className="min-w-[120px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">IFSC</th>
-                                        <th className="w-24 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Type</th>
-                                        <th className="w-28 p-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">Balance</th>
-                                        <th className="w-16 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Actions</th>
+                                    <tr className="border-b border-slate-200 bg-slate-100/90">
+                                        <th className="w-12 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">#</th>
+                                        <th className="min-w-[140px] p-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-700">Account Holder</th>
+                                        <th className="min-w-[180px] p-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-700">Bank Details</th>
+                                        <th className="min-w-[120px] p-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-700">IFSC</th>
+                                        <th className="w-24 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Type</th>
+                                        <th className="w-28 p-3 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-700">Balance</th>
+                                        <th className="w-16 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -1622,20 +1616,20 @@ const BankList = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.2 }}
-                                                    className="transition-colors duration-150 hover:bg-blue-50/30"
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} transition-colors duration-150 hover:bg-indigo-50/40`}
                                                     onContextMenu={(e) => openActionsFromContextMenu(e, bank.bank_id)}
                                                 >
-                                                    <td className="p-2.5 text-center">
+                                                    <td className="p-3 text-center">
                                                         <span className="font-medium text-slate-600">
                                                             {(currentPage - 1) * itemsPerPage + index + 1}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5">
+                                                    <td className="p-3">
                                                         <span className="font-medium text-slate-700">
                                                             {bank.holder}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5">
+                                                    <td className="p-3">
                                                         <div>
                                                             <div className="font-semibold text-slate-800">
                                                                 {bank.bank}
@@ -1645,7 +1639,7 @@ const BankList = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-2.5">
+                                                    <td className="p-3">
                                                         <div className="space-y-1">
                                                             {bank.ifsc ? (
                                                                 <span className="inline-flex rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700">
@@ -1657,12 +1651,12 @@ const BankList = () => {
                                                             ) : null}
                                                         </div>
                                                     </td>
-                                                    <td className="p-2.5 text-center">
+                                                    <td className="p-3 text-center">
                                                         <span className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize ${getBankTypeColor(bank.type)}`}>
                                                             {getBankTypeName(bank.type)}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5 text-right">
+                                                    <td className="p-3 text-right">
                                                         <button
                                                             type="button"
                                                             onClick={() => handleBalanceClick(bank)}
@@ -1672,7 +1666,7 @@ const BankList = () => {
                                                             {isPositive ? '+' : '-'} ₹{formatCurrency(Math.abs(bank.balance))}
                                                         </button>
                                                     </td>
-                                                    <td className="p-2.5">
+                                                    <td className="p-3">
                                                         <div className="flex justify-center">
                                                             <motion.button
                                                                 type="button"

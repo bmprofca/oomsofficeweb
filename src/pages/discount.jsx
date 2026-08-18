@@ -284,10 +284,7 @@ const DiscountDetailsModal = ({ isOpen, discount, onClose, onEdit, canEdit = tru
 );
 
 const StatCardSkeleton = () => (
-    <div className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-2 h-3 w-24 rounded bg-slate-200" />
-        <div className="h-6 w-20 rounded bg-slate-200" />
-    </div>
+    <div className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]" />
 );
 
 const SkeletonRow = () => (
@@ -559,8 +556,8 @@ const DiscountVoucherDetails = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2">
                         {listLoading && discounts.length === 0 ? (
                             <>
                                 <StatCardSkeleton />
@@ -569,32 +566,44 @@ const DiscountVoucherDetails = () => {
                         ) : (
                             <>
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 p-4 text-white shadow-md"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-amber-500 via-amber-500 to-orange-500 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-amber-100">Discount entries</p>
-                                            <h3 className="mt-1 text-lg font-bold tabular-nums">{stats.count}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">
+                                                Discount entries
+                                            </p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">
+                                                {stats.count}
+                                            </p>
                                         </div>
-                                        <FiTag className="h-5 w-5 shrink-0 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <FiTag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
 
                                 <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, delay: 0.05 }}
-                                    className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 p-4 text-white shadow-md"
+                                    transition={{ duration: 0.2, delay: 0.04 }}
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-orange-500 via-orange-500 to-amber-600 p-3 text-white sm:p-3.5"
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-medium text-orange-100">Total discount</p>
-                                            <h3 className="mt-1 text-lg font-bold tabular-nums">₹{formatCurrency(stats.amount)}</h3>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">
+                                                Total discount
+                                            </p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">
+                                                ₹{formatCurrency(stats.amount)}
+                                            </p>
                                         </div>
-                                        <TbCurrencyRupee className="h-5 w-5 shrink-0 opacity-80" />
+                                        <div className="shrink-0 rounded-lg bg-white/20 p-1.5">
+                                            <TbCurrencyRupee className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        </div>
                                     </div>
                                 </motion.div>
                             </>
@@ -602,33 +611,28 @@ const DiscountVoucherDetails = () => {
                     </div>
 
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
-                            <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
-                                <div className="flex shrink-0 items-center gap-2">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-                                        <FiTag className="h-4 w-4 text-amber-600" />
-                                    </div>
-                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="mr-4 shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:mr-6 sm:text-base lg:mr-8">
                                         Discount Register
                                     </h5>
-                                </div>
-                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-                                    <div className="relative ml-auto w-full min-w-0 sm:ml-0 sm:w-60">
+                                    <div className="relative w-full min-w-0 flex-1 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]">
                                         <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input
                                             type="text"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            placeholder="Search invoice, party, remark, amount…"
+                                            placeholder="Search…"
                                             className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-amber-500"
                                         />
                                     </div>
-                                    <div className="w-full min-w-0 sm:w-56">
+                                    <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] lg:max-w-[14rem] xl:max-w-[16rem]">
                                         <DateRangePickerField
                                             value={{ start: fromDate, end: toDate }}
                                             onChange={(range) => {
@@ -643,36 +647,38 @@ const DiscountVoucherDetails = () => {
                                             showRangeHint={false}
                                             showResetButton={false}
                                             truncateRangeLabel={false}
-                                            buttonClassName="w-full h-9 min-w-0 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-amber-400 focus:outline-none transition-all"
+                                            buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
                                             wrapperClassName="w-full min-w-0"
                                         />
                                     </div>
+                                </div>
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowCreateModal(true)}
-                                        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 px-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-amber-700 hover:to-amber-800 sm:h-10 sm:px-4"
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 sm:mr-3 sm:h-10 sm:px-3"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
-                                        <span className="whitespace-nowrap">Add Discount</span>
+                                        <span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
                         </div>
 
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[820px] text-sm">
+                            <table className="w-full min-w-[820px] text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="w-12 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">#</th>
-                                        <th className="w-28 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Date</th>
-                                        <th className="w-28 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Invoice</th>
-                                        <th className="min-w-[180px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Party</th>
-                                        <th className="min-w-[180px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Contact</th>
-                                        <th className="w-24 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Type</th>
-                                        <th className="w-28 p-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">Amount</th>
-                                        <th className="w-16 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Actions</th>
+                                    <tr className="border-b border-slate-200 bg-slate-100/90">
+                                        <th className="w-12 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">#</th>
+                                        <th className="w-28 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Date</th>
+                                        <th className="w-28 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Invoice</th>
+                                        <th className="min-w-[180px] p-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-700">Party</th>
+                                        <th className="min-w-[180px] p-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-700">Contact</th>
+                                        <th className="w-24 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Type</th>
+                                        <th className="w-28 p-3 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-700">Amount</th>
+                                        <th className="w-16 p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -711,30 +717,30 @@ const DiscountVoucherDetails = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="transition-colors hover:bg-amber-50/25"
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} transition-colors duration-150 hover:bg-indigo-50/40`}
                                                     onContextMenu={(e) => openActionsFromContextMenu(e, row.discount_id)}
                                                 >
-                                                    <td className="p-2.5 text-center align-middle text-sm tabular-nums text-slate-600">{slNo}</td>
-                                                    <td className="whitespace-nowrap p-2.5 text-center align-middle text-sm text-slate-700">
+                                                    <td className="p-3 text-center align-middle text-xs tabular-nums text-slate-600">{slNo}</td>
+                                                    <td className="whitespace-nowrap p-3 text-center align-middle text-xs text-slate-700">
                                                         {formatDate(row.discount_date || row.transaction_date)}
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
+                                                    <td className="p-3 text-center align-middle">
                                                         <span className="inline-flex rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800">
                                                             {row.invoice_no || '—'}
                                                         </span>
                                                     </td>
-                                                    <td className="min-w-0 p-2.5 align-middle">
+                                                    <td className="min-w-0 p-3 align-middle">
                                                         {profilePath ? (
                                                             <Link
                                                                 to={profilePath}
-                                                                className="block truncate text-sm font-semibold text-slate-800 no-underline transition-colors hover:text-amber-700"
+                                                                className="block truncate text-xs font-semibold text-slate-800 no-underline transition-colors hover:text-amber-700"
                                                                 title={getDiscountPartyLabel(row)}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 {getDiscountPartyLabel(row)}
                                                             </Link>
                                                         ) : (
-                                                            <div className="truncate text-sm font-semibold text-slate-800" title={getDiscountPartyLabel(row)}>
+                                                            <div className="truncate text-xs font-semibold text-slate-800" title={getDiscountPartyLabel(row)}>
                                                                 {getDiscountPartyLabel(row)}
                                                             </div>
                                                         )}
@@ -744,7 +750,7 @@ const DiscountVoucherDetails = () => {
                                                             </div>
                                                         ) : null}
                                                     </td>
-                                                    <td className="min-w-0 p-2.5 align-middle">
+                                                    <td className="min-w-0 p-3 align-middle">
                                                         {contactLines.length > 0 ? (
                                                             <div className="space-y-0.5">
                                                                 {contactLines.slice(0, 2).map((line) => (
@@ -766,21 +772,21 @@ const DiscountVoucherDetails = () => {
                                                             <span className="text-xs text-slate-400">—</span>
                                                         )}
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
+                                                    <td className="p-3 text-center align-middle">
                                                         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPartyTypeBadgeClass(partyType)}`}>
                                                             {formatPartyTypeLabel(partyType)}
                                                         </span>
                                                     </td>
-                                                    <td className="p-2.5 text-right align-middle">
+                                                    <td className="p-3 text-right align-middle">
                                                         <button
                                                             type="button"
                                                             onClick={() => openDetails(row)}
-                                                            className="text-sm font-semibold tabular-nums text-amber-700 hover:underline"
+                                                            className="text-xs font-semibold tabular-nums text-amber-700 hover:underline"
                                                         >
                                                             ₹{formatCurrency(row.amount)}
                                                         </button>
                                                     </td>
-                                                    <td className="p-2.5 text-center align-middle">
+                                                    <td className="p-3 text-center align-middle">
                                                         <button
                                                             type="button"
                                                             data-discount-actions-trigger

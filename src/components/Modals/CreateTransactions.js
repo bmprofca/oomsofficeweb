@@ -19,6 +19,15 @@ const appSettings = {
     currency: 'INR',
 };
 
+const DEFAULT_SALE_GST_STATE = {
+    loading: false,
+    enabled: false,
+    applicable: false,
+    effectiveAfter: null,
+    taxRate: 0,
+    transactionDate: null,
+};
+
 const sanitizeDecimalInput = (value, maxDecimals = 2) => {
     const normalized = String(value ?? '').replace(/,/g, '.').replace(/[^\d.]/g, '');
     const [whole = '', ...rest] = normalized.split('.');
@@ -1087,6 +1096,16 @@ const mapSaleEditRecordToParty = (record) => {
         userType: saleType || 'client',
         metaLine: [sp.email, sp.mobile].filter(Boolean).join(' · '),
     };
+};
+
+/** Map purchase list / details row into party search selection for edit mode. */
+const mapPurchaseEditRecordToParty = (record) => {
+    if (!record) return null;
+    return mapSaleEditRecordToParty({
+        ...record,
+        sale_type: record.purchase_type || record.party_type,
+        sale_party: record.purchase_party,
+    });
 };
 
 const mapSearchPartyItemToTransactionOption = (item) => {
@@ -2162,6 +2181,70 @@ const JournalPartyTypeToggle = ({ value, onChange, disabled = false }) => (
     </div>
 );
 
+const SaleEditModalSkeleton = () => (
+    <div className="space-y-4 animate-pulse">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+                <div className="h-3 w-24 rounded bg-slate-200/80" />
+                <div className="h-11 rounded-md bg-slate-200/70" />
+            </div>
+            <div className="space-y-1.5">
+                <div className="h-3 w-20 rounded bg-slate-200/80" />
+                <div className="h-11 rounded-md bg-slate-200/70" />
+            </div>
+        </div>
+
+        <div className="space-y-1.5">
+            <div className="h-3 w-28 rounded bg-slate-200/80" />
+            <div className="h-14 rounded-md bg-slate-200/70" />
+        </div>
+
+        <div className="space-y-1.5">
+            <div className="h-3 w-24 rounded bg-slate-200/80" />
+            <div className="h-11 rounded-md bg-slate-200/70" />
+        </div>
+
+        <div className="rounded-md border border-slate-200 bg-slate-50/70 p-3 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+                <div className="h-3 w-24 rounded bg-slate-200/80" />
+                <div className="h-7 w-20 rounded-md bg-slate-200/70" />
+            </div>
+            {[...Array(2)].map((_, index) => (
+                <div
+                    key={`sale-edit-skeleton-row-${index}`}
+                    className="grid grid-cols-[minmax(0,1.6fr)_90px_28px] gap-2 items-center"
+                >
+                    <div className="h-10 rounded-md bg-slate-200/70" />
+                    <div className="h-10 rounded-md bg-slate-200/70" />
+                    <div className="h-8 rounded-md bg-slate-200/70" />
+                </div>
+            ))}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+                <div className="h-3 w-20 rounded bg-slate-200/80" />
+                <div className="h-10 rounded-md bg-slate-200/70" />
+            </div>
+            <div className="space-y-1.5">
+                <div className="h-3 w-24 rounded bg-slate-200/80" />
+                <div className="h-10 rounded-md bg-slate-200/70" />
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="h-16 rounded-md bg-slate-200/70" />
+            <div className="h-16 rounded-md bg-slate-200/70" />
+            <div className="h-16 rounded-md bg-slate-200/70" />
+        </div>
+
+        <div className="space-y-1.5">
+            <div className="h-3 w-16 rounded bg-slate-200/80" />
+            <div className="h-20 rounded-md bg-slate-200/70" />
+        </div>
+    </div>
+);
+
 const JournalPartySearchFields = ({
     variant = 'receive',
     label = 'From user',
@@ -2624,7 +2707,6 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             ? { party_id: clientUsername, party_type: partyType, name: clientName }
             : resolveTransactionPartySelection(selectedParty);
         const resolvedParty1 = resolved.party_id;
-        const resolvedName = resolved.name;
         const resolvedParty1Type = resolved.party_type;
         const party2BankId = effectiveBank.bank_id;
 
@@ -2634,7 +2716,7 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             party1_type: resolvedParty1Type,
             party2_id: party2BankId,
             party2_type: 'bank',
-            remark: remarkText || `Payment received from ${resolvedName}`,
+            remark: remarkText || null,
             transaction_date: date,
             notification: {
                 email: sendEmail,
@@ -3020,7 +3102,6 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             ? { party_id: clientUsername, party_type: partyType, name: clientName }
             : resolveTransactionPartySelection(selectedParty);
         const resolvedParty2 = resolved.party_id;
-        const resolvedName = resolved.name;
         const resolvedParty2Type = resolved.party_type;
         const party1BankId = effectiveBank.bank_id;
 
@@ -3030,7 +3111,7 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             party1_type: 'bank',
             party2_id: resolvedParty2,
             party2_type: resolvedParty2Type,
-            remark: remarkText || `Payment made to ${resolvedName}`,
+            remark: remarkText || null,
             transaction_date: date,
             notification: {
                 email: sendEmail,
@@ -3375,15 +3456,15 @@ export const SaleForm = ({
         subtotal: 0,
         discount: '',
         discount_type: 'percentage',
-        sgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
-        cgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
+        sgst_rate: 0,
+        cgst_rate: 0,
         sgst_amount: 0,
         cgst_amount: 0,
         round_off: 0,
         grand_total: 0,
         notes: '',
         remark: '',
-        tax_rate: appSettings.default_gst_rate,
+        tax_rate: 0,
         additional_charge: '',
         apply_round_off: false
     });
@@ -3396,7 +3477,9 @@ export const SaleForm = ({
     const [channelStatus, setChannelStatus] = useState(DEFAULT_NOTIFICATION_CHANNEL_STATUS);
     const [serviceOptions, setServiceOptions] = useState([]);
     const [isLoadingServices, setIsLoadingServices] = useState(false);
+    const [saleGstState, setSaleGstState] = useState(DEFAULT_SALE_GST_STATE);
     const [clientFirms, setClientFirms] = useState([]);
+    const [isLoadingClientFirms, setIsLoadingClientFirms] = useState(false);
     const [selectedSaleFirmId, setSelectedSaleFirmId] = useState('');
 
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -3461,15 +3544,15 @@ export const SaleForm = ({
                 subtotal: Number(calc.subtotal) || 0,
                 discount: discountValue,
                 discount_type: discountType,
-                sgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
-                cgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
+                sgst_rate: 0,
+                cgst_rate: 0,
                 sgst_amount: 0,
                 cgst_amount: 0,
                 round_off: roundOffNum,
                 grand_total: Number(calc.grand_total ?? editRecord.amount) || 0,
                 notes: editRecord.remark || '',
                 remark: editRecord.remark || '',
-                tax_rate: Number(calc.tax_rate) || appSettings.default_gst_rate,
+                tax_rate: 0,
                 additional_charge:
                     calc.additional_charge != null && Number(calc.additional_charge) !== 0
                         ? String(calc.additional_charge)
@@ -3497,15 +3580,15 @@ export const SaleForm = ({
             subtotal: 0,
             discount: '',
             discount_type: 'percentage',
-            sgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
-            cgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
+            sgst_rate: 0,
+            cgst_rate: 0,
             sgst_amount: 0,
             cgst_amount: 0,
             round_off: 0,
             grand_total: 0,
             notes: '',
             remark: '',
-            tax_rate: appSettings.default_gst_rate,
+            tax_rate: 0,
             additional_charge: '',
             apply_round_off: false
         });
@@ -3554,19 +3637,93 @@ export const SaleForm = ({
     }, [isOpen, isEditMode, showNotificationToggles]);
 
     useEffect(() => {
+        if (!isOpen) return undefined;
+        const saleDate = toIsoDateOnly(formData.payment_date);
+        if (!saleDate) {
+            setSaleGstState(DEFAULT_SALE_GST_STATE);
+            setFormData((prev) => ({
+                ...prev,
+                tax_rate: 0,
+                sgst_rate: 0,
+                cgst_rate: 0,
+            }));
+            return undefined;
+        }
+
+        let cancelled = false;
+        setSaleGstState((prev) => ({
+            ...prev,
+            loading: true,
+            transactionDate: saleDate,
+        }));
+
+        (async () => {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/sale/gst-config`, {
+                    headers: getHeaders(),
+                    params: { transaction_date: saleDate },
+                });
+                if (cancelled) return;
+                const data = response.data?.data || {};
+                const enabled = String(data.gst_applicable || "0") === "1";
+                const applicable = Boolean(data.effective_for_date);
+                const taxRate = Number(data.tax_rate) || 0;
+                const halfRate = applicable ? taxRate / 2 : 0;
+
+                setSaleGstState({
+                    loading: false,
+                    enabled,
+                    applicable,
+                    effectiveAfter: data.gst_applicable_after || null,
+                    taxRate,
+                    transactionDate: saleDate,
+                });
+                setFormData((prev) => ({
+                    ...prev,
+                    tax_rate: applicable ? taxRate : 0,
+                    sgst_rate: halfRate,
+                    cgst_rate: halfRate,
+                }));
+            } catch (error) {
+                setSaleGstState({
+                    loading: false,
+                    enabled: false,
+                    applicable: false,
+                    effectiveAfter: null,
+                    taxRate: 0,
+                    transactionDate: saleDate,
+                });
+                setFormData((prev) => ({
+                    ...prev,
+                    tax_rate: 0,
+                    sgst_rate: 0,
+                    cgst_rate: 0,
+                }));
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, formData.payment_date]);
+
+    useEffect(() => {
         const party = partyLookup.selectedFirm;
         setSelectedSaleFirmId('');
         if (!party || party.userType !== 'client') {
             setClientFirms([]);
+            setIsLoadingClientFirms(false);
             return undefined;
         }
         const username = String(party.username || party.party_id || '').trim();
         if (!username) {
             setClientFirms([]);
+            setIsLoadingClientFirms(false);
             return undefined;
         }
         let cancelled = false;
         (async () => {
+            setIsLoadingClientFirms(true);
             try {
                 const response = await axios.get(`${API_BASE_URL}/client/details/firms/list`, {
                     headers: getHeaders(),
@@ -3589,6 +3746,8 @@ export const SaleForm = ({
                 }
             } catch (error) {
                 if (!cancelled) setClientFirms([]);
+            } finally {
+                if (!cancelled) setIsLoadingClientFirms(false);
             }
         })();
         return () => {
@@ -3646,6 +3805,11 @@ export const SaleForm = ({
         () => selectedSaleFirms.find((f) => String(f.firm_id) === String(selectedSaleFirmId)),
         [selectedSaleFirms, selectedSaleFirmId]
     );
+
+    const showEditLoadingSkeleton =
+        isOpen &&
+        isEditMode &&
+        (isLoadingServices || isLoadingClientFirms);
 
     const addItem = () => {
         setFormData(prev => ({
@@ -3816,14 +3980,20 @@ export const SaleForm = ({
                 basePayload.firm_id = selectedSaleFirmId;
             }
 
+            const editIdentifierPayload = editRecord?.sale_id
+                ? { sale_id: editRecord.sale_id }
+                : editRecord?.invoice_id
+                    ? { invoice_id: editRecord.invoice_id }
+                    : editRecord?.transaction_id
+                        ? { transaction_id: editRecord.transaction_id }
+                        : {};
+
             const response = isEditMode
                 ? await axios.put(
                     `${API_BASE_URL}/sale/edit`,
                     {
                         ...basePayload,
-                        invoice_id: editRecord.invoice_id || undefined,
-                        sale_id: editRecord.sale_id || undefined,
-                        transaction_id: editRecord.transaction_id || undefined,
+                        ...editIdentifierPayload,
                     },
                     { headers: getHeaders() }
                 )
@@ -4070,6 +4240,30 @@ export const SaleForm = ({
                             />
                         </div>
                     )}
+
+                    <div className={`rounded-md border ${isCompactModal ? 'px-2.5 py-2' : 'px-3 py-2.5'} ${
+                        saleGstState.applicable
+                            ? 'border-emerald-200 bg-emerald-50/70'
+                            : saleGstState.enabled
+                                ? 'border-amber-200 bg-amber-50/70'
+                                : 'border-slate-200 bg-slate-50/70'
+                    }`}>
+                        <p className={`${isCompactModal ? 'text-[11px]' : 'text-xs'} font-medium ${
+                            saleGstState.applicable
+                                ? 'text-emerald-700'
+                                : saleGstState.enabled
+                                    ? 'text-amber-700'
+                                    : 'text-slate-600'
+                        }`}>
+                            {saleGstState.loading
+                                ? 'Checking branch GST for this sale date...'
+                                : saleGstState.applicable
+                                    ? `GST is active for this sale date at ${saleGstState.taxRate}%.`
+                                    : saleGstState.enabled
+                                        ? `GST is enabled for this branch but applies from ${saleGstState.effectiveAfter || 'the configured effective date'}.`
+                                        : 'GST is disabled for this branch.'}
+                        </p>
+                    </div>
                 </div>
 
                 {belowPartySection}
@@ -4306,7 +4500,7 @@ export const SaleForm = ({
                                 </div>
                             )}
 
-                            {appSettings.gst_applicable && (
+                            {saleGstState.applicable && (
                                 <>
                                     <div className="flex justify-between items-center py-1">
                                         <span className="text-gray-600">SGST ({formData.sgst_rate}%):</span>
@@ -4459,7 +4653,12 @@ export const SaleForm = ({
         const hasSaleLineReady = formData.items.some(
             (item) => item.service_id && parseDecimalValue(item.price) > 0
         );
-        const isSaleSubmitDisabled = isSubmitting || !partyReady || !hasSaleLineReady;
+        const isSaleSubmitDisabled =
+            isSubmitting ||
+            showEditLoadingSkeleton ||
+            saleGstState.loading ||
+            !partyReady ||
+            !hasSaleLineReady;
         const defaultSubmitLabel = isEditMode ? 'Update Sale' : 'Create Sale';
         const saleAccentBtn = MODAL_ACCENT_STYLES.sale.primaryBtn;
 
@@ -4520,7 +4719,7 @@ export const SaleForm = ({
                     </div>
                 )}
             >
-                {saleFormElement}
+                {showEditLoadingSkeleton ? <SaleEditModalSkeleton /> : saleFormElement}
             </BaseModal>
         );
     }
@@ -4621,84 +4820,59 @@ export const PurchaseForm = ({
     onSuccess = () => { },
     mode = 'modal',
     initialPartyId = '',
-    defaultPurchaseType = 'ca',
+    lockedPartyType: lockedPartyTypeProp = null,
     lockedPurchaseType = null,
     hidePartySelector = false,
     fixedParty = null,
     showFixedPartyBanner = true,
-    showPurchaseTypeToggle,
+    fixedPartyBannerTitle,
     modalTitle = 'Create Purchase Bill',
     modalMaxWidth = 'max-w-4xl',
     closeOnOverlayClick = false,
-    showNotificationToggles = false,
     formClassName = '',
     submitButtonLabel = '',
     editRecord = null,
+    formatCurrency: formatCurrencyProp = null,
 }) => {
+    const lockedPartyType = lockedPartyTypeProp ?? lockedPurchaseType ?? null;
     const isEditMode = Boolean(
         editRecord &&
         (editRecord.invoice_id || editRecord.purchase_id || editRecord.transaction_id)
     );
-    const [purchaseType, setPurchaseType] = useState(lockedPurchaseType || defaultPurchaseType);
+    const shouldShowPartySelector = !hidePartySelector;
+    const partyLookup = useTransactionPartySearch(
+        SALE_PARTY_SEARCH_TYPES,
+        Boolean(shouldShowPartySelector && isOpen),
+        { fetchOnFocusOnly: true }
+    );
+    const lockedPartySelection = useMemo(
+        () => (hidePartySelector && fixedParty ? mapFixedPartyToSelection(fixedParty, lockedPartyType) : null),
+        [hidePartySelector, fixedParty, lockedPartyType]
+    );
+
     const [formData, setFormData] = useState({
-        party_id: initialPartyId || '',
         transaction_date: new Date().toISOString().split('T')[0],
         remark: '',
-        tax_rate: appSettings.default_gst_rate,
         items: [{ service_id: '', fees: '', remark: '' }],
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [serviceOptions, setServiceOptions] = useState([]);
     const [isLoadingServices, setIsLoadingServices] = useState(false);
-    const [userOptions, setUserOptions] = useState([]);
-    const [isLoadingParties, setIsLoadingParties] = useState(false);
-    const [showPartyDropdown, setShowPartyDropdown] = useState(false);
-    const [userSearchTerm, setUserSearchTerm] = useState('');
-    const [userLoadingMore, setUserLoadingMore] = useState(false);
-    const userPageRef = useRef(1);
-    const userHasMoreRef = useRef(false);
-    const userLoadingMoreRef = useRef(false);
-    const userSearchTermRef = useRef('');
-    const userSearchRequestIdRef = useRef(0);
-    const [selectedPurchaseUser, setSelectedPurchaseUser] = useState(null);
-    const [purchaseBankPickerOpen, setPurchaseBankPickerOpen] = useState(true);
-    const [purchaseBankRow, setPurchaseBankRow] = useState(null);
-    const purchasePartySearchRef = useRef(null);
-    const partyDropdownActiveRef = useRef(false);
-
-    const closePartyDropdown = useCallback(() => {
-        partyDropdownActiveRef.current = false;
-        setShowPartyDropdown(false);
-    }, []);
-
-    useClickOutside(purchasePartySearchRef, closePartyDropdown, showPartyDropdown);
 
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-    const effectivePurchaseType = lockedPurchaseType ?? purchaseType;
-    const typeToggleVisible = showPurchaseTypeToggle !== undefined ? showPurchaseTypeToggle : lockedPurchaseType == null;
-
-    useEffect(() => {
-        if (lockedPurchaseType) setPurchaseType(lockedPurchaseType);
-    }, [lockedPurchaseType]);
+    const bannerTitle = fixedPartyBannerTitle
+        ?? (lockedPartyType
+            ? `${getPartyTypeLabel({ userType: lockedPartyType }, lockedPartyType)} (purchase)`
+            : 'Party');
 
     useEffect(() => {
         if (!isOpen) return;
         setIsSubmitting(false);
-        setUserSearchTerm('');
-        setUserOptions([]);
-        partyDropdownActiveRef.current = false;
-        setShowPartyDropdown(false);
+        partyLookup.reset();
         fetchServices();
 
         if (isEditMode && editRecord) {
-            const pTypeRaw = String(editRecord.purchase_type || editRecord.party_type || 'ca').toLowerCase();
-            const pType = pTypeRaw === 'bank' ? 'bank' : 'ca';
-            const sp = editRecord.purchase_party || {};
-            const partyId =
-                pType === 'bank'
-                    ? String(sp.bank_id || editRecord.party_id || '').trim()
-                    : String(sp.username || editRecord.party_id || '').trim();
             const lineItems = Array.isArray(editRecord.items) && editRecord.items.length > 0
                 ? editRecord.items.map((row) => {
                     const fees = row.fees ?? row.amount ?? 0;
@@ -4711,92 +4885,27 @@ export const PurchaseForm = ({
                 })
                 : [{ service_id: '', fees: '', remark: '' }];
 
-            setPurchaseType(lockedPurchaseType || pType);
             setFormData({
-                party_id: partyId,
                 transaction_date: toIsoDateOnly(editRecord.transaction_date) || new Date().toISOString().split('T')[0],
                 remark: editRecord.remark || '',
-                tax_rate: appSettings.default_gst_rate,
                 items: lineItems,
             });
 
-            if (pType === 'ca' && partyId) {
-                setSelectedPurchaseUser({
-                    id: partyId,
-                    username: partyId,
-                    name: sp.name || partyId,
-                    email: sp.email,
-                    contact: sp.mobile,
-                    type: 'ca',
-                });
-                setPurchaseBankRow(null);
-                setPurchaseBankPickerOpen(false);
-            } else if (pType === 'bank' && partyId) {
-                setSelectedPurchaseUser(null);
-                setPurchaseBankRow({
-                    bank_id: partyId,
-                    id: partyId,
-                    bank: sp.bank || sp.name,
-                    holder: sp.holder,
-                    account_no: sp.account_no,
-                    ifsc: sp.ifsc,
-                    branch: sp.branch,
-                });
-                setPurchaseBankPickerOpen(false);
-            } else {
-                setSelectedPurchaseUser(null);
-                setPurchaseBankRow(null);
-                setPurchaseBankPickerOpen(true);
+            if (!hidePartySelector) {
+                const mappedParty = mapPurchaseEditRecordToParty(editRecord);
+                if (mappedParty) {
+                    partyLookup.setSelectedFirm(mappedParty);
+                }
             }
             return;
         }
 
-        const presetPartyId = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
-            ? String(fixedParty.id)
-            : (initialPartyId ? String(initialPartyId) : '');
         setFormData({
-            party_id: presetPartyId,
             transaction_date: new Date().toISOString().split('T')[0],
             remark: '',
-            tax_rate: appSettings.default_gst_rate,
             items: [{ service_id: '', fees: '', remark: '' }],
         });
-        setSelectedPurchaseUser(null);
-        setPurchaseBankPickerOpen(!presetPartyId);
-        setPurchaseBankRow(null);
-        if (lockedPurchaseType) setPurchaseType(lockedPurchaseType);
-        else setPurchaseType(defaultPurchaseType);
-    }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId, lockedPurchaseType, defaultPurchaseType, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
-        userSearchTermRef.current = userSearchTerm;
-    }, [userSearchTerm]);
-
-    useEffect(() => {
-        if (hidePartySelector && effectivePurchaseType === 'ca') return;
-        if (effectivePurchaseType !== 'ca') return;
-        if (formData.party_id) return;
-        partyDropdownActiveRef.current = true;
-        setIsLoadingParties(true);
-        setUserOptions([]);
-        const delayDebounce = setTimeout(() => {
-            userPageRef.current = 1;
-            fetchCas(false);
-        }, SEARCH_DEBOUNCE_MS);
-        return () => clearTimeout(delayDebounce);
-    }, [userSearchTerm, hidePartySelector, formData.party_id, effectivePurchaseType]);
-
-    const handlePurchaseTypeChange = (type) => {
-        if (lockedPurchaseType) return;
-        setPurchaseType(type);
-        setFormData((prev) => ({ ...prev, party_id: '' }));
-        setUserSearchTerm('');
-        setShowPartyDropdown(false);
-        setUserOptions([]);
-        setSelectedPurchaseUser(null);
-        setPurchaseBankPickerOpen(true);
-        setPurchaseBankRow(null);
-    };
+    }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId, lockedPartyType, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchServices = async () => {
         setIsLoadingServices(true);
@@ -4825,125 +4934,22 @@ export const PurchaseForm = ({
         }
     };
 
-    const fetchCas = async (append = false) => {
-        const q = String(userSearchTermRef.current || '').trim();
-        const pageNum = append ? userPageRef.current + 1 : 1;
-        const requestId = ++userSearchRequestIdRef.current;
-        const isFirstPage = !append;
-
-        if (isFirstPage) {
-            userPageRef.current = 1;
-            setIsLoadingParties(true);
-        } else {
-            setUserLoadingMore(true);
-            userLoadingMoreRef.current = true;
-        }
-        try {
-            const { list, isLast } = await fetchCaSearchPage({ search: q, page: pageNum });
-            if (requestId !== userSearchRequestIdRef.current) return;
-            const opts = list.map(mapCaToPurchasePartyOption);
-            if (append) {
-                userPageRef.current = pageNum;
-                setUserOptions((prev) => [...prev, ...opts]);
-            } else {
-                setUserOptions(opts);
-                if (partyDropdownActiveRef.current) {
-                    setShowPartyDropdown(true);
-                }
-            }
-            userHasMoreRef.current = !isLast;
-            setSelectedPurchaseUser((prev) => {
-                if (!prev) return prev;
-                const fresh = opts.find((o) => String(o.id) === String(prev.id));
-                return fresh ?? prev;
-            });
-        } catch (error) {
-            if (requestId !== userSearchRequestIdRef.current) return;
-            console.error('Error fetching CAs:', error);
-            if (!append) {
-                setUserOptions([]);
-                if (partyDropdownActiveRef.current) {
-                    setShowPartyDropdown(false);
-                }
-            }
-            userHasMoreRef.current = false;
-        } finally {
-            if (requestId !== userSearchRequestIdRef.current) return;
-            setIsLoadingParties(false);
-            setUserLoadingMore(false);
-            userLoadingMoreRef.current = false;
-        }
-    };
-
-    const loadCasOnFocus = useCallback(() => {
-        partyDropdownActiveRef.current = true;
-        setShowPartyDropdown(true);
-        const q = String(userSearchTermRef.current || '').trim();
-        if (q === '' && userOptions.length === 0) {
-            userPageRef.current = 1;
-            setIsLoadingParties(true);
-            setUserOptions([]);
-            fetchCas(false);
-        }
-    }, [userOptions.length]);
-
-    const handleUserListScroll = useCallback((e) => {
-        const el = e.currentTarget;
-        if (userLoadingMoreRef.current || !userHasMoreRef.current || isLoadingParties) return;
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
-            fetchCas(true);
-        }
-    }, [isLoadingParties]);
+    const formatPurchaseMoneyDefault = (amount) =>
+        new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(parseDecimalValue(amount));
+    const formatPurchaseMoney = typeof formatCurrencyProp === 'function'
+        ? formatCurrencyProp
+        : formatPurchaseMoneyDefault;
 
     const getSelectedParty = () => {
-        if (hidePartySelector && fixedParty && fixedParty.id != null && fixedParty.id !== '') {
-            const id = String(fixedParty.id);
-            return {
-                ...fixedParty,
-                id,
-                type: effectivePurchaseType === 'bank' ? 'bank' : 'ca',
-                name: fixedParty.name || String(fixedParty.id),
-                username: fixedParty.username || id,
-                email: fixedParty.email,
-                contact: fixedParty.contact,
-                pan_no: fixedParty.pan_no ?? fixedParty.pan_number,
-                account: fixedParty.account ?? fixedParty.account_no,
-                holder: fixedParty.holder,
-            };
+        if (hidePartySelector && lockedPartySelection) {
+            return lockedPartySelection;
         }
-        if (effectivePurchaseType === 'ca' && selectedPurchaseUser && String(selectedPurchaseUser.id) === String(formData.party_id)) {
-            return selectedPurchaseUser;
-        }
-        return userOptions.find((u) => String(u.id) === String(formData.party_id));
-    };
-
-    const bankCardFromSearchOrParty = () => {
-        if (purchaseBankRow && String(purchaseBankRow.bank_id ?? purchaseBankRow.id) === String(formData.party_id)) {
-            return purchaseBankRow;
-        }
-        const p = getSelectedParty();
-        if (!p || effectivePurchaseType !== 'bank' || !formData.party_id) return null;
-        return {
-            bank: p.name,
-            holder: p.holder,
-            account_no: p.account ?? p.account_no,
-            ifsc: p.ifsc,
-            branch: p.branch,
-            balance: p.balance,
-        };
-    };
-
-    const handlePartySelect = (partyId) => {
-        const id = String(partyId);
-        if (effectivePurchaseType === 'ca') {
-            const row = userOptions.find((p) => String(p.id) === id);
-            setSelectedPurchaseUser(row ?? null);
-        } else {
-            setSelectedPurchaseUser(null);
-        }
-        setFormData((prev) => ({ ...prev, party_id: id }));
-        setShowPartyDropdown(false);
-        setUserSearchTerm('');
+        return partyLookup.selectedFirm;
     };
 
     const addItem = () => {
@@ -5007,11 +5013,10 @@ export const PurchaseForm = ({
         e.preventDefault();
         if (isSubmitting) return;
 
-        const partyIdOk = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
-            ? true
-            : Boolean(formData.party_id);
-        if (!partyIdOk) {
-            toast.error(effectivePurchaseType === 'bank' ? 'Please select a bank' : 'Please select a CA');
+        const selectedParty = getSelectedParty();
+        const resolvedParty = resolveTransactionPartySelection(selectedParty, lockedPartyType || 'client');
+        if (!resolvedParty.party_id) {
+            toast.error('Please select a party');
             return;
         }
 
@@ -5023,14 +5028,8 @@ export const PurchaseForm = ({
             return;
         }
 
-        const selectedParty = getSelectedParty();
-        if (effectivePurchaseType === 'ca') {
-            if (!selectedParty?.username && !selectedParty?.id) {
-                toast.error('CA information is missing');
-                return;
-            }
-        } else if (!selectedParty?.id) {
-            toast.error('Bank information is missing');
+        if (hidePartySelector && (!fixedParty || fixedParty.id == null || fixedParty.id === '')) {
+            toast.error('Purchase form is misconfigured: hidePartySelector requires fixedParty with id.');
             return;
         }
 
@@ -5039,7 +5038,8 @@ export const PurchaseForm = ({
             const basePayload = {
                 transaction_date: formData.transaction_date,
                 remark: formData.remark || undefined,
-                // tax_rate omitted — server computes from branch GST settings
+                party_id: resolvedParty.party_id,
+                party_type: resolvedParty.party_type,
                 items: formData.items
                     .filter((item) => item.service_id && parseDecimalValue(item.fees) > 0)
                     .map((item) => ({
@@ -5051,47 +5051,29 @@ export const PurchaseForm = ({
 
             let data;
             if (isEditMode) {
-                const editPayload = {
-                    ...basePayload,
-                    invoice_id: editRecord.invoice_id || undefined,
-                    purchase_id: editRecord.purchase_id || undefined,
-                    transaction_id: editRecord.transaction_id || undefined,
-                };
-                if (effectivePurchaseType === 'ca') {
-                    editPayload.party_id = selectedParty.username || selectedParty.id;
-                    editPayload.party_type = 'ca';
-                } else {
-                    editPayload.party_id = selectedParty.id;
-                    editPayload.party_type = 'bank';
-                }
-                const response = await axios.put(`${API_BASE_URL}/purchase/edit`, editPayload, {
-                    headers: getHeaders(),
-                });
+                const editIdentifierPayload = editRecord?.purchase_id
+                    ? { purchase_id: editRecord.purchase_id }
+                    : editRecord?.invoice_id
+                        ? { invoice_id: editRecord.invoice_id }
+                        : editRecord?.transaction_id
+                            ? { transaction_id: editRecord.transaction_id }
+                            : {};
+
+                const response = await axios.put(
+                    `${API_BASE_URL}/purchase/edit`,
+                    {
+                        ...basePayload,
+                        ...editIdentifierPayload,
+                    },
+                    { headers: getHeaders() }
+                );
                 data = response.data;
                 if (!data?.success) throw new Error(data?.message || 'Failed to update purchase');
             } else {
-                let endpoint = '';
-                let payload = {};
-
-                if (effectivePurchaseType === 'ca') {
-                    endpoint = `${API_BASE_URL}/purchase/create/user`;
-                    payload = {
-                        ...basePayload,
-                        username: selectedParty.username || selectedParty.id,
-                        user_type: 'ca',
-                    };
-                } else {
-                    endpoint = `${API_BASE_URL}/purchase/create/bank`;
-                    payload = {
-                        ...basePayload,
-                        bank_id: selectedParty.id,
-                    };
-                }
-
-                const response = await fetch(endpoint, {
+                const response = await fetch(`${API_BASE_URL}/purchase/create`, {
                     method: 'POST',
                     headers: getHeaders(),
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify(basePayload),
                 });
                 data = await response.json();
                 if (!data.success) throw new Error(data.message || 'Failed to create purchase');
@@ -5103,14 +5085,14 @@ export const PurchaseForm = ({
                     : (isEditMode ? 'Purchase updated successfully' : 'Purchase created successfully')
             );
 
-            const submissionData = {
+            onSuccess({
                 ...formData,
-                purchase_type: effectivePurchaseType,
+                party_type: resolvedParty.party_type,
+                party_id: resolvedParty.party_id,
                 selected_party: selectedParty,
                 timestamp: new Date().toISOString(),
                 api_response: data,
-            };
-            onSuccess(submissionData);
+            });
             if (mode === 'modal') onClose();
         } catch (error) {
             console.error('Error submitting purchase form:', error);
@@ -5129,22 +5111,13 @@ export const PurchaseForm = ({
     const isCompactModal = mode === 'modal';
     const purchaseFieldClass = getCompactFieldClass(isCompactModal ? 'purple' : 'purple');
     const purchaseLabelClass = isCompactModal ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1';
-    const purchasePartyListOpen = showPartyDropdown && !formData.party_id;
     const partyReady = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
         ? true
-        : Boolean(formData.party_id);
-    const selectedParty = getSelectedParty();
+        : Boolean(partyLookup.selectedFirm);
     const purchaseTotal = formData.items.reduce(
         (sum, item) => sum + parseDecimalValue(item.fees),
         0
     );
-    const formatPurchaseMoney = (amount) =>
-        new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(parseDecimalValue(amount));
     const hasPurchaseLineReady = formData.items.some(
         (item) => item.service_id && parseDecimalValue(item.fees) > 0
     );
@@ -5152,210 +5125,76 @@ export const PurchaseForm = ({
     const purchaseFormElement = (
         <form id={purchaseFormId} onSubmit={handleSubmit} noValidate={isCompactModal} className={formClassMerged || undefined}>
             <div className={isCompactModal ? 'space-y-3' : 'space-y-5 mb-6'}>
-                {typeToggleVisible && (
-                    <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="Purchase party type">
-                        <button
-                            type="button"
-                            onClick={() => handlePurchaseTypeChange('ca')}
-                            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'ca' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                        >
-                            CA
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handlePurchaseTypeChange('bank')}
-                            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'bank' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                        >
-                            Bank
-                        </button>
+                {shouldShowPartySelector ? (
+                    <div className={isCompactModal ? 'space-y-2' : 'space-y-3'}>
+                        <FirmClientSearchFields
+                            variant="payment"
+                            label="Party"
+                            formatCurrency={formatPurchaseMoney}
+                            compact={isCompactModal}
+                            hideSearchHint={isCompactModal}
+                            focusAccent={isCompactModal ? 'purple' : 'purple'}
+                            searchPlaceholder="Search client, CA, staff, agent, bank, or capital"
+                            searchHint="Search client, CA, staff, agent, bank, or capital."
+                            emptyMessage="No parties found"
+                            showPartyType
+                            getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username || party.bank_id}`}
+                            searchTerm={partyLookup.searchTerm}
+                            setSearchTerm={partyLookup.setSearchTerm}
+                            firms={partyLookup.firms}
+                            setFirms={partyLookup.setFirms}
+                            showDropdown={partyLookup.showDropdown}
+                            setShowDropdown={partyLookup.setShowDropdown}
+                            openDropdown={partyLookup.openDropdown}
+                            dismissDropdown={partyLookup.dismissDropdown}
+                            searchLoading={partyLookup.searchLoading}
+                            loadingMore={partyLookup.loadingMore}
+                            handleListScroll={partyLookup.handleListScroll}
+                            clearSelection={partyLookup.clearSelection}
+                            onSearchFocus={partyLookup.loadPartiesOnFocus}
+                            selectedFirm={partyLookup.selectedFirm}
+                            setSelectedFirm={partyLookup.setSelectedFirm}
+                        />
                     </div>
-                )}
-
-                {!hidePartySelector && effectivePurchaseType === 'ca' && (
-                    <div className={isCompactModal ? 'space-y-1.5' : 'space-y-3'}>
-                        <label className={purchaseLabelClass}>
-                            CA <span className="text-red-500">*</span>
-                        </label>
-                        {!formData.party_id ? (
-                            <>
-                                {!isCompactModal && (
-                                    <p className="text-xs text-slate-500 mb-1.5">
-                                        Search by name, mobile, email, or PAN.
-                                    </p>
-                                )}
-                                <div ref={purchasePartySearchRef}>
-                                    <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(purchasePartyListOpen, isCompactModal ? 'purple' : 'purple')}`}>
-                                        <div className="flex items-center gap-2 px-2.5 py-1.5">
-                                            <FiSearch className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
-                                            <input
-                                                type="text"
-                                                value={userSearchTerm}
-                                                onChange={(e) => {
-                                                    partyDropdownActiveRef.current = true;
-                                                    setUserSearchTerm(e.target.value);
-                                                    setShowPartyDropdown(true);
-                                                    setIsLoadingParties(true);
-                                                    setUserOptions([]);
-                                                }}
-                                                onFocus={loadCasOnFocus}
-                                                placeholder="Search by name, mobile, email..."
-                                                className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
-                                                autoComplete="off"
-                                            />
-                                            {isLoadingParties && purchasePartyListOpen ? (
-                                                <ComboboxSearchSpinner />
-                                            ) : (
-                                                <FiChevronDown
-                                                    className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${purchasePartyListOpen ? 'rotate-180' : ''}`}
-                                                    aria-hidden
-                                                />
-                                            )}
-                                        </div>
-                                        {purchasePartyListOpen && (
-                                            <div
-                                                className={`border-t border-slate-100 ${isCompactModal ? 'max-h-56' : 'max-h-60'} overflow-y-auto`}
-                                                onScroll={handleUserListScroll}
-                                            >
-                                                {isLoadingParties ? (
-                                                    <ClientSearchSkeletonRows rows={5} />
-                                                ) : (
-                                                    <>
-                                                        {userOptions.map((party) => (
-                                                            <ClientSearchOptionRow
-                                                                key={party.id}
-                                                                client={{
-                                                                    name: party.name,
-                                                                    mobile: party.contact,
-                                                                    email: party.email,
-                                                                    pan_number: party.pan_no,
-                                                                    country_code: party.country_code,
-                                                                    balance: party.balance,
-                                                                    username: party.username,
-                                                                    profile: party.profile,
-                                                                    profile_photo: party.profile_photo,
-                                                                    image: party.image,
-                                                                }}
-                                                                formatBalance={formatPlainInrAmount}
-                                                                itemHover={isCompactModal ? 'hover:bg-purple-50' : 'hover:bg-purple-50'}
-                                                                onSelect={() => handlePartySelect(party.id)}
-                                                            />
-                                                        ))}
-                                                        {userLoadingMore && <ClientSearchSkeletonRows rows={2} />}
-                                                    </>
-                                                )}
-                                                {!isLoadingParties && !userLoadingMore && userOptions.length === 0 && (
-                                                    <p className="px-2.5 py-3 text-xs text-center text-slate-500">No CAs found</p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <SaleClientPreviewCard
-                                party={selectedParty}
-                                summary={null}
-                                formatMoney={formatPlainInrAmount}
-                                variant="purchase"
-                                onChangeClient={() => {
-                                    setFormData((prev) => ({ ...prev, party_id: '' }));
-                                    setSelectedPurchaseUser(null);
-                                    setUserSearchTerm('');
-                                    setUserOptions([]);
-                                    setShowPartyDropdown(false);
-                                }}
-                            />
-                        )}
-                    </div>
-                )}
-
-                {!hidePartySelector && effectivePurchaseType === 'bank' && (
-                    <div className={isCompactModal ? 'space-y-1.5' : 'space-y-2'}>
-                        <label className={purchaseLabelClass}>
-                            Bank Account <span className="text-red-500">*</span>
-                        </label>
-                        {(!formData.party_id || purchaseBankPickerOpen) ? (
-                            <BankSearchDropdown
-                                compact={isCompactModal}
-                                focusAccent="purple"
-                                onSelect={(bank) => {
-                                    setFormData((prev) => ({ ...prev, party_id: String(bank.bank_id) }));
-                                    setPurchaseBankRow(bank);
-                                    setPurchaseBankPickerOpen(false);
-                                }}
-                                selectedBankId={formData.party_id || undefined}
-                            />
-                        ) : (
-                            <SaleBankPreviewCard
-                                bank={bankCardFromSearchOrParty()}
-                                onChangeBank={() => setPurchaseBankPickerOpen(true)}
-                                formatMoney={formatPlainInrAmount}
-                                variant="purchase"
-                            />
-                        )}
-                    </div>
-                )}
+                ) : null}
 
                 {hidePartySelector && showFixedPartyBanner && fixedParty && (
                     <div>
-                        {effectivePurchaseType === 'ca' ? (
-                            <SaleClientPreviewCard
-                                party={selectedParty}
-                                summary={null}
-                                formatMoney={formatPlainInrAmount}
-                                variant="purchase"
-                                readOnly
-                            />
-                        ) : (
-                            <SaleBankPreviewCard
-                                bank={{
-                                    bank: fixedParty.name,
-                                    holder: fixedParty.holder || '—',
-                                    account_no: fixedParty.account || fixedParty.account_no || '—',
-                                    ifsc: fixedParty.ifsc || '—',
-                                    branch: fixedParty.branch || '—',
-                                    balance: fixedParty.balance ?? 0,
-                                }}
-                                formatMoney={formatPlainInrAmount}
-                                variant="purchase"
-                                readOnly
-                            />
-                        )}
+                        <label className={purchaseLabelClass}>{bannerTitle}</label>
+                        <TransactionClientPreviewCard
+                            client={getSelectedParty()}
+                            formatCurrency={formatPurchaseMoney}
+                            variant="payment"
+                            readOnly
+                            partyType={lockedPartyType || lockedPartySelection?.userType || ''}
+                        />
                     </div>
                 )}
 
-                <div className={`grid grid-cols-1 gap-3 ${isCompactModal ? 'sm:grid-cols-2' : 'sm:grid-cols-2 gap-4'}`}>
-                    <div>
-                        <label className={purchaseLabelClass}>
-                            Purchase date <span className="text-red-500">*</span>
-                        </label>
-                        <DatePickerField
-                            value={formData.transaction_date}
-                            onChange={(value) => {
-                                const picked = String(value || '').trim();
-                                if (!picked) {
-                                    setFormData((prev) => ({ ...prev, transaction_date: '' }));
-                                    return;
-                                }
-                                setFormData((prev) => ({
-                                    ...prev,
-                                    transaction_date: picked > todayIso ? todayIso : picked,
-                                }));
-                            }}
-                            mode="single"
-                            hideTabs={true}
-                            showResetButton={false}
-                            placeholder="Select date"
-                            buttonClassName={isCompactModal ? purchaseFieldClass : 'w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500'}
-                            maxSelectableDate={todayIso}
-                        />
-                    </div>
-                    <div>
-                        <label className={purchaseLabelClass}>GST</label>
-                        <p className={`${isCompactModal ? purchaseFieldClass : 'w-full px-4 py-3 border-2 border-slate-200 rounded-lg bg-slate-50 text-sm text-slate-600'}`}>
-                            Applied automatically by the server when GST is enabled for this branch.
-                        </p>
-                    </div>
+                <div>
+                    <label className={purchaseLabelClass}>
+                        Purchase date <span className="text-red-500">*</span>
+                    </label>
+                    <DatePickerField
+                        value={formData.transaction_date}
+                        onChange={(value) => {
+                            const picked = String(value || '').trim();
+                            if (!picked) {
+                                setFormData((prev) => ({ ...prev, transaction_date: '' }));
+                                return;
+                            }
+                            setFormData((prev) => ({
+                                ...prev,
+                                transaction_date: picked > todayIso ? todayIso : picked,
+                            }));
+                        }}
+                        mode="single"
+                        hideTabs={true}
+                        showResetButton={false}
+                        placeholder="Select date"
+                        buttonClassName={isCompactModal ? purchaseFieldClass : 'w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500'}
+                        maxSelectableDate={todayIso}
+                    />
                 </div>
             </div>
 
@@ -5516,15 +5355,14 @@ export const PurchaseForm = ({
                 )}
 
                 {isCompactModal && partyReady && (() => {
-                    const summaryName = effectivePurchaseType === 'bank'
-                        ? (getBankPrimaryLabel(bankCardFromSearchOrParty() || {}) || selectedParty?.name || fixedParty?.name || '—')
-                        : (selectedParty?.name || fixedParty?.name || '—');
+                    const selectedParty = getSelectedParty();
+                    const summaryName = selectedParty?.name || fixedParty?.name || '—';
                     if (!summaryName || summaryName === '—') return null;
                     return (
                         <div className="rounded-md bg-purple-50 border border-purple-100 px-3 py-2 space-y-1">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700/80">Purchase</p>
                             <div className="flex items-center justify-between gap-2 text-xs">
-                                <span className="text-slate-600">{effectivePurchaseType === 'bank' ? 'Purchase from bank' : 'Purchase from CA'}</span>
+                                <span className="text-slate-600">Purchase from</span>
                                 <span className="font-medium text-slate-800 truncate">{summaryName}</span>
                             </div>
                             {purchaseTotal > 0 && (
@@ -5596,13 +5434,13 @@ export const PurchaseForm = ({
 
 /** Spread into `<PurchaseForm />` on a CA ledger page (party known; no search UI). */
 export const purchaseFormLedgerClientProps = ({ clientId, clientUsername, clientName }) => ({
-    lockedPurchaseType: 'ca',
+    lockedPartyType: 'ca',
     hidePartySelector: true,
-    showPurchaseTypeToggle: false,
     fixedParty: {
         id: clientId || clientUsername,
         username: clientUsername || clientId,
         name: clientName || clientUsername || String(clientId || ''),
+        party_type: 'ca',
     },
 });
 
@@ -5611,12 +5449,12 @@ export const purchaseFormLedgerCaProps = purchaseFormLedgerClientProps;
 
 /** Spread into `<PurchaseForm />` on a bank ledger page (bank known; no search UI). */
 export const purchaseFormLedgerBankProps = ({ bankId, bankName }) => ({
-    lockedPurchaseType: 'bank',
+    lockedPartyType: 'bank',
     hidePartySelector: true,
-    showPurchaseTypeToggle: false,
     fixedParty: {
         id: bankId,
         name: bankName || 'Bank',
+        party_type: 'bank',
     },
 });
 
@@ -5625,6 +5463,7 @@ export const PurchaseModal = ({
     isOpen,
     onClose,
     onSubmit,
+    formatCurrency,
     clientUsername,
     clientName,
     clientId,
@@ -5637,24 +5476,25 @@ export const PurchaseModal = ({
         editRecord &&
         (editRecord.invoice_id || editRecord.purchase_id || editRecord.transaction_id)
     );
-    const hasClient = Boolean(String(clientUsername || clientId || '').trim());
-    const hasBank = Boolean(String(bankId || '').trim());
-    const lockedPurchaseType = hasClient ? 'ca' : hasBank ? 'bank' : null;
-    const hidePartySelector = Boolean(lockedPurchaseType) && !isEditMode;
+    const hasClient = Boolean(clientId || clientUsername);
+    const hasBank = Boolean(bankId);
+    const lockedPartyType = hasClient ? 'client' : hasBank ? 'bank' : null;
+    const hidePartySelector = Boolean(lockedPartyType) && !isEditMode;
     const fixedParty = hasClient
         ? {
             id: clientId || clientUsername,
-            username: clientUsername || clientId,
+            username: clientUsername,
             name: clientName || clientUsername || String(clientId || clientUsername || ''),
+            party_type: 'client',
         }
         : hasBank
-            ? { id: bankId, name: bankName || 'Bank' }
+            ? { id: bankId, name: bankName || 'Bank', party_type: 'bank' }
             : null;
 
     const defaultTitle = isEditMode
         ? 'Edit Purchase Bill'
         : hasClient
-            ? 'Purchase from CA'
+            ? 'Purchase from Client'
             : hasBank
                 ? 'Purchase from Bank'
                 : 'Create Purchase Bill';
@@ -5668,14 +5508,14 @@ export const PurchaseModal = ({
             }}
             mode="modal"
             initialPartyId={fixedParty ? String(fixedParty.id) : ''}
-            defaultPurchaseType={lockedPurchaseType || 'ca'}
-            lockedPurchaseType={isEditMode ? null : lockedPurchaseType}
+            lockedPartyType={isEditMode ? null : lockedPartyType}
             hidePartySelector={hidePartySelector}
-            showFixedPartyBanner={!lockedPurchaseType}
+            showFixedPartyBanner={!lockedPartyType}
             fixedParty={fixedParty}
             editRecord={editRecord}
             modalTitle={defaultTitle}
             submitButtonLabel={isEditMode ? 'Update Purchase' : ''}
+            formatCurrency={formatCurrency}
             {...purchaseFormProps}
         />
     );

@@ -9,6 +9,7 @@ import {
     FiPackage,
     FiLock,
     FiX,
+    FiSearch,
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -624,8 +625,8 @@ const ViewExpenses = () => {
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70">
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="h-10 bg-gray-200 rounded w-full max-w-2xl" />
                         </div>
@@ -668,26 +669,29 @@ const ViewExpenses = () => {
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4 space-y-2.5">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-3 space-y-2.5">
                             {/* Row 1 — title, search, actions */}
                             <div className="flex flex-col gap-2 min-w-0 xl:flex-row xl:items-center xl:gap-3">
                                 <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
                                     Expense Register
                                 </h5>
-                                <input
-                                    type="text"
-                                    placeholder="Search item, remark, type, invoice, amount…"
-                                    value={searchTerm}
-                                    onChange={handleSearchChange}
-                                    className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 xl:min-w-[12rem]"
-                                />
+                                <div className="relative w-full min-w-0 flex-1 xl:min-w-[12rem]">
+                                    <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search…"
+                                        value={searchTerm}
+                                        onChange={handleSearchChange}
+                                        className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
                                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                     <Link to="/finance/voucher/expense-items" className="shrink-0">
                                         <motion.span
@@ -709,7 +713,7 @@ const ViewExpenses = () => {
                                                 setShowCreateExpenseModal(true);
                                             }
                                         }}
-                                        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:h-10 sm:px-3 ${!check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
+                                        className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-0 sm:h-10 sm:px-3 ${!check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
                                             }`}
                                         whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
                                         whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
@@ -771,7 +775,7 @@ const ViewExpenses = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                    <tr className="border-b border-slate-200 bg-slate-100/90">
                                         <th className="min-w-[50px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Sl No</th>
                                         <th className="min-w-[80px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Date</th>
                                         <th className="min-w-[180px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Particulars</th>
@@ -821,7 +825,7 @@ const ViewExpenses = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="transition-colors duration-150 hover:bg-emerald-50/20"
+                                                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} transition-colors duration-150 hover:bg-indigo-50/40`}
                                                 >
                                                     <td className="p-3 text-center align-middle">
                                                         <div className="text-xs font-medium text-slate-700">{actualIndex + 1}</div>

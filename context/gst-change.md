@@ -99,7 +99,17 @@ Items: `{ "service_id", "fees" }` only. Do not require or POST per-item tax rate
 
 ### Sale create
 
-Do not require or POST top-level `tax_rate`. Server uses branch settings + `transaction_date` / sale date. UI may show a static note that GST is automatic.
+Do not require or POST top-level `tax_rate`. Server uses branch settings + `transaction_date` / sale date.
+
+Sale modal behavior:
+
+- Fetch `GET /sale/gst-config?transaction_date=YYYY-MM-DD` when the modal opens and whenever the sale date changes.
+- Use the response to show whether GST is:
+  - disabled for the branch
+  - enabled but **not yet effective** for the selected sale date
+  - active for the selected sale date
+- The summary tax rows (`SGST` / `CGST`) are display-only and should use the API-driven state, not a hardcoded default rate.
+- Keep submit payload free of `tax_rate` / `gst_rate`; server remains the source of truth.
 
 ### Compliance firm assign/edit
 
