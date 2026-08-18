@@ -23,6 +23,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { loadUserProfileFromStorage } from '../utils/user-profile-storage';
 import { getStoredBranchRoleLabel, resolveBranchRole } from '../services/branchSetupService';
 import { performBranchSwitch } from '../utils/branchSwitch';
+import { clearKeepAliveCache } from '../app/KeepAlive';
 import BranchSwitchOverlay from './BranchSwitchOverlay';
 
 function isStoredBranchAdmin() {
@@ -454,6 +455,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     localStorage.removeItem('user_mobile');
     localStorage.removeItem('user_profile');
     localStorage.removeItem('userData');
+    clearKeepAliveCache();
     navigate('/login');
   };
 

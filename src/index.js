@@ -14,6 +14,7 @@ import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRo
 import BranchRequiredRoute from './components/BranchRequiredRoute';
 import RouteLoadingFallback from './app/RouteLoadingFallback';
 import DocumentTitle from './app/DocumentTitle';
+import { KeepAlivePage, KeepAliveProvider } from './app/KeepAlive';
 import { handleUnauthorizedResponse } from './utils/auth-session';
 import {
   Login,
@@ -239,11 +240,13 @@ const ProtectedRoute = ({ children }) => {
     requiredLevel = 'core';
   }
 
+  const page = <KeepAlivePage>{children}</KeepAlivePage>;
+
   if (requiredLevel) {
     return (
       <BranchRequiredRoute>
         <SubscriptionProtectedRoute requiredLevel={requiredLevel}>
-          {children}
+          {page}
         </SubscriptionProtectedRoute>
       </BranchRequiredRoute>
     );
@@ -251,7 +254,7 @@ const ProtectedRoute = ({ children }) => {
 
   return (
     <BranchRequiredRoute>
-      {children}
+      {page}
     </BranchRequiredRoute>
   );
 };
@@ -274,15 +277,16 @@ root.render(
     <BrowserRouter>
       <DocumentTitle />
       <TaskCreateProvider>
-        <Toaster
-          position="top-center"
-          containerStyle={{ zIndex: 11000 }}
-          toastOptions={{ duration: 4000 }}
-        />
-        <WhatsappChannelBootstrap />
-        {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
-        <BodyScrollLockObserver />
-        <Suspense fallback={<RouteLoadingFallback />}>
+        <KeepAliveProvider>
+          <Toaster
+            position="top-center"
+            containerStyle={{ zIndex: 11000 }}
+            toastOptions={{ duration: 4000 }}
+          />
+          <WhatsappChannelBootstrap />
+          {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
+          <BodyScrollLockObserver />
+          <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={
@@ -999,7 +1003,8 @@ root.render(
               </ProtectedRoute>
             } />
           </Routes>
-        </Suspense>
+          </Suspense>
+        </KeepAliveProvider>
       </TaskCreateProvider>
     </BrowserRouter>
   </GoogleOAuthProvider>

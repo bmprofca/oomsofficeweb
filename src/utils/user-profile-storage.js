@@ -1,4 +1,5 @@
 import { API_BASE_URL_NO_VERSION } from './api-controller';
+import { clearKeepAliveCache } from '../app/KeepAlive';
 
 export function resolveProfileImageUrl(image) {
     const value = String(image || '').trim();
@@ -129,4 +130,5 @@ export function clearUserSessionFromStorage() {
         'token_expire',
         'user_is_new',
     ].forEach((key) => localStorage.removeItem(key));
+    clearKeepAliveCache();
 }

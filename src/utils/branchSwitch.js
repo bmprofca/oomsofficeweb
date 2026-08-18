@@ -5,6 +5,7 @@
  */
 
 import { applyBranchToSession } from '../services/branchSetupService';
+import { clearKeepAliveCache } from '../app/KeepAlive';
 import {
     clearSubscriptionForBranchSwitch,
     fetchSubscriptionStatusForBranch,
@@ -60,6 +61,8 @@ export function clearBranchScopedClientCaches(previousBranchId, nextBranchId) {
     } catch (_) {
         // ignore
     }
+
+    clearKeepAliveCache();
 
     clearUserPermissionCache(null, previousBranchId);
     clearUserPermissionCache(null, nextBranchId);

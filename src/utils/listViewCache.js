@@ -1,6 +1,6 @@
 /**
- * Persist list-page snapshots so browser Back (POP) can restore
- * tasks + filters without an immediate API reset.
+ * Persist list-page snapshots so browser Back can restore filters/rows
+ * if the route keep-alive cache was evicted.
  */
 
 export const loadListViewCache = (key) => {
