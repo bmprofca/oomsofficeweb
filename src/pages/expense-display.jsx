@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     FiPlus,
     FiEdit,
     FiFileText,
-    FiMenu,
+    FiMoreVertical,
     FiEye,
     FiPackage,
     FiLock,
@@ -54,12 +54,33 @@ const selectStyles = {
     singleValue: (base) => ({ ...base, fontSize: '12px' }),
 };
 
+const formatDisplayDate = (dateString) => {
+    if (!dateString) return '—';
+    const raw = String(dateString).trim();
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(raw)) return raw.slice(0, 10);
+    const iso = raw.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [year, month, day] = iso.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const isCashBankParty = (party) =>
+    party?.type === 'bank' && String(party?.details?.type || '').toLowerCase() === 'cash';
+
 const getExpensePartyLabel = (expense) => {
     const party = expense?.expense_party;
     if (!party) return '—';
     const d = party.details || {};
     if (party.type === 'bank') {
-        return d.bank || d.holder || d.account_no || 'Bank account';
+        if (isCashBankParty(party)) return d.holder || 'Cash';
+        return d.bank || d.holder || 'Bank account';
     }
     if (party.type === 'capital') {
         return d.name || d.capital_name || 'Capital account';
@@ -70,8 +91,10 @@ const getExpensePartyLabel = (expense) => {
 const getExpensePartyMeta = (expense) => {
     const party = expense?.expense_party;
     if (!party?.type) return '';
-    const label = party.type === 'bank' ? 'Bank' : party.type === 'capital' ? 'Capital' : party.type;
-    return label;
+    if (isCashBankParty(party)) return 'Cash';
+    if (party.type === 'bank') return 'Bank';
+    if (party.type === 'capital') return 'Capital';
+    return party.type;
 };
 
 const getExpenseLineItems = (expense) => {
@@ -126,12 +149,7 @@ const formatDateTime = (value) => {
     });
 };
 
-const formatDate = (dateString) => {
-    if (!dateString) return '—';
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-GB');
-};
+const formatDate = (dateString) => formatDisplayDate(dateString);
 
 const DetailRow = ({ label, children }) => (
     <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2.5 last:border-0">
@@ -208,6 +226,7 @@ const getExpensePartyDetailLines = (expense) => {
     if (!party?.details) return [];
     const d = party.details;
     if (party.type === 'bank') {
+        if (isCashBankParty(party)) return [];
         const lines = [];
         if (d.holder) lines.push(d.holder);
         if (d.account_no) lines.push(`A/c ${d.account_no}`);
@@ -317,7 +336,7 @@ const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency, on
                                 {formatDate(expense.expense_date || expense.transaction_date)}
                             </DetailRow>
                             <DetailRow label="Remark">
-                                <span className="block max-w-[14rem] truncate" title={expense.remark || ''}>
+                                <span className="block max-w-[14rem] whitespace-pre-wrap break-words text-right">
                                     {expense.remark || '—'}
                                 </span>
                             </DetailRow>
@@ -395,7 +414,9 @@ const ViewExpenses = () => {
     const [editRecord, setEditRecord] = useState(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [detailsExpense, setDetailsExpense] = useState(null);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [showActionMenu, setShowActionMenu] = useState(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState(null);
+    const actionAnchorRef = useRef(null);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -566,7 +587,9 @@ const ViewExpenses = () => {
     const openEditModal = (record) => {
         setEditRecord(record);
         setEditModalOpen(true);
-        setActiveRowDropdown(null);
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
         setDetailsOpen(false);
         setDetailsExpense(null);
     };
@@ -581,12 +604,97 @@ const ViewExpenses = () => {
         handleExpenseSuccess();
     };
 
-    const toggleRowDropdown = (expenseId) => {
-        setActiveRowDropdown(activeRowDropdown === expenseId ? null : expenseId);
-    };
+    const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+        if (!anchorEl) return null;
+
+        const itemCount = Math.max(1, Number(options.itemCount) || 2);
+        const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 176;
+        const menuHeight = 8 + itemCount * 36;
+        const gap = 8;
+        const margin = 8;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const space = {
+            top: rect.top - margin,
+            bottom: vh - rect.bottom - margin,
+            right: vw - rect.right - margin,
+            left: rect.left - margin,
+        };
+
+        const fits = {
+            top: space.top >= menuHeight + gap,
+            bottom: space.bottom >= menuHeight + gap,
+            right: space.right >= menuWidth + gap,
+            left: space.left >= menuWidth + gap,
+        };
+
+        const preferred = ['top', 'bottom', 'right', 'left'];
+        let placement = preferred.find((p) => fits[p]);
+
+        if (!placement) {
+            placement = preferred.reduce(
+                (best, p) => (space[p] > space[best] ? p : best),
+                'bottom',
+            );
+        }
+
+        let top = 0;
+        let left = 0;
+
+        if (placement === 'top') {
+            top = rect.top - menuHeight - gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'bottom') {
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'right') {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.right + gap;
+        } else {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.left - menuWidth - gap;
+        }
+
+        const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+        const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+        const anchorCenterX = rect.left + rect.width / 2;
+        const anchorCenterY = rect.top + rect.height / 2;
+
+        return {
+            top: clampedTop,
+            left: clampedLeft,
+            placement,
+            arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+            arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
+        };
+    }, []);
+
+    const closeActionMenu = useCallback(() => {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+    }, []);
+
+    const handleActionClick = useCallback((e, expenseId) => {
+        e.stopPropagation();
+        if (showActionMenu === expenseId) {
+            closeActionMenu();
+            return;
+        }
+        actionAnchorRef.current = e.currentTarget;
+        setActionMenuPosition(computeActionMenuPosition(e.currentTarget, { itemCount: 2 }));
+        setShowActionMenu(expenseId);
+    }, [showActionMenu, computeActionMenuPosition, closeActionMenu]);
+
+    const activeExpense = useMemo(
+        () => expenses.find((row) => row.expense_id === showActionMenu) || null,
+        [expenses, showActionMenu]
+    );
 
     const openExpenseDetails = (expense) => {
-        setActiveRowDropdown(null);
+        closeActionMenu();
         setDetailsExpense(expense);
         setDetailsOpen(true);
     };
@@ -597,14 +705,37 @@ const ViewExpenses = () => {
     };
 
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
-                setActiveRowDropdown(null);
-            }
+        const handleClickOutside = () => {
+            closeActionMenu();
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [closeActionMenu]);
+
+    useEffect(() => {
+        if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+        const updatePosition = () => {
+            setActionMenuPosition(
+                computeActionMenuPosition(actionAnchorRef.current, { itemCount: 2 })
+            );
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') closeActionMenu();
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [showActionMenu, computeActionMenuPosition, closeActionMenu]);
 
     const handleSearchChange = (e) => setSearchTerm(e.target.value);
 
@@ -796,28 +927,21 @@ const ViewExpenses = () => {
                                                         <FiFileText className="h-8 w-8 text-slate-400" />
                                                     </div>
                                                     <p className="mb-1 text-sm font-medium text-slate-600">No expense records found</p>
-                                                    <p className="mb-4 text-xs text-slate-500">Try adjusting filters or create a new expense entry</p>
-                                                    {check('finance_entry') && (
-                                                        <motion.button
-                                                            type="button"
-                                                            onClick={() => setShowCreateExpenseModal(true)}
-                                                            className="rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:shadow"
-                                                            whileHover={{ scale: 1.02 }}
-                                                            whileTap={{ scale: 0.98 }}
-                                                        >
-                                                            Create expense entry
-                                                        </motion.button>
-                                                    )}
+                                                    <p className="text-xs text-slate-500">
+                                                        {searchTerm || selectedItem || selectedType
+                                                            ? 'Try adjusting your search or filters'
+                                                            : 'Start by creating your first expense entry'}
+                                                    </p>
                                                 </div>
                                             </td>
                                         </tr>
                                     ) : (
                                         currentItems.map((expense, index) => {
-                                            const isDropdownOpen = activeRowDropdown === expense.expense_id;
                                             const actualIndex = (currentPage - 1) * itemsPerPage + index;
                                             const itemName = getExpenseItemDisplayName(expense);
                                             const itemType = getExpenseItemDisplayType(expense);
                                             const partyMeta = getExpensePartyMeta(expense);
+                                            const isCashPaidFrom = isCashBankParty(expense.expense_party);
 
                                             return (
                                                 <motion.tr
@@ -840,7 +964,11 @@ const ViewExpenses = () => {
                                                             <div className="truncate text-xs font-semibold text-slate-800">{itemName}</div>
                                                             <div className="mt-1 flex flex-col items-center gap-1">
                                                                 {partyMeta ? (
-                                                                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
+                                                                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium capitalize ${
+                                                                        isCashPaidFrom
+                                                                            ? 'bg-yellow-100 text-yellow-700'
+                                                                            : 'bg-slate-100 text-slate-600'
+                                                                    }`}>
                                                                         {partyMeta}
                                                                     </span>
                                                                 ) : null}
@@ -870,58 +998,15 @@ const ViewExpenses = () => {
                                                         </button>
                                                     </td>
                                                     <td className="p-3 text-center align-middle">
-                                                        <div className="dropdown-container relative flex justify-center">
-                                                            <motion.button
+                                                        <div className="flex justify-center">
+                                                            <button
                                                                 type="button"
-                                                                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-colors duration-150 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600"
-                                                                onClick={() => toggleRowDropdown(expense.expense_id)}
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                                aria-label="Actions"
+                                                                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-colors duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                                                                onClick={(e) => handleActionClick(e, expense.expense_id)}
                                                             >
-                                                                <FiMenu className="h-3.5 w-3.5" />
-                                                            </motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && (
-                                                                    <motion.div
-                                                                        initial={{ opacity: 0, y: 5 }}
-                                                                        animate={{ opacity: 1, y: 0 }}
-                                                                        exit={{ opacity: 0, y: 5 }}
-                                                                        className="absolute right-0 z-50 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
-                                                                    >
-                                                                        <div className="py-1">
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => openExpenseDetails(expense)}
-                                                                                className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors hover:bg-emerald-50"
-                                                                            >
-                                                                                <div className="mr-2 rounded bg-emerald-50 p-1"><FiEye className="h-3 w-3 text-emerald-600" /></div>
-                                                                                <span className="font-medium">View Details</span>
-                                                                            </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                className={`flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors hover:bg-emerald-50 ${!check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
-                                                                                    }`}
-                                                                                onClick={() => {
-                                                                                    if (!check('finance_entry_edit')) {
-                                                                                        toast.error('Need Access Permission');
-                                                                                        return;
-                                                                                    }
-                                                                                    openEditModal(expense);
-                                                                                }}
-                                                                            >
-                                                                                <div className="mr-2 rounded bg-blue-50 p-1">
-                                                                                    {!check('finance_entry_edit') ? (
-                                                                                        <FiLock className="h-3 w-3 text-slate-400" />
-                                                                                    ) : (
-                                                                                        <FiEdit className="h-3 w-3 text-blue-500" />
-                                                                                    )}
-                                                                                </div>
-                                                                                <span className="font-medium">Edit Expense</span>
-                                                                            </button>
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
+                                                                <FiMoreVertical className="h-4 w-4" />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -948,6 +1033,78 @@ const ViewExpenses = () => {
                     </motion.div>
                 </div>
             </div>
+
+            {showActionMenu && activeExpense && actionMenuPosition && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    className="fixed w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
+                    style={{
+                        top: actionMenuPosition.top,
+                        left: actionMenuPosition.left,
+                        height: 'auto',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span
+                        className="absolute w-2.5 h-2.5 bg-white border-slate-200 rotate-45"
+                        style={{
+                            left:
+                                actionMenuPosition.placement === 'left' ||
+                                actionMenuPosition.placement === 'right'
+                                    ? undefined
+                                    : `${actionMenuPosition.arrowX - 5}px`,
+                            top:
+                                actionMenuPosition.placement === 'bottom'
+                                    ? '-5px'
+                                    : actionMenuPosition.placement === 'top'
+                                        ? undefined
+                                        : `${actionMenuPosition.arrowY - 5}px`,
+                            bottom: actionMenuPosition.placement === 'top' ? '-5px' : undefined,
+                            right: actionMenuPosition.placement === 'left' ? '-5px' : undefined,
+                            borderTopWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderLeftWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderBottomWidth: actionMenuPosition.placement === 'top' ? '1px' : '0',
+                            borderRightWidth:
+                                actionMenuPosition.placement === 'left'
+                                    ? '1px'
+                                    : actionMenuPosition.placement === 'right'
+                                        ? '1px'
+                                        : '0',
+                        }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => openExpenseDetails(activeExpense)}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+                    >
+                        <FiEye className="w-4 h-4 text-indigo-600" />
+                        Details
+                    </button>
+                    <button
+                        type="button"
+                        className={`w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
+                        onClick={() => {
+                            if (!check('finance_entry_edit')) {
+                                toast.error('Need Access Permission');
+                                return;
+                            }
+                            openEditModal(activeExpense);
+                        }}
+                    >
+                        {!check('finance_entry_edit') ? (
+                            <FiLock className="w-4 h-4 text-slate-400" />
+                        ) : (
+                            <FiEdit className="w-4 h-4 text-blue-600" />
+                        )}
+                        Edit
+                    </button>
+                </motion.div>,
+                document.body
+            )}
 
             <TransactionModalManager
                 modalType="EXPENSE"

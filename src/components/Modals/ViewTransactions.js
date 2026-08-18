@@ -478,7 +478,14 @@ export const resolveSaleTaskId = (sale) => {
     if (sale.task_id != null && String(sale.task_id).trim() !== '') {
         return String(sale.task_id).trim();
     }
-    const items = Array.isArray(sale.items) ? sale.items : [];
+    if (sale.particular?.task_id != null && String(sale.particular.task_id).trim() !== '') {
+        return String(sale.particular.task_id).trim();
+    }
+    const items = Array.isArray(sale.items)
+        ? sale.items
+        : Array.isArray(sale.particular?.sale_items)
+            ? sale.particular.sale_items
+            : [];
     for (let i = 0; i < items.length; i++) {
         const remark = items[i]?.remark != null ? String(items[i].remark).trim() : '';
         if (/^task:/i.test(remark)) {
@@ -490,7 +497,12 @@ export const resolveSaleTaskId = (sale) => {
 };
 
 export const isTaskOriginSale = (sale) =>
-    Boolean(sale?.is_task === true || sale?.is_task === 1 || String(sale?.is_task ?? '').trim() === '1');
+    Boolean(
+        sale?.is_task === true ||
+        sale?.is_task === 1 ||
+        String(sale?.is_task ?? '').trim() === '1' ||
+        Boolean(resolveSaleTaskId(sale))
+    );
 
 /**
  * Sale register details (list/API shape from GET /sale/list).

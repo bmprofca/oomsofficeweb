@@ -70,6 +70,21 @@ const mapBankPartyToSelection = (party) => {
     };
 };
 
+const fetchBankDetailsById = async (bankId) => {
+    const id = String(bankId || '').trim();
+    if (!id) return null;
+    try {
+        const response = await axios.get(`${API_BASE_URL}/transaction/bank/details`, {
+            params: { bank_id: id },
+            headers: getHeaders(),
+        });
+        return response.data?.success ? response.data.data : null;
+    } catch (error) {
+        console.error('Error fetching bank details:', error);
+        return null;
+    }
+};
+
 const mapUserPartyToFirm = (party) => {
     const d = party?.details || {};
     const type = party?.type || 'client';
@@ -119,6 +134,7 @@ const mapUserPartyToJournal = (party) => {
             userType: 'bank',
             holder: d.holder,
             account_no: d.account_no,
+            type: d.type,
         };
     }
     const firm = mapUserPartyToFirm(party);
@@ -544,7 +560,8 @@ const BaseModal = ({
     const titleSize = compact ? 'text-base font-semibold' : 'text-lg sm:text-xl font-bold';
     const shellRadius = compact ? 'rounded-xl' : 'rounded-2xl';
     const shellMaxH = 'max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]';
-    const modalTransition = { duration: 0.2, ease: 'easeOut' };
+    const overlayTransition = { duration: 0.2, ease: 'easeOut' };
+    const panelTransition = { duration: 0.22, ease: [0.16, 1, 0.3, 1] };
 
     /* Portal to document.body so fixed positioning is viewport-based. Nested layouts
        (e.g. Framer Motion with transform) otherwise create a containing block and distort
@@ -552,28 +569,35 @@ const BaseModal = ({
     return createPortal(
         <AnimatePresence>
             {isOpen ? (
-                <>
-                    <motion.div
-                        key="base-modal-backdrop"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={modalTransition}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10050]"
+                <motion.div
+                    key="base-modal"
+                    role="presentation"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={overlayTransition}
+                    className="fixed inset-0 z-[10050] flex items-center justify-center overflow-y-auto overflow-x-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
+                >
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
                         onClick={handleOverlayClick}
+                        aria-hidden
                     />
                     <motion.div
-                        key="base-modal-shell"
-                        initial={{ opacity: 0, scale: 0.96 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.96 }}
-                        transition={modalTransition}
-                        className="fixed inset-0 z-[10051] pointer-events-none flex items-center justify-center p-3 sm:p-4"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={typeof title === 'string' ? title : 'Dialog'}
+                        initial={{ opacity: 0, scale: 0.96, y: 14 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.97, y: 10 }}
+                        transition={panelTransition}
+                        className={`relative z-[1] pointer-events-auto w-full ${maxWidth} ${shellMaxH} overflow-hidden bg-white ${shellRadius} shadow-2xl flex flex-col text-sm text-slate-900 antialiased my-auto`}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <motion.div
                             animate={overlayBounce ? { x: [0, -10, 10, -8, 8, -4, 4, 0] } : { x: 0 }}
                             transition={{ duration: 0.42, ease: 'easeInOut' }}
-                            className={`w-full ${maxWidth} ${shellMaxH} overflow-hidden bg-white ${shellRadius} shadow-2xl pointer-events-auto flex flex-col text-sm text-slate-900 antialiased`}
+                            className="flex min-h-0 flex-1 flex-col overflow-hidden"
                         >
                             <div className={`flex flex-wrap justify-between items-center gap-x-3 gap-y-2 ${headerPad} border-b shrink-0 ${accentStyle ? accentStyle.header : 'bg-slate-50 border-slate-200'}`}>
                                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -608,7 +632,7 @@ const BaseModal = ({
                             ) : null}
                         </motion.div>
                     </motion.div>
-                </>
+                </motion.div>
             ) : null}
         </AnimatePresence>,
         document.body
@@ -5594,7 +5618,16 @@ export const ExpenseModal = ({
     }, []);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) return undefined;
+        let cancelled = false;
+
+        const hydrateEditBank = async (bankSel) => {
+            if (!bankSel?.bank_id || hasPresetBank) return;
+            const live = await fetchBankDetailsById(bankSel.bank_id);
+            if (cancelled || !live) return;
+            setSelectedBank((prev) => ({ ...(prev || bankSel), ...live }));
+        };
+
         if (isEditMode) {
             const bankSel = mapBankPartyToSelection(editRecord.expense_party);
             setSelectedBank(bankSel || bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
@@ -5613,7 +5646,10 @@ export const ExpenseModal = ({
             setLines(editLines);
             setLoading(false);
             fetchExpenseItems();
-            return;
+            hydrateEditBank(bankSel);
+            return () => {
+                cancelled = true;
+            };
         }
         setSelectedBank(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
         setShowBankSearch(false);
@@ -5622,7 +5658,8 @@ export const ExpenseModal = ({
         setLines([{ ...EMPTY_EXPENSE_LINE }]);
         setLoading(false);
         fetchExpenseItems();
-    }, [isOpen, bankDetails, bankId, fetchExpenseItems, isEditMode, editRecord]);
+        return undefined;
+    }, [isOpen, bankDetails, bankId, fetchExpenseItems, isEditMode, editRecord, hasPresetBank]);
 
     const resolveExpenseBank = useCallback(() => {
         if (hasPresetBank) {
@@ -5696,7 +5733,7 @@ export const ExpenseModal = ({
                     {
                         expense_id: editRecord.expense_id,
                         items: payloadItems,
-                        remark: remarkText,
+                        remark: remarkText || null,
                         transaction_date: transactionDate,
                         party_id: effectiveBank.bank_id,
                         party_type: 'bank',
@@ -5717,7 +5754,7 @@ export const ExpenseModal = ({
                 `${API_BASE_URL}/expense/entry/create`,
                 {
                     items: payloadItems,
-                    remark: remarkText,
+                    remark: remarkText || null,
                     transaction_date: transactionDate,
                     party_id: effectiveBank.bank_id,
                     party_type: 'bank',
@@ -6068,7 +6105,31 @@ export const JournalModal = ({
     }, [isOpen, clientUsername, hasPresetFromParam, presetFromType]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) return undefined;
+        let cancelled = false;
+
+        const hydrateJournalEditParty = async (mapped) => {
+            if (!mapped) return mapped;
+            const type = String(mapped.userType || '').toLowerCase();
+            if (type === 'bank') {
+                const live = await fetchBankDetailsById(mapped.bank_id || mapped.party_id);
+                if (!live) return mapped;
+                return {
+                    ...mapped,
+                    ...live,
+                    bank_id: live.bank_id,
+                    party_id: live.bank_id,
+                    username: live.bank_id,
+                    name: getBankPrimaryLabel(live) || mapped.name,
+                    userType: 'bank',
+                    balance: live.balance ?? mapped.balance ?? 0,
+                };
+            }
+            const live = await fetchPresetTransactionParty(mapped.party_id || mapped.username, type);
+            if (!live) return mapped;
+            return { ...mapped, ...live, balance: live.balance ?? mapped.balance ?? 0 };
+        };
+
         if (isEditMode) {
             setTransactionDate(toIsoDateOnly(editRecord.transaction_date));
             setAmount(String(editRecord.amount ?? ''));
@@ -6078,7 +6139,20 @@ export const JournalModal = ({
             const toParty = mapUserPartyToJournal(editRecord.payment_to);
             if (fromParty && shouldShowFromSelector) fromPartyLookup.setSelectedFirm(fromParty);
             if (toParty && shouldShowToSelector) toPartyLookup.setSelectedFirm(toParty);
-            return;
+
+            (async () => {
+                const [fromLive, toLive] = await Promise.all([
+                    hydrateJournalEditParty(fromParty),
+                    hydrateJournalEditParty(toParty),
+                ]);
+                if (cancelled) return;
+                if (fromLive && shouldShowFromSelector) fromPartyLookup.setSelectedFirm(fromLive);
+                if (toLive && shouldShowToSelector) toPartyLookup.setSelectedFirm(toLive);
+            })();
+
+            return () => {
+                cancelled = true;
+            };
         }
         setExcludeForFromLookup(null);
         setExcludeForToLookup(null);
@@ -6088,6 +6162,7 @@ export const JournalModal = ({
         setLoading(false);
         fromPartyLookup.reset();
         toPartyLookup.reset();
+        return undefined;
     }, [isOpen, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const effectiveFromParty = hasPresetFromParam
@@ -6160,8 +6235,6 @@ export const JournalModal = ({
             effectiveToParty,
             effectiveToParty?.userType || 'client'
         );
-        const fromLabel = JOURNAL_PARTY_TYPE_LABELS[fromResolved.party_type] || 'User';
-        const toLabel = JOURNAL_PARTY_TYPE_LABELS[toResolved.party_type] || 'User';
 
         const payload = {
             amount: parsedAmount,
@@ -6169,9 +6242,7 @@ export const JournalModal = ({
             party2_id: toResolved.party_id,
             party1_type: fromResolved.party_type,
             party2_type: toResolved.party_type,
-            remark:
-                remarkText ||
-                `Journal transfer from ${fromLabel} ${effectiveFromParty.name || fromResolved.party_id} to ${toLabel} ${effectiveToParty.name || toResolved.party_id}`,
+            remark: remarkText || null,
             transaction_date: transactionDate,
         };
 
@@ -6453,7 +6524,23 @@ export const ContraModal = ({
     const shouldShowToBankSelector = showToBank && !hasPresetToBank;
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) return undefined;
+        let cancelled = false;
+
+        const hydrateEditBanks = async (fromBank, toBank) => {
+            const [fromLive, toLive] = await Promise.all([
+                fromBank?.bank_id && !hasPresetFromBank ? fetchBankDetailsById(fromBank.bank_id) : Promise.resolve(null),
+                toBank?.bank_id && !hasPresetToBank ? fetchBankDetailsById(toBank.bank_id) : Promise.resolve(null),
+            ]);
+            if (cancelled) return;
+            if (fromLive) {
+                setSelectedFromBank((prev) => ({ ...(prev || fromBank), ...fromLive }));
+            }
+            if (toLive) {
+                setSelectedToBank((prev) => ({ ...(prev || toBank), ...toLive }));
+            }
+        };
+
         if (isEditMode) {
             const fromBank = mapBankPartyToSelection(editRecord.payment_from);
             const toBank = mapBankPartyToSelection(editRecord.payment_to);
@@ -6465,7 +6552,10 @@ export const ContraModal = ({
             setAmount(String(editRecord.amount ?? ''));
             setDescription(editRecord.remark || '');
             setLoading(false);
-            return;
+            hydrateEditBanks(fromBank, toBank);
+            return () => {
+                cancelled = true;
+            };
         }
         setSelectedFromBank(fromBankDetails || (fromBankId ? { bank_id: fromBankId, bank: 'Selected Bank' } : null));
         setSelectedToBank(toBankDetails || (toBankId ? { bank_id: toBankId, bank: 'Selected Bank' } : null));
@@ -6475,6 +6565,9 @@ export const ContraModal = ({
         setAmount('');
         setDescription('');
         setLoading(false);
+        return () => {
+            cancelled = true;
+        };
     }, [isOpen, fromBankDetails, fromBankId, toBankDetails, toBankId, isEditMode, editRecord, hasPresetFromBank, hasPresetToBank]);
 
     const effectiveFromBank = hasPresetFromBank
@@ -6531,15 +6624,13 @@ export const ContraModal = ({
         }
 
         const remarkText = String(description || '').trim();
-        const fromBankLabel = getBankPrimaryLabel(effectiveFromBank);
-        const toBankLabel = getBankPrimaryLabel(effectiveToBank);
 
         const payload = {
             party_1: effectiveFromBank.bank_id,
             party_2: effectiveToBank.bank_id,
             transaction_date: transactionDate,
             amount: parsedAmount,
-            remark: remarkText || `Contra transfer from ${fromBankLabel} to ${toBankLabel}`,
+            remark: remarkText || null,
         };
 
         setLoading(true);
@@ -7157,6 +7248,10 @@ export const TransactionModalManager = ({
     partyType = 'client',
     partyLabel = 'client',
 }) => {
+    const typeRef = useRef(modalType);
+    if (modalType) typeRef.current = modalType;
+    const resolvedType = modalType || typeRef.current;
+
     const modalProps = {
         isOpen,
         onClose,
@@ -7185,7 +7280,7 @@ export const TransactionModalManager = ({
         partyLabel,
     };
 
-    switch (modalType) {
+    switch (resolvedType) {
         case 'RECEIVE':
             return <ReceiveModal {...modalProps} />;
         case 'PAYMENT':

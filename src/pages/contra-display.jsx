@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Header, Sidebar } from '../components/header';
 import {
     FiSearch,
     FiPlus,
     FiEdit,
     FiRepeat,
-    FiMenu,
+    FiMoreVertical,
     FiChevronRight,
     FiChevronLeft,
     FiChevronRight as FiChevronRightIcon,
@@ -36,6 +37,23 @@ import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useUserPermissions } from '../utils/permission-helper';
+
+const formatDisplayDate = (dateString) => {
+    if (!dateString) return '—';
+    const raw = String(dateString).trim();
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(raw)) return raw.slice(0, 10);
+    const iso = raw.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [year, month, day] = iso.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+};
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -271,7 +289,9 @@ const ViewContra = () => {
 
     // State for dropdown menus
     const [showAddDropdown, setShowAddDropdown] = useState(false);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [showActionMenu, setShowActionMenu] = useState(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState(null);
+    const actionAnchorRef = useRef(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
     // Export Modal State
@@ -329,10 +349,14 @@ const ViewContra = () => {
         contras.forEach((contra, index) => {
             const row = {
                 sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
-                date: contra.date || 'N/A',
+                date: formatDisplayDate(contra.date || contra.raw_data?.transaction_date),
                 voucher_no: contra.invoice_no || 'N/A',
-                from_bank: contra.out_bank || 'N/A',
-                to_bank: contra.in_bank || 'N/A',
+                from_bank: String(contra.out_type || '').toLowerCase() === 'cash'
+                    ? (contra.out_holder || 'Cash')
+                    : (contra.out_bank || contra.out_holder || 'N/A'),
+                to_bank: String(contra.in_type || '').toLowerCase() === 'cash'
+                    ? (contra.in_holder || 'Cash')
+                    : (contra.in_bank || contra.in_holder || 'N/A'),
                 amount: contra.amount || 0,
                 remark: contra.remark || ''
             };
@@ -376,7 +400,9 @@ const ViewContra = () => {
         const editPayload = record?.raw_data || record;
         setEditRecord(editPayload);
         setEditModalOpen(true);
-        setActiveRowDropdown(null);
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
         setDetailContra(null);
     };
 
@@ -441,25 +467,27 @@ const ViewContra = () => {
         return apiData.map((item) => {
             const fromBank = item.payment_from?.details || {};
             const toBank = item.payment_to?.details || {};
+            const fromIsCash = String(fromBank.type || '').toLowerCase() === 'cash';
+            const toIsCash = String(toBank.type || '').toLowerCase() === 'cash';
 
             return {
                 contra_id: item.contra_id || item.transaction_id,
                 transaction_id: item.transaction_id,
                 invoice_id: item.invoice_id,
                 invoice_no: item.invoice_no,
-                date: formatDateForDisplay(item.transaction_date),
-                out_bank: fromBank.bank || 'N/A',
-                out_account: fromBank.account_no || 'N/A',
-                out_holder: fromBank.holder || 'N/A',
-                out_type: fromBank.type || 'N/A',
-                out_ifsc: fromBank.ifsc || 'N/A',
-                out_branch: fromBank.branch || 'N/A',
-                in_bank: toBank.bank || 'N/A',
-                in_account: toBank.account_no || 'N/A',
-                in_holder: toBank.holder || 'N/A',
-                in_type: toBank.type || 'N/A',
-                in_ifsc: toBank.ifsc || 'N/A',
-                in_branch: toBank.branch || 'N/A',
+                date: item.transaction_date,
+                out_bank: fromIsCash ? '' : (fromBank.bank || ''),
+                out_account: fromIsCash ? '' : (fromBank.account_no || ''),
+                out_holder: fromBank.holder || '',
+                out_type: fromBank.type || '',
+                out_ifsc: fromIsCash ? '' : (fromBank.ifsc || ''),
+                out_branch: fromIsCash ? '' : (fromBank.branch || ''),
+                in_bank: toIsCash ? '' : (toBank.bank || ''),
+                in_account: toIsCash ? '' : (toBank.account_no || ''),
+                in_holder: toBank.holder || '',
+                in_type: toBank.type || '',
+                in_ifsc: toIsCash ? '' : (toBank.ifsc || ''),
+                in_branch: toIsCash ? '' : (toBank.branch || ''),
                 amount: parseFloat(item.amount),
                 remark: item.remark || '',
                 raw_data: item
@@ -468,15 +496,7 @@ const ViewContra = () => {
     };
 
     // Format date from API to display format
-    const formatDateForDisplay = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-    };
+    const formatDate = (dateString) => formatDisplayDate(dateString);
 
     // Format date for API (YYYY-MM-DD)
     const formatDateForAPI = (date) => {
@@ -524,24 +544,101 @@ const ViewContra = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Format date
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB');
-    };
+    const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+        if (!anchorEl) return null;
 
-    // Toggle row dropdown
-    const toggleRowDropdown = (contraId) => {
-        setActiveRowDropdown(activeRowDropdown === contraId ? null : contraId);
-    };
+        const itemCount = Math.max(1, Number(options.itemCount) || 2);
+        const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 176;
+        const menuHeight = 8 + itemCount * 36;
+        const gap = 8;
+        const margin = 8;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
 
-    // Close all dropdowns when clicking outside
+        const space = {
+            top: rect.top - margin,
+            bottom: vh - rect.bottom - margin,
+            right: vw - rect.right - margin,
+            left: rect.left - margin,
+        };
+
+        const fits = {
+            top: space.top >= menuHeight + gap,
+            bottom: space.bottom >= menuHeight + gap,
+            right: space.right >= menuWidth + gap,
+            left: space.left >= menuWidth + gap,
+        };
+
+        const preferred = ['top', 'bottom', 'right', 'left'];
+        let placement = preferred.find((p) => fits[p]);
+
+        if (!placement) {
+            placement = preferred.reduce(
+                (best, p) => (space[p] > space[best] ? p : best),
+                'bottom',
+            );
+        }
+
+        let top = 0;
+        let left = 0;
+
+        if (placement === 'top') {
+            top = rect.top - menuHeight - gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'bottom') {
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'right') {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.right + gap;
+        } else {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.left - menuWidth - gap;
+        }
+
+        const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+        const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+        const anchorCenterX = rect.left + rect.width / 2;
+        const anchorCenterY = rect.top + rect.height / 2;
+
+        return {
+            top: clampedTop,
+            left: clampedLeft,
+            placement,
+            arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+            arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
+        };
+    }, []);
+
+    const closeActionMenu = useCallback(() => {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+    }, []);
+
+    const handleActionClick = useCallback((e, contraId) => {
+        e.stopPropagation();
+        if (showActionMenu === contraId) {
+            closeActionMenu();
+            return;
+        }
+        actionAnchorRef.current = e.currentTarget;
+        setActionMenuPosition(computeActionMenuPosition(e.currentTarget, { itemCount: 2 }));
+        setShowActionMenu(contraId);
+        setShowAddDropdown(false);
+    }, [showActionMenu, computeActionMenuPosition, closeActionMenu]);
+
+    const activeContra = useMemo(
+        () => contras.find((c) => c.contra_id === showActionMenu) || null,
+        [contras, showActionMenu]
+    );
+
+    // Close export dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (!event.target.closest('.dropdown-container')) {
                 setShowAddDropdown(false);
-                setActiveRowDropdown(null);
             }
         };
 
@@ -550,6 +647,44 @@ const ViewContra = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+
+    useEffect(() => {
+        const handleClickOutside = () => {
+            closeActionMenu();
+        };
+
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [closeActionMenu]);
+
+    useEffect(() => {
+        if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+        const updatePosition = () => {
+            setActionMenuPosition(
+                computeActionMenuPosition(actionAnchorRef.current, { itemCount: 2 })
+            );
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeActionMenu();
+            }
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [showActionMenu, computeActionMenuPosition, closeActionMenu]);
 
     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
     const handlePageChange = (newPage) => {
@@ -566,8 +701,58 @@ const ViewContra = () => {
             case 'current': return 'bg-emerald-100 text-emerald-700';
             case 'salary': return 'bg-purple-100 text-purple-700';
             case 'fixed': return 'bg-orange-100 text-orange-700';
+            case 'cash': return 'bg-amber-100 text-amber-700';
             default: return 'bg-slate-100 text-slate-700';
         }
+    };
+
+    const isCashBankType = (type) => String(type || '').toLowerCase() === 'cash';
+
+    const ContraBankCell = ({ type, bank, account, holder, ifsc }) => {
+        const cash = isCashBankType(type);
+        const title = cash
+            ? (holder || 'Cash')
+            : (bank || holder || '—');
+
+        return (
+            <div className="px-2">
+                <div className="text-slate-800 font-semibold text-xs truncate" title={title}>
+                    {title}
+                </div>
+                {cash ? (
+                    <div className="mt-1 flex justify-center">
+                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getBankTypeColor(type)}`}>
+                            cash
+                        </span>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center gap-1 mt-1">
+                        {account ? (
+                            <div className="text-slate-600 text-[10px] truncate" title={account}>
+                                A/C: {account}
+                            </div>
+                        ) : null}
+                        <div className="flex items-center gap-1 flex-wrap justify-center">
+                            {holder ? (
+                                <span className="text-slate-500 text-[10px] truncate max-w-[80px]" title={holder}>
+                                    {holder}
+                                </span>
+                            ) : null}
+                            {type ? (
+                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getBankTypeColor(type)}`}>
+                                    {type}
+                                </span>
+                            ) : null}
+                        </div>
+                        {ifsc ? (
+                            <div className="text-slate-400 text-[8px] truncate">
+                                IFSC: {ifsc}
+                            </div>
+                        ) : null}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const ellipsisRemark = (text, maxWords = 10) => {
@@ -602,6 +787,7 @@ const ViewContra = () => {
                 </div>
             );
         }
+        const isCash = String(d.type || type || '').toLowerCase() === 'cash';
         return (
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -609,32 +795,45 @@ const ViewContra = () => {
                         <FiCreditCard className="w-4 h-4 text-indigo-600" />
                         {title}
                     </p>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize border ${
+                        isCash
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    }`}>
                         {d.type || type}
                     </span>
                 </div>
-                <dl className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2 col-span-2">
-                        <p className="text-slate-500 mb-0.5">Bank</p>
-                        <p className="text-slate-800 font-semibold break-words">{d.bank ?? '—'}</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
-                        <p className="text-slate-500 mb-0.5">Holder</p>
-                        <p className="text-slate-800 break-words">{d.holder ?? '—'}</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
-                        <p className="text-slate-500 mb-0.5">Account</p>
-                        <p className="text-slate-800 font-mono break-words">{d.account_no ?? '—'}</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
-                        <p className="text-slate-500 mb-0.5">IFSC</p>
-                        <p className="text-slate-800 font-mono break-words">{d.ifsc ?? '—'}</p>
-                    </div>
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
-                        <p className="text-slate-500 mb-0.5">Branch</p>
-                        <p className="text-slate-800 break-words">{d.branch ?? '—'}</p>
-                    </div>
-                </dl>
+                {isCash ? (
+                    <dl className="grid grid-cols-1 gap-2 text-xs">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                            <p className="text-slate-500 mb-0.5">Cash account</p>
+                            <p className="text-slate-800 font-semibold break-words">{d.holder || 'Cash'}</p>
+                        </div>
+                    </dl>
+                ) : (
+                    <dl className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2 col-span-2">
+                            <p className="text-slate-500 mb-0.5">Bank</p>
+                            <p className="text-slate-800 font-semibold break-words">{d.bank ?? '—'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                            <p className="text-slate-500 mb-0.5">Holder</p>
+                            <p className="text-slate-800 break-words">{d.holder ?? '—'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                            <p className="text-slate-500 mb-0.5">Account</p>
+                            <p className="text-slate-800 font-mono break-words">{d.account_no ?? '—'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                            <p className="text-slate-500 mb-0.5">IFSC</p>
+                            <p className="text-slate-800 font-mono break-words">{d.ifsc ?? '—'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                            <p className="text-slate-500 mb-0.5">Branch</p>
+                            <p className="text-slate-800 break-words">{d.branch ?? '—'}</p>
+                        </div>
+                    </dl>
+                )}
             </div>
         );
     };
@@ -906,25 +1105,14 @@ const ViewContra = () => {
                                                         <FiRepeat className="w-8 h-8 text-slate-400" />
                                                     </div>
                                                     <p className="text-slate-600 text-sm font-medium mb-1">No contra records found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">
+                                                    <p className="text-slate-500 text-xs">
                                                         {searchTerm ? 'Try adjusting your search or date filter' : 'Start by creating your first contra entry'}
                                                     </p>
-                                                    {!searchTerm && (
-                                                        <motion.button
-                                                            onClick={() => setContraTransferModal(true)}
-                                                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                            whileHover={{ scale: 1.02 }}
-                                                            whileTap={{ scale: 0.98 }}
-                                                        >
-                                                            Create Your First Contra Entry
-                                                        </motion.button>
-                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
                                     ) : (
                                         contras.map((contra, index) => {
-                                            const isDropdownOpen = activeRowDropdown === contra.contra_id;
                                             const serialNumber = (currentPage - 1) * itemsPerPage + index + 1;
 
                                             return (
@@ -947,54 +1135,22 @@ const ViewContra = () => {
                                                         </span>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="px-2">
-                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={contra.out_bank}>
-                                                                {contra.out_bank}
-                                                            </div>
-                                                            <div className="flex flex-col items-center gap-1 mt-1">
-                                                                <div className="text-slate-600 text-[10px] truncate" title={contra.out_account}>
-                                                                    A/C: {contra.out_account}
-                                                                </div>
-                                                                <div className="flex items-center gap-1 flex-wrap justify-center">
-                                                                    <span className="text-slate-500 text-[10px] truncate max-w-[80px]" title={contra.out_holder}>
-                                                                        {contra.out_holder}
-                                                                    </span>
-                                                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getBankTypeColor(contra.out_type)}`}>
-                                                                        {contra.out_type}
-                                                                    </span>
-                                                                </div>
-                                                                {contra.out_ifsc && contra.out_ifsc !== 'N/A' && (
-                                                                    <div className="text-slate-400 text-[8px] truncate">
-                                                                        IFSC: {contra.out_ifsc}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                                        <ContraBankCell
+                                                            type={contra.out_type}
+                                                            bank={contra.out_bank}
+                                                            account={contra.out_account}
+                                                            holder={contra.out_holder}
+                                                            ifsc={contra.out_ifsc}
+                                                        />
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="px-2">
-                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={contra.in_bank}>
-                                                                {contra.in_bank}
-                                                            </div>
-                                                            <div className="flex flex-col items-center gap-1 mt-1">
-                                                                <div className="text-slate-600 text-[10px] truncate" title={contra.in_account}>
-                                                                    A/C: {contra.in_account}
-                                                                </div>
-                                                                <div className="flex items-center gap-1 flex-wrap justify-center">
-                                                                    <span className="text-slate-500 text-[10px] truncate max-w-[80px]" title={contra.in_holder}>
-                                                                        {contra.in_holder}
-                                                                    </span>
-                                                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getBankTypeColor(contra.in_type)}`}>
-                                                                        {contra.in_type}
-                                                                    </span>
-                                                                </div>
-                                                                {contra.in_ifsc && contra.in_ifsc !== 'N/A' && (
-                                                                    <div className="text-slate-400 text-[8px] truncate">
-                                                                        IFSC: {contra.in_ifsc}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                                        <ContraBankCell
+                                                            type={contra.in_type}
+                                                            bank={contra.in_bank}
+                                                            account={contra.in_account}
+                                                            holder={contra.in_holder}
+                                                            ifsc={contra.in_ifsc}
+                                                        />
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
                                                         <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs">
@@ -1009,80 +1165,15 @@ const ViewContra = () => {
                                                         </div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="dropdown-container relative flex justify-center">
-                                                            <motion.button
-                                                                className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                                onClick={() => toggleRowDropdown(contra.contra_id)}
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                        <div className="flex justify-center">
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Actions"
+                                                                className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-150 border border-slate-200 hover:border-indigo-300"
+                                                                onClick={(e) => handleActionClick(e, contra.contra_id)}
                                                             >
-                                                                <FiMenu className="w-3.5 h-3.5" />
-                                                            </motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && (
-                                                                    <motion.div
-                                                                        initial={{ opacity: 0, y: 5 }}
-                                                                        animate={{ opacity: 1, y: 0 }}
-                                                                        exit={{ opacity: 0, y: 5 }}
-                                                                        className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                                    >
-                                                                        <div className="py-1">
-                                                                            <button
-                                                                                type="button"
-                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                onClick={() => {
-                                                                                    setDetailContra(contra);
-                                                                                    setActiveRowDropdown(null);
-                                                                                }}
-                                                                            >
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    <FiEye className="w-3 h-3 text-blue-500" />
-                                                                                </div>
-                                                                                <div className="text-left">
-                                                                                    <div className="font-medium">Details</div>
-                                                                                </div>
-                                                                            </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
-                                                                                    !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
-                                                                                }`}
-                                                                                onClick={() => {
-                                                                                    if (!check('finance_entry_edit')) {
-                                                                                        toast.error('Need Access Permission');
-                                                                                        return;
-                                                                                    }
-                                                                                    openEditModal(contra);
-                                                                                }}
-                                                                            >
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    {!check('finance_entry_edit') ? (
-                                                                                        <FiLock className="w-3 h-3 text-slate-400" />
-                                                                                    ) : (
-                                                                                        <FiEdit className="w-3 h-3 text-blue-500" />
-                                                                                    )}
-                                                                                </div>
-                                                                                <div className="text-left">
-                                                                                    <div className="font-medium">Edit Contra</div>
-                                                                                </div>
-                                                                            </button>
-                                                                            <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                                <button
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleOtherExport('print', contra)}
-                                                                                >
-                                                                                    <div className="p-1 bg-slate-50 rounded mr-2">
-                                                                                        <FiPrinter className="w-3 h-3 text-slate-600" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">Print</div>
-                                                                                    </div>
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
+                                                                <FiMoreVertical className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -1109,6 +1200,82 @@ const ViewContra = () => {
                     </motion.div>
                 </div>
             </div>
+
+            {/* Row actions */}
+            {showActionMenu && activeContra && actionMenuPosition && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    className="fixed w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
+                    style={{
+                        top: actionMenuPosition.top,
+                        left: actionMenuPosition.left,
+                        height: 'auto',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span
+                        className="absolute w-2.5 h-2.5 bg-white border-slate-200 rotate-45"
+                        style={{
+                            left:
+                                actionMenuPosition.placement === 'left' ||
+                                actionMenuPosition.placement === 'right'
+                                    ? undefined
+                                    : `${actionMenuPosition.arrowX - 5}px`,
+                            top:
+                                actionMenuPosition.placement === 'bottom'
+                                    ? '-5px'
+                                    : actionMenuPosition.placement === 'top'
+                                        ? undefined
+                                        : `${actionMenuPosition.arrowY - 5}px`,
+                            bottom: actionMenuPosition.placement === 'top' ? '-5px' : undefined,
+                            right: actionMenuPosition.placement === 'left' ? '-5px' : undefined,
+                            borderTopWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderLeftWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderBottomWidth: actionMenuPosition.placement === 'top' ? '1px' : '0',
+                            borderRightWidth:
+                                actionMenuPosition.placement === 'left'
+                                    ? '1px'
+                                    : actionMenuPosition.placement === 'right'
+                                        ? '1px'
+                                        : '0',
+                        }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setDetailContra(activeContra);
+                            closeActionMenu();
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+                    >
+                        <FiEye className="w-4 h-4 text-indigo-600" />
+                        Details
+                    </button>
+                    <button
+                        type="button"
+                        className={`w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
+                        onClick={() => {
+                            if (!check('finance_entry_edit')) {
+                                toast.error('Need Access Permission');
+                                return;
+                            }
+                            openEditModal(activeContra);
+                        }}
+                    >
+                        {!check('finance_entry_edit') ? (
+                            <FiLock className="w-4 h-4 text-slate-400" />
+                        ) : (
+                            <FiEdit className="w-4 h-4 text-blue-600" />
+                        )}
+                        Edit
+                    </button>
+                </motion.div>,
+                document.body
+            )}
 
             {/* Modals */}
             <TransactionModalManager

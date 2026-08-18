@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     FiPlus,
     FiEdit,
     FiFileText,
-    FiMenu,
+    FiMoreVertical,
     FiChevronDown,
     FiPrinter,
     FiX,
@@ -14,6 +14,7 @@ import {
     FiEye,
     FiLock,
     FiSearch,
+    FiDownload,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -30,8 +31,22 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useUserPermissions } from '../utils/permission-helper';
 
-const ACTIONS_MENU_WIDTH = 192;
-const ACTIONS_MENU_HEIGHT = 132;
+const formatDisplayDate = (dateString) => {
+    if (!dateString) return '—';
+    const raw = String(dateString).trim();
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(raw)) return raw.slice(0, 10);
+    const iso = raw.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [year, month, day] = iso.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+};
 
 const MODAL_BODY_CLASS =
     'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
@@ -126,7 +141,9 @@ const getJournalPartyLabel = (party, getTypeLabel) => {
     if (!party) return '—';
     const d = party.details || {};
     if (party.type === 'bank') {
-        return d.bank || d.holder || d.account_no || d.name || 'Bank account';
+        const isCash = String(d.type || '').toLowerCase() === 'cash';
+        if (isCash) return d.holder || 'Cash';
+        return d.bank || d.holder || d.name || 'Bank account';
     }
     if (party.type === 'capital') {
         return d.name || d.capital_name || 'Capital account';
@@ -134,10 +151,17 @@ const getJournalPartyLabel = (party, getTypeLabel) => {
     return d.name || d.username || getTypeLabel(party.type);
 };
 
+const getJournalPartyTypeKey = (party) => {
+    if (!party?.type) return '';
+    if (party.type === 'bank' && String(party.details?.type || '').toLowerCase() === 'cash') return 'cash';
+    return party.type;
+};
+
 const getJournalPartyDetailLines = (party) => {
     if (!party?.details) return [];
     const d = party.details;
     if (party.type === 'bank') {
+        if (String(d.type || '').toLowerCase() === 'cash') return [];
         const lines = [];
         if (d.holder) lines.push(d.holder);
         if (d.account_no) lines.push(`A/c ${d.account_no}`);
@@ -151,6 +175,30 @@ const getJournalPartyDetailLines = (party) => {
     if (d.email) return [d.email];
     if (d.mobile) return [d.mobile];
     return [];
+};
+
+const JournalPartyCell = ({ party, fallbackName, fallbackType, getAccountTypeColor, getTypeLabel }) => {
+    const d = party?.details || {};
+    const partyType = party?.type || fallbackType || '';
+    const isBank = partyType === 'bank';
+    const isCash = isBank && String(d.type || '').toLowerCase() === 'cash';
+    const title = isBank
+        ? (isCash ? (d.holder || 'Cash') : (d.bank || d.holder || fallbackName || 'Bank account'))
+        : (fallbackName || d.name || getTypeLabel?.(partyType) || '—');
+    const badgeType = isCash ? 'cash' : partyType;
+
+    return (
+        <div className="px-2">
+            <div className="text-slate-800 font-semibold text-xs truncate" title={title}>{title}</div>
+            {badgeType ? (
+                <div className="mt-1 flex items-center justify-center gap-1">
+                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getAccountTypeColor(badgeType)}`}>
+                        {badgeType}
+                    </span>
+                </div>
+            ) : null}
+        </div>
+    );
 };
 
 const JournalEntryDetailsModal = ({
@@ -167,6 +215,8 @@ const JournalEntryDetailsModal = ({
     const toLabel = getJournalPartyLabel(journal?.payment_to, getTypeLabel);
     const fromLines = getJournalPartyDetailLines(journal?.payment_from);
     const toLines = getJournalPartyDetailLines(journal?.payment_to);
+    const fromTypeKey = getJournalPartyTypeKey(journal?.payment_from);
+    const toTypeKey = getJournalPartyTypeKey(journal?.payment_to);
 
     return (
         <JournalEntryModalShell
@@ -221,11 +271,7 @@ const JournalEntryDetailsModal = ({
                                 </span>
                             </div>
                             <DetailRow label="Voucher no.">{journal.invoice_no || '—'}</DetailRow>
-                            <DetailRow label="Date">
-                                {journal.transaction_date
-                                    ? new Date(journal.transaction_date).toLocaleDateString('en-GB')
-                                    : '—'}
-                            </DetailRow>
+                            <DetailRow label="Date">{formatDisplayDate(journal.transaction_date)}</DetailRow>
                             <DetailRow label="Remark">
                                 <span className="block max-w-[14rem] whitespace-pre-wrap break-words text-right">
                                     {journal.remark || '—'}
@@ -238,9 +284,9 @@ const JournalEntryDetailsModal = ({
                                 Payment from
                             </p>
                             <DetailRow label="Party type">
-                                {journal.payment_from?.type ? (
-                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getAccountTypeColor(journal.payment_from.type)}`}>
-                                        {journal.payment_from.type}
+                                {fromTypeKey ? (
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getAccountTypeColor(fromTypeKey)}`}>
+                                        {fromTypeKey}
                                     </span>
                                 ) : '—'}
                             </DetailRow>
@@ -261,9 +307,9 @@ const JournalEntryDetailsModal = ({
                                 Payment to
                             </p>
                             <DetailRow label="Party type">
-                                {journal.payment_to?.type ? (
-                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getAccountTypeColor(journal.payment_to.type)}`}>
-                                        {journal.payment_to.type}
+                                {toTypeKey ? (
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getAccountTypeColor(toTypeKey)}`}>
+                                        {toTypeKey}
                                     </span>
                                 ) : '—'}
                             </DetailRow>
@@ -543,8 +589,9 @@ const ViewJournal = () => {
 
     // State for dropdown menus
     const [showAddDropdown, setShowAddDropdown] = useState(false);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, openUpward: false });
+    const [showActionMenu, setShowActionMenu] = useState(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState(null);
+    const actionAnchorRef = useRef(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [detailsJournal, setDetailsJournal] = useState(null);
     const [downloadingInvoice, setDownloadingInvoice] = useState(false);
@@ -603,7 +650,7 @@ const ViewJournal = () => {
         journals.forEach((journal, index) => {
             const row = {
                 sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
-                date: journal.date || 'N/A',
+                date: formatDisplayDate(journal.date) || 'N/A',
                 voucher_no: journal.invoice_no || 'N/A',
                 from: journal.from || 'N/A',
                 to: journal.to || 'N/A',
@@ -648,7 +695,9 @@ const ViewJournal = () => {
     const openEditModal = (journal) => {
         setEditRecord(journal?.raw_data || journal);
         setEditModalOpen(true);
-        setActiveRowDropdown(null);
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
         setDetailsOpen(false);
         setDetailsJournal(null);
     };
@@ -711,13 +760,13 @@ const ViewJournal = () => {
 
     // Transform API response to match the component's expected format
     const transformApiData = (apiData) => {
-        return apiData.map((item, index) => ({
+        return apiData.map((item) => ({
             journal_id: item.transaction_id,
             invoice_id: item.invoice_id,
-            date: formatDateForDisplay(item.transaction_date),
-            from: item.payment_from?.details?.name || getTypeLabel(item.payment_from?.type),
+            date: item.transaction_date,
+            from: getJournalPartyLabel(item.payment_from, getTypeLabel),
             from_type: item.payment_from?.type || '',
-            to: item.payment_to?.details?.name || getTypeLabel(item.payment_to?.type),
+            to: getJournalPartyLabel(item.payment_to, getTypeLabel),
             to_type: item.payment_to?.type || '',
             invoice_no: item.invoice_no,
             amount: parseFloat(item.amount),
@@ -742,17 +791,6 @@ const ViewJournal = () => {
             'loan': 'Loan Account'
         };
         return typeLabels[type] || type || 'Unknown Account';
-    };
-
-    // Format date from API to display format
-    const formatDateForDisplay = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
     };
 
     // Format date for API (YYYY-MM-DD)
@@ -801,7 +839,9 @@ const ViewJournal = () => {
             return;
         }
 
-        setActiveRowDropdown(null);
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
         setDownloadingInvoice(true);
 
         const toastId = toast.loading('Generating invoice…');
@@ -849,40 +889,107 @@ const ViewJournal = () => {
         }
     };
 
-    // Format date
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB');
-    };
+    const formatDate = (dateString) => formatDisplayDate(dateString);
 
-    // Toggle row dropdown
+    const getJournalActionItemCount = (journal) => (journal?.invoice_id ? 3 : 2);
+
+    const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+        if (!anchorEl) return null;
+
+        const itemCount = Math.max(1, Number(options.itemCount) || 2);
+        const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 176;
+        const menuHeight = 8 + itemCount * 36;
+        const gap = 8;
+        const margin = 8;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const space = {
+            top: rect.top - margin,
+            bottom: vh - rect.bottom - margin,
+            right: vw - rect.right - margin,
+            left: rect.left - margin,
+        };
+
+        const fits = {
+            top: space.top >= menuHeight + gap,
+            bottom: space.bottom >= menuHeight + gap,
+            right: space.right >= menuWidth + gap,
+            left: space.left >= menuWidth + gap,
+        };
+
+        const preferred = ['top', 'bottom', 'right', 'left'];
+        let placement = preferred.find((p) => fits[p]);
+
+        if (!placement) {
+            placement = preferred.reduce(
+                (best, p) => (space[p] > space[best] ? p : best),
+                'bottom',
+            );
+        }
+
+        let top = 0;
+        let left = 0;
+
+        if (placement === 'top') {
+            top = rect.top - menuHeight - gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'bottom') {
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'right') {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.right + gap;
+        } else {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.left - menuWidth - gap;
+        }
+
+        const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+        const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+        const anchorCenterX = rect.left + rect.width / 2;
+        const anchorCenterY = rect.top + rect.height / 2;
+
+        return {
+            top: clampedTop,
+            left: clampedLeft,
+            placement,
+            arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+            arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
+        };
+    }, []);
+
+    const closeActionMenu = useCallback(() => {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+    }, []);
+
+    const handleActionClick = useCallback((e, journalId) => {
+        e.stopPropagation();
+        if (showActionMenu === journalId) {
+            closeActionMenu();
+            return;
+        }
+        const journal = journals.find((j) => j.journal_id === journalId);
+        actionAnchorRef.current = e.currentTarget;
+        setActionMenuPosition(
+            computeActionMenuPosition(e.currentTarget, { itemCount: getJournalActionItemCount(journal) })
+        );
+        setShowActionMenu(journalId);
+        setShowAddDropdown(false);
+    }, [showActionMenu, computeActionMenuPosition, closeActionMenu, journals]);
+
     const activeJournal = useMemo(
-        () => journals.find((j) => j.journal_id === activeRowDropdown) || null,
-        [journals, activeRowDropdown]
+        () => journals.find((j) => j.journal_id === showActionMenu) || null,
+        [journals, showActionMenu]
     );
 
     const activeJournalHasInvoice = Boolean(activeJournal?.invoice_id);
 
-    const toggleRowDropdown = (journalId, e) => {
-        if (activeRowDropdown === journalId) {
-            setActiveRowDropdown(null);
-            return;
-        }
-        const rect = e.currentTarget.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + 8;
-        setDropdownPos({
-            top: openUpward ? undefined : rect.bottom + 4,
-            bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
-            right: window.innerWidth - rect.right,
-            openUpward,
-        });
-        setActiveRowDropdown(journalId);
-    };
-
     const openJournalDetails = (journal) => {
-        setActiveRowDropdown(null);
+        closeActionMenu();
         setDetailsJournal(journal?.raw_data || journal);
         setDetailsOpen(true);
     };
@@ -892,15 +999,10 @@ const ViewJournal = () => {
         setDetailsJournal(null);
     };
 
-    // Close all dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (
-                !event.target.closest('.dropdown-container') &&
-                !event.target.closest('[data-journal-actions-menu]')
-            ) {
+            if (!event.target.closest('.dropdown-container')) {
                 setShowAddDropdown(false);
-                setActiveRowDropdown(null);
             }
         };
 
@@ -911,15 +1013,44 @@ const ViewJournal = () => {
     }, []);
 
     useEffect(() => {
-        if (!activeRowDropdown) return undefined;
-        const close = () => setActiveRowDropdown(null);
-        window.addEventListener('scroll', close, true);
-        window.addEventListener('resize', close);
-        return () => {
-            window.removeEventListener('scroll', close, true);
-            window.removeEventListener('resize', close);
+        const handleClickOutside = () => {
+            closeActionMenu();
         };
-    }, [activeRowDropdown]);
+
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [closeActionMenu]);
+
+    useEffect(() => {
+        if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+        const updatePosition = () => {
+            setActionMenuPosition(
+                computeActionMenuPosition(actionAnchorRef.current, {
+                    itemCount: getJournalActionItemCount(activeJournal),
+                })
+            );
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeActionMenu();
+            }
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [showActionMenu, activeJournal, computeActionMenuPosition, closeActionMenu]);
 
     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
     const handlePageChange = (newPage) => {
@@ -1150,19 +1281,9 @@ const ViewJournal = () => {
                                                         <FiFileText className="w-8 h-8 text-slate-400" />
                                                     </div>
                                                     <p className="text-slate-600 text-sm font-medium mb-1">No journal entries found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">
+                                                    <p className="text-slate-500 text-xs">
                                                         {searchTerm ? 'Try adjusting your search or date filter' : 'Start by creating your first journal entry'}
                                                     </p>
-                                                    {!searchTerm && (
-                                                        <motion.button
-                                                            onClick={() => setJournalEntryModal(true)}
-                                                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                            whileHover={{ scale: 1.02 }}
-                                                            whileTap={{ scale: 0.98 }}
-                                                        >
-                                                            Create Your First Journal Entry
-                                                        </motion.button>
-                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -1182,20 +1303,22 @@ const ViewJournal = () => {
                                                     <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(journal.date)}</div></td>
                                                     <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50">{journal.invoice_no}</span></td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="px-2">
-                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={journal.from}>{journal.from}</div>
-                                                            <div className="flex items-center justify-center gap-1 mt-1">
-                                                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getAccountTypeColor(journal.from_type)}`}>{journal.from_type}</span>
-                                                            </div>
-                                                        </div>
+                                                        <JournalPartyCell
+                                                            party={journal.raw_data?.payment_from}
+                                                            fallbackName={journal.from}
+                                                            fallbackType={journal.from_type}
+                                                            getAccountTypeColor={getAccountTypeColor}
+                                                            getTypeLabel={getTypeLabel}
+                                                        />
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="px-2">
-                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={journal.to}>{journal.to}</div>
-                                                            <div className="flex items-center justify-center gap-1 mt-1">
-                                                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getAccountTypeColor(journal.to_type)}`}>{journal.to_type}</span>
-                                                            </div>
-                                                        </div>
+                                                        <JournalPartyCell
+                                                            party={journal.raw_data?.payment_to}
+                                                            fallbackName={journal.to}
+                                                            fallbackType={journal.to_type}
+                                                            getAccountTypeColor={getAccountTypeColor}
+                                                            getTypeLabel={getTypeLabel}
+                                                        />
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
                                                         <button
@@ -1207,16 +1330,15 @@ const ViewJournal = () => {
                                                         </button>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="dropdown-container relative flex justify-center">
-                                                            <motion.button
+                                                        <div className="flex justify-center">
+                                                            <button
                                                                 type="button"
-                                                                className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                                onClick={(e) => toggleRowDropdown(journal.journal_id, e)}
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                                aria-label="Actions"
+                                                                className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-150 border border-slate-200 hover:border-indigo-300"
+                                                                onClick={(e) => handleActionClick(e, journal.journal_id)}
                                                             >
-                                                                <FiMenu className="w-3.5 h-3.5" />
-                                                            </motion.button>
+                                                                <FiMoreVertical className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -1244,32 +1366,59 @@ const ViewJournal = () => {
                 </div>
             </div>
 
-            {activeRowDropdown && activeJournal && createPortal(
+            {showActionMenu && activeJournal && actionMenuPosition && createPortal(
                 <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
-                    data-journal-actions-menu
-                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    className="fixed w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
                     style={{
-                        top: dropdownPos.top,
-                        bottom: dropdownPos.bottom,
-                        right: dropdownPos.right,
-                        minWidth: ACTIONS_MENU_WIDTH,
+                        top: actionMenuPosition.top,
+                        left: actionMenuPosition.left,
+                        height: 'auto',
                     }}
+                    onClick={(e) => e.stopPropagation()}
                 >
+                    <span
+                        className="absolute w-2.5 h-2.5 bg-white border-slate-200 rotate-45"
+                        style={{
+                            left:
+                                actionMenuPosition.placement === 'left' ||
+                                actionMenuPosition.placement === 'right'
+                                    ? undefined
+                                    : `${actionMenuPosition.arrowX - 5}px`,
+                            top:
+                                actionMenuPosition.placement === 'bottom'
+                                    ? '-5px'
+                                    : actionMenuPosition.placement === 'top'
+                                        ? undefined
+                                        : `${actionMenuPosition.arrowY - 5}px`,
+                            bottom: actionMenuPosition.placement === 'top' ? '-5px' : undefined,
+                            right: actionMenuPosition.placement === 'left' ? '-5px' : undefined,
+                            borderTopWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderLeftWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderBottomWidth: actionMenuPosition.placement === 'top' ? '1px' : '0',
+                            borderRightWidth:
+                                actionMenuPosition.placement === 'left'
+                                    ? '1px'
+                                    : actionMenuPosition.placement === 'right'
+                                        ? '1px'
+                                        : '0',
+                        }}
+                    />
                     <button
                         type="button"
                         onClick={() => openJournalDetails(activeJournal)}
-                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
                     >
-                        <div className="mr-2 rounded bg-slate-50 p-1">
-                            <FiEye className="h-3 w-3 text-slate-600" />
-                        </div>
-                        <div className="text-left font-medium">View Details</div>
+                        <FiEye className="w-4 h-4 text-indigo-600" />
+                        Details
                     </button>
                     <button
                         type="button"
+                        className={`w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
                         onClick={() => {
                             if (!check('finance_entry_edit')) {
                                 toast.error('Need Access Permission');
@@ -1277,32 +1426,23 @@ const ViewJournal = () => {
                             }
                             openEditModal(activeJournal);
                         }}
-                        className={`flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 ${
-                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
-                        }`}
                     >
-                        <div className="mr-2 rounded bg-blue-50 p-1">
-                            {!check('finance_entry_edit') ? (
-                                <FiLock className="h-3 w-3 text-slate-400" />
-                            ) : (
-                                <FiEdit className="h-3 w-3 text-blue-500" />
-                            )}
-                        </div>
-                        <div className="text-left font-medium">Edit Journal</div>
+                        {!check('finance_entry_edit') ? (
+                            <FiLock className="w-4 h-4 text-slate-400" />
+                        ) : (
+                            <FiEdit className="w-4 h-4 text-blue-600" />
+                        )}
+                        Edit
                     </button>
                     {activeJournalHasInvoice ? (
                         <button
                             type="button"
                             disabled={downloadingInvoice}
                             onClick={() => handleViewInvoice(activeJournal)}
-                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-green-50 flex items-center gap-2 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            <div className="mr-2 rounded bg-green-50 p-1">
-                                <FiFileText className="h-3 w-3 text-green-500" />
-                            </div>
-                            <div className="text-left font-medium">
-                                {downloadingInvoice ? 'Downloading…' : 'View Invoice'}
-                            </div>
+                            <FiDownload className="w-4 h-4 text-green-600" />
+                            {downloadingInvoice ? 'Downloading…' : 'Download'}
                         </button>
                     ) : null}
                 </motion.div>,

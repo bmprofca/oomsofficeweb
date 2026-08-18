@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import {
     PaymentModal,
@@ -19,6 +19,13 @@ const PARTY_LABELS = {
     capital: 'capital',
 };
 
+const isTaskOriginSaleRecord = (record) =>
+    Boolean(
+        record?.is_task === true ||
+        record?.is_task === 1 ||
+        String(record?.is_task ?? '').trim() === '1'
+    );
+
 /**
  * Edit entry point mirroring CreateTransactions types.
  * Sale/Purchase use the same create form components with `editRecord`.
@@ -37,33 +44,29 @@ export const EditTransactionModalManager = ({
     partyType: partyTypeProp,
     partyLabel: partyLabelProp,
 }) => {
+    const recordRef = useRef(editRecord);
+    const typeRef = useRef(modalType);
+    if (editRecord) recordRef.current = editRecord;
+    if (modalType) typeRef.current = modalType;
+    const record = editRecord || recordRef.current;
+    const resolvedType = modalType || typeRef.current;
+
     useEffect(() => {
-        if (!isOpen || !editRecord) return;
-        if (
-            modalType === 'SALE' &&
-            (editRecord.is_task === true ||
-                editRecord.is_task === 1 ||
-                String(editRecord.is_task ?? '').trim() === '1')
-        ) {
+        if (!isOpen || !record) return;
+        if (resolvedType === 'SALE' && isTaskOriginSaleRecord(record)) {
             toast.error(
                 'This sale was created from a task. Open the related task profile to edit it.'
             );
             onClose();
         }
-    }, [isOpen, editRecord, modalType, onClose]);
+    }, [isOpen, record, resolvedType, onClose]);
 
-    if (
-        !editRecord ||
-        (modalType === 'SALE' &&
-            (editRecord.is_task === true ||
-                editRecord.is_task === 1 ||
-                String(editRecord.is_task ?? '').trim() === '1'))
-    ) {
+    if (!record || (resolvedType === 'SALE' && isTaskOriginSaleRecord(record))) {
         return null;
     }
 
-    const resolvePartyMeta = (record, direction) => {
-        const party = direction === 'from' ? record?.payment_from : record?.payment_to;
+    const resolvePartyMeta = (entry, direction) => {
+        const party = direction === 'from' ? entry?.payment_from : entry?.payment_to;
         const type = party?.type || partyTypeProp || 'client';
         return {
             partyType: type,
@@ -77,18 +80,18 @@ export const EditTransactionModalManager = ({
         onSubmit,
         formatCurrency,
         summary,
-        editRecord,
+        editRecord: record,
         showSummary,
         bankPageClientLookup,
     };
 
-    switch (modalType) {
+    switch (resolvedType) {
         case 'SALE':
             return <SaleModal {...commonProps} />;
         case 'PURCHASE':
             return <PurchaseModal {...commonProps} />;
         case 'PAYMENT': {
-            const { partyType, partyLabel } = resolvePartyMeta(editRecord, 'to');
+            const { partyType, partyLabel } = resolvePartyMeta(record, 'to');
             return (
                 <PaymentModal
                     {...commonProps}
@@ -99,7 +102,7 @@ export const EditTransactionModalManager = ({
             );
         }
         case 'RECEIVE': {
-            const { partyType, partyLabel } = resolvePartyMeta(editRecord, 'from');
+            const { partyType, partyLabel } = resolvePartyMeta(record, 'from');
             return (
                 <ReceiveModal
                     {...commonProps}
@@ -116,7 +119,7 @@ export const EditTransactionModalManager = ({
         case 'EXPENSE':
             return <ExpenseModal {...commonProps} showBank={showBank} />;
         case 'DISCOUNT': {
-            const party = editRecord?.discount_party || editRecord?.payment_from;
+            const party = record?.discount_party || record?.payment_from;
             const type = party?.type || partyTypeProp || 'client';
             return (
                 <DiscountModal

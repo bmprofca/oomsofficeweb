@@ -19,10 +19,11 @@ import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import { checkPermissionSync } from '../utils/permission-helper';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
+import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
 import { DateRangePickerField, toIsoDate } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import OpeningBalanceModal from '../components/OpeningBalanceModal';
-import { ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
+import { ViewTransactionModalManager, isTaskOriginSale, resolveSaleTaskId } from '../components/Modals/ViewTransactions';
 import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import { buildLedgerDownloadFilename } from '../utils/ledgerFilename';
 import TransactionTable, {
@@ -32,6 +33,16 @@ import TransactionTable, {
     getLedgerTransactionTypeIcon,
 } from '../components/TransactionTable';
 
+const LEDGER_EDIT_MODAL_TYPES = {
+    receive: 'RECEIVE',
+    payment: 'PAYMENT',
+    sale: 'SALE',
+    purchase: 'PURCHASE',
+    journal: 'JOURNAL',
+    expense: 'EXPENSE',
+    discount: 'DISCOUNT',
+    contra: 'CONTRA',
+};
 
 const ClientLedger = ({
     username: usernameProp,
@@ -80,6 +91,9 @@ const ClientLedger = ({
     const [downloadingLedger, setDownloadingLedger] = useState(false);
     const [selectedBank, setSelectedBank] = useState(null);
     const [detailsTransaction, setDetailsTransaction] = useState(null);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState(null);
+    const [editModalType, setEditModalType] = useState('');
     const [downloadingInvoice, setDownloadingInvoice] = useState(false);
     const [showOpeningBalanceModal, setShowOpeningBalanceModal] = useState(false);
     const [openingBalanceData, setOpeningBalanceData] = useState(null);
@@ -530,13 +544,92 @@ const ClientLedger = ({
         setActionMenuPosition(null);
     };
 
-    // Handle edit
-    const handleEdit = (transaction) => {
-        console.log('Edit transaction:', transaction);
-        toast.success('Edit functionality coming soon');
+    const closeActionMenu = useCallback(() => {
         setShowActionMenu(null);
         actionAnchorRef.current = null;
         setActionMenuPosition(null);
+    }, []);
+
+    // Handle edit
+    const handleEdit = async (transaction) => {
+        closeActionMenu();
+        if (!transaction?.transaction_id) return;
+
+        if (!checkPermissionSync('finance_entry_edit')) {
+            toast.error('Need Access Permission');
+            return;
+        }
+
+        const rawType = String(transaction.transaction_type || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '_');
+
+        if (rawType === 'opening_balance' || rawType === 'opening') {
+            toast.error('Use Set Opening Balance to edit this entry');
+            return;
+        }
+
+        const modalType = LEDGER_EDIT_MODAL_TYPES[rawType];
+        if (!modalType) {
+            toast.error('This transaction type cannot be edited from the ledger');
+            return;
+        }
+
+        if (modalType === 'SALE' && isTaskOriginSale(transaction)) {
+            const taskId = resolveSaleTaskId(transaction);
+            if (taskId) {
+                navigate(`/task/profile/${encodeURIComponent(taskId)}/details`);
+                return;
+            }
+        }
+
+        const toastId = toast.loading('Loading transaction…');
+        try {
+            const response = await axios.get(`${API_BASE_URL}/transaction/details`, {
+                params: { transaction_id: transaction.transaction_id },
+                headers: getHeaders(),
+            });
+            if (!response.data?.success || !response.data.data) {
+                toast.error(response.data?.message || 'Failed to load transaction', { id: toastId });
+                return;
+            }
+
+            const record = response.data.data;
+            if (modalType === 'SALE' && isTaskOriginSale(record)) {
+                toast.dismiss(toastId);
+                const taskId = resolveSaleTaskId(record);
+                if (!taskId) {
+                    toast.error('This sale was created from a task. Open the related task to edit it.');
+                    return;
+                }
+                navigate(`/task/profile/${encodeURIComponent(taskId)}/details`);
+                return;
+            }
+
+            setEditModalType(modalType);
+            setEditRecord(record);
+            setEditModalOpen(true);
+            setDetailsTransaction(null);
+            toast.dismiss(toastId);
+        } catch (error) {
+            toast.error(
+                error.response?.data?.message || error.message || 'Failed to load transaction',
+                { id: toastId }
+            );
+        }
+    };
+
+    const closeEditModal = () => {
+        setEditModalOpen(false);
+        setEditRecord(null);
+        setEditModalType('');
+    };
+
+    const handleEditSuccess = () => {
+        closeEditModal();
+        fetchTransactions();
+        refreshProfileBalance();
     };
 
     // Handle invoice download — POST /invoice/generate, response is a PDF blob
@@ -807,6 +900,18 @@ const ClientLedger = ({
                 summary={summary}
             />
 
+            <EditTransactionModalManager
+                modalType={editModalType}
+                isOpen={editModalOpen}
+                onClose={closeEditModal}
+                editRecord={editRecord}
+                onSubmit={handleEditSuccess}
+                formatCurrency={formatCurrencyPlain}
+                summary={summary}
+                partyType="client"
+                partyLabel="client"
+            />
+
             <DocumentShareModal
                 isOpen={showDocumentShareModal}
                 onClose={() => setShowDocumentShareModal(false)}
@@ -888,10 +993,12 @@ const ClientLedger = ({
                     </button>
                     <button
                         onClick={() => handleEdit(selectedActionTransaction)}
-                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                        className={`w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors ${
+                            !checkPermissionSync('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
                     >
                         <FiEdit2 className="w-4 h-4 text-blue-600" />
-                        Edit
+                        {isTaskOriginSale(selectedActionTransaction) ? 'Edit (Task)' : 'Edit'}
                     </button>
                     {selectedActionTransaction.downloadable ? (
                         <button
