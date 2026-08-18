@@ -72,6 +72,16 @@ Received At in modal uses `getBankTypeInfo(record)` (wraps `getReceivedAtInfo`) 
 
 See [`finance-registers.md`](./finance-registers.md) for shell, actions, and `payment_to` cash vs bank display rules.
 
+## Bulk import modals
+
+| Modal | File | Opens from |
+|-------|------|------------|
+| `BulkImportClientsModal` | [`Modals/BulkImportClientsModal.jsx`](../src/components/Modals/BulkImportClientsModal.jsx) | Client create page "Bulk Import" button (reusable anywhere) |
+| `BulkImportFirmsModal` | [`Modals/BulkImportFirmsModal.jsx`](../src/components/Modals/BulkImportFirmsModal.jsx) | Group firms page |
+
+- **Clients modal** is self-contained: file parse (SheetJS), column mapping UI, server preview + commit. Props: `open`, `onClose`, `onImported?`.
+- Uses gradient header, drag-and-drop upload zone, required/optional field mapping grid, preview table with stats.
+
 ## Attendance modal
 
 | Modal | Opens from | Notes |

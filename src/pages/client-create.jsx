@@ -766,7 +766,8 @@ const CreateClient = () => {
             break;
           case 409:
             errorMessage =
-              data.message || "A client with this PAN already exists in this branch.";
+              data.message ||
+              "A client with this PAN already exists in this branch.";
             break;
           case 422:
             errorMessage =

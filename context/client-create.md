@@ -17,6 +17,20 @@
 - Client image upload uses `uploadOneSaasFileUrl(file)`.
 - The stored `formData.image` value is a returned public URL from the upload service, not a local blob.
 
+## Bulk import
+
+- The bulk client import modal lives in [`Modals/BulkImportClientsModal.jsx`](../src/components/Modals/BulkImportClientsModal.jsx) (shared, reusable).
+- `client-create.jsx` renders it via `<BulkImportClientsModal open={showBulkModal} onClose={…} />`.
+- Props: `open` (boolean), `onClose` (callback), optional `onImported` (callback with result data).
+- The modal handles file parsing (SheetJS CDN), column mapping, preview (`/client/import?preview=true`), and commit (`/client/import`).
+- All bulk state (file, mappings, preview, errors) is internal to the modal — the parent only controls open/close.
+
+## Uniqueness rules
+
+- **PAN number** is the only unique constraint — unique per branch (checked on create, edit, and bulk import).
+- **Mobile and email** may be duplicated across clients in the same branch.
+- The PAN check on the create form (`checkPanAvailability`) shows an inline warning + existing-client modal when a match is found.
+
 ## Notes
 
 - The old hardcoded local state/district list was removed from the main address step.
