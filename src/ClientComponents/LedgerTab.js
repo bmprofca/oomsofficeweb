@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
+import { generateAndDownloadInvoice } from '../utils/invoice-download';
 import axios from 'axios';
 import { checkPermissionSync } from '../utils/permission-helper';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
@@ -654,23 +655,12 @@ const ClientLedger = ({
 
         const toastId = toast.loading('Generating invoice…');
         try {
-            const response = await axios.post(
-                `${API_BASE_URL}/invoice/generate`,
-                { invoice_id: invoiceId, type: invoiceType, response: 'pdf' },
-                { headers: getHeaders(), responseType: 'blob' }
-            );
-
-            // Build a filename from invoice_no if available
-            const filename = `invoice-${transaction.invoice_no || invoiceId}.pdf`;
-
-            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', filename);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
+            await generateAndDownloadInvoice({
+                invoiceId,
+                type: invoiceType,
+                filename: `invoice-${transaction.invoice_no || invoiceId}.pdf`,
+                headers: getHeaders(),
+            });
 
             toast.success('Invoice downloaded', { id: toastId });
         } catch (error) {

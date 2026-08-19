@@ -19,6 +19,7 @@ import toast from 'react-hot-toast';
 import { checkPermissionSync, useUserPermissions } from '../utils/permission-helper';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
+import { generateAndDownloadInvoice } from '../utils/invoice-download';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import TablePagination from '../components/TablePagination';
 import AppDialog from '../components/AppDialog';
@@ -424,28 +425,12 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
         try {
             const headers = getHeaders();
             if (!headers) throw new Error('Missing authentication.');
-            const response = await fetch(`${API_BASE_URL}/invoice/generate`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    invoice_id: item.invoice_id,
-                    type: item.invoice_type || 'sale',
-                    response: 'pdf',
-                }),
+            await generateAndDownloadInvoice({
+                invoiceId: item.invoice_id,
+                type: item.invoice_type || 'sale',
+                filename: `invoice-${item.invoice_id}.pdf`,
+                headers,
             });
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err?.message || `Request failed (${response.status})`);
-            }
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `invoice-${item.invoice_id}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
         } catch (e) {
             console.error('Download PDF:', e);
             showConfirm({

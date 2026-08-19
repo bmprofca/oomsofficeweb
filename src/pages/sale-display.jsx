@@ -43,6 +43,7 @@ import TablePagination from "../components/TablePagination";
 import DocumentShareModal from "../components/Modals/DocumentShareModal";
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
+import { generateAndDownloadInvoice } from "../utils/invoice-download";
 import axios from "axios";
 import ExportModal from "../finance/sale-exportModal";
 import toast from "react-hot-toast";
@@ -337,39 +338,17 @@ const ViewSales = () => {
         return;
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/invoice/generate`,
-        { invoice_id: invoiceId, type: "sale", response: "pdf" },
-        { headers, responseType: "blob" },
-      );
-
-      const filename = `invoice-${sale.invoice_no || invoiceId}.pdf`;
-      const url = window.URL.createObjectURL(
-        new Blob([response.data], { type: "application/pdf" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await generateAndDownloadInvoice({
+        invoiceId,
+        type: "sale",
+        filename: `invoice-${sale.invoice_no || invoiceId}.pdf`,
+        headers,
+      });
 
       toast.success("Invoice downloaded", { id: toastId });
     } catch (error) {
       console.error("Invoice download error:", error);
-      let message = error.message || "Failed to download invoice";
-      if (error.response?.data instanceof Blob) {
-        try {
-          const text = await error.response.data.text();
-          const parsed = JSON.parse(text);
-          message = parsed.message || message;
-        } catch {
-          // keep default message
-        }
-      } else if (error.response?.data?.message) {
-        message = error.response.data.message;
-      }
+      const message = error.response?.data?.message || error.message || "Failed to download invoice";
       toast.error(message, { id: toastId });
     } finally {
       setDownloadingInvoice(false);
