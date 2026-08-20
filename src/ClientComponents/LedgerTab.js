@@ -45,6 +45,22 @@ const LEDGER_EDIT_MODAL_TYPES = {
     contra: 'CONTRA',
 };
 
+/** Sale rows with an invoice can be shared via email / WhatsApp (same as sale-display). */
+const isShareableSaleInvoice = (tx) => {
+    const type = String(tx?.transaction_type || '').toLowerCase();
+    return Boolean(tx?.invoice_id) && (type === 'sale' || type === 'sale_invoice');
+};
+
+const getSaleShareContactDefaults = (tx, fallback = {}) => {
+    const details = tx?.particular?.details || {};
+    return {
+        name: details.name || fallback.name || '',
+        mobile: details.mobile || fallback.mobile || '',
+        email: details.email || fallback.email || '',
+        country_code: details.country_code || fallback.country_code || '91',
+    };
+};
+
 const ClientLedger = ({
     username: usernameProp,
     clientUsername,
@@ -89,6 +105,8 @@ const ClientLedger = ({
     const [shareMenuPosition, setShareMenuPosition] = useState(null);
     const shareAnchorRef = useRef(null);
     const [showDocumentShareModal, setShowDocumentShareModal] = useState(false);
+    const [showInvoiceShareModal, setShowInvoiceShareModal] = useState(false);
+    const [shareInvoiceTx, setShareInvoiceTx] = useState(null);
     const [downloadingLedger, setDownloadingLedger] = useState(false);
     const [selectedBank, setSelectedBank] = useState(null);
     const [detailsTransaction, setDetailsTransaction] = useState(null);
@@ -215,7 +233,7 @@ const ClientLedger = ({
 
         const updatePosition = () => {
             const tx = transactions.find((t) => t.transaction_id === showActionMenu);
-            const itemCount = 2 + (tx?.downloadable ? 1 : 0);
+            const itemCount = 2 + (tx?.downloadable ? 1 : 0) + (isShareableSaleInvoice(tx) ? 1 : 0);
             setActionMenuPosition(
                 computeActionMenuPosition(actionAnchorRef.current, { itemCount })
             );
@@ -486,6 +504,43 @@ const ClientLedger = ({
         setShowDocumentShareModal(true);
     }, []);
 
+    const handleOpenShareSaleInvoice = useCallback((transaction) => {
+        if (!isShareableSaleInvoice(transaction)) {
+            toast.error('Share is available for sale invoices only');
+            return;
+        }
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+        setShareInvoiceTx(transaction);
+        setShowInvoiceShareModal(true);
+    }, []);
+
+    const handleShareSaleInvoiceSend = useCallback(
+        async ({ channels, mobile, email, country_code }) => {
+            if (!shareInvoiceTx?.invoice_id) {
+                throw new Error('Invoice ID not available');
+            }
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/share`,
+                {
+                    invoice_id: shareInvoiceTx.invoice_id,
+                    type: 'sale',
+                    channels,
+                    mobile,
+                    email,
+                    country_code,
+                },
+                { headers: getHeaders() }
+            );
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Failed to share invoice');
+            }
+            return response.data;
+        },
+        [shareInvoiceTx]
+    );
+
     const handleShareLedgerSend = useCallback(
         async ({ channels, mobile, email, country_code }) => {
             const response = await axios.post(
@@ -532,7 +587,7 @@ const ClientLedger = ({
         const willOpen = showActionMenu !== transactionId;
         if (willOpen) {
             const tx = transactions.find((t) => t.transaction_id === transactionId);
-            const itemCount = 2 + (tx?.downloadable ? 1 : 0);
+            const itemCount = 2 + (tx?.downloadable ? 1 : 0) + (isShareableSaleInvoice(tx) ? 1 : 0);
             actionAnchorRef.current = e.currentTarget;
             setShowActionMenu(transactionId);
             setActionMenuPosition(
@@ -865,6 +920,11 @@ const ClientLedger = ({
                         onClose={() => setDetailsTransaction(null)}
                         formatCurrency={formatCurrency}
                         onDownload={handleViewInvoice}
+                        onShare={
+                            isShareableSaleInvoice(detailsTransaction)
+                                ? handleOpenShareSaleInvoice
+                                : undefined
+                        }
                         isDownloading={downloadingInvoice}
                     />
                 )}
@@ -917,6 +977,42 @@ const ClientLedger = ({
                 defaultEmail={clientEmailProp || ''}
                 defaultCountryCode={clientCountryCodeProp || '91'}
                 onSend={handleShareLedgerSend}
+            />
+
+            <DocumentShareModal
+                isOpen={showInvoiceShareModal}
+                onClose={() => {
+                    setShowInvoiceShareModal(false);
+                    setShareInvoiceTx(null);
+                }}
+                title="Share Invoice"
+                subtitle={
+                    shareInvoiceTx
+                        ? `Invoice ${shareInvoiceTx.invoice_no || shareInvoiceTx.invoice_id}`
+                        : undefined
+                }
+                recipientLabel={(() => {
+                    const contact = getSaleShareContactDefaults(shareInvoiceTx, {
+                        name: clientNameProp,
+                    });
+                    return contact.name ? `To ${contact.name}` : undefined;
+                })()}
+                defaultMobile={
+                    getSaleShareContactDefaults(shareInvoiceTx, {
+                        mobile: clientMobileProp,
+                    }).mobile
+                }
+                defaultEmail={
+                    getSaleShareContactDefaults(shareInvoiceTx, {
+                        email: clientEmailProp,
+                    }).email
+                }
+                defaultCountryCode={
+                    getSaleShareContactDefaults(shareInvoiceTx, {
+                        country_code: clientCountryCodeProp || '91',
+                    }).country_code
+                }
+                onSend={handleShareSaleInvoiceSend}
             />
 
             {/* Share dropdown */}
@@ -1002,6 +1098,16 @@ const ClientLedger = ({
                                 <FiFile className="w-4 h-4 text-green-600" />
                             )}
                             {downloadingInvoice ? 'Downloading…' : 'Download'}
+                        </button>
+                    ) : null}
+                    {isShareableSaleInvoice(selectedActionTransaction) ? (
+                        <button
+                            type="button"
+                            onClick={() => handleOpenShareSaleInvoice(selectedActionTransaction)}
+                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-teal-50 flex items-center gap-2 transition-colors"
+                        >
+                            <FiShare2 className="w-4 h-4 text-teal-600" />
+                            Share
                         </button>
                     ) : null}
                 </motion.div>,

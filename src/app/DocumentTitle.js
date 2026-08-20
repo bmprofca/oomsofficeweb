@@ -57,7 +57,7 @@ const EXACT_TITLES = {
   '/staff/office-assistance/recurring-groups': 'Recurring Groups',
   '/staff/office-assistance/groups': 'Groups',
   '/staff/office-assistance/group-firms': 'Group Firms',
-  '/staff/office-assistance/inactive-client': 'Inactive Clients',
+  '/staff/office-assistance/deleted-clients': 'Deleted Clients',
   '/staff/office-assistance/ca-list': 'CA List',
   '/staff/office-assistance/auto-reminder': 'Auto Reminder',
   '/staff/office-assistance/service-requests': 'Service Requests',

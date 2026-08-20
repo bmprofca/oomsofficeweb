@@ -266,16 +266,27 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task_ids: [task_id], status: newStatus }),
             });
-            const data = await res.json();
-            if (data.success) {
-                setTaskData((prev) => ({ ...prev, status: newStatus }));
-                toast.success(`Status updated to "${STATUS_OPTIONS.find((s) => s.value === newStatus)?.label}"`);
-                if (onTaskUpdated) onTaskUpdated();
-            } else {
-                toast.error(data.message || 'Failed to update status');
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Failed to update status');
             }
+
+            const today = new Date().toISOString().slice(0, 10);
+            setTaskData((prev) => {
+                const next = { ...prev, status: newStatus };
+                if (newStatus === 'complete') {
+                    next.dates = {
+                        ...prev.dates,
+                        complete_date: prev.dates?.complete_date || today,
+                    };
+                }
+                return next;
+            });
+            toast.success(`Status updated to "${STATUS_OPTIONS.find((s) => s.value === newStatus)?.label}"`);
+            if (onTaskUpdated) onTaskUpdated();
         } catch (err) {
             toast.error(err.message || 'Failed to update status');
+            throw err;
         } finally {
             setIsChangingStatus(false);
         }
@@ -363,6 +374,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             agentOption: taskData.has_agent ? toMemberSelectOption(taskData.agent) : null,
             due_date: taskData.dates?.due_date ? formatDateForAPI(taskData.dates.due_date) : '',
             target_date: taskData.dates?.target_date ? formatDateForAPI(taskData.dates.target_date) : '',
+            complete_date: taskData.dates?.complete_date ? formatDateForAPI(taskData.dates.complete_date) : '',
         });
         setShowEditModal(true);
     };
@@ -460,6 +472,18 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 target_date: editForm.target_date || '',
             };
 
+            const mayChangeCompleteDate =
+                String(taskData.status || '').toLowerCase() === 'complete' &&
+                checkPermissionSync('task_complete_date_change');
+            if (mayChangeCompleteDate) {
+                if (!editForm.complete_date) {
+                    toast.error('Complete date is required.', { id: toastId });
+                    setIsSaving(false);
+                    return;
+                }
+                payload.complete_date = editForm.complete_date;
+            }
+
             const res = await fetch(`${API_BASE_URL}/task/edit/${task_id}`, {
                 method: 'PUT',
                 headers: { ...headers, 'Content-Type': 'application/json' },
@@ -489,7 +513,14 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                         ...prev.charges,
                         fees: safeFees,
                     },
-                    dates: { ...prev.dates, due_date: editForm.due_date, target_date: editForm.target_date },
+                    dates: {
+                        ...prev.dates,
+                        due_date: editForm.due_date,
+                        target_date: editForm.target_date,
+                        ...(mayChangeCompleteDate
+                            ? { complete_date: editForm.complete_date }
+                            : {}),
+                    },
                     has_ca: editForm.has_ca,
                     ca: editForm.has_ca && editForm.caOption
                         ? {
@@ -527,6 +558,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         taskData.billing_status === 'complete' || taskData.billing_status === 'non billable';
     const billNotGenerated = taskData.status === 'complete' && taskData.billing_status === 'pending';
     const canViewFees = checkPermissionSync('task_fees_view');
+    const isTaskComplete = String(taskData.status || '').toLowerCase() === 'complete';
+    const canChangeCompleteDate =
+        isTaskComplete && checkPermissionSync('task_complete_date_change');
     const feesBlur = !canViewFees ? 'blur-[3.5px] select-none' : '';
 
     const statusLabel =
@@ -723,7 +757,18 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                         {formatDate(taskData.dates?.target_date)}
                                     </span>
                                 </MetaField>
-                                <MetaField label="Created" className="sm:col-span-2 lg:col-span-1 xl:col-span-2">
+                                {isTaskComplete ? (
+                                    <MetaField label="Complete Date">
+                                        <span className="inline-flex items-center gap-1.5 text-green-700">
+                                            <FiCalendar className="h-3.5 w-3.5 text-green-600" />
+                                            {formatDate(taskData.dates?.complete_date)}
+                                        </span>
+                                    </MetaField>
+                                ) : null}
+                                <MetaField
+                                    label="Created"
+                                    className={isTaskComplete ? '' : 'sm:col-span-2 lg:col-span-1 xl:col-span-2'}
+                                >
                                     {formatDate(taskData.dates?.create_date)}
                                 </MetaField>
                             </div>
@@ -1026,6 +1071,29 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                             />
                                                         </div>
                                                     )}
+                                                    {isTaskComplete ? (
+                                                        canChangeCompleteDate ? (
+                                                            <div>
+                                                                <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                                                                    Complete Date
+                                                                </label>
+                                                                <DatePickerField
+                                                                    value={editForm.complete_date}
+                                                                    onChange={(value) => setEF({ complete_date: value || '' })}
+                                                                    placeholder="Select complete date"
+                                                                    mode="single"
+                                                                    initialTab="single"
+                                                                    quickOptionKeys={['td', 'yd', 'n7', 'eom']}
+                                                                    buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <LockedField
+                                                                label="Complete Date"
+                                                                value={editForm.complete_date ? formatDate(editForm.complete_date) : '—'}
+                                                            />
+                                                        )
+                                                    ) : null}
                                                 </div>
                                             </div>
 

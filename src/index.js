@@ -57,7 +57,7 @@ import {
   RecurringGroups,
   Groups,
   GroupFirms,
-  ViewInactiveClients,
+  ViewDeletedClients,
   CAList,
   CAProfile,
   AutoReminder,
@@ -647,10 +647,13 @@ root.render(
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/inactive-client" element={
+            <Route path="/staff/office-assistance/deleted-clients" element={
               <ProtectedRoute>
-                <ViewInactiveClients />
+                <ViewDeletedClients />
               </ProtectedRoute>
+            } />
+            <Route path="/staff/office-assistance/inactive-client" element={
+              <Navigate to="/staff/office-assistance/deleted-clients" replace />
             } />
 
             <Route path="/staff/office-assistance/ca-list" element={

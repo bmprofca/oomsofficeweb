@@ -41,7 +41,7 @@ export const ComplianceAssignmentDetails = lazy(() => import('../pages/office-as
 export const RecurringGroups = lazy(() => import('../pages/office-assistance/recurring-group'));
 export const Groups = lazy(() => import('../pages/office-assistance/groups'));
 export const GroupFirms = lazy(() => import('../pages/office-assistance/group-firms'));
-export const ViewInactiveClients = lazy(() => import('../pages/office-assistance/inactive-client'));
+export const ViewDeletedClients = lazy(() => import('../pages/office-assistance/deleted-clients'));
 export const CAList = lazy(() => import('../pages/office-assistance/ca-list'));
 export const CAProfile = lazy(() => import('../pages/office-assistance/ca-profile'));
 export const AutoReminder = lazy(() => import('../pages/office-assistance/auto-reminder'));

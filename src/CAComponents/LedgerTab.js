@@ -45,6 +45,21 @@ const LEDGER_EDIT_MODAL_TYPES = {
     contra: 'CONTRA',
 };
 
+const isShareableSaleInvoice = (tx) => {
+    const type = String(tx?.transaction_type || '').toLowerCase();
+    return Boolean(tx?.invoice_id) && (type === 'sale' || type === 'sale_invoice');
+};
+
+const getSaleShareContactDefaults = (tx, fallback = {}) => {
+    const details = tx?.particular?.details || {};
+    return {
+        name: details.name || fallback.name || '',
+        mobile: details.mobile || fallback.mobile || '',
+        email: details.email || fallback.email || '',
+        country_code: details.country_code || fallback.country_code || '91',
+    };
+};
+
 const normalizeOpeningBalance = (openingBal) => {
     if (typeof openingBal === 'object' && openingBal !== null) {
         return {
@@ -109,6 +124,8 @@ export default function LedgerTab({
     const [shareMenuPosition, setShareMenuPosition] = useState(null);
     const shareAnchorRef = useRef(null);
     const [showDocumentShareModal, setShowDocumentShareModal] = useState(false);
+    const [showInvoiceShareModal, setShowInvoiceShareModal] = useState(false);
+    const [shareInvoiceTx, setShareInvoiceTx] = useState(null);
     const [downloadingLedger, setDownloadingLedger] = useState(false);
     const [selectedBank, setSelectedBank] = useState(null);
     const [detailsTransaction, setDetailsTransaction] = useState(null);
@@ -305,7 +322,7 @@ export default function LedgerTab({
 
         const updatePosition = () => {
             const txn = transactions.find((t) => t.transaction_id === showActionMenu);
-            const itemCount = 2 + (txn?.downloadable ? 1 : 0);
+            const itemCount = 2 + (txn?.downloadable ? 1 : 0) + (isShareableSaleInvoice(txn) ? 1 : 0);
             setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current, itemCount));
         };
 
@@ -470,6 +487,43 @@ export default function LedgerTab({
         setShowDocumentShareModal(true);
     }, []);
 
+    const handleOpenShareSaleInvoice = useCallback((transaction) => {
+        if (!isShareableSaleInvoice(transaction)) {
+            toast.error('Share is available for sale invoices only');
+            return;
+        }
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+        setShareInvoiceTx(transaction);
+        setShowInvoiceShareModal(true);
+    }, []);
+
+    const handleShareSaleInvoiceSend = useCallback(
+        async ({ channels, mobile, email, country_code }) => {
+            if (!shareInvoiceTx?.invoice_id) {
+                throw new Error('Invoice ID not available');
+            }
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/share`,
+                {
+                    invoice_id: shareInvoiceTx.invoice_id,
+                    type: 'sale',
+                    channels,
+                    mobile,
+                    email,
+                    country_code,
+                },
+                { headers: getHeaders() }
+            );
+            if (!response.data?.success) {
+                throw new Error(response.data?.message || 'Failed to share invoice');
+            }
+            return response.data;
+        },
+        [shareInvoiceTx]
+    );
+
     const handleShareLedgerSend = useCallback(
         async ({ channels, mobile, email, country_code }) => {
             const response = await axios.post(
@@ -512,7 +566,7 @@ export default function LedgerTab({
         const willOpen = showActionMenu !== transactionId;
         if (willOpen) {
             const txn = transactions.find((t) => t.transaction_id === transactionId);
-            const itemCount = 2 + (txn?.downloadable ? 1 : 0);
+            const itemCount = 2 + (txn?.downloadable ? 1 : 0) + (isShareableSaleInvoice(txn) ? 1 : 0);
             actionAnchorRef.current = e.currentTarget;
             setShowActionMenu(transactionId);
             setActionMenuPosition(computeActionMenuPosition(e.currentTarget, itemCount));
@@ -856,6 +910,11 @@ export default function LedgerTab({
                         onClose={() => setDetailsTransaction(null)}
                         formatCurrency={formatCurrency}
                         onDownload={handleViewInvoice}
+                        onShare={
+                            isShareableSaleInvoice(detailsTransaction)
+                                ? handleOpenShareSaleInvoice
+                                : undefined
+                        }
                         isDownloading={downloadingInvoice}
                     />
                 )}
@@ -907,6 +966,42 @@ export default function LedgerTab({
                 defaultEmail={caEmail || ''}
                 defaultCountryCode={caCountryCode || '91'}
                 onSend={handleShareLedgerSend}
+            />
+
+            <DocumentShareModal
+                isOpen={showInvoiceShareModal}
+                onClose={() => {
+                    setShowInvoiceShareModal(false);
+                    setShareInvoiceTx(null);
+                }}
+                title="Share Invoice"
+                subtitle={
+                    shareInvoiceTx
+                        ? `Invoice ${shareInvoiceTx.invoice_no || shareInvoiceTx.invoice_id}`
+                        : undefined
+                }
+                recipientLabel={(() => {
+                    const contact = getSaleShareContactDefaults(shareInvoiceTx, {
+                        name: caName,
+                    });
+                    return contact.name ? `To ${contact.name}` : undefined;
+                })()}
+                defaultMobile={
+                    getSaleShareContactDefaults(shareInvoiceTx, {
+                        mobile: caMobile,
+                    }).mobile
+                }
+                defaultEmail={
+                    getSaleShareContactDefaults(shareInvoiceTx, {
+                        email: caEmail,
+                    }).email
+                }
+                defaultCountryCode={
+                    getSaleShareContactDefaults(shareInvoiceTx, {
+                        country_code: caCountryCode || '91',
+                    }).country_code
+                }
+                onSend={handleShareSaleInvoiceSend}
             />
 
             {showShareMenu &&
@@ -1009,6 +1104,16 @@ export default function LedgerTab({
                                     <FiFile className="h-4 w-4 text-green-600" />
                                 )}
                                 {downloadingInvoice ? 'Downloading…' : 'Download'}
+                            </button>
+                        ) : null}
+                        {isShareableSaleInvoice(selectedActionTransaction) ? (
+                            <button
+                                type="button"
+                                onClick={() => handleOpenShareSaleInvoice(selectedActionTransaction)}
+                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-teal-50"
+                            >
+                                <FiShare2 className="h-4 w-4 text-teal-600" />
+                                Share
                             </button>
                         ) : null}
                     </motion.div>,

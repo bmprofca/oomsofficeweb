@@ -122,6 +122,7 @@ export const fetchUserPermissions = async (force = false) => {
                         'task_create',
                         'task_cancel',
                         'task_complete',
+                        'task_complete_date_change',
                         'task_fees_view',
                         'client_create',
                         'client_edit',

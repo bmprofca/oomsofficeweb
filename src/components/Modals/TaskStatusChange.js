@@ -102,10 +102,17 @@ const TaskStatusChange = ({
                         </div>
 
                         <div className="p-4 border-b border-gray-200 overflow-y-auto">
+                            {!isBulk && currentStatus === 'cancel' && (
+                                <div className="mb-3 flex items-start gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                    <FiInfo className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                                    <p>This task is cancelled. You can change it to another status to reopen it.</p>
+                                </div>
+                            )}
                             <div className="mb-2">
                                 <div className="space-y-1.5">
                                     {visibleStatusOptions.map((status) => {
                                         const isCurrentStatus = !isBulk && status.value === currentStatus;
+                                        // Complete is final — cancel is not; cancelled tasks may be reopened.
                                         const isBlockedByCompleteRule = !isBulk && currentStatus === 'complete' && status.value !== 'complete';
                                         let isBlockedByPermission = false;
                                         if (status.value === 'cancel' && !checkPermissionSync('task_cancel')) {
@@ -156,14 +163,15 @@ const TaskStatusChange = ({
                                     <FiInfo className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                                     <p>
                                         This will update all {selectedCount} selected task{selectedCount !== 1 ? 's' : ''} to the chosen status.
+                                        Cancelled tasks can be reopened; completed tasks cannot change status.
                                     </p>
                                 </div>
                             )}
                             {showFinalStatusWarning && (
                                 <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                                     {isBulk
-                                        ? 'Tasks marked complete cannot be changed to another status.'
-                                        : "After changing the status can't be changed on other status."}
+                                        ? 'Tasks marked complete cannot be changed to another status. Cancelled tasks can still be reopened.'
+                                        : "After marking complete, the status can't be changed to another status."}
                                 </div>
                             )}
                             <div className="flex justify-end gap-2">

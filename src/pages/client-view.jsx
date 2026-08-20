@@ -50,7 +50,7 @@ import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaFileCsv } from "react-icons/fa";
-import DeleteConfirmationModal from "../components/delete-confirmation";
+import ClientDeleteConfirmModal from "../components/Modals/ClientDeleteConfirmModal";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import API_BASE_URL from "../utils/api-controller";
@@ -1082,8 +1082,16 @@ const ViewClients = () => {
     data: null,
   });
   const navigate = useNavigate();
-  const [deleteModal, SetDeleteModal] = useState(false);
-  const [deleteOtp, SetDeleteOtp] = useState("");
+  const [deleteModal, setDeleteModal] = useState({
+    open: false,
+    username: "",
+    name: "",
+    sending: false,
+    confirming: false,
+    otpSent: false,
+    destinationMasked: null,
+    error: null,
+  });
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [activeDragId, setActiveDragId] = useState(null);
   const [activeItemDragId, setActiveItemDragId] = useState(null);
@@ -1629,6 +1637,147 @@ const ViewClients = () => {
       firms: [],
       clientName: "",
     });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({
+      open: false,
+      username: "",
+      name: "",
+      sending: false,
+      confirming: false,
+      otpSent: false,
+      destinationMasked: null,
+      error: null,
+    });
+  };
+
+  const sendClientDeleteOtp = async (username, name = "") => {
+    const headers = getHeaders();
+    if (!headers) {
+      toast.error("Please log in again");
+      return false;
+    }
+
+    setDeleteModal((prev) => ({
+      ...prev,
+      open: true,
+      username,
+      name: name || prev.name || username,
+      sending: true,
+      otpSent: false,
+      destinationMasked: null,
+      error: null,
+    }));
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/client/delete/send-otp`,
+        { username },
+        { headers },
+      );
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Failed to send OTP");
+      }
+
+      setDeleteModal((prev) => ({
+        ...prev,
+        sending: false,
+        otpSent: true,
+        destinationMasked: response.data?.destination_masked || null,
+        error: null,
+      }));
+      toast.success(
+        response.data?.message || "OTP sent to your email and mobile",
+      );
+      return true;
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to send delete OTP";
+      setDeleteModal((prev) => ({
+        ...prev,
+        open: true,
+        username,
+        name: name || prev.name || username,
+        sending: false,
+        otpSent: false,
+        destinationMasked: null,
+        error: message,
+      }));
+      return false;
+    }
+  };
+
+  const openDeleteClientModal = async (client) => {
+    const username = String(client?.username || "").trim();
+    if (!username) {
+      toast.error("Client username is missing");
+      return;
+    }
+    setActiveRowDropdown(null);
+    await sendClientDeleteOtp(username, client?.name || username);
+  };
+
+  const handleConfirmClientDelete = async ({ confirmed, otp }) => {
+    if (!confirmed) {
+      closeDeleteModal();
+      return;
+    }
+
+    const username = deleteModal.username;
+    if (!username) {
+      setDeleteModal((prev) => ({
+        ...prev,
+        confirming: false,
+        error: "Client username is missing",
+      }));
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      setDeleteModal((prev) => ({
+        ...prev,
+        confirming: false,
+        error: "Please log in again",
+      }));
+      return;
+    }
+
+    setDeleteModal((prev) => ({ ...prev, confirming: true, error: null }));
+    try {
+      const response = await axios.delete(`${API_BASE_URL}/client/delete`, {
+        headers,
+        data: { username, otp },
+      });
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Failed to delete client");
+      }
+
+      toast.success(response.data?.message || "Client deleted successfully");
+      closeDeleteModal();
+      setSelectedClients((prev) => {
+        const next = new Set(prev);
+        const deletedClient = clients.find((c) => c.username === username);
+        if (deletedClient?._id != null) next.delete(deletedClient._id);
+        return next;
+      });
+      requestClients(pagination.page, pagination.limit);
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to delete client";
+      setDeleteModal((prev) => ({
+        ...prev,
+        confirming: false,
+        error: message,
+      }));
+    }
   };
 
   const openPaymentReminderModal = () => {
@@ -2862,7 +3011,7 @@ const ViewClients = () => {
                   openClientPaymentReminderModal={
                     openClientPaymentReminderModal
                   }
-                  onDeleteClient={() => SetDeleteModal(true)}
+                  onDeleteClient={(client) => openDeleteClientModal(client)}
                 />
               ) : (
                 <ClientCards
@@ -2888,7 +3037,7 @@ const ViewClients = () => {
                   openClientPaymentReminderModal={
                     openClientPaymentReminderModal
                   }
-                  onDeleteClient={() => SetDeleteModal(true)}
+                  onDeleteClient={(client) => openDeleteClientModal(client)}
                 />
               )}
             </div>
@@ -2972,8 +3121,7 @@ const ViewClients = () => {
                   check={check}
                   onClose={() => setActiveRowDropdown(null)}
                   onDelete={() => {
-                    setActiveRowDropdown(null);
-                    SetDeleteModal(true);
+                    openDeleteClientModal(activeClient);
                   }}
                 />
               </motion.div>
@@ -3064,14 +3212,21 @@ const ViewClients = () => {
         jobType="client_report"
       />
 
-      {deleteModal && (
-        <DeleteConfirmationModal
-          title="Client Delete"
-          onConfirm={(res) => {
-            SetDeleteModal(false);
-          }}
-        />
-      )}
+      <ClientDeleteConfirmModal
+        isOpen={deleteModal.open}
+        title={`Delete ${deleteModal.name || "Client"}`}
+        description="Enter the OTP sent to your registered email and mobile to remove this client from the branch."
+        destinationMasked={deleteModal.destinationMasked}
+        otpSent={deleteModal.otpSent}
+        loading={deleteModal.sending}
+        confirming={deleteModal.confirming}
+        error={deleteModal.error}
+        onConfirm={handleConfirmClientDelete}
+        onCancel={closeDeleteModal}
+        onResend={() =>
+          sendClientDeleteOtp(deleteModal.username, deleteModal.name)
+        }
+      />
     </div>
   );
 };
