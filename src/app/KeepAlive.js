@@ -39,15 +39,30 @@ const KEEP_ALIVE_EXCLUDE_PREFIXES = [
   '/broadcast/whatsapp/web/session',
 ];
 
+/**
+ * Exact paths that must never be keep-alive cached.
+ * Broadcast hub tabs are channel switchboards (not list→details); parking them
+ * in the host + redirect races left a blank outlet until hard refresh.
+ */
+const KEEP_ALIVE_EXCLUDE_EXACT = new Set([
+  '/broadcast',
+  '/broadcast/whatsapp',
+  '/broadcast/sms',
+  '/broadcast/email-channel',
+]);
+
 export function isKeepAlivePath(pathname = '') {
+  const path = String(pathname || '').replace(/\/+$/, '') || '/';
+  if (KEEP_ALIVE_EXCLUDE_EXACT.has(path)) return false;
   return !KEEP_ALIVE_EXCLUDE_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
   );
 }
 
 export function getKeepAliveKey(location) {
   if (!location) return '';
-  return `${location.pathname}${location.search || ''}`;
+  const path = String(location.pathname || '').replace(/\/+$/, '') || '/';
+  return `${path}${location.search || ''}`;
 }
 
 let version = 0;
@@ -139,6 +154,10 @@ function deactivateKeepAliveHost() {
 
 function releaseKeepAlive(key) {
   if (!key || activeKey !== key) return;
+  // Do not emit here. Emitting with activeKey=null paints a blank host frame
+  // when the next route's KeepAlivePage has not claimed yet (or already claimed
+  // during render — in which case this is a no-op above). Location changes and
+  // the next page's layout effect emit() will refresh the host.
   activeKey = null;
 }
 
@@ -229,10 +248,22 @@ function dismissOverlays() {
   // and many outside-click handlers call event.target.closest(...).
   const target = document.body;
   if (!target) return;
-  target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-  target.dispatchEvent(
-    new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 0, clientY: 0, view: window })
-  );
+  try {
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    );
+    target.dispatchEvent(
+      new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 0,
+        clientY: 0,
+        view: window,
+      })
+    );
+  } catch (_) {
+    // Never let overlay cleanup crash route transitions.
+  }
 }
 
 function KeepAliveSlot({ cacheKey, active, locationCtx, routeCtx, children }) {
@@ -325,6 +356,9 @@ function KeepAliveHost() {
   const slots = Array.from(entries.entries());
   const locationKey = getKeepAliveKey(location);
   const showKey = isKeepAlivePath(location.pathname) ? locationKey : null;
+  const claimed = Boolean(showKey) && activeKey === showKey && entries.has(showKey);
+  // KeepAlivePage returns null while content lives here — never leave that gap blank.
+  const showOutletFallback = Boolean(showKey) && !claimed;
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined' || !window.history?.scrollRestoration) return undefined;
@@ -337,11 +371,12 @@ function KeepAliveHost() {
 
   return (
     <div data-keep-alive-host="" data-keep-alive-version={versionTick}>
+      {showOutletFallback ? <RouteLoadingFallback /> : null}
       {slots.map(([key, entry]) => (
         <KeepAliveSlot
           key={key}
           cacheKey={key}
-          active={Boolean(showKey) && key === showKey && key === activeKey}
+          active={claimed && key === showKey}
           locationCtx={entry.locationCtx}
           routeCtx={entry.routeCtx}
         >

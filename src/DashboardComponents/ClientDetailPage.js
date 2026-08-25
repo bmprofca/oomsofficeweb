@@ -8,7 +8,6 @@ import {
     FiPhone,
     FiMail,
     FiBriefcase,
-    FiDollarSign,
     FiCheckCircle,
     FiX,
     FiArrowLeft,

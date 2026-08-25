@@ -7,7 +7,6 @@ import {
     FiRefreshCw,
     FiAlertCircle,
     FiUsers,
-    FiDollarSign,
     FiShoppingBag,
     FiGift,
     FiEye,
@@ -30,6 +29,7 @@ import {
     FiArchive,
     FiMessageSquare,
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { Sidebar, Header } from '../components/header';
 import TablePagination from '../components/TablePagination';
 import ClientPaymentReminderModal from '../components/Modals/ClientPaymentReminderModal';
@@ -714,7 +714,7 @@ const QuickStatsDetailsPage = () => {
         switch (type) {
             case 'pending-billing': return <FiShoppingBag className="w-4 h-4" />;
             case 'creditors': return <FiUsers className="w-4 h-4" />;
-            case 'debtors': return <FiDollarSign className="w-4 h-4" />;
+            case 'debtors': return <TbCurrencyRupee className="w-4 h-4" />;
             case 'today-birthday': return <FiGift className="w-4 h-4" />;
             default: return <FiUsers className="w-4 h-4" />;
         }

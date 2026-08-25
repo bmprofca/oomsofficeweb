@@ -986,7 +986,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
           { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
         ]
       },
-      { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast', permission: 'broadcast_' },
+      { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast/whatsapp', permission: 'broadcast_' },
       ...(whatsappChannel === 'onechatting'
         ? [{
           key: 'whatsapp-live-chat',

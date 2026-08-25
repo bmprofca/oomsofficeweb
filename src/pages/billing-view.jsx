@@ -13,7 +13,6 @@ import {
   FiClock,
   FiCalendar,
   FiCheckSquare,
-  FiDollarSign,
   FiFilePlus,
   FiDownload,
   FiSend,
@@ -36,9 +35,8 @@ import {
 import toast from "react-hot-toast";
 import { useUserPermissions } from "../utils/permission-helper";
 import { PiFilePdfDuotone } from "react-icons/pi";
-import { TbFileInvoice, TbCurrencyRupee } from "react-icons/tb";
+import { TbFileInvoice } from "react-icons/tb";
 import {
-  MdOutlineAttachMoney,
   MdOutlineMoneyOffCsred,
   MdOutlineDashboard,
 } from "react-icons/md";

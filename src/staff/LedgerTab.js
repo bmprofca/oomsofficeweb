@@ -94,6 +94,7 @@ export default function LedgerTab({
     staffCountryCode = '91',
     staffData,
     onProfileRefresh,
+    readOnly = false,
 }) {
     const navigate = useNavigate();
     const username = usernameProp || staffUsername || staffData?.username;
@@ -458,6 +459,7 @@ export default function LedgerTab({
     };
 
     const handleCreateTransaction = async () => {
+        if (readOnly) return;
         setShowTransactionModal(false);
         setSelectedBank(null);
         fetchTransactions();
@@ -481,6 +483,7 @@ export default function LedgerTab({
     };
 
     const handleEdit = async (transaction) => {
+        if (readOnly) return;
         setShowActionMenu(null);
         actionAnchorRef.current = null;
         setActionMenuPosition(null);
@@ -687,7 +690,7 @@ export default function LedgerTab({
                     </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        {canViewFees && (
+                        {canViewFees && !readOnly && (
                             <button
                                 type="button"
                                 onClick={handleOpenOpeningBalanceModal}
@@ -739,6 +742,7 @@ export default function LedgerTab({
                         >
                             <FiDownload className="h-5 w-5 text-slate-600" />
                         </motion.button>
+                        {!readOnly ? (
                         <div className="relative">
                             <motion.button
                                 type="button"
@@ -776,6 +780,7 @@ export default function LedgerTab({
                                 </div>
                             )}
                         </div>
+                        ) : null}
                     </div>
                 </div>
             </motion.div>
@@ -810,6 +815,7 @@ export default function LedgerTab({
                 />
             </motion.div>
 
+            {!readOnly ? (
             <OpeningBalanceModal
                 isOpen={showOpeningBalanceModal}
                 onClose={() => setShowOpeningBalanceModal(false)}
@@ -821,6 +827,7 @@ export default function LedgerTab({
                 onSubmit={handleSetOpeningBalance}
                 formatCurrency={formatCurrency}
             />
+            ) : null}
 
             <AnimatePresence>
                 {detailsTransaction && (
@@ -839,6 +846,7 @@ export default function LedgerTab({
                 )}
             </AnimatePresence>
 
+            {!readOnly ? (
             <TransactionModalManager
                 modalType={transactionType}
                 isOpen={showTransactionModal}
@@ -857,7 +865,9 @@ export default function LedgerTab({
                 partyType="staff"
                 partyLabel="Staff"
             />
+            ) : null}
 
+            {!readOnly ? (
             <EditTransactionModalManager
                 modalType={editModalType}
                 isOpen={editModalOpen}
@@ -869,6 +879,7 @@ export default function LedgerTab({
                 partyType="staff"
                 partyLabel="Staff"
             />
+            ) : null}
 
             <DocumentShareModal
                 isOpen={showInvoiceShareModal}
@@ -952,6 +963,7 @@ export default function LedgerTab({
                             <FiEye className="h-4 w-4 text-indigo-600" />
                             Details
                         </button>
+                        {!readOnly ? (
                         <button
                             type="button"
                             onClick={() => handleEdit(selectedActionTransaction)}
@@ -962,6 +974,7 @@ export default function LedgerTab({
                             <FiEdit2 className="h-4 w-4 text-blue-600" />
                             {isTaskOriginSale(selectedActionTransaction) ? 'Edit (Task)' : 'Edit'}
                         </button>
+                        ) : null}
                         {selectedActionTransaction.downloadable ? (
                             <button
                                 type="button"

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FiX, FiCalendar, FiDollarSign, FiFileText, FiArrowRight, FiCreditCard, FiHash, FiPlus, FiUser, FiTrash2, FiChevronDown, FiMail, FiMessageSquare, FiSearch } from 'react-icons/fi';
+import { FiX, FiCalendar, FiFileText, FiArrowRight, FiCreditCard, FiHash, FiPlus, FiUser, FiTrash2, FiChevronDown, FiMail, FiMessageSquare, FiSearch } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 
@@ -211,7 +212,7 @@ const DiscountForm = ({
             <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
                 <div className="flex items-center space-x-3">
                     <div className="p-1.5 bg-white/10 rounded-lg">
-                        <FiDollarSign className="w-5 h-5" />
+                        <TbCurrencyRupee className="w-5 h-5" />
                     </div>
                     <div className="flex items-center space-x-4">
                         <h2 className="text-lg font-bold">Discount Payment</h2>
@@ -411,7 +412,7 @@ const DiscountForm = ({
                                 </div>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                                        <FiDollarSign className="w-4 h-4 text-gray-400" />
+                                        <TbCurrencyRupee className="w-4 h-4 text-gray-400" />
                                     </div>
                                     <input
                                         type="number"

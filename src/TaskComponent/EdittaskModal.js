@@ -14,7 +14,6 @@ import {
     FiUsers,
     FiBriefcase,
     FiCalendar,
-    FiDollarSign,
     FiUserCheck,
     FiUserPlus,
     FiFileText,
@@ -32,6 +31,7 @@ import {
     FiRefreshCw,
     FiSearch
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import 'rsuite/dist/rsuite.min.css';
 
 // Add custom styles for DatePicker to fix z-index
@@ -487,7 +487,7 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                                         Fees (₹) <span className="text-red-500">*</span>
                                                     </label>
                                                     <div className="relative">
-                                                        <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base" />
+                                                        <TbCurrencyRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base" />
                                                         <input
                                                             type="number"
                                                             name="fees"

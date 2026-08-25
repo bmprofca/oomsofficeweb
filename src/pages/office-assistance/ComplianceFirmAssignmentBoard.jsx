@@ -618,7 +618,7 @@ export const ComplianceFirmAssignmentBoard = ({
                   Fees
                 </th>
                 <th className="px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">
-                  Due day
+                  Due offset
                 </th>
                 <th className="px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">
                   Effective from
@@ -682,7 +682,9 @@ export const ComplianceFirmAssignmentBoard = ({
                       </div>
                     </td>
                     <td className="px-3 py-3 text-sm font-medium text-gray-700">
-                      Day {row.due_date || '—'}
+                      {row.due_date != null && row.due_date !== ''
+                        ? `${Number(row.due_date) > 0 ? '+' : ''}${row.due_date}d`
+                        : '—'}
                     </td>
                     <td className="px-3 py-3 text-sm font-medium text-gray-700 whitespace-nowrap">
                       {row.effective_from || '—'}

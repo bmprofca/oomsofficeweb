@@ -10,8 +10,8 @@ import {
     FiMessageCircle,
     FiUsers,
     FiHome,
-    FiDollarSign,
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { Building2, Loader2 } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription';
 import GateScreenLayout, {
@@ -47,7 +47,7 @@ export const PLAN_CONFIG = {
         subheadline: 'Upgrade to configure staff salaries, adjustments, and payslips.',
         requiredPlan: 'BusinessPlus',
         planLabel: 'BusinessPlus Plan',
-        icon: FiDollarSign,
+        icon: TbCurrencyRupee,
         gradient: 'from-violet-600 via-purple-600 to-fuchsia-500',
         softBg: 'bg-violet-50',
         softBorder: 'border-violet-200',

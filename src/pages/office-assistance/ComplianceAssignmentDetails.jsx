@@ -7,7 +7,7 @@ import React, {
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     FiArrowLeft, FiRefreshCw, FiCheckCircle, FiAlertCircle,
-    FiLayers, FiChevronRight, FiChevronDown, FiDollarSign,
+    FiLayers, FiChevronRight, FiChevronDown,
     FiX, FiInfo, FiBriefcase, FiCalendar, FiUser, FiShare2, FiLock, FiEye, FiEyeOff, FiCopy
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa6';

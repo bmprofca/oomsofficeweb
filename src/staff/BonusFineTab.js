@@ -131,7 +131,7 @@ function TableSkeleton({ rows = 8 }) {
   );
 }
 
-const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
+const BonusFineTab = ({ username: usernameProp, variants, setBonusFine, readOnly = false }) => {
   const username = usernameProp || "";
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -317,6 +317,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
   };
 
   const openCreate = () => {
+    if (readOnly) return;
     closeActionMenu();
     setSelected(null);
     setModalMode("create");
@@ -324,6 +325,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
   };
 
   const openEdit = (row) => {
+    if (readOnly) return;
     closeActionMenu();
     setSelected(row);
     setModalMode("edit");
@@ -392,6 +394,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
   };
 
   const handleDelete = async (row) => {
+    if (readOnly) return;
     if (!row?.entry_id) return;
     setSaving(true);
     const loadingToast = toast.loading("Deleting…");
@@ -445,6 +448,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
               className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
             />
                             </button>
+          {!readOnly ? (
                             <button
             type="button"
             onClick={openCreate}
@@ -454,6 +458,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
             <FiPlus className="w-3.5 h-3.5" />
             Add
                             </button>
+          ) : null}
         </div>
       </div>
 
@@ -580,6 +585,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
                                                 )}
                                             </td>
                       <td className="px-3 py-2.5 text-right">
+                        {!readOnly ? (
                                                     <button
                           type="button"
                           onClick={(e) => toggleActionMenu(e, row)}
@@ -589,6 +595,9 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine }) => {
                         >
                           <FiMoreVertical className="w-4 h-4" />
                                                     </button>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
                                             </td>
                                         </tr>
                   ))}

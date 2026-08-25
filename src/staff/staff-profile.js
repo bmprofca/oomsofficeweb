@@ -5,7 +5,7 @@
 // import {
 //     FiUser,
 //     FiClock,
-//     FiDollarSign,
+//     TbCurrencyRupee,
 //     FiAward,
 //     FiBriefcase,
 //     FiBookOpen,
@@ -196,11 +196,11 @@
 //     const profileTabs = [
 //         { id: 'profile', name: 'Profile', icon: FiUser, path: '/staff/profile/profile' },
 //         { id: 'attendance', name: 'Attendance', icon: FiClock, path: '/staff/profile/attendance' },
-//         { id: 'expense', name: 'Expense', icon: FiDollarSign, path: '/staff/profile/expense' },
+//         { id: 'expense', name: 'Expense', icon: TbCurrencyRupee, path: '/staff/profile/expense' },
 //         { id: 'bonus-fine', name: 'Bonus/Fine', icon: FiAward, path: '/staff/profile/bonus-fine' },
 //         { id: 'salary', name: 'Salary', icon: FiBriefcase, path: '/staff/profile/salary' },
 //         { id: 'ledger', name: 'Ledger', icon: FiBookOpen, path: '/staff/profile/ledger' },
-//         { id: 'loan', name: 'Loan', icon: FiDollarSign, path: '/staff/profile/loan' },
+//         { id: 'loan', name: 'Loan', icon: TbCurrencyRupee, path: '/staff/profile/loan' },
 //         { id: 'performance', name: 'Performance', icon: FiTrendingUp, path: '/staff/profile/performance' },
 //         { id: 'entry-report', name: 'Entry Report', icon: FiFileText, path: '/staff/profile/entry-report' }
 //     ];

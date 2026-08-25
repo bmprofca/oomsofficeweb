@@ -382,7 +382,7 @@ const PreviewAttachmentModal = ({ url, base64, onClose }) => {
 };
 
 // --- Action Dropdown Menu ---
-const ActionMenu = ({ expense, onView, onVerify, onEdit, onDelete, onPreview }) => {
+const ActionMenu = ({ expense, onView, onVerify, onEdit, onDelete, onPreview, readOnly = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -401,9 +401,11 @@ const ActionMenu = ({ expense, onView, onVerify, onEdit, onDelete, onPreview }) 
     // Check for any attachment data (URL or base64)
     if (expense.attachment_url || expense.attachment_base64) actions.push({ label: 'Preview', icon: FiPaperclip, action: onPreview });
     actions.push({ label: 'View', icon: FiEye, action: onView });
-    if (expense.status === 'Pending') actions.push({ label: 'Verify', icon: FiCheckCircle, action: onVerify });
-    if (expense.status === 'Pending') actions.push({ label: 'Edit', icon: FiEdit2, action: onEdit });
-    if (expense.status !== 'Approved') actions.push({ label: 'Delete', icon: FiTrash2, action: onDelete });
+    if (!readOnly) {
+      if (expense.status === 'Pending') actions.push({ label: 'Verify', icon: FiCheckCircle, action: onVerify });
+      if (expense.status === 'Pending') actions.push({ label: 'Edit', icon: FiEdit2, action: onEdit });
+      if (expense.status !== 'Approved') actions.push({ label: 'Delete', icon: FiTrash2, action: onDelete });
+    }
     return actions;
   };
 
@@ -567,7 +569,7 @@ const FilterButtons = ({ activeFilter, onFilterChange, counts }) => {
 };
 
 // --- Main Component ---
-const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses: setExternalExpenses, variants }) => {
+const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses: setExternalExpenses, variants, readOnly = false }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(null);
   const [showViewModal, setShowViewModal] = useState(null);
@@ -657,6 +659,7 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
   };
   
   const handleAddExpense = async (newExpenseData) => {
+    if (readOnly) return;
     if (!currentStaffUsername) {
       alert('Staff username not found');
       return;
@@ -700,6 +703,7 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
 
   // Admin verification using the new /verify endpoint
   const handleVerifyExpense = async (expenseId, action, remarks) => {
+    if (readOnly) return;
     const response = await fetch(`${API_BASE_URL}/staff-expenses/verify`, {
       method: 'POST',
       headers: {
@@ -722,6 +726,7 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
   };
 
   const handleDeleteExpense = async (id) => {
+    if (readOnly) return;
     const expenseToDelete = expenses.find(e => e.id === id);
     if (expenseToDelete?.status === 'Approved') {
       if (!window.confirm('This expense is already in ledger. Delete will not reverse ledger entry. Continue?')) return;
@@ -740,6 +745,7 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
   };
 
   const handleEditExpense = async (expense) => {
+    if (readOnly) return;
     const newTitle = prompt('Edit title:', expense.title);
     if (newTitle && newTitle !== expense.title) {
       const response = await fetch(`${API_BASE_URL}/staff-expenses/update/${expense.id}`, {
@@ -814,9 +820,11 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
               <p className="text-xs text-green-600 font-medium">Ledger Balance</p>
               <p className="text-xl font-bold text-green-700">₹{ledger.totalApproved.toLocaleString()}</p>
             </div>
+            {!readOnly ? (
             <button onClick={() => setShowAddModal(true)} className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm">
               + Add Expense
             </button>
+            ) : null}
           </div>
         </div>
 
@@ -873,6 +881,7 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
                     <td className="px-4 py-3 whitespace-nowrap text-center">
                       <ActionMenu
                         expense={expense}
+                        readOnly={readOnly}
                         onView={() => setShowViewModal(expense)}
                         onVerify={() => setShowVerifyModal(expense)}
                         onEdit={() => handleEditExpense(expense)}
@@ -911,8 +920,8 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
 
       {/* Modals */}
       <AnimatePresence>
-        {showAddModal && <AddExpenseModal onClose={() => setShowAddModal(false)} onAdd={handleAddExpense} />}
-        {showVerifyModal && <AdminVerifyModal expense={showVerifyModal} onClose={() => setShowVerifyModal(null)} onVerify={handleVerifyExpense} />}
+        {!readOnly && showAddModal && <AddExpenseModal onClose={() => setShowAddModal(false)} onAdd={handleAddExpense} />}
+        {!readOnly && showVerifyModal && <AdminVerifyModal expense={showVerifyModal} onClose={() => setShowVerifyModal(null)} onVerify={handleVerifyExpense} />}
         {showViewModal && <ViewExpenseModal expense={showViewModal} onClose={() => setShowViewModal(null)} />}
         {showPreviewModal && <PreviewAttachmentModal url={previewData.url} base64={previewData.base64} onClose={() => setShowPreviewModal(false)} />}
       </AnimatePresence>

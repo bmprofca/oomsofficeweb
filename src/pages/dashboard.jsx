@@ -8,7 +8,6 @@ import {
   FiUsers,
   FiShoppingCart,
   FiCreditCard,
-  FiDollarSign,
   FiCalendar,
   FiPieChart,
   FiBarChart2,
@@ -34,6 +33,7 @@ import {
   FiLock,
   FiBriefcase,
 } from "react-icons/fi";
+import { TbCurrencyRupee } from "react-icons/tb";
 import { motion } from "framer-motion";
 import TaskSummary from "../DashboardComponents/task-summary";
 import getHeaders from "../utils/get-headers";
@@ -190,7 +190,7 @@ const getDefaultQuickStatsCards = () => [
     id: "today-received",
     title: "Today Received",
     value: "today_received",
-    icon: FiDollarSign,
+    icon: TbCurrencyRupee,
     color: "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
     gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
     link: "/finance/voucher/received?today=true",

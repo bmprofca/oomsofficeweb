@@ -6,7 +6,6 @@ import {
   FiSettings,
   FiBarChart2,
   FiMessageSquare,
-  FiLayers,
   FiMail,
   FiLoader,
   FiMessageCircle,
@@ -22,11 +21,18 @@ import {
 } from "../services/whatsappApi";
 import { setStoredWhatsappChannel } from "../services/whatsappChannelStore";
 import { useWhatsappChannel } from "../hooks/useWhatsappChannel";
+import {
+  smsApi,
+  SMS_CHANNEL_OPTIONS,
+  SMS_SUB_TABS,
+} from "../services/smsApi";
+import { setStoredSmsChannel } from "../services/smsChannelStore";
+import { useSmsChannel } from "../hooks/useSmsChannel";
 import { useUserPermissions } from "../utils/permission-helper";
 
 const TAB_META = {
   whatsapp: { label: "WhatsApp", accent: "green", icon: FiMessageCircle },
-  "text-message": { label: "SMS", accent: "blue", icon: FiMessageSquare },
+  sms: { label: "SMS", accent: "blue", icon: FiMessageSquare },
   "email-channel": { label: "Email", accent: "indigo", icon: FiMail },
 };
 
@@ -105,7 +111,7 @@ const ChannelSwitchPills = ({
 const Broadcast = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
-  const allowedTabs = ["whatsapp", "text-message", "email-channel"];
+  const allowedTabs = ["whatsapp", "sms", "email-channel"];
   const activeTab = allowedTabs.includes(tab) ? tab : "whatsapp";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
@@ -115,17 +121,13 @@ const Broadcast = () => {
 
   const { check } = useUserPermissions();
 
-  // Channel states
-  const [textMessageChannel, setTextMessageChannel] = useState("ooms");
   const whatsappChannel = useWhatsappChannel();
+  const smsChannel = useSmsChannel();
   const [whatsappSubTab, setWhatsappSubTab] = useState("ooms system");
+  const [smsSubTab, setSmsSubTab] = useState("fast2sms");
   const [whatsappChannelSaving, setWhatsappChannelSaving] = useState(false);
-  const [isHeadBranch, setIsHeadBranch] = useState(true); // Mock data - in real app, get from props/API
+  const [smsChannelSaving, setSmsChannelSaving] = useState(false);
 
-  // Mock app settings
-  const [appSettings, setAppSettings] = useState({
-    text_message_channel: "ooms",
-  });
 
   // Persist sidebar minimized state
   useEffect(() => {
@@ -144,60 +146,17 @@ const Broadcast = () => {
     };
   }, [mobileMenuOpen]);
 
-  // Load initial settings
-  useEffect(() => {
-    setTextMessageChannel(appSettings.text_message_channel);
-  }, [appSettings]);
-
   useEffect(() => {
     if (whatsappChannel !== "disabled") {
       setWhatsappSubTab(whatsappChannel);
     }
   }, [whatsappChannel]);
 
-  // Text Message Cards data
-  const textMessageCards = [
-    {
-      title: "SMS Gateways",
-      description: "Manage SMS configurations",
-      icon: <FiSettings className="w-5 h-5" />,
-      link: "/broadcast/sms/configs",
-      color: "bg-blue-100 text-blue-600",
-      permission: "broadcast_config_edit",
-    },
-    {
-      title: "Templates",
-      description: "Manage text template messages",
-      icon: <FiFileText className="w-5 h-5" />,
-      link: "/broadcast/sms/templates",
-      color: "bg-blue-100 text-blue-600",
-      permission: "broadcast_config_edit",
-    },
-    {
-      title: "Campaigns",
-      description: "View all text message campaigns",
-      icon: <FiLayers className="w-5 h-5" />,
-      link: "/broadcast/sms",
-      color: "bg-blue-100 text-blue-600",
-      permission: ["broadcast_send", "broadcast_config_edit"],
-    },
-    {
-      title: "Launch Broadcast",
-      description: "Send a new text message broadcast",
-      icon: <FiSend className="w-5 h-5" />,
-      link: "/broadcast/sms/create",
-      color: "bg-blue-100 text-blue-600",
-      permission: "broadcast_send",
-    },
-    {
-      title: "Reports",
-      description: "View SMS delivery logs and stats",
-      icon: <FiBarChart2 className="w-5 h-5" />,
-      link: "/broadcast/report?tab=text-message",
-      color: "bg-blue-100 text-blue-600",
-      permission: ["broadcast_send", "broadcast_config_edit"],
-    },
-  ];
+  useEffect(() => {
+    if (smsChannel !== "disabled") {
+      setSmsSubTab(smsChannel);
+    }
+  }, [smsChannel]);
 
   // WhatsApp OOMS Cards data
   const whatsappOomsCards = [
@@ -259,6 +218,41 @@ const Broadcast = () => {
       icon: <FiSettings className="w-5 h-5" />,
       link: "/broadcast/whatsapp/onechatting/configure",
       color: "bg-green-100 text-green-600",
+      permission: "broadcast_config_edit",
+    },
+  ];
+
+  const smsFast2SmsCards = [
+    {
+      title: "Templates",
+      description: "DLT templates and system type mapping",
+      icon: <FiFileText className="w-5 h-5" />,
+      link: "/broadcast/sms/fast2sms/templates",
+      color: "bg-blue-100 text-blue-600",
+      permission: "broadcast_config_edit",
+    },
+    {
+      title: "Create Campaign",
+      description: "Send SMS template campaigns",
+      icon: <FiSend className="w-5 h-5" />,
+      link: "/broadcast/sms/fast2sms/campaigns/create",
+      color: "bg-blue-100 text-blue-600",
+      permission: "broadcast_send",
+    },
+    {
+      title: "Campaigns",
+      description: "View campaign delivery reports",
+      icon: <FiBarChart2 className="w-5 h-5" />,
+      link: "/broadcast/sms/fast2sms/campaigns",
+      color: "bg-blue-100 text-blue-600",
+      permission: ["broadcast_send", "broadcast_config_edit"],
+    },
+    {
+      title: "Configure",
+      description: "Fast2SMS API key, sender ID, and route",
+      icon: <FiSettings className="w-5 h-5" />,
+      link: "/broadcast/sms/fast2sms/configure",
+      color: "bg-blue-100 text-blue-600",
       permission: "broadcast_config_edit",
     },
   ];
@@ -334,19 +328,6 @@ const Broadcast = () => {
     },
   ];
 
-  // Handle channel changes
-  const handleTextMessageChannelChange = async (newChannel) => {
-    setTextMessageChannel(newChannel);
-    // In real app, make API call
-    console.log("Updating Text Message channel to:", newChannel);
-    // Simulate API call
-    // await updateTextMessageChannel(newChannel);
-  };
-
-  const textMessageChannelOptions = [
-    { value: "0", label: "Disabled" },
-    { value: "ooms", label: "OOMS" },
-  ];
 
   const handleWhatsappChannelChange = async (newChannel) => {
     const previousChannel = whatsappChannel;
@@ -374,6 +355,32 @@ const Broadcast = () => {
     setWhatsappSubTab(subTabId);
   };
 
+  const handleSmsChannelChange = async (newChannel) => {
+    const previousChannel = smsChannel;
+    setSmsChannelSaving(true);
+    try {
+      await smsApi.updateChannel({ channel: newChannel });
+      setStoredSmsChannel(newChannel);
+      toast.success("SMS channel updated successfully");
+      if (newChannel !== "disabled") {
+        setSmsSubTab(newChannel);
+      }
+    } catch (error) {
+      setStoredSmsChannel(previousChannel);
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to update SMS channel",
+      );
+    } finally {
+      setSmsChannelSaving(false);
+    }
+  };
+
+  const handleSmsSubTabChange = (subTabId) => {
+    setSmsSubTab(subTabId);
+  };
+
   const renderEmptyChannelState = (title, description, accent = "green") => (
     <div className="rounded-xl border border-dashed border-slate-300 bg-white p-7 text-center">
       <FiMessageSquare
@@ -394,6 +401,13 @@ const Broadcast = () => {
       return renderCardGrid(whatsappWebCards);
     }
     return renderCardGrid(whatsappOomsCards);
+  };
+
+  const renderSmsSubTabContent = () => {
+    if (smsSubTab === "fast2sms") {
+      return renderCardGrid(smsFast2SmsCards, "blue");
+    }
+    return renderCardGrid(smsFast2SmsCards, "blue");
   };
 
   // Render card grid
@@ -453,41 +467,6 @@ const Broadcast = () => {
     </div>
   );
 
-  // Render Text Message section
-  const renderTextMessageSection = () => (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h5 className="text-base font-semibold text-slate-800">SMS</h5>
-            <p className="text-xs text-slate-500">
-              Manage gateway, templates and campaign execution.
-            </p>
-          </div>
-          {isHeadBranch && (
-            <ChannelSwitchPills
-              label="SMS Channel"
-              value={textMessageChannel}
-              options={textMessageChannelOptions}
-              onChange={handleTextMessageChannelChange}
-              accent="blue"
-            />
-          )}
-        </div>
-      </div>
-      <div className="p-4">
-        {textMessageChannel === "ooms"
-          ? renderCardGrid(textMessageCards, "blue")
-          : textMessageChannel === "0"
-            ? renderEmptyChannelState(
-                "SMS broadcasting is currently disabled",
-                "Select OOMS channel to enable campaign and template tools.",
-                "blue",
-              )
-            : null}
-      </div>
-    </div>
-  );
 
   // Render WhatsApp section
   const renderWhatsappSection = () => (
@@ -562,6 +541,67 @@ const Broadcast = () => {
         </p>
       </div>
       <div className="p-4">{renderCardGrid(emailCards, "indigo")}</div>
+    </div>
+  );
+
+  const renderSmsSection = () => (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-4 py-3">
+        <h5 className="text-base font-semibold text-slate-800">SMS</h5>
+      </div>
+      <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-800">
+              Active SMS Channel
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Select which integration this branch uses for SMS
+            </p>
+          </div>
+          <ChannelSwitchPills
+            label="SMS Channel"
+            value={smsChannel}
+            options={SMS_CHANNEL_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            onChange={handleSmsChannelChange}
+            disabled={smsChannelSaving}
+            loading={smsChannelSaving}
+            accent="blue"
+          />
+        </div>
+      </div>
+      {smsChannel !== "disabled" && (
+        <div className="border-b border-slate-200 px-4 pt-2.5">
+          <nav className="-mb-px flex space-x-4 overflow-x-auto">
+            {SMS_SUB_TABS.map((subTab) => (
+              <button
+                key={subTab.value}
+                type="button"
+                onClick={() => handleSmsSubTabChange(subTab.value)}
+                className={`border-b-2 px-1 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${
+                  smsSubTab === subTab.value
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                }`}
+              >
+                {subTab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
+      <div className="p-4">
+        {smsChannel === "disabled"
+          ? renderEmptyChannelState(
+              "SMS is currently disabled",
+              "Select Fast2SMS to configure API credentials for this branch.",
+              "blue",
+            )
+          : renderSmsSubTabContent()}
+      </div>
     </div>
   );
 
@@ -664,27 +704,7 @@ const Broadcast = () => {
               <div className="p-4">
                 {activeTab === "whatsapp" && renderWhatsappSection()}
 
-                {activeTab === "text-message" &&
-                  isHeadBranch &&
-                  renderTextMessageSection()}
-                {activeTab === "text-message" && !isHeadBranch && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="rounded-xl border border-slate-200 bg-slate-50/80 p-8 text-center"
-                  >
-                    <div className="mx-auto max-w-md text-slate-500">
-                      <FiMessageSquare className="mx-auto mb-3 h-9 w-9 text-slate-300" />
-                      <h3 className="mb-1.5 text-base font-semibold text-slate-700">
-                        Restricted Access
-                      </h3>
-                      <p className="text-sm text-slate-500">
-                        SMS broadcasting is only available for head branches.
-                        Please contact your administrator for access.
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
+                {activeTab === "sms" && renderSmsSection()}
 
                 {activeTab === "email-channel" && renderEmailSection()}
               </div>

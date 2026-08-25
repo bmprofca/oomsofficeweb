@@ -3,7 +3,6 @@ import {
     FiSearch,
     FiSettings,
     FiUserCheck,
-    FiDollarSign,
     FiCreditCard,
     FiUser,
     FiPlus,
@@ -16,6 +15,7 @@ import {
     FiRefreshCw,
     FiPower
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -1219,7 +1219,7 @@ const ViewStaff = () => {
                                     <p className="text-violet-100 text-xs font-medium">Monthly Salary</p>
                                     <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalSalary)}</h3>
                                 </div>
-                                <FiDollarSign className="w-5 h-5 opacity-80" />
+                                <TbCurrencyRupee className="w-5 h-5 opacity-80" />
                             </div>
                         </motion.div>
                     </div>

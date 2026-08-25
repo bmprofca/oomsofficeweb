@@ -13,8 +13,8 @@ import {
     FiClock,
     FiUser,
     FiBriefcase,
-    FiDollarSign
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { Sidebar, Header } from '../components/header';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
@@ -496,7 +496,7 @@ const TaskDashboardDetailPage = () => {
                                                                             </div>
                                                                             <div className="bg-white p-4 rounded-lg shadow-sm">
                                                                                 <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                                                                    <FiDollarSign className="w-4 h-4 text-indigo-600" />
+                                                                                    <TbCurrencyRupee className="w-4 h-4 text-indigo-600" />
                                                                                     Status
                                                                                 </h4>
                                                                                 <div className="space-y-2 text-sm">

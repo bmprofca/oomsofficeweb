@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiLayers, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
-    FiChevronRight, FiChevronDown, FiCalendar, FiDollarSign, FiClock,
+    FiChevronRight, FiChevronDown, FiCalendar, FiClock,
     FiX, FiInfo, FiSearch, FiBriefcase, FiUser, FiSliders, FiMenu, FiEdit2, FiTrash2, FiShare2, FiEye,
     FiEyeOff, FiCopy, FiLock, FiFileText
 } from 'react-icons/fi';

@@ -13,11 +13,11 @@ import {
     FiMoreVertical,
     FiFileText,
     FiPlus,
-    FiDollarSign,
     FiPercent,
     FiCornerDownLeft,
     FiDownload,
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
@@ -508,7 +508,7 @@ const CreateEntryModal = ({ loanType, username, onClose, onSuccess }) => {
 
 // ─── main component ──────────────────────────────────────────────────────────
 
-const LoanTab = ({ username }) => {
+const LoanTab = ({ username, readOnly = false }) => {
     // default: current month
     const now = new Date();
     const defaultFrom = toYMD(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -792,6 +792,7 @@ const LoanTab = ({ username }) => {
                             <FiDownload className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
                             <span>Export</span>
                         </button>
+                        {!readOnly ? (
                         <button
                             type="button"
                             onClick={handlePlusMenuClick}
@@ -802,6 +803,7 @@ const LoanTab = ({ username }) => {
                             <FiPlus className="h-4 w-4 shrink-0" aria-hidden />
                             <span>+ Entry</span>
                         </button>
+                        ) : null}
                     </div>
                 </div>
             </motion.div>
@@ -1016,7 +1018,7 @@ const LoanTab = ({ username }) => {
             {activeEntry && <DetailsModal entry={activeEntry} onClose={() => setActiveEntry(null)} />}
 
             {/* Edit modal */}
-            {editEntry && (
+            {!readOnly && editEntry && (
                 <EditModal
                     entry={editEntry}
                     username={username}
@@ -1026,7 +1028,7 @@ const LoanTab = ({ username }) => {
             )}
 
             {/* Create entry modal */}
-            {createLoanType && username && (
+            {!readOnly && createLoanType && username && (
                 <CreateEntryModal
                     loanType={createLoanType}
                     username={username}
@@ -1036,7 +1038,7 @@ const LoanTab = ({ username }) => {
             )}
 
             {/* Plus menu — portal (smart up/down) */}
-            {createPortal(
+            {!readOnly && createPortal(
                 <AnimatePresence>
                     {showCreateMenu && createMenuPos && (
                         <motion.div
@@ -1062,7 +1064,7 @@ const LoanTab = ({ username }) => {
                                     onClick={() => openCreateModal('loan')}
                                     className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2.5 transition-colors"
                                 >
-                                    <FiDollarSign className="w-4 h-4 text-indigo-500 shrink-0" aria-hidden />
+                                    <TbCurrencyRupee className="w-4 h-4 text-indigo-500 shrink-0" aria-hidden />
                                     Loan
                                 </button>
                                 <button
@@ -1122,6 +1124,7 @@ const LoanTab = ({ username }) => {
                                         <FiEye className="w-3.5 h-3.5 text-indigo-500" />
                                         View
                                     </button>
+                                    {!readOnly ? (
                                     <button
                                         onClick={() => { setEditEntry(menuEntry); setShowActionMenu(null); setDropdownPos(null); }}
                                         className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors"
@@ -1129,6 +1132,7 @@ const LoanTab = ({ username }) => {
                                         <FiEdit2 className="w-3.5 h-3.5 text-amber-500" />
                                         Edit
                                     </button>
+                                    ) : null}
                                     <button
                                         onClick={() => { toast('Invoice feature coming soon'); setShowActionMenu(null); setDropdownPos(null); }}
                                         className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-green-50 flex items-center gap-2.5 transition-colors"

@@ -4,7 +4,7 @@ import {
   FaCode, FaCopy, FaInfoCircle, FaTags, FaEye, FaEdit, FaSave, 
   FaTrash, FaPlus, FaPalette, FaMobile, FaDesktop, FaMagic, 
   FaFileAlt, FaEnvelope, FaUsers, FaBuilding, FaGift, FaChartLine,
-  FaCheckCircle, FaClock, FaDollarSign, FaFileInvoice, FaBell,
+  FaCheckCircle, FaClock, FaFileInvoice, FaBell,
   FaStar, FaHeart, FaSmile, FaRocket, FaArrowRight, FaRegSave,
   FaUndo, FaRedo, FaBold, FaItalic, FaUnderline, FaAlignLeft,
   FaAlignCenter, FaAlignRight, FaListUl, FaListOl, FaLink, FaImage,

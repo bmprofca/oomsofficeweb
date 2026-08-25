@@ -5,7 +5,6 @@ import { Sidebar, Header } from "../components/header";
 import { useNavigate } from "react-router-dom";
 import {
   FiUsers,
-  FiDollarSign,
   FiUserCheck,
   FiUserPlus,
   FiFileText,

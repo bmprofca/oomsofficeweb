@@ -14,12 +14,12 @@ import {
     FiSettings,
     FiBriefcase,
     FiUsers,
-    FiDollarSign,
     FiCalendar,
     FiUserCheck,
     FiShield,
     FiLayers,
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
@@ -48,7 +48,7 @@ const SECTION_INFO = {
     finance: {
         title: 'Finance Transactions',
         description: 'Financial ledger transactions',
-        icon: FiDollarSign,
+        icon: TbCurrencyRupee,
         card: 'border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50',
         badge: 'bg-violet-100 text-violet-700',
         ring: 'ring-violet-400',

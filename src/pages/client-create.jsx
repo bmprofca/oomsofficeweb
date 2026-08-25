@@ -9,7 +9,6 @@ import {
   FiMapPin,
   FiHome,
   FiBriefcase,
-  FiDollarSign,
   FiUsers,
   FiFileText,
   FiPlus,
@@ -26,6 +25,7 @@ import {
   FiEye,
   FiLoader,
 } from "react-icons/fi";
+import { TbCurrencyRupee } from "react-icons/tb";
 import { DatePickerField } from "../components/PortalDatePicker";
 import StateDistrictSelect from "../components/state-district-select";
 import getHeaders from "../utils/get-headers";
@@ -2249,7 +2249,7 @@ const CreateClient = () => {
                             Amount <span className="text-red-500">*</span>
                           </label>
                           <div className="relative">
-                            <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
+                            <TbCurrencyRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
                             <input
                               type="number"
                               value={formData.opening_balance.amount}

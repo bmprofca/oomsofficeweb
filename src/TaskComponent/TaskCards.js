@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiBriefcase, FiCalendar, FiDollarSign, FiPhone, FiEye, FiEdit, FiTrash2, FiCheckCircle, FiArrowLeft, FiArrowRight, FiUser, FiMail, FiClock, FiLoader } from 'react-icons/fi';
+import { FiBriefcase, FiCalendar, FiPhone, FiEye, FiEdit, FiTrash2, FiCheckCircle, FiArrowLeft, FiArrowRight, FiUser, FiMail, FiClock, FiLoader } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { checkPermissionSync } from '../utils/permission-helper';
 import {
     getTaskCompleteDateValue,
@@ -262,7 +263,7 @@ const TaskCards = ({
                                             </div>
                                             <div className="text-[11px] font-bold text-indigo-600">
                                                 <span className="inline-flex items-center gap-1">
-                                                    <FiDollarSign className="w-2.5 h-2.5" />
+                                                    <TbCurrencyRupee className="w-2.5 h-2.5" />
                                                     {checkPermissionSync('task_fees_view') ? (
                                                         `₹${task.charges?.fees?.toLocaleString() || 0}`
                                                     ) : (

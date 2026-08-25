@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FiPlus, FiEdit, FiSettings, FiMoreVertical, FiSearch, FiFilter, FiCalendar, FiUsers, FiCheckCircle, FiXCircle, FiDollarSign, FiClock } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiSettings, FiMoreVertical, FiSearch, FiFilter, FiCalendar, FiUsers, FiCheckCircle, FiXCircle, FiClock } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
 import DateFilter from '../../components/DateFilter';
@@ -901,7 +902,7 @@ const RecurringGroups = () => {
                                                                 {group.service_name}
                                                             </div>
                                                             <div className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 font-bold text-xs px-2 py-1 rounded-lg border border-green-100">
-                                                                <FiDollarSign className="w-2 h-2 mr-1" />
+                                                                <TbCurrencyRupee className="w-2 h-2 mr-1" />
                                                                 {group.fees}
                                                             </div>
                                                         </div>

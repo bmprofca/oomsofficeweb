@@ -91,6 +91,41 @@ export const normalizeFrequency = (frequency) => {
   return key;
 };
 
+/** Frequency-aware allowed range for due_date (days from period end). */
+export const getDueDateBounds = (frequency) => {
+  const freq = normalizeFrequency(frequency);
+  if (freq === 'monthly') return { min: -31, max: 62 };
+  if (freq === 'quarterly') return { min: -92, max: 120 };
+  if (freq === 'half-yearly') return { min: -183, max: 183 };
+  if (freq === 'yearly') return { min: -366, max: 366 };
+  return { min: -366, max: 366 };
+};
+
+export const isValidDueDateOffset = (value, frequency) => {
+  if (value === '' || value === null || value === undefined) return false;
+  const n = Number(value);
+  if (!Number.isInteger(n)) return false;
+  const { min, max } = getDueDateBounds(frequency);
+  return n >= min && n <= max;
+};
+
+export const getDueDateFieldMeta = (frequency) => {
+  const freq = normalizeFrequency(frequency);
+  const { min, max } = getDueDateBounds(freq);
+  const isMonthly = freq === 'monthly';
+  return {
+    min,
+    max,
+    label: isMonthly
+      ? 'Due offset (days from month end)'
+      : 'Due offset (days from period end)',
+    help: isMonthly
+      ? `Days after month end (e.g. 11 ≈ 11th of next month). Negative = within the month. Range ${min}…${max}.`
+      : `Days after period ends (can exceed 30). Negative = advance due within the period. Range ${min}…${max}.`,
+    error: `Due date must be an integer between ${min} and ${max}`,
+  };
+};
+
 const monthNameToNumber = (name) => {
   const normalized = String(name || '').trim().toLowerCase();
   const index = CALENDAR_MONTHS.findIndex((month) => month.toLowerCase() === normalized);

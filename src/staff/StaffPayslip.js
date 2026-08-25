@@ -39,7 +39,7 @@ const formatDate = (value) => {
   return d.toLocaleDateString("en-IN");
 };
 
-const StaffPayslip = ({ username: usernameProp, staffName, variants }) => {
+const StaffPayslip = ({ username: usernameProp, staffName, variants, readOnly = false }) => {
   const username = usernameProp || "";
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -202,6 +202,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants }) => {
   };
 
   const handleConfirmGenerate = async () => {
+    if (readOnly) return;
     if (!username || !genMonthValue?.month || !genMonthValue?.year) return;
     if (!(Number(preview?.amount) > 0)) {
       toast.error("No payable amount to post");
@@ -255,7 +256,9 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants }) => {
             Payslip
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 m-0">
-            Generate monthly salary and credit the ledger
+            {readOnly
+              ? "View and download your payslips"
+              : "Generate monthly salary and credit the ledger"}
             {staffName ? ` · ${staffName}` : ""}.
           </p>
         </div>
@@ -282,6 +285,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants }) => {
         </div>
       )}
 
+      {!readOnly ? (
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
         <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-gray-800 m-0">
@@ -317,6 +321,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants }) => {
           </div>
         </div>
       </div>
+      ) : null}
 
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
         <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -463,6 +468,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants }) => {
         )}
       </div>
 
+      {!readOnly ? (
       <PayslipPreviewModal
         isOpen={modalOpen}
         preview={preview}
@@ -471,6 +477,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants }) => {
         onClose={closeModal}
         onConfirm={handleConfirmGenerate}
       />
+      ) : null}
     </motion.div>
   );
 };

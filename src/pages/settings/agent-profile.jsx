@@ -4,7 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
     FiChevronRight,
     FiCheckSquare,
-    FiDollarSign,
     FiHome,
     FiMail,
     FiMaximize2,
@@ -14,6 +13,7 @@ import {
     FiUser,
     FiX,
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { Header, Sidebar } from '../../components/header';
 import ProfileTab from '../../AgentComponents/ProfileTab';
 import TaskTab from '../../AgentComponents/TaskTab';
@@ -107,7 +107,7 @@ const AgentProfile = () => {
     const profileTabs = [
         { id: 'profile', name: 'Profile', icon: FiUser },
         { id: 'tasks', name: 'Tasks', icon: FiCheckSquare },
-        { id: 'ledger', name: 'Ledger', icon: FiDollarSign },
+        { id: 'ledger', name: 'Ledger', icon: TbCurrencyRupee },
     ];
 
     const fetchAgentData = useCallback(

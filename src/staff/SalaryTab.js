@@ -216,7 +216,7 @@ const TableSkeleton = ({ rows = 6 }) => (
   </div>
 );
 
-const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants }) => {
+const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants, readOnly = false }) => {
   const username = usernameProp || '';
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -436,6 +436,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
   };
 
   const openCreate = () => {
+    if (readOnly) return;
     closeActionMenu();
     setSelectedAssignment(null);
     setModalMode('create');
@@ -443,6 +444,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
   };
 
   const openEdit = (row) => {
+    if (readOnly) return;
     closeActionMenu();
     setSelectedAssignment(row);
     setModalMode('edit');
@@ -579,6 +581,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
           >
             <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          {!readOnly ? (
           <button
             type="button"
             onClick={openCreate}
@@ -588,6 +591,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
             <FiPlus className="w-3.5 h-3.5" />
             Assign
           </button>
+          ) : null}
         </div>
       </div>
 
@@ -626,8 +630,11 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
                     <td colSpan={7} className="px-3 py-10 text-center">
                       <p className="text-sm font-medium text-gray-500 m-0">No salary assigned yet</p>
                       <p className="text-xs text-gray-400 mt-1 m-0">
-                        Assign a fixed or flexible salary to get started.
+                        {readOnly
+                          ? 'No salary assignments to show.'
+                          : 'Assign a fixed or flexible salary to get started.'}
                       </p>
+                      {!readOnly ? (
                       <button
                         type="button"
                         onClick={openCreate}
@@ -637,6 +644,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
                         <FiPlus className="w-3.5 h-3.5" />
                         Assign salary
                       </button>
+                      ) : null}
                     </td>
                   </tr>
                 </tbody>
@@ -807,7 +815,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
                   <FiEye className="h-4 w-4 text-slate-500" />
                   Details
                 </button>
-                {menuCanEdit ? (
+                {menuCanEdit && !readOnly ? (
                   <button
                     type="button"
                     onClick={() => openEdit(menuEntry)}
@@ -823,6 +831,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
           document.body
         )}
 
+      {!readOnly ? (
       <SalaryAssignmentModal
         isOpen={modalOpen}
         mode={modalMode}
@@ -835,6 +844,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants 
         onSubmit={handleModalSubmit}
         onEdit={openEdit}
       />
+      ) : null}
     </motion.div>
   );
 };

@@ -27,7 +27,9 @@ import {
   fetchCaOptions,
   fetchStaffOptions,
   getDefaultEffectiveFromFields,
+  getDueDateFieldMeta,
   HALF_YEARLY_PERIODS,
+  isValidDueDateOffset,
   mapFirmSelectOption,
   mergeYearOptionsForEffectiveFrom,
   normalizeAssignees,
@@ -39,8 +41,15 @@ import {
 
 const GST_RATE_OPTIONS = [0, 5, 12, 18, 28];
 
+/** Allow empty, integers, or up to 2 decimal places while typing. */
+const isValidAmountInput = (value) => /^\d*(\.\d{0,2})?$/.test(value);
+
 const inputClass =
   'w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white';
+
+/** Inputs with an absolute leading icon — never combine with px-* (see search-input-icon.md). */
+const inputWithIconClass =
+  'w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white placeholder:text-gray-400';
 
 const sectionClass =
   'rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 space-y-4';
@@ -715,7 +724,6 @@ export const FirmFormModal = ({
     event.preventDefault();
     const fees = Number(form.fees);
     const due_date = Number(form.due_date);
-    const visibility_offset = Number(form.visibility_offset);
 
     if (!form.service_id) {
       toast.error('Service is required');
@@ -740,17 +748,15 @@ export const FirmFormModal = ({
       toast.error('Enter a valid fees amount');
       return;
     }
-    if (!Number.isInteger(due_date) || due_date < 1 || due_date > 31) {
-      toast.error('Due date must be between 1 and 31');
-      return;
-    }
-    if (!Number.isInteger(visibility_offset)) {
-      toast.error('Visibility offset must be an integer');
-      return;
-    }
 
     if (!selectedFormService) {
       toast.error('Select a compliance service');
+      return;
+    }
+
+    const dueMeta = getDueDateFieldMeta(selectedFormService.frequency);
+    if (!isValidDueDateOffset(form.due_date, selectedFormService.frequency)) {
+      toast.error(dueMeta.error);
       return;
     }
 
@@ -764,7 +770,8 @@ export const FirmFormModal = ({
       ...form,
       fees,
       due_date,
-      visibility_offset,
+      // Not shown in UI; preserve existing on edit, default 0 on add
+      visibility_offset: Number(form.visibility_offset) || 0,
       effective_from,
       ca: form.ca ? [form.ca] : [],
       agent: form.agent ? [form.agent] : [],
@@ -782,6 +789,8 @@ export const FirmFormModal = ({
   const submitLabel = mode === 'add'
     ? (isGroupMode ? 'Assign group' : 'Add firm')
     : 'Save changes';
+
+  const dueMeta = getDueDateFieldMeta(selectedFormService?.frequency);
 
   return (
     <Modal
@@ -951,11 +960,13 @@ export const FirmFormModal = ({
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-800 m-0">Fees & schedule</p>
-                  <p className="text-xs text-gray-500 m-0">Set billing amount, tax, and due day</p>
+                  <p className="text-xs text-gray-500 m-0">
+                    Set billing amount and due offset from period end
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>
                     Fees <span className="text-red-500">*</span>
@@ -963,49 +974,43 @@ export const FirmFormModal = ({
                   <div className="relative">
                     <TbCurrencyRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       value={form.fees}
-                      onChange={(e) => setForm((prev) => ({ ...prev, fees: e.target.value }))}
+                      onChange={(e) => {
+                        const next = e.target.value.trim();
+                        if (next === '' || isValidAmountInput(next)) {
+                          setForm((prev) => ({ ...prev, fees: next }));
+                        }
+                      }}
                       disabled={saving}
-                      className={`${inputClass} pl-11`}
+                      className={inputWithIconClass}
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className={labelClass}>
-                    Due day of month <span className="text-red-500">*</span>
+                    {dueMeta.label}{' '}
+                    <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="number"
-                      min="1"
-                      max="31"
+                      min={dueMeta.min}
+                      max={dueMeta.max}
+                      step="1"
                       value={form.due_date}
                       onChange={(e) => setForm((prev) => ({ ...prev, due_date: e.target.value }))}
                       disabled={saving}
-                      className={`${inputClass} pl-11`}
+                      className={inputWithIconClass}
+                      placeholder="e.g. 10 or -5"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>
-                    Visibility offset
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    value={form.visibility_offset}
-                    onChange={(e) => setForm((prev) => ({ ...prev, visibility_offset: e.target.value }))}
-                    disabled={saving}
-                    className={inputClass}
-                  />
                   <p className="text-xs text-gray-500 mt-1 m-0">
-                    Negative shows the current ongoing period. Zero or positive shows from the due month.
+                    {dueMeta.help}
                   </p>
                 </div>
               </div>

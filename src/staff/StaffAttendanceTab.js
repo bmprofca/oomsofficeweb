@@ -299,6 +299,7 @@ const StaffAttendanceTab = ({
   staffName,
   staffData,
   variants,
+  readOnly = false,
 }) => {
   const username = usernameProp || "";
   const now = new Date();
@@ -456,6 +457,7 @@ const StaffAttendanceTab = ({
   };
 
   const openMark = (cell) => {
+    if (readOnly) return;
     if (!cell || cell.type !== "day" || !username) return;
     const record = cell.record;
     setMarkDay({
@@ -475,6 +477,7 @@ const StaffAttendanceTab = ({
   };
 
   const submitMark = async (body) => {
+    if (readOnly) return;
     setMarkLoading(true);
     try {
       const headers = getHeaders();
@@ -502,6 +505,7 @@ const StaffAttendanceTab = ({
   };
 
   const submitBulkApprove = async () => {
+    if (readOnly) return;
     if (!username || selectedDates.length === 0 || bulkApproving) return;
     setBulkApproving(true);
     try {
@@ -624,6 +628,7 @@ const StaffAttendanceTab = ({
             </div>
           </div>
 
+          {!readOnly ? (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-3 py-2">
             <div className="flex items-center gap-2">
               <AnimatedCheckbox
@@ -652,6 +657,7 @@ const StaffAttendanceTab = ({
               </button>
             ) : null}
           </div>
+          ) : null}
 
           <div className="px-2 py-2 sm:px-2.5">
             <div className="mb-0.5 grid grid-cols-7 gap-px">
@@ -701,13 +707,16 @@ const StaffAttendanceTab = ({
                   <button
                     key={cell.key}
                     type="button"
-                    onClick={() => openMark(cell)}
+                    onClick={() => !readOnly && openMark(cell)}
+                    disabled={readOnly}
                     title={dayCellTitle(cell, state, stats)}
                     className={`relative flex h-[5.5rem] flex-col items-stretch justify-start gap-1 px-1.5 pb-1.5 pt-1.5 text-left transition sm:h-24 sm:px-2 ${meta.cell} ${
                       isToday ? "z-[1] ring-2 ring-inset ring-teal-500" : ""
-                    } ${isSelected ? "z-[1] ring-2 ring-inset ring-indigo-400" : ""}`}
+                    } ${isSelected ? "z-[1] ring-2 ring-inset ring-indigo-400" : ""} ${
+                      readOnly ? "cursor-default" : ""
+                    }`}
                   >
-                    {selectable ? (
+                    {!readOnly && selectable ? (
                       <span className="absolute left-1 top-1 z-[1]">
                         <AnimatedCheckbox
                           checked={isSelected}
@@ -783,32 +792,36 @@ const StaffAttendanceTab = ({
         </div>
       )}
 
-      <AttendanceMarkModal
-        isOpen={Boolean(markDay)}
-        row={markDay?.row || null}
-        date={markDay?.date || ""}
-        loading={markLoading}
-        onClose={() => {
-          if (!markLoading) setMarkDay(null);
-        }}
-        onSubmit={submitMark}
-      />
+      {!readOnly ? (
+        <AttendanceMarkModal
+          isOpen={Boolean(markDay)}
+          row={markDay?.row || null}
+          date={markDay?.date || ""}
+          loading={markLoading}
+          onClose={() => {
+            if (!markLoading) setMarkDay(null);
+          }}
+          onSubmit={submitMark}
+        />
+      ) : null}
 
-      <ConfirmActionModal
-        isOpen={bulkConfirmOpen}
-        title="Bulk approve"
-        heading="Approve selected days?"
-        message={`Approve attendance for ${selectedDates.length} selected day${selectedDates.length === 1 ? "" : "s"}. Days with an open break will be skipped.`}
-        confirmLabel="Approve"
-        cancelLabel="Cancel"
-        loading={bulkApproving}
-        tone="primary"
-        icon={FiCheckCircle}
-        onCancel={() => {
-          if (!bulkApproving) setBulkConfirmOpen(false);
-        }}
-        onConfirm={submitBulkApprove}
-      />
+      {!readOnly ? (
+        <ConfirmActionModal
+          isOpen={bulkConfirmOpen}
+          title="Bulk approve"
+          heading="Approve selected days?"
+          message={`Approve attendance for ${selectedDates.length} selected day${selectedDates.length === 1 ? "" : "s"}. Days with an open break will be skipped.`}
+          confirmLabel="Approve"
+          cancelLabel="Cancel"
+          loading={bulkApproving}
+          tone="primary"
+          icon={FiCheckCircle}
+          onCancel={() => {
+            if (!bulkApproving) setBulkConfirmOpen(false);
+          }}
+          onConfirm={submitBulkApprove}
+        />
+      ) : null}
     </motion.div>
   );
 };

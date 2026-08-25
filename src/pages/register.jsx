@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import API_BASE_URL from '../utils/api-controller';
 import { fetchWhatsappChannel } from '../services/whatsappChannelStore';
+import { fetchSmsChannel } from '../services/smsChannelStore';
 import { saveUserSessionToStorage } from '../utils/user-profile-storage';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -203,6 +204,7 @@ const Register = () => {
 
         setLoginSuccess(true);
         fetchWhatsappChannel().catch(() => { });
+        fetchSmsChannel().catch(() => { });
 
         const welcomeName = result.profile?.name || formData.name.trim() || 'User';
         toast.success(`Welcome ${welcomeName}! Registration successful!`);

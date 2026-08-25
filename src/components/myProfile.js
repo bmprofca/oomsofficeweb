@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import {
@@ -11,7 +11,14 @@ import {
   FiX,
   FiCamera,
   FiRefreshCw,
+  FiCalendar,
+  FiBriefcase,
+  FiAward,
+  FiFileText,
+  FiMaximize2,
+  FiMinimize2,
 } from "react-icons/fi";
+import { TbCurrencyRupee } from "react-icons/tb";
 import { Sidebar, Header } from "./header";
 import StateDistrictSelect from "./state-district-select";
 import CustomSelect from "./CustomSelect";
@@ -21,6 +28,14 @@ import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import getAccountHeaders from "../utils/get-account-headers";
 import { uploadOneSaasFileUrl } from "../utils/onesaas-upload";
+import { useSubscription } from "../hooks/useSubscription";
+import StaffAttendanceTab from "../staff/StaffAttendanceTab";
+import ExpenseTab from "../staff/ExpenseTab";
+import BonusFineTab from "../staff/BonusFineTab";
+import SalaryTab from "../staff/SalaryTab";
+import LedgerTab from "../staff/LedgerTab";
+import LoanTab from "../staff/LoanTab";
+import StaffPayslip from "../staff/StaffPayslip";
 
 const EMPTY_PROFILE = {
   profile_id: "",
@@ -53,10 +68,81 @@ const GENDER_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
-const TABS = [
+const BASE_TABS = [
   { id: "personal", label: "Personal", icon: FiUser },
   { id: "address", label: "Address", icon: FiMapPin },
 ];
+
+const STAFF_SELF_TABS = [
+  { id: "attendance", label: "Attendance", icon: FiCalendar },
+  { id: "ledger", label: "Ledger", icon: TbCurrencyRupee },
+  { id: "salary", label: "Salary", icon: FiBriefcase, subscriptionFeature: "salary-management" },
+  { id: "expense", label: "Expenses", icon: TbCurrencyRupee },
+  { id: "payslip", label: "Payslip", icon: FiFileText, subscriptionFeature: "salary-management" },
+  { id: "bonus-fine", label: "Bonus/Fine", icon: FiAward },
+  { id: "loan", label: "Loan", icon: TbCurrencyRupee },
+];
+
+function isBranchStaffRole() {
+  if (typeof window === "undefined") return false;
+  const branchId = localStorage.getItem("branch_id");
+  if (!branchId || branchId === "null" || branchId === "undefined") return false;
+  return String(localStorage.getItem("branch_role") || "").toLowerCase() === "staff";
+}
+
+function getSelfUsername() {
+  if (typeof window === "undefined") return "";
+  return (
+    localStorage.getItem("user_username") ||
+    localStorage.getItem("username") ||
+    ""
+  );
+}
+
+const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => (
+  <motion.button
+    type="button"
+    onClick={() => onClick(to)}
+    className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-200 ${
+      isActive
+        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200"
+    }`}
+    whileHover={{ scale: 1.03, y: -1 }}
+    whileTap={{ scale: 0.98 }}
+  >
+    <motion.div
+      animate={{
+        rotate: isActive ? [0, 5, 0] : 0,
+        scale: isActive ? 1.1 : 1,
+      }}
+      transition={{ duration: 0.2 }}
+      className="mb-1"
+    >
+      <Icon className="w-4 h-4" />
+    </motion.div>
+    <span className="text-xs font-medium text-center leading-tight">{label}</span>
+  </motion.button>
+);
+
+const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => (
+  <motion.button
+    type="button"
+    onClick={() => onClick(to)}
+    className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-[70px] ${
+      isActive
+        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
+        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200"
+    }`}
+    whileHover={{ scale: 1.05, y: -2 }}
+    whileTap={{ scale: 0.98 }}
+  >
+    <Icon className="w-4 h-4 mb-1 mx-auto" />
+    <span className="text-[10px] font-medium text-center leading-tight w-full">
+      {label}
+    </span>
+  </motion.button>
+);
 
 const inputClass =
   "w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg placeholder:text-gray-400 outline-none transition hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500";
@@ -177,6 +263,7 @@ function ReadOnlyValue({ value }) {
 }
 
 export default function MyProfile() {
+  const { hasAccess } = useSubscription();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
     const saved =
@@ -198,12 +285,41 @@ export default function MyProfile() {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpDestination, setOtpDestination] = useState("");
+  const [isStaffSelf, setIsStaffSelf] = useState(() => isBranchStaffRole());
+  const [selfUsername] = useState(() => getSelfUsername());
+  const [staffData, setStaffData] = useState(null);
+  const [staffDataError, setStaffDataError] = useState(null);
+  const [staffDataLoading, setStaffDataLoading] = useState(false);
+  const [tabsMinimized, setTabsMinimized] = useState(() => {
+    try {
+      const saved = localStorage.getItem("myProfileTabsMinimized");
+      return saved != null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
   const imageInputRef = useRef(null);
   const otpRefs = useRef([...Array(6)].map(() => React.createRef()));
+
+  const visibleTabs = useMemo(() => {
+    if (!isStaffSelf) return BASE_TABS;
+    const staffTabs = STAFF_SELF_TABS.filter(
+      (tab) => !tab.subscriptionFeature || hasAccess(tab.subscriptionFeature),
+    );
+    return [...BASE_TABS, ...staffTabs];
+  }, [isStaffSelf, hasAccess]);
+
+  const refreshStaffGate = useCallback(() => {
+    setIsStaffSelf(isBranchStaffRole());
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
   }, [isMinimized]);
+
+  useEffect(() => {
+    localStorage.setItem("myProfileTabsMinimized", JSON.stringify(tabsMinimized));
+  }, [tabsMinimized]);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -220,6 +336,104 @@ export default function MyProfile() {
     fetchProfile();
     fetchCareOfTypes();
   }, []);
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (
+        !event.key ||
+        event.key === "branch_id" ||
+        event.key === "branch_role"
+      ) {
+        refreshStaffGate();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refreshStaffGate);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refreshStaffGate);
+    };
+  }, [refreshStaffGate]);
+
+  useEffect(() => {
+    const allowed = new Set(visibleTabs.map((t) => t.id));
+    if (!allowed.has(activeTab)) {
+      setActiveTab("personal");
+    }
+    if (activeTab !== "personal" && activeTab !== "address" && isEditing) {
+      setIsEditing(false);
+      setDraft(profile);
+    }
+  }, [visibleTabs, activeTab, isEditing, profile]);
+
+  useEffect(() => {
+    if (!isStaffSelf || !selfUsername) {
+      setStaffData(null);
+      setStaffDataError(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadStaffSelf = async () => {
+      setStaffDataLoading(true);
+      setStaffDataError(null);
+      try {
+        const headers = getHeaders();
+        if (!headers) {
+          throw new Error("Missing branch authentication.");
+        }
+        const response = await fetch(
+          `${API_BASE_URL}/settings/staff/profile/${encodeURIComponent(selfUsername)}`,
+          { method: "GET", headers },
+        );
+        if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error("Unable to load your staff workspace profile.");
+          }
+          throw new Error(`Failed to load staff profile (${response.status})`);
+        }
+        const responseData = await response.json();
+        const staffMember = responseData?.data?.[0];
+        if (!responseData?.success || !staffMember) {
+          throw new Error("No staff profile found for this branch.");
+        }
+        if (cancelled) return;
+        const branchInfo = staffMember.branch || {};
+        const formattedPhone = staffMember.mobile
+          ? `${staffMember.country_code ? "+" + staffMember.country_code : ""} ${staffMember.mobile}`.trim()
+          : "";
+        setStaffData({
+          firstName: staffMember.name?.split(" ")[0] || "",
+          lastName: staffMember.name?.split(" ").slice(1).join(" ") || "",
+          fullName: staffMember.name || "Unknown",
+          email: staffMember.email || "",
+          phone: formattedPhone,
+          balance: "0.00",
+          designation: staffMember.designation || "Not Assigned",
+          username: staffMember.username || selfUsername,
+          status: staffMember.status === true,
+          country_code: staffMember.country_code,
+          image: staffMember.image,
+          branch: {
+            id: branchInfo.id,
+            name: branchInfo.name,
+          },
+        });
+      } catch (error) {
+        if (!cancelled) {
+          setStaffData(null);
+          setStaffDataError(error.message || "Failed to load staff profile");
+        }
+      } finally {
+        if (!cancelled) setStaffDataLoading(false);
+      }
+    };
+
+    loadStaffSelf();
+    return () => {
+      cancelled = true;
+    };
+  }, [isStaffSelf, selfUsername]);
 
   useEffect(() => {
     if (otpModal?.open) {
@@ -520,9 +734,16 @@ export default function MyProfile() {
 
   const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
 
+  const handleTabChange = useCallback((tabId) => {
+    setActiveTab(tabId);
+  }, []);
+
+  const toggleTabsMinimized = useCallback(() => {
+    setTabsMinimized((prev) => !prev);
+  }, []);
+
   const ProfileSkeleton = () => (
-    <div className="animate-pulse space-y-6" aria-busy="true" aria-label="Loading profile">
-      {/* Header card */}
+    <div className="animate-pulse space-y-4" aria-busy="true" aria-label="Loading profile">
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:p-8">
           <div className="h-24 w-24 shrink-0 rounded-full bg-gray-200 ring-4 ring-white" />
@@ -537,30 +758,25 @@ export default function MyProfile() {
           <div className="h-10 w-full rounded-lg bg-gray-200 md:w-32" />
         </div>
       </div>
-
-      {/* Tabs + content */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        <div className="lg:col-span-1">
-          <div className="space-y-1 rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
-            <div className="h-11 rounded-lg bg-indigo-100/80" />
-            <div className="h-11 rounded-lg bg-gray-100" />
-          </div>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap justify-center gap-2">
+          {Array.from({ length: Math.min(visibleTabs.length || 4, 8) }).map((_, i) => (
+            <div key={i} className="h-14 w-[70px] rounded-lg bg-gray-100" />
+          ))}
         </div>
-        <div className="lg:col-span-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm md:p-8">
-            <div className="mb-5 space-y-2">
-              <div className="h-6 w-44 rounded-md bg-gray-200" />
-              <div className="h-4 w-64 max-w-full rounded bg-gray-100" />
+      </div>
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm md:p-8">
+        <div className="mb-5 space-y-2">
+          <div className="h-6 w-44 rounded-md bg-gray-200" />
+          <div className="h-4 w-64 max-w-full rounded bg-gray-100" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="h-3 w-20 rounded bg-gray-100" />
+              <div className="h-10 w-full rounded-lg bg-gray-100" />
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="space-y-1.5">
-                  <div className="h-3 w-20 rounded bg-gray-100" />
-                  <div className="h-10 w-full rounded-lg bg-gray-100" />
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
@@ -652,7 +868,8 @@ export default function MyProfile() {
 
                   <div className="w-full shrink-0 md:w-auto">
                     <AnimatePresence mode="wait">
-                      {!isEditing ? (
+                      {(activeTab === "personal" || activeTab === "address") &&
+                      !isEditing ? (
                         <motion.button
                           key="edit"
                           type="button"
@@ -665,7 +882,8 @@ export default function MyProfile() {
                           <FiEdit2 className="h-4 w-4" />
                           Edit profile
                         </motion.button>
-                      ) : (
+                      ) : (activeTab === "personal" || activeTab === "address") &&
+                        isEditing ? (
                         <motion.div
                           key="actions"
                           initial={{ opacity: 0 }}
@@ -692,37 +910,91 @@ export default function MyProfile() {
                             Cancel
                           </button>
                         </motion.div>
-                      )}
+                      ) : null}
                     </AnimatePresence>
                   </div>
                 </div>
               </motion.div>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-                <div className="lg:col-span-1">
-                  <div className="rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
-                    {TABS.map((tab) => {
-                      const Icon = tab.icon;
-                      const active = activeTab === tab.id;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`mb-1 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${active
-                            ? "bg-indigo-600 text-white"
-                            : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
-                            }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {tab.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+              <motion.div
+                className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1 }}
+              >
+                <div className="flex items-center justify-between p-3">
+                  {tabsMinimized ? (
+                    <>
+                      <div className="flex flex-1 flex-wrap items-center justify-center gap-1">
+                        {visibleTabs.map((tabItem) => {
+                          const Icon = tabItem.icon;
+                          const isActive = activeTab === tabItem.id;
+                          return (
+                            <CompactTabIcon
+                              key={tabItem.id}
+                              to={tabItem.id}
+                              icon={Icon}
+                              label={tabItem.label}
+                              isActive={isActive}
+                              onClick={handleTabChange}
+                            />
+                          );
+                        })}
+                      </div>
+                      <motion.button
+                        type="button"
+                        onClick={toggleTabsMinimized}
+                        className="ml-1 flex-shrink-0 rounded-lg p-2 text-gray-500 transition-all duration-200 hover:bg-blue-50 hover:text-blue-600"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        title="Show full tabs"
+                      >
+                        <FiMaximize2 className="h-4 w-4" />
+                      </motion.button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                        {visibleTabs.map((tabItem) => {
+                          const Icon = tabItem.icon;
+                          const isActive = activeTab === tabItem.id;
+                          return (
+                            <TabLink
+                              key={tabItem.id}
+                              to={tabItem.id}
+                              icon={Icon}
+                              label={tabItem.label}
+                              isActive={isActive}
+                              onClick={handleTabChange}
+                            />
+                          );
+                        })}
+                      </div>
+                      <motion.button
+                        type="button"
+                        onClick={toggleTabsMinimized}
+                        className="ml-1 flex-shrink-0 rounded-lg p-2 text-gray-500 transition-all duration-200 hover:bg-blue-50 hover:text-blue-600"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        title="Minimize tabs"
+                      >
+                        <FiMinimize2 className="h-4 w-4" />
+                      </motion.button>
+                    </>
+                  )}
                 </div>
+              </motion.div>
 
-                <div className="lg:col-span-3">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full min-w-0 text-sm [&_h2]:text-lg"
+                >
+                  {(activeTab === "personal" || activeTab === "address") ? (
                   <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm md:p-8">
                     {activeTab === "personal" && (
                       <div className="space-y-5">
@@ -1039,8 +1311,70 @@ export default function MyProfile() {
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
+                  ) : (
+                  <div className="min-w-0 space-y-3">
+                    {staffDataLoading ? (
+                      <div className="rounded-lg border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500 shadow-sm">
+                        Loading your staff workspace…
+                      </div>
+                    ) : null}
+                    {staffDataError ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        {staffDataError}
+                      </div>
+                    ) : null}
+                    {activeTab === "attendance" ? (
+                      <StaffAttendanceTab
+                        username={selfUsername}
+                        staffName={staffData?.fullName}
+                        staffData={staffData}
+                        readOnly
+                      />
+                    ) : null}
+                    {activeTab === "ledger" ? (
+                      <LedgerTab
+                        username={selfUsername}
+                        staffData={staffData}
+                        staffName={staffData?.fullName}
+                        staffEmail={staffData?.email}
+                        staffMobile={staffData?.phone}
+                        staffCountryCode={staffData?.country_code || "91"}
+                        readOnly
+                      />
+                    ) : null}
+                    {activeTab === "salary" ? (
+                      <SalaryTab
+                        username={selfUsername}
+                        staffName={staffData?.fullName}
+                        readOnly
+                      />
+                    ) : null}
+                    {activeTab === "expense" ? (
+                      <ExpenseTab
+                        staffUsername={selfUsername}
+                        readOnly
+                      />
+                    ) : null}
+                    {activeTab === "payslip" ? (
+                      <StaffPayslip
+                        username={selfUsername}
+                        staffName={staffData?.fullName}
+                        readOnly
+                      />
+                    ) : null}
+                    {activeTab === "bonus-fine" ? (
+                      <BonusFineTab
+                        username={selfUsername}
+                        readOnly
+                      />
+                    ) : null}
+                    {activeTab === "loan" ? (
+                      <LoanTab username={selfUsername} readOnly />
+                    ) : null}
+                  </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </>
           )}
         </div>

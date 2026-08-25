@@ -5,13 +5,13 @@ import {
   FiUsers,
   FiShoppingCart,
   FiCreditCard,
-  FiDollarSign,
   FiCalendar,
   FiMove,
   FiShoppingBag,
   FiRefreshCw,
   FiGift,
 } from "react-icons/fi";
+import { TbCurrencyRupee } from "react-icons/tb";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import { useUserPermissions } from "../utils/permission-helper";
@@ -20,7 +20,7 @@ const CARD_ICONS = {
   "pending-billing": FiShoppingBag,
   creditors: FiUsers,
   debtors: FiShoppingCart,
-  "today-received": FiDollarSign,
+  "today-received": TbCurrencyRupee,
   "today-payment": FiCreditCard,
   "today-birthday": FiGift,
 };

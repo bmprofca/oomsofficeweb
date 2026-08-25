@@ -11,7 +11,6 @@ import {
     FiRefreshCw,
     FiPlus,
     FiUser,
-    FiDollarSign,
     FiFileText,
     FiShoppingBag,
     FiTruck,
@@ -23,6 +22,7 @@ import {
     FiAlertCircle,
     FiInfo
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
@@ -853,7 +853,7 @@ const TransactionHistory = () => {
     const getTransactionTypeIcon = (type) => {
         switch (type) {
             case 'RECEIVE': return <FiUser className="w-5 h-5" />;
-            case 'PAYMENT': return <FiDollarSign className="w-5 h-5" />;
+            case 'PAYMENT': return <TbCurrencyRupee className="w-5 h-5" />;
             case 'SALE': return <FiShoppingBag className="w-5 h-5" />;
             case 'PURCHASE': return <FiTruck className="w-5 h-5" />;
             case 'EXPENSE': return <FiFileText className="w-5 h-5" />;

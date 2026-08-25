@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     FiSearch, FiPlus, FiEdit, FiMenu, FiPrinter, FiMail, FiMessageSquare,
     FiUser, FiPhone, FiMail as FiEmailIcon, FiFileText, FiX, FiChevronRight,
-    FiChevronDown, FiCheck, FiDollarSign, FiChevronLeft, FiChevronRight as FiChevronRightIcon,
+    FiChevronDown, FiCheck, FiChevronLeft, FiChevronRight as FiChevronRightIcon,
     FiChevronUp, FiExternalLink, FiCalendar, FiEye, FiTrash2
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
@@ -576,7 +577,7 @@ const ViewFileIndex = () => {
                                     <h3 className="text-xl font-bold text-slate-800 mt-1">{fileData.filter(f => f.audit).length}</h3>
                                 </div>
                                 <div className="p-2 bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg">
-                                    <FiDollarSign className="w-5 h-5 text-purple-600" />
+                                    <TbCurrencyRupee className="w-5 h-5 text-purple-600" />
                                 </div>
                             </div>
                             <div className="mt-3 pt-2 border-t border-slate-100">
@@ -1533,7 +1534,7 @@ const ViewFileIndex = () => {
                                             <div className="p-2.5 bg-purple-50 rounded-lg border border-purple-200 hover:shadow-sm transition-all">
                                                 <div className="flex items-center gap-1.5 mb-1">
                                                     <div className="w-6 h-6 bg-purple-200 rounded-md flex items-center justify-center flex-shrink-0">
-                                                        <FiDollarSign className="w-3 h-3 text-purple-600" />
+                                                        <TbCurrencyRupee className="w-3 h-3 text-purple-600" />
                                                     </div>
                                                     <span className="font-medium text-purple-900 text-xs whitespace-nowrap">Income Tax</span>
                                                 </div>

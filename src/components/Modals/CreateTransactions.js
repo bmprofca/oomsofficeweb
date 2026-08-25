@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoTrash, IoAdd } from "react-icons/io5";
-import { FiX, FiUser, FiDollarSign, FiShoppingBag, FiTruck, FiFileText, FiRepeat, FiPlus, FiTrash2, FiMail, FiPhone, FiCreditCard, FiHome, FiArrowRight, FiArrowLeft, FiChevronLeft, FiChevronRight, FiMessageSquare, FiMessageCircle, FiSearch, FiChevronDown } from 'react-icons/fi';
+import { FiX, FiUser, FiShoppingBag, FiTruck, FiFileText, FiRepeat, FiPlus, FiTrash2, FiMail, FiPhone, FiCreditCard, FiHome, FiArrowRight, FiArrowLeft, FiChevronLeft, FiChevronRight, FiMessageSquare, FiMessageCircle, FiSearch, FiChevronDown } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
@@ -7069,7 +7070,7 @@ export const DiscountModal = ({
             compact
             closeOnOverlayClick={false}
             accent="discount"
-            titleIcon={<FiDollarSign className="w-4 h-4" aria-hidden />}
+            titleIcon={<TbCurrencyRupee className="w-4 h-4" aria-hidden />}
             footer={(
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-xs text-slate-500">

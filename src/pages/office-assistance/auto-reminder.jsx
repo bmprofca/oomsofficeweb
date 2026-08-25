@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FiPlus, FiEdit, FiTrash2, FiSearch, FiSettings, FiClock, FiUsers, FiCalendar, FiRefreshCw, FiAlertCircle, FiCheckCircle, FiX, FiSend, FiLoader, FiUser, FiPhone, FiMail, FiDollarSign } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiSearch, FiSettings, FiClock, FiUsers, FiCalendar, FiRefreshCw, FiAlertCircle, FiCheckCircle, FiX, FiSend, FiLoader, FiUser, FiPhone, FiMail } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
 import getHeaders from '../../utils/get-headers';
@@ -1367,7 +1368,7 @@ const AutoReminder = () => {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${item.has_debit ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                                <FiDollarSign className="w-3 h-3 mr-1" />
+                                                                <TbCurrencyRupee className="w-3 h-3 mr-1" />
                                                                 ₹{formatCurrency(item.balance)}
                                                             </span>
                                                         </td>

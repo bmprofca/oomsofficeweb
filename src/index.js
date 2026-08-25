@@ -9,6 +9,7 @@ import { Toaster } from 'react-hot-toast';
 import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
 import WhatsappChannelBootstrap from './components/WhatsApp/WhatsappChannelBootstrap';
+import SmsChannelBootstrap from './components/Sms/SmsChannelBootstrap';
 import axios from 'axios';
 import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
 import BranchRequiredRoute from './components/BranchRequiredRoute';
@@ -64,7 +65,6 @@ import {
   ServiceRequestList,
   Broadcast,
   EmailBroadcastReport,
-  TextMessageOoms,
   BroadcastReport,
   WhatsAppOoms,
   OneChattingConfigure,
@@ -76,16 +76,16 @@ import {
   WhatsAppWebSession,
   WhatsAppWebTemplates,
   OomsSystemTemplates,
+  Fast2SmsConfigure,
+  Fast2SmsTemplates,
+  Fast2SmsCampaigns,
+  Fast2SmsCampaignCreate,
+  Fast2SmsCampaignDetails,
   EmailConfigList,
   EmailTemplateList,
   EmailBroadcastList,
   EmailBroadcastCreate,
   EmailBroadcastDetails,
-  SmsConfigList,
-  SmsTemplateList,
-  SmsBroadcastList,
-  SmsBroadcastCreate,
-  SmsBroadcastDetails,
   Settings,
   StaffList,
   PermissionList,
@@ -284,6 +284,7 @@ root.render(
             toastOptions={{ duration: 4000 }}
           />
           <WhatsappChannelBootstrap />
+          <SmsChannelBootstrap />
           {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
           <BodyScrollLockObserver />
           <Suspense fallback={<RouteLoadingFallback />}>
@@ -691,21 +692,9 @@ root.render(
                 <Navigate to="/broadcast/whatsapp" replace />
               </ProtectedRoute>
             } />
-            <Route path="/broadcast/:tab" element={
-              <ProtectedRoute>
-                <Broadcast />
-              </ProtectedRoute>
-            } />
             <Route path="/broadcast/email/reports" element={
               <ProtectedRoute>
                 <EmailBroadcastReport />
-              </ProtectedRoute>
-            } />
-
-
-            <Route path="/broadcast/text-message/ooms" element={
-              <ProtectedRoute>
-                <TextMessageOoms />
               </ProtectedRoute>
             } />
 
@@ -724,6 +713,36 @@ root.render(
             <Route path="/broadcast/whatsapp/onechatting/configure" element={
               <ProtectedRoute>
                 <OneChattingConfigure />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/fast2sms/configure" element={
+              <ProtectedRoute>
+                <Fast2SmsConfigure />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/fast2sms/templates" element={
+              <ProtectedRoute>
+                <Fast2SmsTemplates />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/fast2sms/campaigns" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaigns />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/fast2sms/campaigns/create" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaignCreate />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/fast2sms/campaigns/:campaignId" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaignDetails />
               </ProtectedRoute>
             } />
 
@@ -810,30 +829,10 @@ root.render(
               </ProtectedRoute>
             } />
 
-            {/* SMS Broadcast Module */}
-            <Route path="/broadcast/sms/configs" element={
+            {/* Hub tabs after deeper /broadcast/* routes */}
+            <Route path="/broadcast/:tab" element={
               <ProtectedRoute>
-                <SmsConfigList />
-              </ProtectedRoute>
-            } />
-            <Route path="/broadcast/sms/templates" element={
-              <ProtectedRoute>
-                <SmsTemplateList />
-              </ProtectedRoute>
-            } />
-            <Route path="/broadcast/sms" element={
-              <ProtectedRoute>
-                <SmsBroadcastList />
-              </ProtectedRoute>
-            } />
-            <Route path="/broadcast/sms/create" element={
-              <ProtectedRoute>
-                <SmsBroadcastCreate />
-              </ProtectedRoute>
-            } />
-            <Route path="/broadcast/sms/details/:broadcast_id" element={
-              <ProtectedRoute>
-                <SmsBroadcastDetails />
+                <Broadcast />
               </ProtectedRoute>
             } />
 

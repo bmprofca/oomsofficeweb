@@ -3,7 +3,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiMenu, FiArrowLeft, FiArrowRight, FiCheckCircle, FiEye, FiEdit, FiTrash2,
-    FiCalendar, FiDollarSign, FiUser, FiPhone, FiMail, FiClock, FiLoader, FiXCircle, FiBriefcase, FiUsers, FiSettings
+    FiCalendar, FiUser, FiPhone, FiMail, FiClock, FiLoader, FiXCircle, FiBriefcase, FiUsers, FiSettings
 } from 'react-icons/fi';
 
 const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel }) => {
