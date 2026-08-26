@@ -132,7 +132,7 @@ const Fast2SmsConfigure = () => {
               Access Denied
             </h3>
             <p className="mt-1 text-xs text-gray-400">
-              You do not have permission to configure Fast2SMS.
+              Access denied.
             </p>
           </div>
         </div>
@@ -169,9 +169,6 @@ const Fast2SmsConfigure = () => {
                   <h1 className="m-0 text-base font-bold leading-tight text-gray-800 md:text-lg">
                     Fast2SMS Configure
                   </h1>
-                  <p className="m-0 mt-0.5 text-xs text-gray-400">
-                    Branch Fast2SMS API credentials, like OneChatting project token.
-                  </p>
                 </div>
               </div>
               {configured ? (
@@ -188,9 +185,28 @@ const Fast2SmsConfigure = () => {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-16 text-gray-500">
-                <FiLoader className="mr-2 h-5 w-5 animate-spin" />
-                Loading Fast2SMS settings...
+              <div className="space-y-4 p-4 md:p-5" aria-busy="true">
+                <div className="space-y-1.5">
+                  <div className="h-3 w-36 animate-pulse rounded bg-slate-200" />
+                  <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100" />
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-20 animate-pulse rounded bg-slate-200" />
+                    <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+                    <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-3 w-14 animate-pulse rounded bg-slate-200" />
+                  <div className="h-10 w-full animate-pulse rounded-lg bg-slate-100" />
+                </div>
+                <div className="flex justify-end pt-2">
+                  <div className="h-10 w-32 animate-pulse rounded-lg bg-blue-100" />
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSave} className="space-y-4 p-4 md:p-5">
@@ -202,11 +218,8 @@ const Fast2SmsConfigure = () => {
                     className={FIELD_INPUT}
                     value={form.auth_token}
                     onChange={(e) => updateField("auth_token", e.target.value)}
-                    placeholder="Fast2SMS Authorization header value"
+                    placeholder="API key"
                   />
-                  <p className="mt-1 text-xs text-gray-400">
-                    From the Fast2SMS dashboard. Required to send SMS from this branch.
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -219,7 +232,7 @@ const Fast2SmsConfigure = () => {
                       onChange={(e) =>
                         updateField("sender_id", e.target.value.toUpperCase())
                       }
-                      placeholder="e.g. ONESAA"
+                      placeholder="Sender ID"
                       maxLength={8}
                     />
                   </div>
@@ -230,7 +243,7 @@ const Fast2SmsConfigure = () => {
                       className={FIELD_INPUT}
                       value={form.entity_id}
                       onChange={(e) => updateField("entity_id", e.target.value)}
-                      placeholder="Optional DLT principal entity ID"
+                      placeholder="Entity ID"
                     />
                   </div>
                 </div>
@@ -261,7 +274,7 @@ const Fast2SmsConfigure = () => {
                     ) : (
                       <FiSave className="h-4 w-4" />
                     )}
-                    Save Fast2SMS
+                    Save
                   </button>
                 </div>
               </form>

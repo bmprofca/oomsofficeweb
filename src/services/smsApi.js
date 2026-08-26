@@ -66,6 +66,14 @@ export const smsApi = {
     smsAxios.get('/broadcast/sms/fast2sms/campaign/details', { params }).then(unwrap),
   listCampaignMessages: (params) =>
     smsAxios.get('/broadcast/sms/fast2sms/campaign/messages', { params }).then(unwrap),
+  getCampaignMessageDetail: (params) =>
+    smsAxios
+      .get('/broadcast/sms/fast2sms/campaign/message-detail', { params })
+      .then(unwrap),
+  retryCampaignMessage: (payload) =>
+    smsAxios
+      .post('/broadcast/sms/fast2sms/campaign/message-retry', payload)
+      .then(unwrap),
   deleteCampaign: (payload) =>
     smsAxios.post('/broadcast/sms/fast2sms/campaign/delete', payload).then(unwrap),
   processCampaign: (payload) =>

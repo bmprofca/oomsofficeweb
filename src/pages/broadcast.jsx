@@ -224,14 +224,6 @@ const Broadcast = () => {
 
   const smsFast2SmsCards = [
     {
-      title: "Templates",
-      description: "DLT templates and system type mapping",
-      icon: <FiFileText className="w-5 h-5" />,
-      link: "/broadcast/sms/fast2sms/templates",
-      color: "bg-blue-100 text-blue-600",
-      permission: "broadcast_config_edit",
-    },
-    {
       title: "Create Campaign",
       description: "Send SMS template campaigns",
       icon: <FiSend className="w-5 h-5" />,
@@ -240,7 +232,7 @@ const Broadcast = () => {
       permission: "broadcast_send",
     },
     {
-      title: "Campaigns",
+      title: "Campaign List",
       description: "View campaign delivery reports",
       icon: <FiBarChart2 className="w-5 h-5" />,
       link: "/broadcast/sms/fast2sms/campaigns",
@@ -248,7 +240,15 @@ const Broadcast = () => {
       permission: ["broadcast_send", "broadcast_config_edit"],
     },
     {
-      title: "Configure",
+      title: "Templates",
+      description: "DLT templates and system type mapping",
+      icon: <FiFileText className="w-5 h-5" />,
+      link: "/broadcast/sms/fast2sms/templates",
+      color: "bg-blue-100 text-blue-600",
+      permission: "broadcast_config_edit",
+    },
+    {
+      title: "Config",
       description: "Fast2SMS API key, sender ID, and route",
       icon: <FiSettings className="w-5 h-5" />,
       link: "/broadcast/sms/fast2sms/configure",

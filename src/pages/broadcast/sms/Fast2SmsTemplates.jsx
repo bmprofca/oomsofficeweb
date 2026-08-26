@@ -32,6 +32,85 @@ const FIELD_INPUT =
 const FIELD_LABEL =
   "block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5";
 
+const SkeletonBone = ({ className = "" }) => (
+  <div className={`animate-pulse rounded bg-slate-200/90 ${className}`} />
+);
+
+const MappingTableSkeleton = ({ rows = 6 }) => (
+  <div className="overflow-x-auto">
+    <table className="min-w-full">
+      <thead>
+        <tr className="border-b border-gray-200 bg-gray-50">
+          <th className={TABLE_TH}>#</th>
+          <th className={TABLE_TH}>Type</th>
+          <th className={TABLE_TH}>SMS template</th>
+          <th className={TABLE_TH}>Status</th>
+          <th className={TABLE_TH}>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: rows }).map((_, i) => (
+          <tr key={i} className="border-b border-gray-100">
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-3 w-6" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="mb-1 h-4 w-40" />
+              <SkeletonBone className="h-3 w-56" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-4 w-32" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-5 w-20 rounded-full" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-7 w-16 rounded-md" />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const TemplatesListSkeleton = ({ rows = 6 }) => (
+  <div className="overflow-x-auto">
+    <table className="min-w-full">
+      <thead>
+        <tr className="border-b border-gray-200 bg-gray-50">
+          <th className={TABLE_TH}>Name</th>
+          <th className={TABLE_TH}>Route</th>
+          <th className={TABLE_TH}>Message ID</th>
+          <th className={TABLE_TH}>Status</th>
+          <th className={TABLE_TH}>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: rows }).map((_, i) => (
+          <tr key={i} className="border-b border-gray-100">
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-4 w-36" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-3 w-12" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-3 w-24" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-5 w-16 rounded-full" />
+            </td>
+            <td className="px-3 py-3">
+              <SkeletonBone className="h-7 w-14 rounded-md" />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
 const TABS = [
   { id: "mapping", label: "Template Mapping" },
   { id: "list", label: "Template List" },
@@ -53,11 +132,16 @@ const emptyForm = () => ({
   name: "",
   dlt_message_id: "",
   message_body: "",
-  variable_keys: "",
   sender_id: "",
   route: "dlt",
   status: "active",
 });
+
+/** Match Fast2SMS / DLT `{#var#}` placeholders → variable_1, variable_2, … */
+function deriveVariableKeysFromMessageBody(messageBody) {
+  const matches = String(messageBody || "").match(/\{#\s*var\s*#\}/gi) || [];
+  return matches.map((_, index) => `variable_${index + 1}`);
+}
 
 const Fast2SmsTemplates = () => {
   const { check } = useUserPermissions();
@@ -207,15 +291,17 @@ const Fast2SmsTemplates = () => {
       name: row.name || "",
       dlt_message_id: row.dlt_message_id || "",
       message_body: row.message_body || "",
-      variable_keys: Array.isArray(row.variable_keys)
-        ? row.variable_keys.join(",")
-        : "",
       sender_id: row.sender_id || "",
       route: row.route || "dlt",
       status: row.status || "active",
     });
     setShowForm(true);
   };
+
+  const detectedVariableKeys = useMemo(
+    () => deriveVariableKeysFromMessageBody(form.message_body),
+    [form.message_body],
+  );
 
   const saveTemplate = async (event) => {
     event.preventDefault();
@@ -227,10 +313,7 @@ const Fast2SmsTemplates = () => {
     try {
       const payload = {
         ...form,
-        variable_keys: form.variable_keys
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean),
+        variable_keys: deriveVariableKeysFromMessageBody(form.message_body),
       };
       if (form.template_id) {
         await smsApi.updateTemplate(payload);
@@ -299,15 +382,11 @@ const Fast2SmsTemplates = () => {
         <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
           <div className="mb-4">
             <h1 className="text-2xl font-bold text-gray-800">Fast2SMS Templates</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Create DLT templates and map them to OOMS notification types.
-            </p>
           </div>
 
           {smsChannel !== "fast2sms" ? (
-            <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              SMS channel is currently <strong>{smsChannel || "disabled"}</strong>.
-              Set it to Fast2SMS on Broadcast for these mappings to apply.
+            <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              SMS channel is set to <strong>{smsChannel || "disabled"}</strong>.
             </div>
           ) : null}
 
@@ -366,10 +445,7 @@ const Fast2SmsTemplates = () => {
                   </div>
                 </div>
                 {mapLoading ? (
-                  <div className="flex items-center justify-center py-16 text-gray-500">
-                    <FiLoader className="mr-2 h-5 w-5 animate-spin" />
-                    Loading mappings...
-                  </div>
+                  <MappingTableSkeleton />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full">
@@ -468,14 +544,11 @@ const Fast2SmsTemplates = () => {
                   </form>
                 </div>
                 {listLoading ? (
-                  <div className="flex items-center justify-center py-16 text-gray-500">
-                    <FiLoader className="mr-2 h-5 w-5 animate-spin" />
-                    Loading templates...
-                  </div>
+                  <TemplatesListSkeleton />
                 ) : listRows.length === 0 ? (
                   <div className="py-16 text-center text-gray-500">
                     <FiFileText className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                    <p className="text-sm">No templates yet. Create your first DLT template.</p>
+                    <p className="text-sm">No templates yet.</p>
                   </div>
                 ) : (
                   <>
@@ -563,9 +636,6 @@ const Fast2SmsTemplates = () => {
             <h3 className="m-0 text-base font-semibold text-gray-800 capitalize">
               Map: {pickerType}
             </h3>
-            <p className="mt-1 text-xs text-gray-500">
-              Choose a Fast2SMS template for this notification type.
-            </p>
             <div className="mt-4">
               <CustomSelect
                 value={pickerTemplate}
@@ -659,17 +729,18 @@ const Fast2SmsTemplates = () => {
                   }
                   placeholder="Approved text with {#var#} placeholders"
                 />
-              </div>
-              <div>
-                <label className={FIELD_LABEL}>Variable keys (comma separated, DLT order)</label>
-                <input
-                  className={FIELD_INPUT}
-                  value={form.variable_keys}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, variable_keys: e.target.value }))
-                  }
-                  placeholder="name,otp,amount"
-                />
+                {detectedVariableKeys.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {detectedVariableKeys.map((key) => (
+                      <span
+                        key={key}
+                        className="inline-flex rounded-md border border-blue-100 bg-blue-50 px-2 py-0.5 font-mono text-[11px] text-blue-700"
+                      >
+                        {key}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div>
                 <label className={FIELD_LABEL}>Sender ID override</label>

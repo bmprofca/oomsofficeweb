@@ -6,7 +6,7 @@
  * LRU of page trees mounted (hidden) so POP restores the exact UI and
  * skips a fresh API load.
  *
- * PUSH/REPLACE to a path remounts that path (sidebar clicks stay fresh).
+ * PUSH/REPLACE to a path remounts that path (sidebar / link clicks stay fresh).
  * Pages left via PUSH are pinned so a list is not evicted by many details.
  *
  * Socket-heavy routes should pass enabled={false} on KeepAlivePage.
@@ -71,6 +71,7 @@ const entries = new Map();
 let order = [];
 let pinned = [];
 let activeKey = null;
+let mountSeq = 0;
 
 function emit() {
   version += 1;
@@ -115,13 +116,22 @@ function evictIfNeeded() {
   }
 }
 
-/** Mutates the module store during render. Host reads it later in the same commit. */
+/**
+ * Mutates the module store during render. Host reads it later in the same commit.
+ *
+ * POP  → reuse parked entry (browser / hardware Back restores state).
+ * PUSH/REPLACE → drop any parked entry for this path so the page remounts fresh
+ *                (sidebar / in-app link clicks must not show stale forms).
+ */
 function ensureKeepAlive(key, node, navigationType, contexts) {
   if (!key || node == null) return;
 
   const isPop = navigationType === 'POP';
   const previousKey = activeKey;
 
+  // In-app navigation to a previously parked path: discard the parked tree.
+  // KeepAliveSlot must also remount (new mountId) — deleting the Map entry alone
+  // is not enough because React would reuse the slot by path key and keep state.
   if (!isPop && entries.has(key) && previousKey !== key) {
     entries.delete(key);
     order = order.filter((item) => item !== key);
@@ -129,7 +139,14 @@ function ensureKeepAlive(key, node, navigationType, contexts) {
   }
 
   if (!entries.has(key)) {
-    entries.set(key, { node, pinned: false, locationCtx: null, routeCtx: null });
+    mountSeq += 1;
+    entries.set(key, {
+      node,
+      pinned: false,
+      locationCtx: null,
+      routeCtx: null,
+      mountId: `${key}::${mountSeq}`,
+    });
   }
 
   const entry = entries.get(key);
@@ -374,7 +391,7 @@ function KeepAliveHost() {
       {showOutletFallback ? <RouteLoadingFallback /> : null}
       {slots.map(([key, entry]) => (
         <KeepAliveSlot
-          key={key}
+          key={entry.mountId || key}
           cacheKey={key}
           active={claimed && key === showKey}
           locationCtx={entry.locationCtx}
