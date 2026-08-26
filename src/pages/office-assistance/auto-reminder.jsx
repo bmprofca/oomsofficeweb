@@ -1,2693 +1,2104 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FiPlus, FiEdit, FiTrash2, FiSearch, FiSettings, FiClock, FiUsers, FiCalendar, FiRefreshCw, FiAlertCircle, FiCheckCircle, FiX, FiSend, FiLoader, FiUser, FiPhone, FiMail } from 'react-icons/fi';
-import { TbCurrencyRupee } from 'react-icons/tb';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Header, Sidebar } from '../../components/header';
-import getHeaders from '../../utils/get-headers';
-import API_BASE_URL from '../../utils/api-controller';
-import toast from 'react-hot-toast';
-import CustomSelect from '../../components/CustomSelect';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-    CLIENT_LIST_QUERY_PARAMS,
-    createClientListLoadOptions,
-    getClientOptionLabel,
-    getClientOptionValue,
-    renderClientListOption,
-} from '../../utils/customSelectHelpers';
-import TablePagination from '../../components/TablePagination';
-import { DateRangePickerField } from '../../components/PortalDatePicker';
+  FiPlus,
+  FiTrash2,
+  FiSearch,
+  FiClock,
+  FiUsers,
+  FiCalendar,
+  FiRefreshCw,
+  FiX,
+  FiSend,
+  FiLoader,
+  FiUser,
+  FiMail,
+  FiPhone,
+  FiSmartphone,
+  FiEdit2,
+  FiMoreVertical,
+  FiAlertTriangle,
+} from "react-icons/fi";
+import { FaWhatsapp } from "react-icons/fa6";
+import { TbCurrencyRupee } from "react-icons/tb";
+import { motion, AnimatePresence } from "framer-motion";
+import { Header, Sidebar } from "../../components/header";
+import getHeaders from "../../utils/get-headers";
+import API_BASE_URL from "../../utils/api-controller";
+import toast from "react-hot-toast";
+import CustomSelect from "../../components/CustomSelect";
+import { optionByValue } from "../../utils/customSelectHelpers";
+import TablePagination from "../../components/TablePagination";
+import { DateRangePickerField } from "../../components/PortalDatePicker";
+import AnimatedCheckbox from "../../components/AnimatedCheckbox";
+
+const CLIENT_PARTY_SEARCH_LIMIT = 20;
+const MENU_Z = 99999;
+const MENU_GAP = 6;
+const MENU_PAD = 8;
+const SEARCH_DEBOUNCE_MS = 350;
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(Number(amount) || 0));
+
+const mapSearchPartyClientOption = (item) => {
+  if (!item?.party_type || !item?.party_id) return null;
+  if (String(item.party_type).trim().toLowerCase() !== "client") return null;
+  const partyId = String(item.party_id).trim();
+  const details = item.client || {};
+  return {
+    party_id: partyId,
+    username: partyId,
+    name: details.name || partyId,
+    email: details.email || "",
+    mobile: details.mobile || "",
+    country_code: details.country_code || "",
+    balance: item.balance ?? 0,
+    userType: "client",
+  };
+};
+
+const loadClientPartyOptions = (excludeUsernames = []) => {
+  const exclude = new Set(
+    (excludeUsernames || []).map((u) => String(u || "").trim()).filter(Boolean)
+  );
+  return async (search = "", page = 1) => {
+    const headers = getHeaders();
+    if (!headers) throw new Error("Authentication headers missing");
+    const pageNum = Math.max(1, Number(page) || 1);
+    const response = await fetch(`${API_BASE_URL}/transaction/search-party`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        search: String(search || "").trim(),
+        party_types: ["client"],
+        page_no: pageNum,
+        limit: CLIENT_PARTY_SEARCH_LIMIT,
+      }),
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || json.success === false) {
+      throw new Error(json.message || "Failed to search clients");
+    }
+    const options = (Array.isArray(json.data) ? json.data : [])
+      .map(mapSearchPartyClientOption)
+      .filter(Boolean)
+      .filter((opt) => !exclude.has(String(opt.username)));
+    const isLast = json.meta?.is_last_page;
+    const hasMore =
+      isLast === false ||
+      (isLast == null &&
+        pageNum * CLIENT_PARTY_SEARCH_LIMIT < Number(json.meta?.total || 0));
+    return { options, hasMore: Boolean(hasMore) };
+  };
+};
+
+const getClientOptionLabel = (item) =>
+  item?.name || item?.label || item?.username || "—";
+const getClientOptionValue = (item) =>
+  item?.username || item?.party_id || item?.value || "";
+
+const balanceColorClass = (balance) =>
+  Number(balance) > 0 ? "text-emerald-600" : "text-rose-600";
+
+const renderClientPartyOption = (item) => {
+  const mobile = item?.mobile
+    ? item.country_code
+      ? `+${item.country_code} ${item.mobile}`
+      : String(item.mobile)
+    : "";
+  const meta = [mobile, item?.email].filter(Boolean).join(" · ") || "—";
+  return (
+    <div className="flex w-full min-w-0 items-center gap-2 text-sm">
+      <div className="min-w-0 flex-1">
+        <p className="m-0 truncate text-sm font-semibold leading-none text-slate-800">
+          {item?.name || "—"}
+        </p>
+        <p className="m-0 truncate text-[11px] leading-tight text-slate-500">
+          {meta}
+        </p>
+      </div>
+      <span
+        className={`shrink-0 text-xs font-semibold tabular-nums ${balanceColorClass(item?.balance)}`}
+      >
+        ₹{formatCurrency(item?.balance)}
+      </span>
+    </div>
+  );
+};
+
+const SelectedClientCard = ({ client, onRemove }) => {
+  const mobile = client?.mobile
+    ? client.country_code
+      ? `+${client.country_code} ${client.mobile}`
+      : String(client.mobile)
+    : "—";
+  return (
+    <div className="rounded-lg border border-indigo-200/80 bg-indigo-50/60 shadow-sm">
+      <div className="flex items-start gap-2.5 px-3 py-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700 ring-1 ring-white/80">
+          {(client?.name || "C").trim().charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="m-0 truncate text-sm font-semibold text-slate-800">
+            {client?.name || client?.username || "—"}
+          </p>
+          <div className="mt-1 space-y-0.5 text-[11px] text-slate-600">
+            <p className="m-0 flex items-center gap-1.5 truncate">
+              <FiPhone className="h-3 w-3 shrink-0 text-slate-400" />
+              <span className="truncate">{mobile}</span>
+            </p>
+            <p className="m-0 flex items-center gap-1.5 truncate">
+              <FiMail className="h-3 w-3 shrink-0 text-slate-400" />
+              <span className="truncate">{client?.email || "—"}</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span
+            className={`text-sm font-semibold tabular-nums ${balanceColorClass(client?.balance)}`}
+          >
+            ₹{formatCurrency(client?.balance)}
+          </span>
+          {onRemove ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="rounded-md p-0.5 text-slate-400 transition hover:bg-indigo-100 hover:text-rose-600"
+              title="Remove"
+            >
+              <FiX className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DAY_OPTIONS = [
+  { value: "0", label: "Sunday" },
+  { value: "1", label: "Monday" },
+  { value: "2", label: "Tuesday" },
+  { value: "3", label: "Wednesday" },
+  { value: "4", label: "Thursday" },
+  { value: "5", label: "Friday" },
+  { value: "6", label: "Saturday" },
+];
+
+const FREQUENCY_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const MONTH_DAY_OPTIONS = [
+  ...Array.from({ length: 28 }, (_, i) => ({
+    value: String(i + 1),
+    label: String(i + 1),
+  })),
+  { value: "last", label: "Last day of month" },
+];
+
+const CHANNEL_META = [
+  {
+    id: "whatsapp",
+    label: "WhatsApp",
+    icon: FaWhatsapp,
+    selected: "border-emerald-400 bg-emerald-50 text-emerald-800",
+  },
+  {
+    id: "email",
+    label: "Email",
+    icon: FiMail,
+    selected: "border-sky-400 bg-sky-50 text-sky-800",
+  },
+  {
+    id: "sms",
+    label: "SMS",
+    icon: FiSmartphone,
+    selected: "border-violet-400 bg-violet-50 text-violet-800",
+  },
+];
+
+const emptyScheduleForm = () => ({
+  type: "daily",
+  day: "1",
+  date: "1",
+  hour: "09",
+  minute: "00",
+});
+
+const pad2 = (value) => String(value ?? "0").padStart(2, "0");
+
+const buildScheduleConfig = (form) => {
+  const time = `${pad2(form.hour)}:${pad2(form.minute)}`;
+  if (form.type === "daily") return { time };
+  if (form.type === "weekly") {
+    return { time, day_of_week: Number(form.day) };
+  }
+  if (form.date === "last") {
+    return { time, last_day_of_month: true };
+  }
+  return { time, day_of_month: Number(form.date) || 1 };
+};
+
+const scheduleFormFromRow = (row) => {
+  const config = row?.schedule_config || {};
+  let hour = "09";
+  let minute = "00";
+  if (config.time) {
+    const [h, m] = String(config.time).split(":");
+    hour = pad2(h || "09");
+    minute = pad2(m || "00");
+  }
+  let day = "1";
+  if (config.day_of_week !== undefined && config.day_of_week !== null) {
+    day = String(config.day_of_week === 7 ? 0 : config.day_of_week);
+  }
+  let date = "1";
+  if (config.last_day_of_month) date = "last";
+  else if (config.day_of_month) date = String(config.day_of_month);
+
+  return {
+    type: row?.schedule_type || "daily",
+    day,
+    date,
+    hour,
+    minute,
+  };
+};
+
+const formatHumanTime = (value) => {
+  if (!value) return "—";
+  try {
+    const d = new Date(String(value).replace(" ", "T"));
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return String(value);
+  }
+};
+
+const ChannelChips = ({ channels = [] }) => (
+  <div className="flex flex-wrap gap-1">
+    {CHANNEL_META.filter((c) => channels.includes(c.id)).map((c) => {
+      const Icon = c.icon;
+      return (
+        <span
+          key={c.id}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${c.selected}`}
+        >
+          <Icon className="h-3 w-3" />
+          {c.label}
+        </span>
+      );
+    })}
+    {!channels.length ? (
+      <span className="text-xs text-gray-400">No channels</span>
+    ) : null}
+  </div>
+);
+
+const ScheduleFields = ({ form, onChange, disabled = false }) => {
+  const timeValue = `${pad2(form.hour)}:${pad2(form.minute)}`;
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Frequency
+        </label>
+        <CustomSelect
+          options={FREQUENCY_OPTIONS}
+          value={optionByValue(FREQUENCY_OPTIONS, form.type)}
+          onChange={(opt) => onChange("type", opt?.value || "daily")}
+          placeholder="Select frequency"
+          isClearable={false}
+          isDisabled={disabled}
+        />
+      </div>
+
+      {form.type === "weekly" ? (
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Day of week
+          </label>
+          <CustomSelect
+            options={DAY_OPTIONS}
+            value={optionByValue(DAY_OPTIONS, form.day)}
+            onChange={(opt) => onChange("day", opt?.value ?? "1")}
+            placeholder="Select day"
+            isClearable={false}
+            isDisabled={disabled}
+          />
+        </div>
+      ) : null}
+
+      {form.type === "monthly" ? (
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Day of month
+          </label>
+          <CustomSelect
+            options={MONTH_DAY_OPTIONS}
+            value={optionByValue(MONTH_DAY_OPTIONS, form.date)}
+            onChange={(opt) => onChange("date", opt?.value || "1")}
+            placeholder="Select date"
+            isClearable={false}
+            isDisabled={disabled}
+          />
+        </div>
+      ) : null}
+
+      <div>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Send at
+        </label>
+        <input
+          type="time"
+          step={60}
+          value={timeValue}
+          disabled={disabled}
+          onChange={(e) => {
+            const raw = String(e.target.value || "09:00");
+            const [h = "09", m = "00"] = raw.split(":");
+            onChange("time", { hour: pad2(h), minute: pad2(m) });
+          }}
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+        />
+      </div>
+    </div>
+  );
+};
+
+const ChannelPicker = ({ selected, onToggle }) => (
+  <div className="space-y-2">
+    {CHANNEL_META.map((channel) => {
+      const Icon = channel.icon;
+      const active = selected.includes(channel.id);
+      return (
+        <div
+          key={channel.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => onToggle(channel.id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onToggle(channel.id);
+            }
+          }}
+          className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition ${
+            active
+              ? "border-indigo-300 bg-indigo-50/70"
+              : "border-gray-200 bg-white hover:border-gray-300"
+          }`}
+        >
+          <span onClick={(e) => e.stopPropagation()}>
+            <AnimatedCheckbox
+              checked={active}
+              onChange={() => onToggle(channel.id)}
+              ariaLabel={channel.label}
+            />
+          </span>
+          <Icon
+            className={`h-4 w-4 shrink-0 ${
+              active ? "text-indigo-600" : "text-gray-400"
+            }`}
+          />
+          <span
+            className={`text-sm font-medium ${
+              active ? "text-indigo-900" : "text-gray-700"
+            }`}
+          >
+            {channel.label}
+          </span>
+        </div>
+      );
+    })}
+  </div>
+);
+
+const ActionMenu = ({ items }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+  const visibleItems = (items || []).filter(Boolean);
+
+  const calcPos = useCallback(() => {
+    const btn = btnRef.current;
+    const menu = menuRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const mH = menu?.offsetHeight || Math.max(44, visibleItems.length * 36 + 8);
+    const mW = menu?.offsetWidth || 168;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const candidates = [
+      { top: r.top - mH - MENU_GAP, left: r.right - mW },
+      { top: r.bottom + MENU_GAP, left: r.right - mW },
+      { top: r.top, left: r.right + MENU_GAP },
+      { top: r.top, left: r.left - mW - MENU_GAP },
+    ];
+
+    const fits = (p) =>
+      p.top >= MENU_PAD &&
+      p.left >= MENU_PAD &&
+      p.top + mH <= vh - MENU_PAD &&
+      p.left + mW <= vw - MENU_PAD;
+
+    const chosen = candidates.find(fits) || candidates[1];
+    setPos({
+      top: Math.min(Math.max(MENU_PAD, chosen.top), vh - MENU_PAD - mH),
+      left: Math.min(Math.max(MENU_PAD, chosen.left), vw - MENU_PAD - mW),
+    });
+  }, [visibleItems.length]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const raf = requestAnimationFrame(() => calcPos());
+    return () => cancelAnimationFrame(raf);
+  }, [open, calcPos]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (
+        !btnRef.current?.contains(e.target) &&
+        !menuRef.current?.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onClose = () => setOpen(false);
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onClose, true);
+    window.addEventListener("resize", calcPos);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("resize", calcPos);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, calcPos]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        aria-label="Actions"
+      >
+        <FiMoreVertical className="h-3.5 w-3.5" />
+      </button>
+
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open ? (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.12 }}
+                style={{
+                  position: "fixed",
+                  top: pos.top,
+                  left: pos.left,
+                  zIndex: MENU_Z,
+                  height: "auto",
+                }}
+                className="w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl"
+              >
+                {visibleItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    disabled={item.disabled}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.disabled) return;
+                      setOpen(false);
+                      item.onClick?.();
+                    }}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
+                      item.danger
+                        ? "text-red-600 hover:bg-red-50"
+                        : "text-gray-700 hover:bg-gray-50"
+                    } disabled:cursor-not-allowed disabled:opacity-40`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>,
+          document.body
+        )}
+    </>
+  );
+};
+
+const ConfirmModal = ({
+  open,
+  title,
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  loading = false,
+  tone = "indigo",
+  icon: Icon = FiAlertTriangle,
+  onConfirm,
+  onCancel,
+}) => {
+  if (!open) return null;
+
+  const tones = {
+    danger: {
+      wrap: "bg-red-100",
+      icon: "text-red-600",
+      btn: "bg-red-600 hover:bg-red-700",
+    },
+    indigo: {
+      wrap: "bg-indigo-100",
+      icon: "text-indigo-600",
+      btn: "bg-indigo-600 hover:bg-indigo-700",
+    },
+    emerald: {
+      wrap: "bg-emerald-100",
+      icon: "text-emerald-600",
+      btn: "bg-emerald-600 hover:bg-emerald-700",
+    },
+    amber: {
+      wrap: "bg-amber-100",
+      icon: "text-amber-600",
+      btn: "bg-amber-600 hover:bg-amber-700",
+    },
+  };
+  const palette = tones[tone] || tones.indigo;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[10090] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.15 }}
+        className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-6">
+          <div
+            className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${palette.wrap}`}
+          >
+            <Icon className={`h-6 w-6 ${palette.icon}`} />
+          </div>
+          <h4 className="mb-2 text-center text-base font-semibold text-gray-900">
+            {title}
+          </h4>
+          <p className="text-center text-sm leading-relaxed text-gray-600">
+            {message}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+          {cancelText ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+            >
+              {cancelText}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50 ${palette.btn}`}
+          >
+            {loading ? (
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : null}
+            {confirmText}
+          </button>
+        </div>
+      </motion.div>
+    </div>,
+    document.body
+  );
+};
+
+const SkeletonBone = ({ className = "" }) => (
+  <div className={`animate-pulse rounded bg-gray-200 ${className}`} />
+);
+
+const ClientsTableSkeleton = ({ rows = 6 }) => (
+  <>
+    {Array.from({ length: rows }).map((_, i) => (
+      <tr key={`sk-${i}`} className="animate-pulse">
+        <td className="w-12 p-3">
+          <div className="flex justify-center">
+            <SkeletonBone className="h-[18px] w-[18px] rounded-[4px]" />
+          </div>
+        </td>
+        <td className="px-3 py-3">
+          <SkeletonBone className="h-3 w-6" />
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <SkeletonBone className="h-8 w-8 rounded-full" />
+            <div className="space-y-1.5">
+              <SkeletonBone className="h-3.5 w-28" />
+              <SkeletonBone className="h-3 w-20" />
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <SkeletonBone className="mb-1 h-3 w-16" />
+          <SkeletonBone className="h-3 w-24" />
+        </td>
+        <td className="px-4 py-3">
+          <SkeletonBone className="h-5 w-28 rounded-full" />
+        </td>
+        <td className="px-4 py-3">
+          <SkeletonBone className="h-3.5 w-16" />
+        </td>
+        <td className="px-4 py-3">
+          <SkeletonBone className="ml-auto h-6 w-6 rounded" />
+        </td>
+      </tr>
+    ))}
+  </>
+);
+
+const StatCard = ({ title, value, sub, icon: Icon, tone }) => {
+  const tones = {
+    indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
+    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    sky: "bg-sky-50 text-sky-600 border-sky-100",
+  };
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${tones[tone] || tones.indigo}`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+          {title}
+        </p>
+        <p className="m-0 text-base font-bold leading-tight text-gray-800">
+          {value}
+        </p>
+        {sub ? (
+          <p className="m-0 truncate text-[10px] text-gray-500">{sub}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+};
 
 const AutoReminder = () => {
-    // Header/Sidebar states
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [isMinimized, setIsMinimized] = useState(() => {
-        const saved = localStorage.getItem('sidebarMinimized');
-        return saved ? JSON.parse(saved) : false;
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(() => {
+    const saved = localStorage.getItem("sidebarMinimized");
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
+  }, [isMinimized]);
+
+  const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
+
+  const [activeTab, setActiveTab] = useState("clients");
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [pagination, setPagination] = useState({
+    page_no: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 1,
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [stats, setStats] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRow, setEditingRow] = useState(null);
+  const [audienceMode, setAudienceMode] = useState("client");
+  const [selectAllClients, setSelectAllClients] = useState(false);
+  const [selectedClientOptions, setSelectedClientOptions] = useState([]);
+  const [clientPickerValue, setClientPickerValue] = useState(null);
+  const [groupOptions, setGroupOptions] = useState([]);
+  const [selectedGroupOption, setSelectedGroupOption] = useState(null);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm());
+  const [channels, setChannels] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [processingId, setProcessingId] = useState(null);
+
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsLimit, setLogsLimit] = useState(10);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const [logDateRange, setLogDateRange] = useState({ start: "", end: "" });
+
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    tone: "indigo",
+    icon: FiAlertTriangle,
+    loading: false,
+    onConfirm: null,
+  });
+
+  const searchSkipRef = useRef(true);
+  const paginationRef = useRef(pagination);
+  paginationRef.current = pagination;
+
+  const apiFetch = useCallback(async (path, options = {}) => {
+    const headers = getHeaders();
+    if (!headers) throw new Error("Not authenticated");
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
     });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || "Request failed");
+    }
+    return result;
+  }, []);
 
-    // Tab and content states
-    const [activeTab, setActiveTab] = useState('whitelist');
-    const [loading, setLoading] = useState(false);
-    const [initialLoading, setInitialLoading] = useState(true);
+  const fetchStats = useCallback(async () => {
+    try {
+      const result = await apiFetch("/autopay/stats");
+      setStats(result.data || null);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [apiFetch]);
 
-    // Whitelist states
-    const [allFilteredWhitelist, setAllFilteredWhitelist] = useState([]);
-    const [whitelistPage, setWhitelistPage] = useState(1);
-    const [whitelistLimit, setWhitelistLimit] = useState(10);
-    const [showCreateWhitelistModal, setShowCreateWhitelistModal] = useState(false);
-    const [showMoreSchedules, setShowMoreSchedules] = useState(false);
-    const [schedules, setSchedules] = useState([]);
-    const [searchWhitelist, setSearchWhitelist] = useState({
-        schedule_id: '',
-        query: ''
+  const fetchClients = useCallback(
+    async (page = 1, limit = 10, query = "") => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page_no: String(page),
+          limit: String(limit),
+          active_only: "1",
+        });
+        if (String(query || "").trim()) {
+          params.set("query", String(query).trim());
+        }
+        const result = await apiFetch(`/autopay/client/list?${params}`);
+        setClients(Array.isArray(result.data) ? result.data : []);
+        setPagination({
+          page_no: result.pagination?.page_no || page,
+          limit: result.pagination?.limit || limit,
+          total: result.pagination?.total || 0,
+          total_pages: result.pagination?.total_pages || 1,
+        });
+        setSelectedIds([]);
+      } catch (error) {
+        toast.error(error.message || "Failed to load enrolled clients");
+      } finally {
+        setLoading(false);
+        setInitialLoading(false);
+      }
+    },
+    [apiFetch]
+  );
+
+  const fetchLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page_no: String(logsPage),
+        limit: String(logsLimit),
+      });
+      if (logDateRange.start && logDateRange.end) {
+        params.set("start_date", logDateRange.start);
+        params.set("end_date", logDateRange.end);
+      }
+      const result = await apiFetch(`/autopay/logs?${params}`);
+      setLogs(Array.isArray(result.data) ? result.data : []);
+      setLogsTotal(result.pagination?.total || 0);
+    } catch (error) {
+      toast.error(error.message || "Failed to load logs");
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [apiFetch, logDateRange.end, logDateRange.start, logsLimit, logsPage]);
+
+  const fetchUserGroups = useCallback(async () => {
+    setLoadingGroups(true);
+    try {
+      const result = await apiFetch("/group/list?page=1&limit=100");
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result.data?.groups)
+          ? result.data.groups
+          : [];
+      setGroupOptions(
+        rows.map((g) => {
+          const count =
+            Number(g.firm_count ?? g.statistics?.total_firms_in_group ?? 0) || 0;
+          const name = g.name || g.group_name || `Group ${g.group_id}`;
+          return {
+            value: g.group_id,
+            label: `${name} (${count} firm${count === 1 ? "" : "s"})`,
+            firm_count: count,
+            group: g,
+          };
+        })
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Failed to load groups");
+      setGroupOptions([]);
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, [apiFetch]);
+
+  useEffect(() => {
+    fetchClients(1, paginationRef.current.limit, "");
+    fetchStats();
+  }, [fetchClients, fetchStats]);
+
+  useEffect(() => {
+    if (searchSkipRef.current) {
+      searchSkipRef.current = false;
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      fetchClients(1, paginationRef.current.limit, searchQuery);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchClients]);
+
+  useEffect(() => {
+    if (activeTab === "logs") fetchLogs();
+  }, [activeTab, fetchLogs]);
+
+  useEffect(() => {
+    if (showAddModal) fetchUserGroups();
+  }, [showAddModal, fetchUserGroups]);
+
+  const closeConfirm = () =>
+    setConfirmDialog((prev) => ({
+      ...prev,
+      open: false,
+      loading: false,
+      onConfirm: null,
+    }));
+
+  const openConfirm = ({
+    title,
+    message,
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+    tone = "indigo",
+    icon = FiAlertTriangle,
+    onConfirm,
+  }) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      tone,
+      icon,
+      loading: false,
+      onConfirm,
     });
-    const [allClients, setAllClients] = useState([]);
-    const [processingGroup, setProcessingGroup] = useState(null);
-    const [selectedClientsForModal, setSelectedClientsForModal] = useState([]);
-
-    // Schedule states
-    const [scheduleList, setScheduleList] = useState([]);
-    const [showCreateScheduleModal, setShowCreateScheduleModal] = useState(false);
-    const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
-    const [selectedSchedule, setSelectedSchedule] = useState(null);
-    const [logs, setLogs] = useState([]);
-    const [showLogsModal, setShowLogsModal] = useState(false);
-    const [stats, setStats] = useState(null);
-
-    // Logs view states
-    const [loadingLogs, setLoadingLogs] = useState(false);
-    const [selectedLogGroup, setSelectedLogGroup] = useState('');
-    const [logDateRange, setLogDateRange] = useState({ start: '', end: '' });
-    const [logsPage, setLogsPage] = useState(1);
-    const [logsLimit, setLogsLimit] = useState(10);
-    const [expandedLogId, setExpandedLogId] = useState(null);
-    const [expandedLogMembers, setExpandedLogMembers] = useState({});
-    const [loadingMembers, setLoadingMembers] = useState(false);
-    const [memberSearchQuery, setMemberSearchQuery] = useState('');
-
-    // Group selection states in Add Client modal
-    const [userGroups, setUserGroups] = useState([]);
-    const [loadingGroups, setLoadingGroups] = useState(false);
-    const [selectedGroupForSelection, setSelectedGroupForSelection] = useState('');
-
-    // Members list modal states
-    const [showMembersModal, setShowMembersModal] = useState(false);
-    const [selectedScheduleForMembers, setSelectedScheduleForMembers] = useState(null);
-    const [scheduleMembers, setScheduleMembers] = useState([]);
-    const [loadingMembersModal, setLoadingMembersModal] = useState(false);
-
-    const [modalMemberSearch, setModalMemberSearch] = useState('');
-
-    // Form states
-    const [whitelistForm, setWhitelistForm] = useState({
-        usernames: [],
-        schedule_id: '',
-        show_schedule: ''
-    });
-
-    // Derived whitelist pagination states
-    const totalWhitelistPages = Math.ceil(allFilteredWhitelist.length / whitelistLimit) || 1;
-    const startIndex = (whitelistPage - 1) * whitelistLimit;
-    const paginatedWhitelist = allFilteredWhitelist.slice(startIndex, startIndex + whitelistLimit);
-
-    // Derived logs filtering & pagination states
-    const filteredLogs = React.useMemo(() => {
-        return logs.filter(log => {
-            if (logDateRange.start && logDateRange.end) {
-                const runDate = new Date(log.run_date);
-                const startDate = new Date(logDateRange.start);
-                const endDate = new Date(logDateRange.end);
-                startDate.setHours(0, 0, 0, 0);
-                endDate.setHours(23, 59, 59, 999);
-                return runDate >= startDate && runDate <= endDate;
-            }
-            return true;
-        });
-    }, [logs, logDateRange]);
-
-    const totalLogsPages = Math.ceil(filteredLogs.length / logsLimit) || 1;
-    const startLogsIndex = (logsPage - 1) * logsLimit;
-    const paginatedLogs = filteredLogs.slice(startLogsIndex, startLogsIndex + logsLimit);
-
-    const [scheduleForm, setScheduleForm] = useState({
-        name: '',
-        type: '',
-        day: '',
-        date: '',
-        hour: '',
-        minute: '00'
-    });
-
-    const [editScheduleForm, setEditScheduleForm] = useState({
-        schedule_id: '',
-        name: '',
-        type: '',
-        day: '',
-        date: '',
-        hour: '',
-        minute: '00',
-        status: '1'
-    });
-
-    // Fetch all clients for dropdown
-    const fetchAllClients = async () => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/client/list?limit=500`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success) {
-                const clientsData = result.data.data || result.data || [];
-                const formattedClients = clientsData.map(client => ({
-                    username: client.username || client.profile_id,
-                    name: client.name || client.full_name || client.client_name || 'N/A',
-                    mobile: client.mobile || client.phone || 'N/A',
-                    email: client.email || 'N/A',
-                    firm_name: client.firms?.[0]?.firm_name || 'Individual'
-                }));
-                setAllClients(formattedClients);
-            }
-        } catch (error) {
-            console.error("Error fetching clients:", error);
-        }
-    };
-
-    // Fetch schedules from API
-    const fetchSchedules = async () => {
-        const headers = getHeaders();
-        if (!headers) return [];
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/list?limit=100`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success) {
-                const scheduleData = result.data.map(schedule => ({
-                    schedule_id: schedule.group_id,
-                    name: schedule.group_name,
-                    type: schedule.schedule_type,
-                    schedule_config: schedule.schedule_config,
-                    schedule_display: schedule.schedule_display || getScheduleDisplay(schedule.schedule_type, schedule.schedule_config),
-                    count: schedule.member_count || 0,
-                    status: schedule.is_active ? '1' : '0',
-                    description: schedule.description
-                }));
-                // Sort active schedules to top
-                const sortedSchedules = [...scheduleData].sort((a, b) => {
-                    if (a.status === '1' && b.status !== '1') return -1;
-                    if (a.status !== '1' && b.status === '1') return 1;
-                    return 0;
-                });
-                setSchedules(sortedSchedules);
-                setScheduleList(sortedSchedules);
-                return sortedSchedules;
-            }
-            return [];
-        } catch (error) {
-            console.error("Error fetching schedules:", error);
-            return [];
-        }
-    };
-
-    const getScheduleDisplay = (type, config) => {
-        if (!config) return '';
-        if (type === 'daily') {
-            if (config.days?.length && config.days.length < 7) {
-                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                const days = config.days.map(d => dayNames[d === 7 ? 0 : d]);
-                return `Every ${days.join(', ')} at ${config.time}`;
-            }
-            return `Every day at ${config.time}`;
-        } else if (type === 'weekly') {
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const day = dayNames[config.day_of_week === 7 ? 0 : config.day_of_week];
-            return `Every ${day} at ${config.time}`;
-        } else if (type === 'monthly') {
-            if (config.day_of_month) {
-                return `Every ${config.day_of_month}${getOrdinalSuffix(config.day_of_month)} of month at ${config.time}`;
-            } else if (config.week_of_month && config.day_of_week) {
-                const weekNames = ['First', 'Second', 'Third', 'Fourth'];
-                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                const weekText = config.week_of_month === 'last' ? 'Last' : weekNames[config.week_of_month - 1];
-                return `${weekText} ${dayNames[config.day_of_week]} of month at ${config.time}`;
-            } else if (config.last_day_of_month) {
-                return `Last day of month at ${config.time}`;
-            }
-        }
-        return '';
-    };
-
-    const getOrdinalSuffix = (n) => {
-        const s = ["th", "st", "nd", "rd"];
-        const v = n % 100;
-        return s[(v - 20) % 10] || s[v] || s[0];
-    };
-
-    // Fetch whitelist (group members)
-    const fetchWhitelist = async (scheduleId = '', search = '') => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        setLoading(true);
-
-        try {
-            const currentScheduleId = scheduleId || searchWhitelist.schedule_id;
-            const currentSearch = search || searchWhitelist.query;
-
-            const groupsResponse = await fetch(`${API_BASE_URL}/autopay/group/list?limit=100`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const groupsResult = await groupsResponse.json();
-
-            if (groupsResult.success) {
-                let allMembers = [];
-
-                for (const group of groupsResult.data) {
-                    if (currentScheduleId && group.group_id !== currentScheduleId) continue;
-
-                    const membersResponse = await fetch(`${API_BASE_URL}/autopay/group/members/${group.group_id}?limit=100`, {
-                        headers: { ...headers, 'Content-Type': 'application/json' }
-                    });
-                    const membersResult = await membersResponse.json();
-
-                    if (membersResult.success && membersResult.data) {
-                        const uniqueMembersMap = new Map();
-                        membersResult.data.forEach(member => {
-                            if (member && member.username && !uniqueMembersMap.has(member.username)) {
-                                uniqueMembersMap.set(member.username, member);
-                            }
-                        });
-
-                        const membersWithSchedule = Array.from(uniqueMembersMap.values()).map(member => ({
-                            id: member.member_id,
-                            username: member.username,
-                            name: member.name || member.username,
-                            mobile: member.mobile || 'N/A',
-                            email: member.email || 'N/A',
-                            balance: member.balance || 0,
-                            has_debit: member.has_debit,
-                            schedule_name: group.group_name,
-                            type: group.schedule_type,
-                            schedule_display: getScheduleDisplay(group.schedule_type, group.schedule_config),
-                            group_id: group.group_id
-                        }));
-
-                        let filtered = membersWithSchedule;
-                        if (currentSearch) {
-                            const searchLower = currentSearch.toLowerCase();
-                            filtered = membersWithSchedule.filter(m =>
-                                m.name?.toLowerCase().includes(searchLower) ||
-                                m.mobile?.includes(currentSearch) ||
-                                m.email?.toLowerCase().includes(searchLower)
-                            );
-                        }
-
-                        allMembers = [...allMembers, ...filtered];
-                    }
-                }
-
-                setAllFilteredWhitelist(allMembers);
-                setWhitelistPage(1);
-            }
-        } catch (error) {
-            console.error("Error fetching whitelist:", error);
-            toast.error("Failed to fetch whitelist data");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Fetch logs
-    const fetchLogs = async (groupId = null, startDate = '', endDate = '') => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        setLoadingLogs(true);
-        try {
-            let url = `${API_BASE_URL}/autopay/logs?limit=100`;
-            if (groupId) {
-                url += `&group_id=${groupId}`;
-            }
-            if (startDate) {
-                url += `&start_date=${startDate}`;
-            }
-            if (endDate) {
-                url += `&end_date=${endDate}`;
-            }
-            const response = await fetch(url, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success) {
-                setLogs(result.data || []);
-            }
-        } catch (error) {
-            console.error("Error fetching logs:", error);
-        } finally {
-            setLoadingLogs(false);
-        }
-    };
-
-    // Fetch statistics
-    const fetchStats = async () => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/stats`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success) {
-                setStats(result.data);
-            }
-        } catch (error) {
-            console.error("Error fetching stats:", error);
-        }
-    };
-
-    // Process group manually
-    const processGroup = async (groupId, groupName) => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        setProcessingGroup(groupId);
-        const toastId = toast.loading(`Processing ${groupName}...`);
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/process/group/${groupId}`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success(`${groupName} completed! 📧 Sent: ${result.data.sent} | ⏭️ Skipped: ${result.data.skipped} | ❌ Failed: ${result.data.failed}`, {
-                    id: toastId,
-                    duration: 5000
-                });
-                fetchLogs(groupId);
-                fetchStats();
-                fetchWhitelist(true);
-            } else {
-                toast.error(result.message || "Processing failed", { id: toastId });
-            }
-        } catch (error) {
-            console.error("Error processing group:", error);
-            toast.error("Failed to process group", { id: toastId });
-        } finally {
-            setProcessingGroup(null);
-        }
-    };
-
-    // Process all groups
-    const processAllGroups = async () => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        const toastId = toast.loading("Processing all schedules...");
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/process/all`, {
-                method: 'GET',
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success("All schedules processed successfully!", { id: toastId });
-                fetchWhitelist(true);
-                fetchLogs();
-                fetchStats();
-            } else {
-                toast.error(result.message || "Processing failed", { id: toastId });
-            }
-        } catch (error) {
-            console.error("Error processing groups:", error);
-            toast.error("Failed to process schedules", { id: toastId });
-        }
-    };
-
-    // Create schedule
-    const createSchedule = async (formData) => {
-        const headers = getHeaders();
-        if (!headers) return false;
-
-        const timeString = `${formData.hour}:${formData.minute || '00'}`;
-        let scheduleConfig = {};
-
-        if (formData.type === 'daily') {
-            scheduleConfig = { time: timeString };
-        } else if (formData.type === 'weekly') {
-            const dayMap = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 0 };
-            scheduleConfig = {
-                day_of_week: dayMap[formData.day],
-                time: timeString
-            };
-        } else if (formData.type === 'monthly') {
-            if (formData.date === 'last day') {
-                scheduleConfig = {
-                    last_day_of_month: true,
-                    time: timeString
-                };
-            } else {
-                scheduleConfig = {
-                    day_of_month: parseInt(formData.date),
-                    time: timeString
-                };
-            }
-        }
-
-        const payload = {
-            group_name: formData.name,
-            description: `${formData.type} payment reminder schedule`,
-            schedule_type: formData.type,
-            schedule_config: scheduleConfig,
-            is_active: 1
-        };
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/create`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success("Schedule created successfully!");
-                await fetchSchedules();
-                return true;
-            } else {
-                toast.error(result.message || "Failed to create schedule");
-                return false;
-            }
-        } catch (error) {
-            console.error("Error creating schedule:", error);
-            toast.error("Failed to create schedule");
-            return false;
-        }
-    };
-
-    // Update schedule
-    const updateSchedule = async (formData) => {
-        const headers = getHeaders();
-        if (!headers) return false;
-
-        const timeString = `${formData.hour}:${formData.minute || '00'}`;
-        let scheduleConfig = {};
-
-        if (formData.type === 'daily') {
-            scheduleConfig = { time: timeString };
-        } else if (formData.type === 'weekly') {
-            const dayMap = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 0 };
-            scheduleConfig = {
-                day_of_week: dayMap[formData.day],
-                time: timeString
-            };
-        } else if (formData.type === 'monthly') {
-            if (formData.date === 'last day') {
-                scheduleConfig = {
-                    last_day_of_month: true,
-                    time: timeString
-                };
-            } else {
-                scheduleConfig = {
-                    day_of_month: parseInt(formData.date),
-                    time: timeString
-                };
-            }
-        }
-
-        const payload = {
-            group_id: formData.schedule_id,
-            group_name: formData.name,
-            description: `${formData.type} payment reminder schedule`,
-            schedule_type: formData.type,
-            schedule_config: scheduleConfig,
-            is_active: parseInt(formData.status)
-        };
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/update`, {
-                method: 'PUT',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success("Schedule updated successfully!");
-                await fetchSchedules();
-                return true;
-            } else {
-                toast.error(result.message || "Failed to update schedule");
-                return false;
-            }
-        } catch (error) {
-            console.error("Error updating schedule:", error);
-            toast.error("Failed to update schedule");
-            return false;
-        }
-    };
-
-    // Delete schedule
-    const deleteSchedule = async (scheduleId) => {
-        const headers = getHeaders();
-        if (!headers) return false;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/delete/${scheduleId}`, {
-                method: 'DELETE',
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success("Schedule deleted successfully!");
-                await fetchSchedules();
-                return true;
-            } else {
-                toast.error(result.message || "Failed to delete schedule");
-                return false;
-            }
-        } catch (error) {
-            console.error("Error deleting schedule:", error);
-            toast.error("Failed to delete schedule");
-            return false;
-        }
-    };
-
-    // Add members to group
-    const addMembersToGroup = async (groupId, usernames) => {
-        const headers = getHeaders();
-        if (!headers) return false;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/add-members`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ group_id: groupId, usernames })
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success(`${result.data.added} client(s) added to schedule!`);
-                return true;
-            } else {
-                toast.error(result.message || "Failed to add clients");
-                return false;
-            }
-        } catch (error) {
-            console.error("Error adding members:", error);
-            toast.error("Failed to add clients");
-            return false;
-        }
-    };
-
-    // Remove member from group
-    const removeMember = async (groupId, username, clientName) => {
-        const headers = getHeaders();
-        if (!headers) return false;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/remove-members`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ group_id: groupId, usernames: [username] })
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success(`${clientName} removed from schedule`);
-                fetchWhitelist(true);
-                return true;
-            } else {
-                toast.error(result.message || "Failed to remove client");
-                return false;
-            }
-        } catch (error) {
-            console.error("Error removing member:", error);
-            toast.error("Failed to remove client");
-            return false;
-        }
-    };
-
-    const fetchUserGroups = async () => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        setLoadingGroups(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/group/groups/all?limit=100`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success) {
-                setUserGroups(result.data?.groups || []);
-            }
-        } catch (error) {
-            console.error("Error fetching user groups:", error);
-        } finally {
-            setLoadingGroups(false);
-        }
-    };
-
-    useEffect(() => {
-        if (showCreateWhitelistModal && userGroups.length === 0) {
-            fetchUserGroups();
-        }
-    }, [showCreateWhitelistModal]);
-
-    const handleGroupSelection = async (groupId) => {
-        if (!groupId) return;
-        setSelectedGroupForSelection(groupId);
-        const headers = getHeaders();
-        if (!headers) return;
-
-        const toastId = toast.loading("Fetching group members...");
-        try {
-            const response = await fetch(`${API_BASE_URL}/group/groups/all?group_id=${groupId}`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success) {
-                const firms = result.data?.firms || [];
-                const formattedClients = firms.map(f => f.client).filter(Boolean).map(client => ({
-                    username: client.username || client.profile_id,
-                    name: client.name || client.full_name || client.client_name || 'N/A',
-                    mobile: client.mobile || client.phone || 'N/A',
-                    email: client.email || 'N/A',
-                    firm_name: client.firms?.[0]?.firm_name || 'Individual'
-                }));
-
-                // Merge into allClients so they render names correctly
-                setAllClients(prev => {
-                    const existingUsernames = new Set(prev.map(c => c.username));
-                    const newClients = formattedClients.filter(c => !existingUsernames.has(c.username));
-                    return [...prev, ...newClients];
-                });
-
-                const groupUsernames = formattedClients.map(c => c.username);
-                if (groupUsernames.length === 0) {
-                    toast.error("No clients found in this group", { id: toastId });
-                    setSelectedGroupForSelection('');
-                    return;
-                }
-
-                // Add to whitelistForm usernames
-                setWhitelistForm(prev => {
-                    const uniqueUsernames = [...new Set([...prev.usernames, ...groupUsernames])];
-                    return { ...prev, usernames: uniqueUsernames };
-                });
-
-                // Also update selectedClientsForModal
-                setSelectedClientsForModal(prev => [...new Set([...prev, ...groupUsernames])]);
-
-                toast.success(`Added ${groupUsernames.length} clients from group to selection!`, { id: toastId });
-            } else {
-                toast.error(result.message || "Failed to fetch group details", { id: toastId });
-            }
-        } catch (error) {
-            console.error("Error fetching group details:", error);
-            toast.error("Failed to fetch group details", { id: toastId });
-        } finally {
-            setSelectedGroupForSelection('');
-        }
-    };
-
-    const handleViewScheduleMembers = async (schedule) => {
-        setSelectedScheduleForMembers(schedule);
-        setShowMembersModal(true);
-        setLoadingMembersModal(true);
-        setModalMemberSearch('');
-
-        const headers = getHeaders();
-        if (!headers) {
-            setLoadingMembersModal(false);
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/members/${schedule.schedule_id}?limit=100`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success && result.data) {
-                const uniqueMembersMap = new Map();
-                result.data.forEach(member => {
-                    if (member && member.username && !uniqueMembersMap.has(member.username)) {
-                        uniqueMembersMap.set(member.username, member);
-                    }
-                });
-                setScheduleMembers(Array.from(uniqueMembersMap.values()));
-            } else {
-                setScheduleMembers([]);
-            }
-        } catch (error) {
-            console.error("Error fetching group members for modal:", error);
-            toast.error("Failed to load schedule members");
-        } finally {
-            setLoadingMembersModal(false);
-        }
-    };
-
-    const refreshScheduleMembers = async (scheduleId) => {
-        const headers = getHeaders();
-        if (!headers) return;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/autopay/group/members/${scheduleId}?limit=100`, {
-                headers: { ...headers, 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success && result.data) {
-                const uniqueMembersMap = new Map();
-                result.data.forEach(member => {
-                    if (member && member.username && !uniqueMembersMap.has(member.username)) {
-                        uniqueMembersMap.set(member.username, member);
-                    }
-                });
-                setScheduleMembers(Array.from(uniqueMembersMap.values()));
-            } else {
-                setScheduleMembers([]);
-            }
-        } catch (error) {
-            console.error("Error refreshing group members:", error);
-        }
-    };
-
-    const handleRemoveMemberFromModal = async (username, clientName) => {
-        if (!selectedScheduleForMembers) return;
-        const groupId = selectedScheduleForMembers.schedule_id;
-
-        const success = await removeMember(groupId, username, clientName);
-        if (success) {
-            await refreshScheduleMembers(groupId);
-            await fetchSchedules();
-            await fetchWhitelist(true);
-        }
-    };
-
-    const handleOpenAddClientForSchedule = () => {
-        if (!selectedScheduleForMembers) return;
-        setWhitelistForm({
-            usernames: [],
-            schedule_id: selectedScheduleForMembers.schedule_id,
-            show_schedule: selectedScheduleForMembers.name
-        });
-        setSelectedClientsForModal([]);
-        setShowCreateWhitelistModal(true);
-        setShowMembersModal(false);
-    };
-
-    const handleCancelWhitelist = () => {
-        setShowCreateWhitelistModal(false);
-        setShowMoreSchedules(false);
-        resetWhitelistForm();
-        if (selectedScheduleForMembers) {
-            setShowMembersModal(true);
-        }
-    };
-
-    const handleCloseMembersModal = () => {
-        setShowMembersModal(false);
-        setSelectedScheduleForMembers(null);
-    };
-
-    // Initial data load
-    useEffect(() => {
-        const loadInitialData = async () => {
-            setInitialLoading(true);
-            await fetchSchedules();
-            await fetchWhitelist();
-            await fetchStats();
-            await fetchAllClients();
-            setInitialLoading(false);
-        };
-        loadInitialData();
-    }, []);
-
-    // Reactive log fetching when logs tab is active or logs filters change
-    useEffect(() => {
-        if (activeTab === 'logs') {
-            fetchLogs(selectedLogGroup, logDateRange.start, logDateRange.end);
-            setLogsPage(1); // Reset page on filter change
-        }
-    }, [activeTab, selectedLogGroup, logDateRange]);
-
-    const handleToggleLogDetails = async (logId, groupId) => {
-        if (expandedLogId === logId) {
-            setExpandedLogId(null);
-            setMemberSearchQuery('');
-            return;
-        }
-
-        setExpandedLogId(logId);
-        setMemberSearchQuery('');
-
-        if (groupId && !expandedLogMembers[groupId]) {
-            setLoadingMembers(true);
-            const headers = getHeaders();
-            if (!headers) {
-                setLoadingMembers(false);
-                return;
-            }
-            try {
-                const response = await fetch(`${API_BASE_URL}/autopay/group/members/${groupId}?limit=100`, {
-                    headers: { ...headers, 'Content-Type': 'application/json' }
-                });
-                const result = await response.json();
-                if (result.success && result.data) {
-                    const uniqueMembersMap = new Map();
-                    result.data.forEach(member => {
-                        if (member && member.username && !uniqueMembersMap.has(member.username)) {
-                            uniqueMembersMap.set(member.username, member);
-                        }
-                    });
-
-                    setExpandedLogMembers(prev => ({
-                        ...prev,
-                        [groupId]: Array.from(uniqueMembersMap.values())
-                    }));
-                }
-            } catch (error) {
-                console.error("Error fetching group members for log:", error);
-                toast.error("Failed to fetch group members list");
-            } finally {
-                setLoadingMembers(false);
-            }
-        }
-    };
-
-    // Persist sidebar minimized state
-    useEffect(() => {
-        localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
-    }, [isMinimized]);
-
-    // Lock body scroll when mobile sidebar is open
-    useEffect(() => {
-        if (mobileMenuOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
-        }
-        return () => {
-            document.body.style.overflow = 'auto';
-        };
-    }, [mobileMenuOpen]);
-
-    // Whitelist functions
-    const handleWhitelistSearch = (e) => {
-        e.preventDefault();
-        fetchWhitelist();
-    };
-
-    const handleWhitelistSubmit = async (e) => {
-        e.preventDefault();
-        if (!whitelistForm.schedule_id) {
-            toast.error("Please select a schedule");
-            return;
-        }
-        if (whitelistForm.usernames.length === 0) {
-            toast.error("Please select at least one client");
-            return;
-        }
-
-        const success = await addMembersToGroup(whitelistForm.schedule_id, whitelistForm.usernames);
-        if (success) {
-            setShowCreateWhitelistModal(false);
-            resetWhitelistForm();
-            fetchWhitelist();
-            fetchSchedules();
-            if (selectedScheduleForMembers && selectedScheduleForMembers.schedule_id === whitelistForm.schedule_id) {
-                handleViewScheduleMembers(selectedScheduleForMembers);
-            } else {
-                setSelectedScheduleForMembers(null);
-            }
-        }
-    };
-
-    const handleDeleteWhitelist = async (item) => {
-        const success = await removeMember(item.group_id, item.username, item.name);
-        if (success) {
-            fetchWhitelist();
-            fetchSchedules();
-        }
-    };
-
-    // Schedule functions
-    const handleScheduleSubmit = async (e) => {
-        e.preventDefault();
-        const success = await createSchedule(scheduleForm);
-        if (success) {
-            setShowCreateScheduleModal(false);
-            resetScheduleForm();
-            fetchWhitelist(true);
-        }
-    };
-
-    const handleEditScheduleSubmit = async (e) => {
-        e.preventDefault();
-        const success = await updateSchedule(editScheduleForm);
-        if (success) {
-            setShowEditScheduleModal(false);
-            fetchWhitelist(true);
-        }
-    };
-
-    const handleEditScheduleClick = (schedule) => {
-        setSelectedSchedule(schedule);
-        const config = schedule.schedule_config || {};
-        let hour = '', minute = '', day = '', date = '';
-
-        if (config.time) {
-            [hour, minute] = config.time.split(':');
-        }
-
-        if (schedule.type === 'weekly' && config.day_of_week !== undefined) {
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            day = dayNames[config.day_of_week === 7 ? 0 : config.day_of_week];
-        }
-
-        if (schedule.type === 'monthly' && config.day_of_month) {
-            date = String(config.day_of_month);
-        }
-        if (schedule.type === 'monthly' && config.last_day_of_month) {
-            date = 'last day';
-        }
-
-        setEditScheduleForm({
-            schedule_id: schedule.schedule_id,
-            name: schedule.name,
-            type: schedule.type,
-            day: day,
-            date: date,
-            hour: hour || '09',
-            minute: minute || '00',
-            status: schedule.status
-        });
-        setShowEditScheduleModal(true);
-    };
-
-    const handleDeleteSchedule = async (scheduleId, scheduleName) => {
-        if (window.confirm(`Are you sure you want to delete "${scheduleName}"? This will remove all clients from this schedule.`)) {
-            await deleteSchedule(scheduleId);
-            fetchWhitelist(true);
-        }
-    };
-
-    const handleViewLogs = async (groupId, groupName) => {
-        await fetchLogs(groupId);
-        setShowLogsModal(true);
-    };
-
-    // Helper functions
-    const formatTime = (hour, minute = '00') => {
-        const h = parseInt(hour);
-        const m = minute;
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        const hour12 = h % 12 || 12;
-        return `${hour12}:${m} ${ampm}`;
-    };
-
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('en-IN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(Math.abs(amount));
-    };
-
-    // Form handlers
-    const handleWhitelistChange = (field, value) => {
-        const newForm = { ...whitelistForm, [field]: value };
-
-        if (field === 'schedule_id') {
-            const selectedSchedule = schedules.find(s => s.schedule_id === value);
-            if (selectedSchedule) {
-                newForm.show_schedule = selectedSchedule.schedule_display;
-            } else {
-                newForm.show_schedule = '';
-            }
-        }
-
-        setWhitelistForm(newForm);
-    };
-
-    const handleClientSelection = (username) => {
-        setSelectedClientsForModal(prev => {
-            if (prev.includes(username)) {
-                return prev.filter(u => u !== username);
-            } else {
-                return [...prev, username];
-            }
-        });
-        setWhitelistForm(prev => ({
-            ...prev,
-            usernames: selectedClientsForModal.includes(username)
-                ? prev.usernames.filter(u => u !== username)
-                : [...prev.usernames, username]
-        }));
-    };
-
-    const handleScheduleChange = (field, value) => {
-        setScheduleForm(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleEditScheduleChange = (field, value) => {
-        setEditScheduleForm(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleSearchWhitelistChange = (field, value) => {
-        setSearchWhitelist(prev => ({ ...prev, [field]: value }));
-    };
-
-    const resetWhitelistForm = () => {
-        setWhitelistForm({
-            usernames: [],
-            schedule_id: '',
-            show_schedule: ''
-        });
-        setSelectedClientsForModal([]);
-        setShowMoreSchedules(false);
-    };
-
-    const resetScheduleForm = () => {
-        setScheduleForm({
-            name: '',
-            type: '',
-            day: '',
-            date: '',
-            hour: '',
-            minute: '00'
-        });
-    };
-
-    // Stats Cards Component
-    const StatsCards = () => {
-        if (!stats) return null;
-
-        const cards = [
-            {
-                title: 'Active Schedules',
-                value: stats.groups?.active || 0,
-                icon: <FiCalendar className="w-4 h-4" />,
-                color: 'indigo',
-                subText: `${stats.groups?.inactive || 0} inactive`
-            },
-            {
-                title: 'Clients Enrolled',
-                value: stats.members?.total || 0,
-                icon: <FiUsers className="w-4 h-4" />,
-                color: 'purple',
-                subText: `Across ${stats.members?.groups_with_members || 0} schedules`
-            },
-            {
-                title: "Today's Sent",
-                value: stats.today_runs?.total_sent || 0,
-                icon: <FiSend className="w-4 h-4" />,
-                color: 'emerald',
-                subText: `Skipped: ${stats.today_runs?.total_skipped || 0} | Failed: ${stats.today_runs?.total_failed || 0}`
-            }
-        ];
-
-        return (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                {cards.map((card, idx) => {
-                    const colorStyles = {
-                        indigo: 'bg-indigo-50/80 text-indigo-600 border-indigo-100',
-                        purple: 'bg-purple-50/80 text-purple-600 border-purple-100',
-                        emerald: 'bg-emerald-50/80 text-emerald-600 border-emerald-100'
-                    };
-                    const selectedStyle = colorStyles[card.color] || 'bg-gray-50 text-gray-600 border-gray-100';
-
-                    return (
-                        <motion.div
-                            key={idx}
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.08 }}
-                            className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-4"
-                        >
-                            <div className={`p-3 rounded-lg border ${selectedStyle} flex-shrink-0 flex items-center justify-center`}>
-                                {card.icon}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
-                                    {card.title}
-                                </span>
-                                <div className="flex items-baseline gap-2 mt-0.5">
-                                    <span className="text-xl font-bold text-gray-800 leading-tight">
-                                        {card.value}
-                                    </span>
-                                </div>
-                                <span className="text-xs text-gray-500 mt-1 block truncate" title={card.subText}>
-                                    {card.subText}
-                                </span>
-                            </div>
-                        </motion.div>
-                    );
-                })}
-            </div>
-        );
-    };
-
-    // Loading Skeleton
-    const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gray-50">
-            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    <div className="animate-pulse">
-                        <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                            {[1, 2, 3].map(i => <div key={i} className="h-[88px] bg-gray-200 rounded-xl"></div>)}
-                        </div>
-                        <div className="h-12 bg-gray-200 rounded-lg mb-6 w-48"></div>
-                        <div className="h-96 bg-gray-200 rounded-xl"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  };
+
+  const handleConfirm = async () => {
+    if (!confirmDialog.onConfirm) {
+      closeConfirm();
+      return;
+    }
+    setConfirmDialog((prev) => ({ ...prev, loading: true }));
+    try {
+      await confirmDialog.onConfirm();
+      closeConfirm();
+    } catch (error) {
+      setConfirmDialog((prev) => ({ ...prev, loading: false }));
+      toast.error(error.message || "Action failed");
+    }
+  };
+
+  const resetAddForm = () => {
+    setAudienceMode("client");
+    setSelectAllClients(false);
+    setSelectedClientOptions([]);
+    setClientPickerValue(null);
+    setSelectedGroupOption(null);
+    setScheduleForm(emptyScheduleForm());
+    setChannels([]);
+  };
+
+  const handleScheduleChange = (field, value) => {
+    if (field === "time" && value && typeof value === "object") {
+      setScheduleForm((prev) => ({
+        ...prev,
+        hour: pad2(value.hour),
+        minute: pad2(value.minute),
+      }));
+      return;
+    }
+    setScheduleForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleChannel = (id) => {
+    setChannels((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
+  };
 
-    const activeSchedulesForSelection = schedules.filter(s => s.status === '1');
+  const switchAudienceMode = (mode) => {
+    setAudienceMode(mode);
+    setSelectAllClients(false);
+    setSelectedClientOptions([]);
+    setClientPickerValue(null);
+    setSelectedGroupOption(null);
+  };
 
-    if (initialLoading) return <SkeletonLoader />;
+  const handlePickClient = (option) => {
+    if (!option) {
+      setClientPickerValue(null);
+      return;
+    }
+    const username = getClientOptionValue(option);
+    if (!username) return;
+    setSelectedClientOptions((prev) => {
+      if (prev.some((c) => getClientOptionValue(c) === username)) return prev;
+      return [...prev, option];
+    });
+    setClientPickerValue(null);
+  };
 
+  const removeSelectedClient = (username) => {
+    setSelectedClientOptions((prev) =>
+      prev.filter((c) => getClientOptionValue(c) !== username)
+    );
+  };
+
+  const selectedClientUsernames = useMemo(
+    () =>
+      selectedClientOptions
+        .map((c) => getClientOptionValue(c))
+        .filter(Boolean),
+    [selectedClientOptions]
+  );
+
+  const clientLoadOptions = useMemo(
+    () => loadClientPartyOptions(selectedClientUsernames),
+    [selectedClientUsernames]
+  );
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    if (audienceMode === "group" && !selectedGroupOption?.value) {
+      toast.error("Select a group");
+      return;
+    }
+    if (
+      audienceMode === "client" &&
+      !selectAllClients &&
+      !selectedClientOptions.length
+    ) {
+      toast.error("Select at least one client or choose Select all");
+      return;
+    }
+    if (!channels.length) {
+      toast.error("Select at least one channel");
+      return;
+    }
+    setSaving(true);
+    try {
+      const body =
+        audienceMode === "group"
+          ? {
+              group_id: selectedGroupOption.value,
+              schedule_type: scheduleForm.type,
+              schedule_config: buildScheduleConfig(scheduleForm),
+              channels,
+              is_active: 1,
+            }
+          : selectAllClients
+            ? {
+                select_all_clients: true,
+                schedule_type: scheduleForm.type,
+                schedule_config: buildScheduleConfig(scheduleForm),
+                channels,
+                is_active: 1,
+              }
+            : {
+                usernames: selectedClientOptions
+                  .map((opt) => getClientOptionValue(opt) || opt?.username)
+                  .filter(Boolean),
+                schedule_type: scheduleForm.type,
+                schedule_config: buildScheduleConfig(scheduleForm),
+                channels,
+                is_active: 1,
+              };
+
+      const result = await apiFetch("/autopay/client/add", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      const added = result.data?.added || 0;
+      const updated = result.data?.updated || 0;
+      if (!added && !updated) {
+        toast.error("No clients were enrolled");
+        return;
+      }
+      toast.success(
+        [added ? `Added ${added}` : null, updated ? `Updated ${updated}` : null]
+          .filter(Boolean)
+          .join(", ")
+      );
+      setShowAddModal(false);
+      resetAddForm();
+      fetchClients(1, pagination.limit, searchQuery);
+      fetchStats();
+    } catch (error) {
+      toast.error(error.message || "Failed to enroll clients");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEdit = (row) => {
+    setEditingRow(row);
+    setScheduleForm(scheduleFormFromRow(row));
+    setChannels(Array.isArray(row.channels) ? [...row.channels] : ["email"]);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingRow?.reminder_id) return;
+    if (!channels.length) {
+      toast.error("Select at least one channel");
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiFetch("/autopay/client/update", {
+        method: "PUT",
+        body: JSON.stringify({
+          reminder_id: editingRow.reminder_id,
+          schedule_type: scheduleForm.type,
+          schedule_config: buildScheduleConfig(scheduleForm),
+          channels,
+        }),
+      });
+      toast.success("Reminder config updated");
+      setShowEditModal(false);
+      setEditingRow(null);
+      fetchClients(pagination.page_no, pagination.limit, searchQuery);
+      fetchStats();
+    } catch (error) {
+      toast.error(error.message || "Failed to update");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = (row) => {
+    openConfirm({
+      title: "Remove client",
+      message: `Remove ${row.name || row.username} from auto payment reminder?`,
+      confirmText: "Remove",
+      tone: "danger",
+      icon: FiTrash2,
+      onConfirm: async () => {
+        await apiFetch(`/autopay/client/${row.reminder_id}`, {
+          method: "DELETE",
+        });
+        toast.success("Client removed");
+        fetchClients(pagination.page_no, pagination.limit, searchQuery);
+        fetchStats();
+      },
+    });
+  };
+
+  const handleSendNow = (row) => {
+    openConfirm({
+      title: "Send reminder",
+      message: `Send payment reminder to ${row.name || row.username} now? Reminder is sent only if balance is positive.`,
+      confirmText: "Send now",
+      tone: "emerald",
+      icon: FiSend,
+      onConfirm: async () => {
+        setProcessingId(row.reminder_id);
+        try {
+          await apiFetch(`/autopay/process/client/${row.reminder_id}`, {
+            method: "POST",
+          });
+          toast.success("Reminder processed");
+          fetchStats();
+          if (activeTab === "logs") fetchLogs();
+        } finally {
+          setProcessingId(null);
+        }
+      },
+    });
+  };
+
+  const handleProcessAll = () => {
+    openConfirm({
+      title: "Run all reminders",
+      message:
+        "Send payment reminders to all enrolled clients now? Messages are sent only when balance is greater than zero.",
+      confirmText: "Run now",
+      tone: "indigo",
+      icon: FiRefreshCw,
+      onConfirm: async () => {
+        const toastId = toast.loading("Running reminders…");
+        try {
+          await apiFetch("/autopay/process/all", { method: "POST" });
+          toast.success("Reminders processed", { id: toastId });
+          fetchStats();
+          if (activeTab === "logs") fetchLogs();
+        } catch (error) {
+          toast.error(error.message || "Failed to run reminders", {
+            id: toastId,
+          });
+          throw error;
+        }
+      },
+    });
+  };
+
+  const handleSendSelected = () => {
+    if (!selectedIds.length) {
+      toast.error("Select at least one client");
+      return;
+    }
+    openConfirm({
+      title: "Send selected reminders",
+      message: `Send payment reminders to ${selectedIds.length} selected client${selectedIds.length === 1 ? "" : "s"}? Messages are sent only when balance is greater than zero.`,
+      confirmText: "Send selected",
+      tone: "emerald",
+      icon: FiSend,
+      onConfirm: async () => {
+        const toastId = toast.loading("Sending selected reminders…");
+        try {
+          await apiFetch("/autopay/process/selected", {
+            method: "POST",
+            body: JSON.stringify({ reminder_ids: selectedIds }),
+          });
+          toast.success("Selected reminders processed", { id: toastId });
+          setSelectedIds([]);
+          fetchStats();
+          if (activeTab === "logs") fetchLogs();
+        } catch (error) {
+          toast.error(error.message || "Failed to send selected", {
+            id: toastId,
+          });
+          throw error;
+        }
+      },
+    });
+  };
+
+  const pageIds = clients.map((c) => c.reminder_id).filter(Boolean);
+  const allPageSelected =
+    pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+
+  const toggleSelectAll = () => {
+    if (allPageSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => [...new Set([...prev, ...pageIds])]);
+    }
+  };
+
+  const toggleSelectOne = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  if (initialLoading) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-gray-900">Auto Reminder System</h1>
-                        <p className="text-gray-500 text-sm mt-1">Automated payment reminders for clients with debit balance</p>
-                    </div>
-
-                    {/* Stats Cards */}
-                    <StatsCards />
-
-                    {/* Tabs */}
-                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="bg-gray-100 p-1 rounded-lg inline-flex self-start border border-gray-200/50">
-                            <button
-                                onClick={() => setActiveTab('whitelist')}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${activeTab === 'whitelist'
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-900'
-                                    }`}
-                            >
-                                <FiUsers className="w-3.5 h-3.5" />
-                                Enrolled Clients
-                                {allFilteredWhitelist.length > 0 && (
-                                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] transition-colors ${activeTab === 'whitelist'
-                                            ? 'bg-indigo-50 text-indigo-600 font-bold border border-indigo-100'
-                                            : 'bg-gray-200 text-gray-600'
-                                        }`}>
-                                        {allFilteredWhitelist.length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('schedule')}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${activeTab === 'schedule'
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-900'
-                                    }`}
-                            >
-                                <FiCalendar className="w-3.5 h-3.5" />
-                                Schedules
-                                {scheduleList.length > 0 && (
-                                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] transition-colors ${activeTab === 'schedule'
-                                            ? 'bg-indigo-50 text-indigo-600 font-bold border border-indigo-100'
-                                            : 'bg-gray-200 text-gray-600'
-                                        }`}>
-                                        {scheduleList.length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('logs')}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${activeTab === 'logs'
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-900'
-                                    }`}
-                            >
-                                <FiClock className="w-3.5 h-3.5" />
-                                Logs
-                            </button>
-                        </div>
-
-                        {activeTab === 'schedule' && (
-                            <button
-                                onClick={() => setShowCreateScheduleModal(true)}
-                                className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition shadow-sm self-start sm:self-center"
-                            >
-                                <FiPlus className="w-3.5 h-3.5" />
-                                Create Schedule
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Whitelist Tab */}
-                    <AnimatePresence mode="wait">
-                        {activeTab === 'whitelist' ? (
-                            <motion.div
-                                key="whitelist"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
-                            >
-                                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                        <div>
-                                            <h3 className="font-semibold text-gray-800">Enrolled Clients</h3>
-                                            <p className="text-sm text-gray-500 mt-0.5">Clients who will receive automated reminders</p>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            <form onSubmit={handleWhitelistSearch} className="flex items-center gap-2">
-                                                <select
-                                                    value={searchWhitelist.schedule_id}
-                                                    onChange={(e) => handleSearchWhitelistChange('schedule_id', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                                >
-                                                    <option value="">All Schedules</option>
-                                                    {schedules.map(s => (
-                                                        <option key={s.schedule_id} value={s.schedule_id}>{s.name}</option>
-                                                    ))}
-                                                </select>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        value={searchWhitelist.query}
-                                                        onChange={(e) => handleSearchWhitelistChange('query', e.target.value)}
-                                                        placeholder="Search by name or mobile..."
-                                                        className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    />
-                                                    <FiSearch className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                                </div>
-                                                <button type="submit" className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
-                                                    Search
-                                                </button>
-                                            </form>
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedScheduleForMembers(null);
-                                                    setShowCreateWhitelistModal(true);
-                                                }}
-                                                className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
-                                            >
-                                                <FiPlus className="w-4 h-4" />
-                                                Add Client
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-gray-50 border-b border-gray-200">
-                                            <tr>
-                                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
-                                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
-                                                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
-                                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Schedule</th>
-                                                <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {loading && allFilteredWhitelist.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan="5" className="px-6 py-12 text-center">
-                                                        <div className="flex justify-center">
-                                                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : allFilteredWhitelist.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan="5" className="px-6 py-12 text-center">
-                                                        <div className="flex flex-col items-center">
-                                                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                                                <FiUsers className="w-6 h-6 text-gray-400" />
-                                                            </div>
-                                                            <p className="text-gray-500 font-medium">No clients enrolled</p>
-                                                            <p className="text-sm text-gray-400 mt-1">Add clients to start sending automated reminders</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                paginatedWhitelist.map((item, index) => (
-                                                    <motion.tr
-                                                        key={item.id}
-                                                        className="hover:bg-gray-50/50 transition-colors"
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: 1 }}
-                                                        transition={{ delay: index * 0.03 }}
-                                                    >
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center">
-                                                                    <FiUser className="w-4 h-4 text-indigo-600" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-medium text-gray-800">{item.name}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-sm text-gray-600 flex items-center gap-1">
-                                                                    <FiPhone className="w-3 h-3 text-gray-400" />
-                                                                    {item.mobile}
-                                                                </p>
-                                                                <p className="text-sm text-gray-500 truncate max-w-[200px]">
-                                                                    {item.email}
-                                                                </p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${item.has_debit ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                                <TbCurrencyRupee className="w-3 h-3 mr-1" />
-                                                                ₹{formatCurrency(item.balance)}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="space-y-1">
-                                                                <p className="font-medium text-gray-800 text-sm">{item.schedule_name}</p>
-                                                                <p className="text-xs text-gray-500 flex items-center gap-1">
-                                                                    <FiClock className="w-3 h-3" />
-                                                                    {item.schedule_display}
-                                                                </p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div className="flex items-center justify-center gap-1">
-                                                                <button
-                                                                    onClick={() => processGroup(item.group_id, item.schedule_name)}
-                                                                    disabled={processingGroup === item.group_id}
-                                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                                                                    title="Send Now"
-                                                                >
-                                                                    {processingGroup === item.group_id ? (
-                                                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
-                                                                    ) : (
-                                                                        <FiSend className="w-4 h-4" />
-                                                                    )}
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteWhitelist(item)}
-                                                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition"
-                                                                    title="Remove"
-                                                                >
-                                                                    <FiTrash2 className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </motion.tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {allFilteredWhitelist.length > 0 && (
-                                    <TablePagination
-                                        page={whitelistPage}
-                                        limit={whitelistLimit}
-                                        total={allFilteredWhitelist.length}
-                                        totalPages={totalWhitelistPages}
-                                        onPageChange={(p) => setWhitelistPage(p)}
-                                        onLimitChange={(l) => {
-                                            setWhitelistLimit(l);
-                                            setWhitelistPage(1);
-                                        }}
-                                        showRows={true}
-                                        showJump={true}
-                                    />
-                                )}
-                            </motion.div>
-                        ) : activeTab === 'schedule' ? (
-                            <motion.div
-                                key="schedule"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="space-y-4"
-                            >
-                                {scheduleList.length === 0 ? (
-                                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <FiCalendar className="w-8 h-8 text-gray-400" />
-                                        </div>
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-1">No schedules yet</h3>
-                                        <p className="text-gray-500 text-sm mb-4">Create your first reminder schedule</p>
-                                        <button
-                                            onClick={() => setShowCreateScheduleModal(true)}
-                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
-                                        >
-                                            Create Schedule
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                        {scheduleList.map((schedule, index) => (
-                                            <motion.div
-                                                key={schedule.schedule_id}
-                                                initial={{ opacity: 0, scale: 0.97 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                transition={{ delay: index * 0.05 }}
-                                                className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full ${schedule.status === '1'
-                                                        ? 'border-l-4 border-l-emerald-500 border-gray-200'
-                                                        : 'border-l-4 border-l-gray-300 border-gray-200'
-                                                    }`}
-                                            >
-                                                <div className="p-5 flex-grow">
-                                                    <div className="min-w-0 flex-1 mb-3">
-                                                        <div className="flex justify-between items-start gap-4 mb-2">
-                                                            <h3 className="font-bold text-gray-800 text-base leading-tight truncate" title={schedule.name}>
-                                                                {schedule.name}
-                                                            </h3>
-                                                            <div className="flex items-center shrink-0">
-                                                                {schedule.status === '1' ? (
-                                                                    <span className="relative flex h-2 w-2 mr-1.5">
-                                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="relative flex h-2 w-2 mr-1.5">
-                                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-300"></span>
-                                                                    </span>
-                                                                )}
-                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${schedule.status === '1'
-                                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                                                                        : 'bg-gray-50 text-gray-500 border border-gray-100'
-                                                                    }`}>
-                                                                    {schedule.status === '1' ? 'ACTIVE' : 'INACTIVE'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                                                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold tracking-wider ${schedule.type === 'daily' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
-                                                                    schedule.type === 'weekly' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
-                                                                        'bg-amber-50 text-amber-700 border border-amber-100'
-                                                                }`}>
-                                                                {schedule.type.toUpperCase()}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-4">
-                                                        <div className="flex items-center gap-2 text-xs text-gray-700 bg-indigo-50/20 px-3 py-2.5 rounded-xl border border-indigo-50/50">
-                                                            <FiClock className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                                                            <span className="font-semibold truncate" title={schedule.schedule_display}>
-                                                                {schedule.schedule_display || 'Schedule not configured'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="bg-gray-50/50 border-t border-gray-100 px-5 py-3 flex items-center justify-between mt-auto">
-                                                    <button
-                                                        onClick={() => handleViewScheduleMembers(schedule)}
-                                                        className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50/50 hover:bg-indigo-100/50 px-2 py-1 rounded-lg transition border border-indigo-100/40 cursor-pointer font-medium"
-                                                        title="View Enrolled Clients"
-                                                    >
-                                                        <FiUsers className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                                                        <span>
-                                                            <strong className="font-bold">{schedule.count}</strong> client(s)
-                                                        </span>
-                                                    </button>
-                                                    <div className="flex items-center gap-0.5">
-                                                        <button
-                                                            onClick={() => processGroup(schedule.schedule_id, schedule.name)}
-                                                            disabled={processingGroup === schedule.schedule_id}
-                                                            className="p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition"
-                                                            title="Run Now"
-                                                        >
-                                                            {processingGroup === schedule.schedule_id ? (
-                                                                <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-blue-600 border-t-transparent"></div>
-                                                            ) : (
-                                                                <FiSend className="w-3.5 h-3.5" />
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleViewLogs(schedule.schedule_id, schedule.name)}
-                                                            className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-lg transition"
-                                                            title="View Logs"
-                                                        >
-                                                            <FiClock className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleEditScheduleClick(schedule)}
-                                                            className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 rounded-lg transition"
-                                                            title="Edit"
-                                                        >
-                                                            <FiEdit className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteSchedule(schedule.schedule_id, schedule.name)}
-                                                            className="p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition"
-                                                            title="Delete"
-                                                        >
-                                                            <FiTrash2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                )}
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                key="logs"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
-                            >
-                                <div className="px-6 py-5 border-b border-gray-200 bg-gray-50/50">
-                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                                        <div className="text-left">
-                                            <h3 className="font-semibold text-gray-800 text-lg">Execution Logs</h3>
-                                            <p className="text-sm text-gray-500 mt-0.5">Track automated email reminders sent to clients</p>
-                                        </div>
-
-                                        {/* Filters Bar */}
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
-                                                {/* Group Dropdown */}
-                                                <select
-                                                    value={selectedLogGroup}
-                                                    onChange={(e) => setSelectedLogGroup(e.target.value)}
-                                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 min-w-[180px]"
-                                                >
-                                                    <option value="">All Schedules</option>
-                                                    {schedules.map(s => (
-                                                        <option key={s.schedule_id} value={s.schedule_id}>
-                                                            {s.name} ({s.status === '1' ? 'Active' : 'Inactive'})
-                                                        </option>
-                                                    ))}
-                                                </select>
-
-                                                {/* DateRangePickerField */}
-                                                <DateRangePickerField
-                                                    value={logDateRange}
-                                                    onChange={(val) => setLogDateRange(val)}
-                                                    placeholder="Filter by date range"
-                                                    buttonClassName="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 flex items-center justify-between gap-2 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 min-w-[240px]"
-                                                    defaultQuickKey="tw"
-                                                    quickOptionKeys={['td', 'yd', 'tw', 'lw', 'tm', 'lm']}
-                                                />
-
-                                                {/* Reset Button */}
-                                                {(selectedLogGroup || logDateRange.start || logDateRange.end) && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedLogGroup('');
-                                                            setLogDateRange({ start: '', end: '' });
-                                                        }}
-                                                        className="px-3 py-2 text-sm text-gray-500 hover:text-indigo-600 bg-gray-100 hover:bg-indigo-50 rounded-lg transition-colors font-medium"
-                                                    >
-                                                        Reset
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Table Area */}
-                                <div className="overflow-x-auto font-sans">
-                                    <table className="w-full">
-                                        <thead className="bg-gray-50 border-b border-gray-200">
-                                            <tr>
-                                                <th className="w-10"></th> {/* Expand Column */}
-                                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Run Date</th>
-                                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Schedule Group</th>
-                                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Sent</th>
-                                                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Skipped</th>
-                                                <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Failed</th>
-                                                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Summary Message</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {loadingLogs && paginatedLogs.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan="8" className="px-6 py-12 text-center">
-                                                        <div className="flex justify-center">
-                                                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : paginatedLogs.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan="8" className="px-6 py-12 text-center">
-                                                        <div className="flex flex-col items-center">
-                                                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                                                <FiClock className="w-6 h-6 text-gray-400" />
-                                                            </div>
-                                                            <p className="text-gray-500 font-medium">No logs found</p>
-                                                            <p className="text-sm text-gray-400 mt-1">Try expanding the date range or selecting a different schedule</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                paginatedLogs.map((log, index) => {
-                                                    const isExpanded = expandedLogId === log.log_id;
-                                                    const gName = log.group_name || schedules.find(s => s.schedule_id === log.group_id)?.name || 'Reminder Group';
-                                                    return (
-                                                        <React.Fragment key={log.log_id}>
-                                                            <tr className={`hover:bg-gray-50/50 transition-colors ${isExpanded ? 'bg-indigo-50/10' : ''}`}>
-                                                                <td className="pl-4 py-4 text-center">
-                                                                    <button
-                                                                        onClick={() => handleToggleLogDetails(log.log_id, log.group_id)}
-                                                                        className="p-1 rounded-md hover:bg-gray-100 text-gray-500 transition-colors focus:outline-none"
-                                                                        title="View Recipients"
-                                                                    >
-                                                                        <span className="block transform transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                                                                            ▶
-                                                                        </span>
-                                                                    </button>
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium text-left">
-                                                                    {new Date(log.run_date).toLocaleString()}
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-semibold text-left">
-                                                                    {gName}
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-left">
-                                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                                                            log.status === 'failed' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                                                                                'bg-amber-50 text-amber-700 border border-amber-100'
-                                                                        }`}>
-                                                                        {log.status === 'completed' && <FiCheckCircle className="w-3 h-3" />}
-                                                                        {log.status === 'failed' && <FiAlertCircle className="w-3 h-3" />}
-                                                                        {log.status === 'skipped' && <FiClock className="w-3 h-3" />}
-                                                                        {log.status.toUpperCase()}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-emerald-600">
-                                                                    {log.sent_count || 0}
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-amber-600">
-                                                                    {log.skipped_count || 0}
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-rose-600">
-                                                                    {log.failed_count || 0}
-                                                                </td>
-                                                                <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate text-left" title={log.message}>
-                                                                    {log.message || 'No summary message'}
-                                                                </td>
-                                                            </tr>
-
-                                                            {/* Expanded Row for Recipients Table */}
-                                                            {isExpanded && (
-                                                                <tr>
-                                                                    <td colSpan="8" className="bg-gray-50/80 px-8 py-5 border-t border-b border-indigo-100/50">
-                                                                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-4">
-                                                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-gray-100">
-                                                                                <div className="text-left">
-                                                                                    <h4 className="font-semibold text-gray-800 text-sm">Recipient Details for {gName}</h4>
-                                                                                    <p className="text-xs text-gray-500 mt-0.5">Listing group members and their execution statuses</p>
-                                                                                </div>
-                                                                                <div className="relative shrink-0">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        placeholder="Search recipients..."
-                                                                                        value={memberSearchQuery}
-                                                                                        onChange={(e) => setMemberSearchQuery(e.target.value)}
-                                                                                        className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs w-48 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                                                                                    />
-                                                                                    <FiSearch className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
-                                                                                </div>
-                                                                            </div>
-
-                                                                            {loadingMembers ? (
-                                                                                <div className="py-8 text-center">
-                                                                                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent mx-auto"></div>
-                                                                                    <p className="text-xs text-gray-400 mt-2">Loading members...</p>
-                                                                                </div>
-                                                                            ) : (
-                                                                                (() => {
-                                                                                    const members = expandedLogMembers[log.group_id] || [];
-                                                                                    const filteredMembers = members.filter(m =>
-                                                                                        m.name?.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
-                                                                                        m.email?.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
-                                                                                        m.mobile?.includes(memberSearchQuery) ||
-                                                                                        m.username?.toLowerCase().includes(memberSearchQuery.toLowerCase())
-                                                                                    );
-
-                                                                                    if (filteredMembers.length === 0) {
-                                                                                        return (
-                                                                                            <div className="text-center py-6 text-xs text-gray-500">
-                                                                                                No matching recipients found in this schedule group
-                                                                                            </div>
-                                                                                        );
-                                                                                    }
-
-                                                                                    return (
-                                                                                        <div className="overflow-x-auto max-h-60 overflow-y-auto">
-                                                                                            <table className="w-full text-xs text-sans">
-                                                                                                <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-200">
-                                                                                                    <tr>
-                                                                                                        <th className="text-left px-4 py-2">Name</th>
-                                                                                                        <th className="text-left px-4 py-2">Email</th>
-                                                                                                        <th className="text-left px-4 py-2">Mobile</th>
-                                                                                                        <th className="text-right px-4 py-2">Balance</th>
-                                                                                                        <th className="text-center px-4 py-2">Status</th>
-                                                                                                        <th className="text-left px-4 py-2">Action / Info</th>
-                                                                                                    </tr>
-                                                                                                </thead>
-                                                                                                <tbody className="divide-y divide-gray-100 font-sans">
-                                                                                                    {filteredMembers.map(m => {
-                                                                                                        const hasDebit = m.has_debit || m.balance > 0;
-                                                                                                        const isSent = hasDebit && log.status === 'completed';
-                                                                                                        const isSkipped = !hasDebit || log.status === 'skipped';
-                                                                                                        const isFailed = log.status === 'failed';
-
-                                                                                                        let badgeColor = 'bg-yellow-50 text-yellow-700 border-yellow-100';
-                                                                                                        let statusLabel = 'SKIPPED';
-                                                                                                        if (isSent) {
-                                                                                                            badgeColor = 'bg-green-50 text-green-700 border-green-100';
-                                                                                                            statusLabel = 'SENT';
-                                                                                                        } else if (isFailed) {
-                                                                                                            badgeColor = 'bg-red-50 text-red-700 border-red-100';
-                                                                                                            statusLabel = 'FAILED';
-                                                                                                        }
-
-                                                                                                        return (
-                                                                                                            <tr key={m.username} className="hover:bg-gray-50/50">
-                                                                                                                <td className="px-4 py-2.5 font-medium text-gray-800 text-left">{m.name || m.username}</td>
-                                                                                                                <td className="px-4 py-2.5 text-gray-600 text-left">{m.email || 'N/A'}</td>
-                                                                                                                <td className="px-4 py-2.5 text-gray-600 text-left">{m.mobile || 'N/A'}</td>
-                                                                                                                <td className="px-4 py-2.5 text-right font-semibold text-gray-700">₹{formatCurrency(m.balance)}</td>
-                                                                                                                <td className="px-4 py-2.5 text-center">
-                                                                                                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold border ${badgeColor}`}>
-                                                                                                                        {statusLabel}
-                                                                                                                    </span>
-                                                                                                                </td>
-                                                                                                                <td className="px-4 py-2.5 text-gray-500 text-left">
-                                                                                                                    {isSent ? 'Reminder email sent' : isSkipped ? 'No debit balance (Skipped)' : 'Run did not complete'}
-                                                                                                                </td>
-                                                                                                            </tr>
-                                                                                                        );
-                                                                                                    })}
-                                                                                                </tbody>
-                                                                                            </table>
-                                                                                        </div>
-                                                                                    );
-                                                                                })()
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            )}
-                                                        </React.Fragment>
-                                                    );
-                                                })
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Pagination for Logs */}
-                                {filteredLogs.length > 0 && (
-                                    <TablePagination
-                                        page={logsPage}
-                                        limit={logsLimit}
-                                        total={filteredLogs.length}
-                                        totalPages={totalLogsPages}
-                                        onPageChange={(p) => setLogsPage(p)}
-                                        onLimitChange={(l) => {
-                                            setLogsLimit(l);
-                                            setLogsPage(1);
-                                        }}
-                                        showRows={true}
-                                        showJump={true}
-                                    />
-                                )}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+      <div className="min-h-screen bg-gray-50">
+        <Header
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <Sidebar
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <div
+          className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}
+        >
+          <div className="mx-2 my-3 flex h-full flex-col sm:mx-4 md:mx-8 md:my-4">
+            <SkeletonBone className="mb-4 h-7 w-56" />
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <SkeletonBone key={i} className="h-14 rounded-lg" />
+              ))}
             </div>
-
-            {/* Add Client Modal */}
-            <AnimatePresence>
-                {showCreateWhitelistModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
-                    >
-                        <div
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                            onClick={handleCancelWhitelist}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                        >
-                            <div className="px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 shrink-0 flex justify-between items-center">
-                                <h3 className="text-lg font-semibold text-white">Add Clients to Schedule</h3>
-                                <button onClick={handleCancelWhitelist} className="text-white/80 hover:text-white transition">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleWhitelistSubmit} className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                                <div
-                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                >
-                                    <div className="space-y-6">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Schedule</label>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                                                {activeSchedulesForSelection.slice(0, 3).map(s => {
-                                                    const isSelected = whitelistForm.schedule_id === s.schedule_id;
-                                                    return (
-                                                        <button
-                                                            key={s.schedule_id}
-                                                            type="button"
-                                                            onClick={() => handleWhitelistChange('schedule_id', s.schedule_id)}
-                                                            className={`flex flex-col items-start p-3 rounded-xl border text-left transition-all ${isSelected
-                                                                    ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
-                                                                    : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
-                                                                }`}
-                                                        >
-                                                            <span className="font-semibold text-gray-800 text-xs block truncate w-full" title={s.name}>{s.name}</span>
-                                                            <span className="text-[9px] text-indigo-600 font-medium capitalize mt-1 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100/50 inline-block">{s.type}</span>
-                                                            <span className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
-                                                                <FiClock className="w-3 h-3 flex-shrink-0" />
-                                                                <span className="line-clamp-2 leading-tight">{s.schedule_display || 'Not configured'}</span>
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
-
-                                                {/* More / Dropdown option */}
-                                                {activeSchedulesForSelection.length > 3 && (
-                                                    <div className="relative">
-                                                        {(() => {
-                                                            const isSelectedOther = whitelistForm.schedule_id && !activeSchedulesForSelection.slice(0, 3).some(s => s.schedule_id === whitelistForm.schedule_id);
-                                                            const selectedOtherSchedule = activeSchedulesForSelection.slice(3).find(s => s.schedule_id === whitelistForm.schedule_id);
-                                                            return (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setShowMoreSchedules(!showMoreSchedules)}
-                                                                    className={`w-full flex flex-col items-start p-3 rounded-xl border text-left transition-all h-full min-h-[92px] ${isSelectedOther
-                                                                            ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
-                                                                            : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
-                                                                        }`}
-                                                                >
-                                                                    {isSelectedOther && selectedOtherSchedule ? (
-                                                                        <div className="w-full">
-                                                                            <span className="font-semibold text-gray-800 text-xs block truncate w-full" title={selectedOtherSchedule.name}>{selectedOtherSchedule.name}</span>
-                                                                            <span className="text-[9px] text-indigo-600 font-medium capitalize mt-1 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100/50 inline-block">{selectedOtherSchedule.type}</span>
-                                                                            <span className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
-                                                                                <FiClock className="w-3 h-3 flex-shrink-0" />
-                                                                                <span className="line-clamp-2 leading-tight">{selectedOtherSchedule.schedule_display || 'Not configured'}</span>
-                                                                            </span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex flex-col items-center justify-center w-full h-full min-h-[64px] text-center">
-                                                                            <span className="font-semibold text-gray-700 text-xs">+{activeSchedulesForSelection.length - 3} More</span>
-                                                                            <span className="text-[10px] text-gray-400 mt-1">Select other...</span>
-                                                                        </div>
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Expandable More Schedules Drawer */}
-                                            {showMoreSchedules && activeSchedulesForSelection.length > 3 && (
-                                                <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
-                                                    <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Other Schedules</span>
-                                                        <button type="button" onClick={() => setShowMoreSchedules(false)} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
-                                                            Close
-                                                        </button>
-                                                    </div>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
-                                                        {activeSchedulesForSelection.slice(3).map(s => {
-                                                            const isSelected = whitelistForm.schedule_id === s.schedule_id;
-                                                            return (
-                                                                <button
-                                                                    key={s.schedule_id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        handleWhitelistChange('schedule_id', s.schedule_id);
-                                                                        setShowMoreSchedules(false);
-                                                                    }}
-                                                                    className={`flex flex-col items-start p-3 rounded-lg border text-left transition-all ${isSelected
-                                                                            ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/20'
-                                                                            : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
-                                                                        }`}
-                                                                >
-                                                                    <span className="font-semibold text-gray-800 text-xs block truncate w-full" title={s.name}>{s.name}</span>
-                                                                    <span className="text-[9px] text-indigo-600 font-medium capitalize mt-1 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100/50 inline-block">{s.type}</span>
-                                                                    <span className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
-                                                                        <FiClock className="w-3 h-3 flex-shrink-0" />
-                                                                        <span className="truncate leading-none">{s.schedule_display || 'Not configured'}</span>
-                                                                    </span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {whitelistForm.show_schedule && (
-                                                <p className="mt-2 text-sm text-gray-500 flex items-center gap-1">
-                                                    <FiCheckCircle className="w-3.5 h-3.5 text-indigo-600" />
-                                                    <span>Active Configuration: <strong className="font-semibold text-gray-700">{whitelistForm.show_schedule}</strong></span>
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Select Clients</label>
-                                            <div className="border border-gray-300 rounded-lg p-3 space-y-3 bg-white">
-                                                <div className="flex flex-col sm:flex-row gap-3 items-end pb-3 border-b border-gray-100">
-                                                    <div className="flex-1 min-w-0 w-full">
-                                                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Add by Client Group</label>
-                                                        <select
-                                                            value={selectedGroupForSelection}
-                                                            onChange={(e) => handleGroupSelection(e.target.value)}
-                                                            disabled={loadingGroups}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
-                                                        >
-                                                            <option value="">-- Select Client Group --</option>
-                                                            {userGroups.map(g => (
-                                                                <option key={g.group_id} value={g.group_id}>
-                                                                    {g.group_name} ({g.firm_count || g.count || 0} firms)
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <CustomSelect
-                                                    loadOptions={createClientListLoadOptions(CLIENT_LIST_QUERY_PARAMS)}
-                                                    value={null}
-                                                    onChange={(item) => {
-                                                        if (!item) return;
-                                                        const value = item.username;
-                                                        if (value && !whitelistForm.usernames.includes(value)) {
-                                                            const newUsernames = [...whitelistForm.usernames, value];
-                                                            handleWhitelistChange('usernames', newUsernames);
-                                                            const formattedItem = {
-                                                                username: item.username || item.profile_id || value,
-                                                                name: item.name || item.full_name || item.client_name || 'N/A',
-                                                                mobile: item.mobile || item.phone || 'N/A',
-                                                                email: item.email || 'N/A',
-                                                                firm_name: item.firms?.[0]?.firm_name || 'Individual'
-                                                            };
-                                                            setAllClients(prev => {
-                                                                if (prev.some(c => c.username === value)) return prev;
-                                                                return [...prev, formattedItem];
-                                                            });
-                                                            setSelectedClientsForModal(prev => {
-                                                                if (prev.includes(value)) return prev;
-                                                                return [...prev, value];
-                                                            });
-                                                        }
-                                                    }}
-                                                    getOptionLabel={getClientOptionLabel}
-                                                    getOptionValue={getClientOptionValue}
-                                                    renderOption={renderClientListOption}
-                                                    placeholder="Search client by name or mobile..."
-                                                    searchPlaceholder="Search client by name or mobile..."
-                                                    isClearable={false}
-                                                />
-
-                                                <div className="mt-2">
-                                                    {whitelistForm.usernames.length > 0 ? (
-                                                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                                                                Selected Clients ({whitelistForm.usernames.length})
-                                                            </span>
-                                                            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                                                                {whitelistForm.usernames.map(username => {
-                                                                    const client = allClients.find(c => c.username === username) || {
-                                                                        name: username,
-                                                                        mobile: 'N/A'
-                                                                    };
-                                                                    return (
-                                                                        <div
-                                                                            key={username}
-                                                                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-indigo-100 rounded-full shadow-sm text-xs text-gray-800"
-                                                                        >
-                                                                            <FiUser className="w-3 h-3 text-indigo-500" />
-                                                                            <span className="font-medium text-[11px]">{client.name}</span>
-                                                                            {client.mobile && client.mobile !== 'N/A' && (
-                                                                                <>
-                                                                                    <span className="text-gray-300">|</span>
-                                                                                    <span className="text-gray-500 text-[10px]">{client.mobile}</span>
-                                                                                </>
-                                                                            )}
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    const newUsernames = whitelistForm.usernames.filter(u => u !== username);
-                                                                                    handleWhitelistChange('usernames', newUsernames);
-                                                                                }}
-                                                                                className="ml-1 p-0.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-red-500 transition-colors"
-                                                                            >
-                                                                                <FiX className="w-3 h-3" />
-                                                                            </button>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="border border-dashed border-gray-200 rounded-lg p-6 text-center text-gray-400 text-xs">
-                                                            <FiUsers className="w-7 h-7 text-gray-300 mx-auto mb-2" />
-                                                            Search and select clients from the search bar above.
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="px-5 py-3 border-t border-gray-200 bg-gray-50/50 shrink-0 flex justify-end gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={handleCancelWhitelist}
-                                        className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
-                                    >
-                                        Add to Schedule
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Create Schedule Modal */}
-            <AnimatePresence>
-                {showCreateScheduleModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
-                    >
-                        <div
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                            onClick={() => setShowCreateScheduleModal(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                        >
-                            <div className="px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-cyan-600 shrink-0 flex justify-between items-center">
-                                <h3 className="text-lg font-semibold text-white">Create Schedule</h3>
-                                <button onClick={() => setShowCreateScheduleModal(false)} className="text-white/80 hover:text-white transition">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleScheduleSubmit} className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                                <div
-                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                >
-                                    <div className="space-y-5">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Schedule Name</label>
-                                            <input
-                                                type="text"
-                                                value={scheduleForm.name}
-                                                onChange={(e) => handleScheduleChange('name', e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                placeholder="e.g., Monthly Payment Reminder"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                                            <select
-                                                value={scheduleForm.type}
-                                                onChange={(e) => handleScheduleChange('type', e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                required
-                                            >
-                                                <option value="">Select frequency</option>
-                                                <option value="daily">Daily</option>
-                                                <option value="weekly">Weekly</option>
-                                                <option value="monthly">Monthly</option>
-                                            </select>
-                                        </div>
-
-                                        {scheduleForm.type === 'weekly' && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Day of Week</label>
-                                                <select
-                                                    value={scheduleForm.day}
-                                                    onChange={(e) => handleScheduleChange('day', e.target.value)}
-                                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    required
-                                                >
-                                                    <option value="">Select day</option>
-                                                    <option value="Monday">Monday</option>
-                                                    <option value="Tuesday">Tuesday</option>
-                                                    <option value="Wednesday">Wednesday</option>
-                                                    <option value="Thursday">Thursday</option>
-                                                    <option value="Friday">Friday</option>
-                                                    <option value="Saturday">Saturday</option>
-                                                    <option value="Sunday">Sunday</option>
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        {scheduleForm.type === 'monthly' && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Day of Month</label>
-                                                <select
-                                                    value={scheduleForm.date}
-                                                    onChange={(e) => handleScheduleChange('date', e.target.value)}
-                                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    required
-                                                >
-                                                    <option value="">Select date</option>
-                                                    {Array.from({ length: 31 }, (_, i) => (
-                                                        <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                                                            {i + 1}{i + 1 === 1 ? 'st' : i + 1 === 2 ? 'nd' : i + 1 === 3 ? 'rd' : 'th'}
-                                                        </option>
-                                                    ))}
-                                                    <option value="last day">Last day of month</option>
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                                            <div className="flex gap-2">
-                                                <select
-                                                    value={scheduleForm.hour}
-                                                    onChange={(e) => handleScheduleChange('hour', e.target.value)}
-                                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    required
-                                                >
-                                                    <option value="">Hour</option>
-                                                    {Array.from({ length: 24 }, (_, i) => (
-                                                        <option key={i} value={String(i).padStart(2, '0')}>
-                                                            {i === 0 ? '12' : i > 12 ? i - 12 : i}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    value={scheduleForm.minute}
-                                                    onChange={(e) => handleScheduleChange('minute', e.target.value)}
-                                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                >
-                                                    <option value="00">00</option>
-                                                    <option value="15">15</option>
-                                                    <option value="30">30</option>
-                                                    <option value="45">45</option>
-                                                </select>
-                                                <select
-                                                    value={scheduleForm.hour >= 12 ? 'PM' : 'AM'}
-                                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50"
-                                                    disabled
-                                                >
-                                                    <option>{scheduleForm.hour >= 12 ? 'PM' : 'AM'}</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="px-5 py-3 border-t border-gray-200 bg-gray-50/50 shrink-0 flex justify-end gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCreateScheduleModal(false)}
-                                        className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
-                                    >
-                                        Create Schedule
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Edit Schedule Modal */}
-            <AnimatePresence>
-                {showEditScheduleModal && selectedSchedule && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
-                    >
-                        <div
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                            onClick={() => setShowEditScheduleModal(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                        >
-                            <div className="px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 shrink-0 flex justify-between items-center">
-                                <h3 className="text-lg font-semibold text-white">Edit Schedule</h3>
-                                <button onClick={() => setShowEditScheduleModal(false)} className="text-white/80 hover:text-white transition">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleEditScheduleSubmit} className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                                <div
-                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                >
-                                    <div className="space-y-5">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Schedule Name</label>
-                                            <input
-                                                type="text"
-                                                value={editScheduleForm.name}
-                                                onChange={(e) => handleEditScheduleChange('name', e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                                            <select
-                                                value={editScheduleForm.type}
-                                                onChange={(e) => handleEditScheduleChange('type', e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                required
-                                            >
-                                                <option value="daily">Daily</option>
-                                                <option value="weekly">Weekly</option>
-                                                <option value="monthly">Monthly</option>
-                                            </select>
-                                        </div>
-
-                                        {editScheduleForm.type === 'weekly' && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Day of Week</label>
-                                                <select
-                                                    value={editScheduleForm.day}
-                                                    onChange={(e) => handleEditScheduleChange('day', e.target.value)}
-                                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    required
-                                                >
-                                                    <option value="Monday">Monday</option>
-                                                    <option value="Tuesday">Tuesday</option>
-                                                    <option value="Wednesday">Wednesday</option>
-                                                    <option value="Thursday">Thursday</option>
-                                                    <option value="Friday">Friday</option>
-                                                    <option value="Saturday">Saturday</option>
-                                                    <option value="Sunday">Sunday</option>
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        {editScheduleForm.type === 'monthly' && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Day of Month</label>
-                                                <select
-                                                    value={editScheduleForm.date}
-                                                    onChange={(e) => handleEditScheduleChange('date', e.target.value)}
-                                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    required
-                                                >
-                                                    {Array.from({ length: 31 }, (_, i) => (
-                                                        <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                                                            {i + 1}{i + 1 === 1 ? 'st' : i + 1 === 2 ? 'nd' : i + 1 === 3 ? 'rd' : 'th'}
-                                                        </option>
-                                                    ))}
-                                                    <option value="last day">Last day of month</option>
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                                            <div className="flex gap-2">
-                                                <select
-                                                    value={editScheduleForm.hour}
-                                                    onChange={(e) => handleEditScheduleChange('hour', e.target.value)}
-                                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                    required
-                                                >
-                                                    {Array.from({ length: 24 }, (_, i) => (
-                                                        <option key={i} value={String(i).padStart(2, '0')}>
-                                                            {i === 0 ? '12' : i > 12 ? i - 12 : i}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    value={editScheduleForm.minute}
-                                                    onChange={(e) => handleEditScheduleChange('minute', e.target.value)}
-                                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                >
-                                                    <option value="00">00</option>
-                                                    <option value="15">15</option>
-                                                    <option value="30">30</option>
-                                                    <option value="45">45</option>
-                                                </select>
-                                                <select
-                                                    value={editScheduleForm.hour >= 12 ? 'PM' : 'AM'}
-                                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50"
-                                                    disabled
-                                                >
-                                                    <option>{editScheduleForm.hour >= 12 ? 'PM' : 'AM'}</option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                            <select
-                                                value={editScheduleForm.status}
-                                                onChange={(e) => handleEditScheduleChange('status', e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            >
-                                                <option value="1">Active</option>
-                                                <option value="0">Inactive</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="px-5 py-3 border-t border-gray-200 bg-gray-50/50 shrink-0 flex justify-end gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowEditScheduleModal(false)}
-                                        className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
-                                    >
-                                        Update Schedule
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Logs Modal */}
-            <AnimatePresence>
-                {showLogsModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
-                    >
-                        <div
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                            onClick={() => setShowLogsModal(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                        >
-                            <div className="px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-cyan-600 shrink-0 flex justify-between items-center">
-                                <h3 className="text-lg font-semibold text-white">Execution Logs</h3>
-                                <button onClick={() => setShowLogsModal(false)} className="text-white/80 hover:text-white transition">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div
-                                className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                            >
-                                {logs.length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <FiAlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                        <p className="text-gray-500">No logs found for this schedule</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {logs.map((log, idx) => (
-                                            <div key={log.log_id} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${log.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                            log.status === 'failed' ? 'bg-red-100 text-red-700' :
-                                                                'bg-yellow-100 text-yellow-700'
-                                                        }`}>
-                                                        {log.status === 'completed' && <FiCheckCircle className="w-3 h-3" />}
-                                                        {log.status === 'failed' && <FiAlertCircle className="w-3 h-3" />}
-                                                        {log.status === 'skipped' && <FiClock className="w-3 h-3" />}
-                                                        {log.status.toUpperCase()}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500">
-                                                        {new Date(log.run_date).toLocaleString()}
-                                                    </span>
-                                                </div>
-
-                                                <div className="grid grid-cols-3 gap-3 mt-3">
-                                                    <div className="text-center">
-                                                        <p className="text-xs text-gray-500">Sent</p>
-                                                        <p className="text-lg font-bold text-green-600">{log.sent_count || 0}</p>
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <p className="text-xs text-gray-500">Skipped</p>
-                                                        <p className="text-lg font-bold text-yellow-600">{log.skipped_count || 0}</p>
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <p className="text-xs text-gray-500">Failed</p>
-                                                        <p className="text-lg font-bold text-red-600">{log.failed_count || 0}</p>
-                                                    </div>
-                                                </div>
-
-                                                {log.message && (
-                                                    <p className="text-xs text-gray-600 mt-2 pt-2 border-t border-gray-100">{log.message}</p>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 shrink-0 flex justify-end">
-                                <button
-                                    onClick={() => setShowLogsModal(false)}
-                                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Schedule Members Modal */}
-            <AnimatePresence>
-                    {showMembersModal && selectedScheduleForMembers && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
-                        >
-                            <div
-                                className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                                onClick={handleCloseMembersModal}
-                            />
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                            >
-                                <div className="px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 shrink-0 flex justify-between items-center">
-                                    <div className="min-w-0">
-                                        <h3 className="text-lg font-semibold text-white truncate">
-                                            Clients in {selectedScheduleForMembers.name}
-                                        </h3>
-                                        <p className="text-white/80 text-[11px] truncate">
-                                            {selectedScheduleForMembers.schedule_display || 'Reminder schedule configuration'}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={handleOpenAddClientForSchedule}
-                                            className="p-1.5 rounded-lg bg-white/10 text-white/90 hover:bg-white/20 hover:text-white transition-colors flex items-center gap-1 text-xs font-semibold"
-                                            title="Add Client to this Schedule"
-                                        >
-                                            <FiPlus className="w-4 h-4" />
-                                            <span>Add Client</span>
-                                        </button>
-                                        <button type="button" onClick={handleCloseMembersModal} className="text-white/80 hover:text-white transition p-1">
-                                            <FiX className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                    {/* Search Bar for filtering list */}
-                                    <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 shrink-0 flex items-center">
-                                        <div className="relative w-full">
-                                            <input
-                                                type="text"
-                                                value={modalMemberSearch}
-                                                onChange={(e) => setModalMemberSearch(e.target.value)}
-                                                placeholder="Filter clients inside this schedule..."
-                                                className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                            />
-                                            <FiSearch className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                                        </div>
-                                    </div>
-
-                                    {/* Members List Table */}
-                                    <div
-                                        className="flex-1 overflow-y-auto overscroll-y-contain"
-                                        style={{ scrollbarWidth: 'thin' }}
-                                    >
-                                        {loadingMembersModal ? (
-                                            <div className="flex justify-center items-center py-16">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent"></div>
-                                            </div>
-                                        ) : (
-                                            (() => {
-                                                const filtered = scheduleMembers.filter(m => {
-                                                    if (!modalMemberSearch) return true;
-                                                    const searchLower = modalMemberSearch.toLowerCase();
-                                                    return (
-                                                        m.name?.toLowerCase().includes(searchLower) ||
-                                                        m.username?.toLowerCase().includes(searchLower) ||
-                                                        m.mobile?.includes(modalMemberSearch) ||
-                                                        m.email?.toLowerCase().includes(searchLower)
-                                                    );
-                                                });
-
-                                                if (filtered.length === 0) {
-                                                    return (
-                                                        <div className="text-center py-16 px-4">
-                                                            <FiUsers className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                                                            <p className="text-gray-500 text-sm font-medium">No clients found</p>
-                                                            <p className="text-gray-400 text-xs mt-0.5">
-                                                                {modalMemberSearch ? 'No clients match your filter' : 'No clients are currently added to this schedule.'}
-                                                            </p>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <table className="w-full text-left border-collapse">
-                                                        <thead className="bg-gray-50 border-b border-gray-150 sticky top-0 z-[2]">
-                                                            <tr>
-                                                                <th className="px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
-                                                                <th className="px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
-                                                                <th className="px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Balance</th>
-                                                                <th className="px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center w-20">Remove</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-gray-100 bg-white">
-                                                            {filtered.map(member => (
-                                                                <tr key={member.member_id || member.username} className="hover:bg-gray-50/50 transition-colors">
-                                                                    <td className="px-5 py-3">
-                                                                        <div className="flex items-center gap-2.5">
-                                                                            <div className="w-7 h-7 bg-indigo-50 rounded-lg flex items-center justify-center shrink-0">
-                                                                                <FiUser className="w-3.5 h-3.5 text-indigo-600" />
-                                                                            </div>
-                                                                            <div className="min-w-0">
-                                                                                <p className="font-semibold text-gray-800 text-xs truncate">{member.name || member.username}</p>
-                                                                                <p className="text-[10px] text-gray-400 truncate">{member.username}</p>
-                                                                            </div>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-5 py-3">
-                                                                        <div className="text-[11px] space-y-0.5">
-                                                                            <p className="text-gray-600 font-medium flex items-center gap-1">
-                                                                                <FiPhone className="w-2.5 h-2.5 text-gray-400" />
-                                                                                {member.mobile || 'N/A'}
-                                                                            </p>
-                                                                            <p className="text-gray-500 truncate max-w-[150px]">
-                                                                                {member.email || 'N/A'}
-                                                                            </p>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-5 py-3 text-right">
-                                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${member.has_debit ? 'bg-red-50 text-red-700 border border-red-100/55' : 'bg-green-50 text-green-700 border border-green-100/55'}`}>
-                                                                            ₹{formatCurrency(member.balance || 0)}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="px-5 py-3 text-center">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleRemoveMemberFromModal(member.username, member.name || member.username)}
-                                                                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                                            title="Remove client from schedule"
-                                                                        >
-                                                                            <FiTrash2 className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                );
-                                            })()
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 shrink-0 flex justify-end">
-                                    <button
-                                        type="button"
-                                        onClick={handleCloseMembersModal}
-                                        className="px-4 py-1.5 text-xs text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-semibold"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+            <SkeletonBone className="mb-4 h-8 w-64 rounded-lg" />
+            <SkeletonBone className="h-80 rounded-xl" />
+          </div>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Header
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+
+      <div
+        className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}
+      >
+        <div className="mx-2 my-3 flex h-full flex-col sm:mx-4 md:mx-8 md:my-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Auto Payment Reminder
+            </h1>
+            <div className="flex flex-wrap gap-2">
+              {selectedIds.length ? (
+                <button
+                  type="button"
+                  onClick={handleSendSelected}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                >
+                  <FiSend className="h-3.5 w-3.5" />
+                  Send selected ({selectedIds.length})
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleProcessAll}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                <FiRefreshCw className="h-3.5 w-3.5" />
+                Run all reminders
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetAddForm();
+                  setShowAddModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
+              >
+                <FiPlus className="h-3.5 w-3.5" />
+                Add client
+              </button>
+            </div>
+          </div>
+
+          {stats ? (
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <StatCard
+                title="Enrolled clients"
+                value={stats.clients?.active || 0}
+                sub={`${stats.clients?.inactive || 0} inactive`}
+                icon={FiUsers}
+                tone="indigo"
+              />
+              <StatCard
+                title="Today sent"
+                value={stats.today_runs?.total_sent || 0}
+                sub={`Skipped ${stats.today_runs?.total_skipped || 0} · Failed ${stats.today_runs?.total_failed || 0}`}
+                icon={FiSend}
+                tone="emerald"
+              />
+              <StatCard
+                title="Today runs"
+                value={stats.today_runs?.total_runs || 0}
+                sub={`${stats.today_runs?.successful || 0} ok · ${stats.today_runs?.failed || 0} failed`}
+                icon={FiCalendar}
+                tone="sky"
+              />
+            </div>
+          ) : null}
+
+          <div className="mb-4 inline-flex rounded-lg border border-gray-200/50 bg-gray-100 p-1">
+            {[
+              { id: "clients", label: "Enrolled clients", icon: FiUsers },
+              { id: "logs", label: "Logs", icon: FiClock },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                    activeTab === tab.id
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <AnimatePresence mode="wait">
+            {activeTab === "clients" ? (
+              <motion.div
+                key="clients"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+              >
+                <div className="flex flex-col gap-3 border-b border-gray-200 bg-gray-50/50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between md:px-4">
+                  <h3 className="m-0 text-sm font-semibold text-gray-800">
+                    Enrolled clients
+                  </h3>
+                  <div className="relative">
+                    <FiSearch className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search name, mobile…"
+                      className="w-56 rounded-lg border border-gray-300 py-2 pl-9 pr-8 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                    {searchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-2 top-2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        aria-label="Clear search"
+                      >
+                        <FiX className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="w-12 shrink-0 p-3">
+                          <div className="flex justify-center">
+                            <AnimatedCheckbox
+                              checked={allPageSelected}
+                              indeterminate={
+                                selectedIds.length > 0 && !allPageSelected
+                              }
+                              onChange={toggleSelectAll}
+                              disabled={!pageIds.length || loading}
+                              ariaLabel="Select all on page"
+                            />
+                          </div>
+                        </th>
+                        <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          #
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Client
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Schedule
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Channels
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Balance
+                        </th>
+                        <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {loading ? (
+                        <ClientsTableSkeleton />
+                      ) : clients.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="px-4 py-12 text-center text-sm text-gray-500"
+                          >
+                            No enrolled clients yet. Click Add client to start.
+                          </td>
+                        </tr>
+                      ) : (
+                        clients.map((row, index) => {
+                          const sn =
+                            (pagination.page_no - 1) * pagination.limit +
+                            index +
+                            1;
+                          const checked = selectedIds.includes(row.reminder_id);
+                          return (
+                            <tr
+                              key={row.reminder_id}
+                              className="hover:bg-gray-50/80"
+                            >
+                              <td className="w-12 shrink-0 p-3">
+                                <div className="flex justify-center">
+                                  <AnimatedCheckbox
+                                    checked={checked}
+                                    onChange={() =>
+                                      toggleSelectOne(row.reminder_id)
+                                    }
+                                    ariaLabel={`Select ${row.name || row.username}`}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-[11px] font-bold text-gray-700">
+                                {sn}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                                    <FiUser className="h-3.5 w-3.5" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-800">
+                                      {row.name || row.username}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {row.mobile || row.username}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-xs font-medium capitalize text-indigo-700">
+                                  {row.schedule_type}
+                                </p>
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                  {row.schedule_display || "—"}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <ChannelChips channels={row.channels || []} />
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className={`inline-flex items-center gap-0.5 text-sm font-semibold ${balanceColorClass(row.balance)}`}
+                                >
+                                  <TbCurrencyRupee className="h-3.5 w-3.5" />
+                                  {formatCurrency(row.balance)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <ActionMenu
+                                  items={[
+                                    {
+                                      label:
+                                        processingId === row.reminder_id
+                                          ? "Sending…"
+                                          : "Send now",
+                                      icon:
+                                        processingId === row.reminder_id ? (
+                                          <FiLoader className="h-3.5 w-3.5 animate-spin text-emerald-500" />
+                                        ) : (
+                                          <FiSend className="h-3.5 w-3.5 text-emerald-500" />
+                                        ),
+                                      disabled:
+                                        processingId === row.reminder_id,
+                                      onClick: () => handleSendNow(row),
+                                    },
+                                    {
+                                      label: "Edit config",
+                                      icon: (
+                                        <FiEdit2 className="h-3.5 w-3.5 text-indigo-500" />
+                                      ),
+                                      onClick: () => openEdit(row),
+                                    },
+                                    {
+                                      label: "Remove",
+                                      icon: (
+                                        <FiTrash2 className="h-3.5 w-3.5" />
+                                      ),
+                                      danger: true,
+                                      onClick: () => handleRemove(row),
+                                    },
+                                  ]}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="border-t border-gray-100 px-4 py-3">
+                  <TablePagination
+                    page={pagination.page_no}
+                    totalPages={pagination.total_pages}
+                    total={pagination.total}
+                    limit={pagination.limit}
+                    onPageChange={(page) =>
+                      fetchClients(page, pagination.limit, searchQuery)
+                    }
+                    onLimitChange={(limit) =>
+                      fetchClients(1, limit, searchQuery)
+                    }
+                  />
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="logs"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+              >
+                <div className="flex flex-col gap-3 border-b border-gray-200 bg-gray-50/50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between md:px-4">
+                  <h3 className="m-0 text-sm font-semibold text-gray-800">
+                    Run logs
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <DateRangePickerField
+                      value={{
+                        start: logDateRange.start,
+                        end: logDateRange.end,
+                      }}
+                      onChange={(range) => {
+                        setLogDateRange({
+                          start: range?.start || "",
+                          end: range?.end || "",
+                        });
+                        setLogsPage(1);
+                      }}
+                      placeholder="Filter by date"
+                      mode="range"
+                      buttonClassName="min-w-[12rem] px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-indigo-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={fetchLogs}
+                      className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          #
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          When
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Client
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Counts
+                        </th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
+                          Message
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {logsLoading ? (
+                        Array.from({ length: 6 }).map((_, i) => (
+                          <tr key={`log-sk-${i}`} className="animate-pulse">
+                            {Array.from({ length: 6 }).map((__, j) => (
+                              <td key={j} className="px-4 py-3">
+                                <SkeletonBone className="h-3.5 w-24" />
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : logs.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="px-4 py-12 text-center text-sm text-gray-500"
+                          >
+                            No logs yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        logs.map((log, index) => {
+                          const sn = (logsPage - 1) * logsLimit + index + 1;
+                          return (
+                            <tr
+                              key={log.log_id}
+                              className="hover:bg-gray-50/80"
+                            >
+                              <td className="px-3 py-3 text-[11px] font-bold text-gray-700">
+                                {sn}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700">
+                                {formatHumanTime(log.run_date)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="m-0 text-sm font-semibold text-gray-800">
+                                  {log.client_name || log.username || "—"}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                                    log.status === "completed"
+                                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      : log.status === "skipped"
+                                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                                        : "border-rose-200 bg-rose-50 text-rose-700"
+                                  }`}
+                                >
+                                  {log.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-gray-600">
+                                Sent {log.sent_count || 0} · Skip{" "}
+                                {log.skipped_count || 0} · Fail{" "}
+                                {log.failed_count || 0}
+                              </td>
+                              <td className="max-w-xs truncate px-4 py-3 text-xs text-gray-500">
+                                {log.error_message || log.message || "—"}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="border-t border-gray-100 px-4 py-3">
+                  <TablePagination
+                    page={logsPage}
+                    totalPages={Math.ceil(logsTotal / logsLimit) || 1}
+                    total={logsTotal}
+                    limit={logsLimit}
+                    onPageChange={setLogsPage}
+                    onLimitChange={(limit) => {
+                      setLogsLimit(limit);
+                      setLogsPage(1);
+                    }}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Add client modal */}
+      <AnimatePresence>
+        {showAddModal ? (
+          <motion.div
+            key="add-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none fixed inset-0 z-[10080] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4"
+          >
+            <div
+              className="pointer-events-auto absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !saving && setShowAddModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-auto relative z-[1] flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-2rem)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-indigo-500/20 bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3.5 text-white">
+                <div>
+                  <p className="m-0 text-[10px] font-semibold uppercase tracking-wide text-white/80">
+                    Auto payment reminder
+                  </p>
+                  <h2 className="m-0 text-sm font-semibold">
+                    Add clients + config
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !saving && setShowAddModal(false)}
+                  className="rounded-lg p-1.5 text-white/80 hover:bg-white/15"
+                >
+                  <FiX className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleAddSubmit}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                >
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:min-h-[28rem] lg:gap-6">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <p className="mb-3 m-0 text-sm font-semibold text-gray-800">
+                        Audience
+                      </p>
+                      <div className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-100 p-1">
+                        {[
+                          { id: "client", label: "Client" },
+                          { id: "group", label: "Group" },
+                        ].map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            disabled={saving}
+                            onClick={() => switchAudienceMode(tab.id)}
+                            className={`rounded-md px-4 py-1.5 text-xs font-semibold transition ${
+                              audienceMode === tab.id
+                                ? "bg-white text-indigo-700 shadow-sm"
+                                : "text-gray-500 hover:text-gray-800"
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {audienceMode === "client" ? (
+                        <div className="space-y-3">
+                          <div
+                            className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 transition ${
+                              selectAllClients
+                                ? "border-indigo-300 bg-indigo-50/70"
+                                : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            <span className="mt-0.5">
+                              <AnimatedCheckbox
+                                checked={selectAllClients}
+                                disabled={saving}
+                                ariaLabel="Select all clients"
+                                onChange={() => {
+                                  const next = !selectAllClients;
+                                  setSelectAllClients(next);
+                                  if (next) {
+                                    setSelectedClientOptions([]);
+                                    setClientPickerValue(null);
+                                  }
+                                }}
+                              />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold text-gray-800">
+                                Select all clients
+                              </span>
+                              <span className="mt-0.5 block text-[11px] text-gray-500">
+                                Server enrolls every active client in this
+                                branch. Individual picks are cleared.
+                              </span>
+                            </span>
+                          </div>
+
+                          {!selectAllClients ? (
+                            <>
+                              <div>
+                                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                  Select client
+                                </label>
+                                <CustomSelect
+                                  loadOptions={clientLoadOptions}
+                                  defaultOptions
+                                  value={clientPickerValue}
+                                  onChange={handlePickClient}
+                                  getOptionLabel={getClientOptionLabel}
+                                  getOptionValue={getClientOptionValue}
+                                  renderOption={renderClientPartyOption}
+                                  placeholder="Search client by name, mobile, email…"
+                                  searchPlaceholder="Name, mobile, email…"
+                                  noOptionsMessage="No clients found"
+                                  isClearable
+                                  isDisabled={saving}
+                                />
+                              </div>
+                              {selectedClientOptions.length ? (
+                                <div className="space-y-2">
+                                  <p className="m-0 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                    Selected ({selectedClientOptions.length})
+                                  </p>
+                                  <div className="max-h-64 space-y-2 overflow-y-auto pr-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                                    {selectedClientOptions.map((client) => (
+                                      <SelectedClientCard
+                                        key={getClientOptionValue(client)}
+                                        client={client}
+                                        onRemove={() =>
+                                          removeSelectedClient(
+                                            getClientOptionValue(client)
+                                          )
+                                        }
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <div className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 px-3 py-3 text-xs text-indigo-800">
+                              All branch clients will be resolved and enrolled
+                              on the server when you save.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Select group
+                          </label>
+                          <CustomSelect
+                            options={groupOptions}
+                            value={selectedGroupOption}
+                            onChange={setSelectedGroupOption}
+                            isLoading={loadingGroups}
+                            placeholder={
+                              loadingGroups
+                                ? "Loading groups…"
+                                : "Select a firm group…"
+                            }
+                            searchPlaceholder="Search groups…"
+                            noOptionsMessage="No groups found"
+                            isClearable
+                            isDisabled={saving || loadingGroups}
+                          />
+                          <div className="mt-3 rounded-lg border border-dashed border-indigo-200 bg-indigo-50/60 px-3 py-3 text-xs text-indigo-800">
+                            Clients are resolved from group firms on the server.
+                            Duplicate clients across firms are enrolled once.
+                            Existing configs are overwritten.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                      <div>
+                        <p className="mb-3 m-0 text-sm font-semibold text-gray-800">
+                          Reminder config
+                        </p>
+                        <ScheduleFields
+                          form={scheduleForm}
+                          onChange={handleScheduleChange}
+                          disabled={saving}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Channels
+                        </label>
+                        <ChannelPicker
+                          selected={channels}
+                          onToggle={toggleChannel}
+                        />
+                        <p className="mt-2 text-[11px] text-gray-400">
+                          Select at least one channel. SMS needs an active SMS
+                          payment-reminder setup.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 bg-slate-50/80 px-5 py-3">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => setShowAddModal(false)}
+                    className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    {saving ? (
+                      <FiLoader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FiPlus className="h-4 w-4" />
+                    )}
+                    Save reminder
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {/* Edit config modal */}
+      <AnimatePresence>
+        {showEditModal && editingRow ? (
+          <motion.div
+            key="edit-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none fixed inset-0 z-[10080] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4"
+          >
+            <div
+              className="pointer-events-auto absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => !saving && setShowEditModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-auto relative z-[1] flex max-h-[calc(100vh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3.5 text-white">
+                <div>
+                  <p className="m-0 text-[10px] font-semibold uppercase tracking-wide text-white/80">
+                    Edit reminder
+                  </p>
+                  <h2 className="m-0 truncate text-sm font-semibold">
+                    {editingRow.name || editingRow.username}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !saving && setShowEditModal(false)}
+                  className="rounded-lg p-1.5 text-white/80 hover:bg-white/15"
+                >
+                  <FiX className="h-4 w-4" />
+                </button>
+              </div>
+              <form
+                onSubmit={handleEditSubmit}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div
+                  className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                >
+                  <ScheduleFields
+                    form={scheduleForm}
+                    onChange={handleScheduleChange}
+                    disabled={saving}
+                  />
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Channels
+                    </label>
+                    <ChannelPicker
+                      selected={channels}
+                      onToggle={toggleChannel}
+                    />
+                  </div>
+                </div>
+                <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 bg-slate-50/80 px-5 py-3">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => setShowEditModal(false)}
+                    className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  >
+                    Save changes
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <ConfirmModal
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        cancelText={confirmDialog.cancelText}
+        tone={confirmDialog.tone}
+        icon={confirmDialog.icon}
+        loading={confirmDialog.loading}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirm}
+      />
+    </div>
+  );
 };
 
 export default AutoReminder;

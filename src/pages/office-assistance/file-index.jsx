@@ -529,60 +529,54 @@ const ViewFileIndex = () => {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.2 }}
-                            className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow duration-200"
+                            className="bg-white rounded-lg border border-slate-200 px-3 py-2.5 shadow-sm"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Total Records</p>
-                                    <h3 className="text-xl font-bold text-slate-800 mt-1">{fileData.length}</h3>
+                                    <h3 className="text-base font-bold text-slate-800 mt-0.5">{fileData.length}</h3>
                                 </div>
-                                <div className="p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-                                    <FiFileText className="w-5 h-5 text-blue-600" />
+                                <div className="p-1.5 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
+                                    <FiFileText className="w-4 h-4 text-blue-600" />
                                 </div>
                             </div>
-                            <div className="mt-3 pt-2 border-t border-slate-100">
-                                <span className="text-[10px] text-slate-500 font-medium">All file index entries</span>
-                            </div>
+                            
                         </motion.div>
 
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.2, delay: 0.1 }}
-                            className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow duration-200"
+                            className="bg-white rounded-lg border border-slate-200 px-3 py-2.5 shadow-sm"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">GST Files</p>
-                                    <h3 className="text-xl font-bold text-slate-800 mt-1">{fileData.filter(f => f.gst).length}</h3>
+                                    <h3 className="text-base font-bold text-slate-800 mt-0.5">{fileData.filter(f => f.gst).length}</h3>
                                 </div>
-                                <div className="p-2 bg-gradient-to-r from-emerald-100 to-emerald-200 rounded-lg">
-                                    <FiCheck className="w-5 h-5 text-emerald-600" />
+                                <div className="p-1.5 bg-gradient-to-r from-emerald-100 to-emerald-200 rounded-lg">
+                                    <FiCheck className="w-4 h-4 text-emerald-600" />
                                 </div>
                             </div>
-                            <div className="mt-3 pt-2 border-t border-slate-100">
-                                <span className="text-[10px] text-slate-500 font-medium">Active GST registrations</span>
-                            </div>
+                            
                         </motion.div>
 
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.2, delay: 0.2 }}
-                            className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow duration-200"
+                            className="bg-white rounded-lg border border-slate-200 px-3 py-2.5 shadow-sm"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Audit Files</p>
-                                    <h3 className="text-xl font-bold text-slate-800 mt-1">{fileData.filter(f => f.audit).length}</h3>
+                                    <h3 className="text-base font-bold text-slate-800 mt-0.5">{fileData.filter(f => f.audit).length}</h3>
                                 </div>
-                                <div className="p-2 bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg">
-                                    <TbCurrencyRupee className="w-5 h-5 text-purple-600" />
+                                <div className="p-1.5 bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg">
+                                    <TbCurrencyRupee className="w-4 h-4 text-purple-600" />
                                 </div>
                             </div>
-                            <div className="mt-3 pt-2 border-t border-slate-100">
-                                <span className="text-[10px] text-slate-500 font-medium">Audit filings completed</span>
-                            </div>
+                            
                         </motion.div>
                     </div>
 
@@ -598,8 +592,8 @@ const ViewFileIndex = () => {
                             <div className="header flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                                 <div className="options-parent">
                                     <div className="flex items-center gap-3 mb-1">
-                                        <div className="p-2 bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg">
-                                            <FiFileText className="w-5 h-5 text-purple-600" />
+                                        <div className="p-1.5 bg-gradient-to-r from-purple-100 to-purple-200 rounded-lg">
+                                            <FiFileText className="w-4 h-4 text-purple-600" />
                                         </div>
                                         <div>
                                             <h5 className="text-lg font-bold text-slate-800 whitespace-nowrap">
@@ -1058,8 +1052,8 @@ const ViewFileIndex = () => {
                         >
                             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200 sticky top-0 bg-white">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-emerald-100 to-emerald-200 rounded-lg">
-                                        <FiPlus className="w-5 h-5 text-emerald-600" />
+                                    <div className="p-1.5 bg-gradient-to-r from-emerald-100 to-emerald-200 rounded-lg">
+                                        <FiPlus className="w-4 h-4 text-emerald-600" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-slate-800">Create File Index</h3>
@@ -1264,8 +1258,8 @@ const ViewFileIndex = () => {
                         >
                             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200 sticky top-0 bg-white">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-                                        <FiEdit className="w-5 h-5 text-blue-600" />
+                                    <div className="p-1.5 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
+                                        <FiEdit className="w-4 h-4 text-blue-600" />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-slate-800">Update File Index</h3>
@@ -1297,7 +1291,7 @@ const ViewFileIndex = () => {
                                             {selectedFile ? (
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-gradient-to-r from-purple-100 to-purple-200 rounded-full flex items-center justify-center flex-shrink-0">
-                                                        <FiUser className="w-5 h-5 text-purple-600" />
+                                                        <FiUser className="w-4 h-4 text-purple-600" />
                                                     </div>
                                                     <div>
                                                         <div className="font-medium text-slate-900 text-sm">{selectedFile.name}</div>
@@ -1411,7 +1405,7 @@ const ViewFileIndex = () => {
                             <div className="sticky top-0 bg-white border-b border-slate-200 px-4 py-3 rounded-t-2xl z-10">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                                        <FiEye className="w-5 h-5 text-blue-600" />
+                                        <FiEye className="w-4 h-4 text-blue-600" />
                                         File Index Details
                                     </h3>
                                     <motion.button
@@ -1433,7 +1427,7 @@ const ViewFileIndex = () => {
                                 {/* Compact Header Card */}
                                 <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg mb-4">
                                     <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-blue-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                                        <FiFileText className="w-5 h-5 text-blue-600" />
+                                        <FiFileText className="w-4 h-4 text-blue-600" />
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <div className="font-semibold text-slate-900 text-base truncate">{selectedFileToView.name}</div>

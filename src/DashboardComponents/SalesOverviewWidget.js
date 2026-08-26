@@ -31,6 +31,22 @@ const buildFinancialYearOptions = () => {
   });
 };
 
+/** FY order: Apr → Mar (Indian financial year) */
+const MONTH_OPTIONS = [
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+];
+
 const DEFAULT_BREAKDOWN = {
   task: { count: 0, amount: 0 },
   client: { count: 0, amount: 0 },
@@ -44,6 +60,8 @@ const DEFAULT_STATS = {
   gst_amount: 0,
   task_sale_count: 0,
   sale_breakdown: DEFAULT_BREAKDOWN,
+  period_type: "financial_year",
+  period_label: null,
   previous_financial_year: null,
   previous_fy_sale_amount: 0,
   sale_amount_growth_percent: null,
@@ -148,10 +166,11 @@ const getMetricCaption = (
   canViewAmounts,
   gstShare,
   taskShare,
+  periodNoun = "FY",
 ) => {
   switch (metric.captionKey) {
     case "invoice":
-      if (!stats.invoice_count) return "No invoices this FY";
+      if (!stats.invoice_count) return `No invoices this ${periodNoun}`;
       return `${formatCount(stats.task_sale_count)} task-linked (${taskShare}%)`;
     case "sale_amount":
       if (!canViewAmounts) return "Amount hidden";
@@ -170,6 +189,9 @@ const SalesOverviewHeader = ({
   financialYearOptions,
   selectedYearOption,
   onYearChange,
+  monthOptions,
+  selectedMonthOption,
+  onMonthChange,
   onRefresh,
   refreshing,
 }) => (
@@ -184,13 +206,15 @@ const SalesOverviewHeader = ({
             Sales Overview
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            Financial year performance at a glance
+            {selectedMonthOption
+              ? "Monthly performance at a glance"
+              : "Financial year performance at a glance"}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="w-full sm:w-44">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="w-full min-w-[9.5rem] sm:w-40">
           <CustomSelect
             options={financialYearOptions}
             value={selectedYearOption}
@@ -198,6 +222,16 @@ const SalesOverviewHeader = ({
             placeholder="Financial year"
             isSearchable={false}
             isClearable={false}
+          />
+        </div>
+        <div className="w-full min-w-[9rem] sm:w-36">
+          <CustomSelect
+            options={monthOptions}
+            value={selectedMonthOption}
+            onChange={onMonthChange}
+            placeholder="All months"
+            isSearchable={false}
+            isClearable
           />
         </div>
         <button
@@ -428,7 +462,7 @@ const formatPreviousFyLabel = (fyLabel) => {
 };
 
 const GrowthIndicator = ({ stats }) => {
-  if (!stats.previous_financial_year) return null;
+  if (!stats.previous_financial_year && !stats.previous_fy_label) return null;
 
   const previousLabel =
     stats.previous_fy_label ||
@@ -474,9 +508,9 @@ const SalesOverviewBody = ({
   avgInvoiceValue,
   preTaxAmount,
   totalSourceCount,
-  selectedYearOption,
-  selectedFinancialYear,
+  periodDisplayLabel,
   formatCurrency,
+  periodNoun,
 }) => (
   <div className="p-4 bg-gray-50/50">
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3">
@@ -500,9 +534,7 @@ const SalesOverviewBody = ({
             {canViewAmounts ? formatCurrency(stats.sale_amount) : maskedAmount}
           </motion.p>
           <GrowthIndicator stats={stats} />
-          <p className="mt-1 text-xs text-indigo-100/80">
-            {selectedYearOption?.label || selectedFinancialYear}
-          </p>
+          <p className="mt-1 text-xs text-indigo-100/80">{periodDisplayLabel}</p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {stats.invoice_count > 0 ? (
@@ -547,6 +579,7 @@ const SalesOverviewBody = ({
                 canViewAmounts,
                 gstShare,
                 taskShare,
+                periodNoun,
               )}
               canViewAmounts={canViewAmounts}
               maskedAmount={maskedAmount}
@@ -592,6 +625,7 @@ const SalesOverviewWidget = () => {
 
   const [selectedFinancialYear, setSelectedFinancialYear] =
     useState(defaultFinancialYear);
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -607,69 +641,98 @@ const SalesOverviewWidget = () => {
     [financialYearOptions, selectedFinancialYear],
   );
 
-  const fetchSalesOverview = useCallback(async (financialYear, isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const selectedMonthOption = useMemo(
+    () =>
+      selectedMonth
+        ? MONTH_OPTIONS.find((option) => option.value === String(selectedMonth)) ||
+          null
+        : null,
+    [selectedMonth],
+  );
 
-    try {
-      const headers = getHeaders();
-      const params = new URLSearchParams({ financial_year: financialYear });
-      const response = await fetch(
-        `${API_BASE_URL}/report/dashboard-summary-core?${params.toString()}`,
-        { method: "GET", headers },
-      );
+  const fetchSalesOverview = useCallback(
+    async (financialYear, month = null, isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
 
-      const responseData = await response.json();
+      try {
+        const headers = getHeaders();
+        const params = new URLSearchParams({ financial_year: financialYear });
+        if (month) params.set("month", String(month));
+        const response = await fetch(
+          `${API_BASE_URL}/report/dashboard-summary-core?${params.toString()}`,
+          { method: "GET", headers },
+        );
 
-      if (!response.ok || !responseData.success) {
-        throw new Error(responseData.message || "Failed to fetch sales overview");
+        const responseData = await response.json();
+
+        if (!response.ok || !responseData.success) {
+          throw new Error(
+            responseData.message || "Failed to fetch sales overview",
+          );
+        }
+
+        const data = responseData.data || {};
+        const breakdown = data.sale_breakdown || {};
+        const formatted = data.formatted || {};
+        setStats({
+          invoice_count: data.invoice_count || 0,
+          sale_amount: data.sale_amount || 0,
+          gst_amount: data.gst_amount || 0,
+          task_sale_count: data.task_sale_count || 0,
+          sale_breakdown: {
+            task: breakdown.task || DEFAULT_BREAKDOWN.task,
+            client: breakdown.client || DEFAULT_BREAKDOWN.client,
+            bank: breakdown.bank || DEFAULT_BREAKDOWN.bank,
+            other: breakdown.other || DEFAULT_BREAKDOWN.other,
+          },
+          period_type: data.period_type || "financial_year",
+          period_label: data.period_label || formatted.period_label || null,
+          previous_financial_year:
+            data.previous_period_key || data.previous_financial_year || null,
+          previous_fy_sale_amount:
+            data.previous_period_sale_amount ??
+            data.previous_fy_sale_amount ??
+            0,
+          sale_amount_growth_percent: data.sale_amount_growth_percent ?? null,
+          previous_fy_label:
+            formatted.previous_period_label ||
+            formatted.previous_fy_label ||
+            null,
+        });
+      } catch (err) {
+        console.error("Error fetching sales overview:", err);
+        setError(err.message || "Failed to fetch sales overview");
+        setStats(DEFAULT_STATS);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      const data = responseData.data || {};
-      const breakdown = data.sale_breakdown || {};
-      const formatted = data.formatted || {};
-      setStats({
-        invoice_count: data.invoice_count || 0,
-        sale_amount: data.sale_amount || 0,
-        gst_amount: data.gst_amount || 0,
-        task_sale_count: data.task_sale_count || 0,
-        sale_breakdown: {
-          task: breakdown.task || DEFAULT_BREAKDOWN.task,
-          client: breakdown.client || DEFAULT_BREAKDOWN.client,
-          bank: breakdown.bank || DEFAULT_BREAKDOWN.bank,
-          other: breakdown.other || DEFAULT_BREAKDOWN.other,
-        },
-        previous_financial_year: data.previous_financial_year || null,
-        previous_fy_sale_amount: data.previous_fy_sale_amount || 0,
-        sale_amount_growth_percent:
-          data.sale_amount_growth_percent ?? null,
-        previous_fy_label: formatted.previous_fy_label || null,
-      });
-    } catch (err) {
-      console.error("Error fetching sales overview:", err);
-      setError(err.message || "Failed to fetch sales overview");
-      setStats(DEFAULT_STATS);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
-    fetchSalesOverview(selectedFinancialYear);
-  }, [fetchSalesOverview, selectedFinancialYear]);
+    fetchSalesOverview(selectedFinancialYear, selectedMonth);
+  }, [fetchSalesOverview, selectedFinancialYear, selectedMonth]);
 
   const maskedAmount = "₹ •••••";
 
   const gstShare = useMemo(() => {
     if (!canViewAmounts || !stats.sale_amount) return 0;
-    return Math.min(100, Math.round((stats.gst_amount / stats.sale_amount) * 100));
+    return Math.min(
+      100,
+      Math.round((stats.gst_amount / stats.sale_amount) * 100),
+    );
   }, [canViewAmounts, stats.gst_amount, stats.sale_amount]);
 
   const taskShare = useMemo(() => {
     if (!stats.invoice_count) return 0;
-    return Math.min(100, Math.round((stats.task_sale_count / stats.invoice_count) * 100));
+    return Math.min(
+      100,
+      Math.round((stats.task_sale_count / stats.invoice_count) * 100),
+    );
   }, [stats.invoice_count, stats.task_sale_count]);
 
   const avgInvoiceValue = useMemo(() => {
@@ -691,26 +754,42 @@ const SalesOverviewWidget = () => {
     [stats.sale_breakdown],
   );
 
+  const periodNoun = selectedMonth ? "month" : "FY";
+  const periodDisplayLabel =
+    stats.period_label ||
+    selectedMonthOption?.label ||
+    selectedYearOption?.label ||
+    selectedFinancialYear;
+
   const handleYearChange = useCallback((option) => {
     if (option?.value) setSelectedFinancialYear(option.value);
   }, []);
 
+  const handleMonthChange = useCallback((option) => {
+    setSelectedMonth(option?.value ? String(option.value) : null);
+  }, []);
+
   const handleRefresh = useCallback(() => {
-    fetchSalesOverview(selectedFinancialYear, true);
-  }, [fetchSalesOverview, selectedFinancialYear]);
+    fetchSalesOverview(selectedFinancialYear, selectedMonth, true);
+  }, [fetchSalesOverview, selectedFinancialYear, selectedMonth]);
 
   const showBodySkeleton = loading || refreshing;
+
+  const headerProps = {
+    financialYearOptions,
+    selectedYearOption,
+    onYearChange: handleYearChange,
+    monthOptions: MONTH_OPTIONS,
+    selectedMonthOption,
+    onMonthChange: handleMonthChange,
+    onRefresh: handleRefresh,
+    refreshing,
+  };
 
   if (error && !showBodySkeleton) {
     return (
       <div className="bg-white">
-        <SalesOverviewHeader
-          financialYearOptions={financialYearOptions}
-          selectedYearOption={selectedYearOption}
-          onYearChange={handleYearChange}
-          onRefresh={() => fetchSalesOverview(selectedFinancialYear)}
-          refreshing={false}
-        />
+        <SalesOverviewHeader {...headerProps} refreshing={false} />
         <div className="px-4 py-10 md:px-6 text-center bg-gray-50/50">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -725,7 +804,9 @@ const SalesOverviewWidget = () => {
           <p className="text-sm text-gray-500 mb-4 max-w-md mx-auto">{error}</p>
           <button
             type="button"
-            onClick={() => fetchSalesOverview(selectedFinancialYear)}
+            onClick={() =>
+              fetchSalesOverview(selectedFinancialYear, selectedMonth)
+            }
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-sm text-sm hover:bg-indigo-700 transition-colors"
           >
             <FiRefreshCw className="w-4 h-4" />
@@ -738,13 +819,7 @@ const SalesOverviewWidget = () => {
 
   return (
     <div className="bg-white">
-      <SalesOverviewHeader
-        financialYearOptions={financialYearOptions}
-        selectedYearOption={selectedYearOption}
-        onYearChange={handleYearChange}
-        onRefresh={handleRefresh}
-        refreshing={refreshing}
-      />
+      <SalesOverviewHeader {...headerProps} />
 
       {showBodySkeleton ? (
         <SalesOverviewBodySkeleton />
@@ -758,9 +833,9 @@ const SalesOverviewWidget = () => {
           avgInvoiceValue={avgInvoiceValue}
           preTaxAmount={preTaxAmount}
           totalSourceCount={totalSourceCount}
-          selectedYearOption={selectedYearOption}
-          selectedFinancialYear={selectedFinancialYear}
+          periodDisplayLabel={periodDisplayLabel}
           formatCurrency={formatCurrency}
+          periodNoun={periodNoun}
         />
       )}
     </div>

@@ -253,8 +253,8 @@ const normalizeLoadOptionsResult = (result) => {
 const MENU_MAX_HEIGHT = 240;
 const MENU_MIN_HEIGHT = 96;
 const MENU_GAP = 4;
-/** Above BaseModal shell (z-[10051]) and date-picker portals */
-const MENU_PORTAL_Z_INDEX = 10060;
+/** Above high modal shells (e.g. z-[10080]) and date-picker portals */
+const MENU_PORTAL_Z_INDEX = 11000;
 
 /**
  * Dependency-free searchable select replacement.
