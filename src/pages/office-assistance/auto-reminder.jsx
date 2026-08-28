@@ -293,6 +293,128 @@ const formatHumanTime = (value) => {
   }
 };
 
+const parseScheduleTime = (timeStr) => {
+  if (!timeStr) return { hour: 9, minute: 0 };
+  const [h, m] = String(timeStr).split(":").map(Number);
+  return { hour: Number.isFinite(h) ? h : 9, minute: Number.isFinite(m) ? m : 0 };
+};
+
+const atScheduleTime = (date, hour, minute) => {
+  const d = new Date(date);
+  d.setSeconds(0, 0);
+  d.setHours(hour, minute, 0, 0);
+  return d;
+};
+
+const isMatchingWeekdayOfMonth = (year, month, day, scheduleConfig) => {
+  const date = new Date(year, month, day);
+  const currentDayOfWeek = date.getDay();
+  const weekOfMonth = Math.ceil(day / 7);
+  const isLastWeek = day > new Date(year, month + 1, 0).getDate() - 7;
+  const scheduledDayOfWeek =
+    Number(scheduleConfig.day_of_week) === 7 ? 0 : Number(scheduleConfig.day_of_week);
+  const scheduledWeekOfMonth = scheduleConfig.week_of_month;
+
+  if (scheduledDayOfWeek !== currentDayOfWeek) return false;
+  if (scheduledWeekOfMonth === "last") return isLastWeek;
+  return weekOfMonth === Number(scheduledWeekOfMonth);
+};
+
+const isScheduleDayMatch = (scheduleType, config, date) => {
+  const dayOfWeek = date.getDay();
+  const dayOfMonth = date.getDate();
+  const month = date.getMonth();
+  const year = date.getFullYear();
+
+  switch (scheduleType) {
+    case "daily":
+      if (config.days?.length) {
+        const normalizedDays = config.days.map((d) => (d === 0 || d === 7 ? 0 : Number(d)));
+        return normalizedDays.includes(dayOfWeek);
+      }
+      return true;
+    case "weekly": {
+      if (config.day_of_week === undefined || config.day_of_week === null) return false;
+      const scheduledDay = config.day_of_week === 7 ? 0 : Number(config.day_of_week);
+      return dayOfWeek === scheduledDay;
+    }
+    case "monthly":
+      if (config.day_of_month) {
+        return dayOfMonth === Number(config.day_of_month);
+      }
+      if (config.week_of_month && config.day_of_week !== undefined) {
+        return isMatchingWeekdayOfMonth(year, month, dayOfMonth, config);
+      }
+      if (config.last_day_of_month) {
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        return dayOfMonth === lastDay;
+      }
+      return false;
+    default:
+      return false;
+  }
+};
+
+const getNextScheduleRunAt = (scheduleType, config, from = new Date()) => {
+  if (!scheduleType || !config?.time) return null;
+  const { hour, minute } = parseScheduleTime(config.time);
+  const now = new Date(from);
+  now.setSeconds(0, 0);
+
+  for (let dayOffset = 0; dayOffset <= 400; dayOffset += 1) {
+    const candidateDate = new Date(now);
+    candidateDate.setDate(candidateDate.getDate() + dayOffset);
+    if (!isScheduleDayMatch(scheduleType, config, candidateDate)) continue;
+
+    const runAt = atScheduleTime(candidateDate, hour, minute);
+    if (runAt.getTime() > now.getTime()) return runAt;
+  }
+
+  return null;
+};
+
+const formatScheduleWaitTime = (target, now = new Date()) => {
+  const diffMs = target.getTime() - now.getTime();
+  if (diffMs <= 0) return "Due now";
+  if (diffMs < 60_000) return "Less than 1 min";
+
+  const totalMinutes = Math.ceil(diffMs / 60_000);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const mins = totalMinutes % 60;
+
+  const parts = [];
+  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+  if (hours > 0) parts.push(`${hours} hr`);
+  if (mins > 0 || parts.length === 0) parts.push(`${mins} min${mins === 1 ? "" : "s"}`);
+
+  return parts.join(" ");
+};
+
+const ScheduleWaitLabel = ({ scheduleType, scheduleConfig }) => {
+  const [waitLabel, setWaitLabel] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const nextRun = getNextScheduleRunAt(scheduleType, scheduleConfig);
+      setWaitLabel(nextRun ? formatScheduleWaitTime(nextRun) : "");
+    };
+
+    update();
+    const timer = setInterval(update, 30_000);
+    return () => clearInterval(timer);
+  }, [scheduleType, scheduleConfig]);
+
+  if (!waitLabel) return null;
+
+  return (
+    <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700">
+      <FiClock className="h-3 w-3 shrink-0" />
+      <span>{waitLabel}</span>
+    </p>
+  );
+};
+
 const ChannelChips = ({ channels = [] }) => (
   <div className="flex flex-wrap gap-1">
     {CHANNEL_META.filter((c) => channels.includes(c.id)).map((c) => {
@@ -1538,6 +1660,10 @@ const AutoReminder = () => {
                                 <p className="mt-0.5 text-xs text-gray-500">
                                   {row.schedule_display || "—"}
                                 </p>
+                                <ScheduleWaitLabel
+                                  scheduleType={row.schedule_type}
+                                  scheduleConfig={row.schedule_config}
+                                />
                               </td>
                               <td className="px-4 py-3">
                                 <ChannelChips channels={row.channels || []} />
