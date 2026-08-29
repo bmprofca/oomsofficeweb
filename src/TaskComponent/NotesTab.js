@@ -11,6 +11,7 @@ import axios from 'axios';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import { uploadOneSaasFileUrl } from '../utils/onesaas-upload';
+import { NotesListSkeleton } from './taskTabSkeletons';
 
 const NotesTab = ({ task_id }) => {
     const [notes, setNotes] = useState([]);
@@ -663,14 +664,7 @@ const NotesTab = ({ task_id }) => {
             </div>
 
             {/* Loading/Error */}
-            {loading && (
-                <div className="p-12 text-center">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-                        <FiMessageSquare className="w-5 h-5 text-gray-400 animate-pulse" />
-                    </div>
-                    <p className="text-sm text-gray-500">Loading notes...</p>
-                </div>
-            )}
+            {loading && <NotesListSkeleton rowCount={5} />}
 
             {error && !loading && (
                 <div className="p-12 text-center">

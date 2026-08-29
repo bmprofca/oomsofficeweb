@@ -21,6 +21,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
+import { SubTaskTableSkeleton } from './taskTabSkeletons';
 
 const SubtaskTab = ({ 
     taskId,
@@ -33,7 +34,7 @@ const SubtaskTab = ({
     const [subtaskList, setSubtaskList] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [editingSubtask, setEditingSubtask] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [pagination, setPagination] = useState({
@@ -667,12 +668,7 @@ const SubtaskTab = ({
             {/* Table */}
             <div className="overflow-x-auto">
                 {loading ? (
-                    <div className="text-center py-12">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-                            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                        <p className="text-gray-600">Loading subtasks...</p>
-                    </div>
+                    <SubTaskTableSkeleton rowCount={6} />
                 ) : (
                     <>
                         <table className="w-full text-sm text-left text-gray-700">

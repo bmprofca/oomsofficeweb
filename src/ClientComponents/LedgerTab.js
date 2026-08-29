@@ -27,6 +27,7 @@ import OpeningBalanceModal from '../components/OpeningBalanceModal';
 import { ViewTransactionModalManager, isTaskOriginSale, resolveSaleTaskId } from '../components/Modals/ViewTransactions';
 import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import { buildLedgerDownloadFilename } from '../utils/ledgerFilename';
+import { LedgerToolbarSkeleton } from '../TaskComponent/taskTabSkeletons';
 import TransactionTable, {
     getTransactionAmounts,
     formatLedgerCurrency,
@@ -742,6 +743,7 @@ const ClientLedger = ({
 
     const formatCurrency = formatLedgerCurrency;
     const formatCurrencyPlain = formatLedgerCurrencyPlain;
+    const showInitialToolbarSkeleton = loading && transactions.length === 0;
 
     return (
         <div className="w-full">
@@ -752,6 +754,10 @@ const ClientLedger = ({
                 className="bg-white rounded-2xl shadow-sm border border-slate-200 px-5 py-4 mb-6"
             >
                 <div className="flex flex-wrap items-start justify-between gap-4">
+                    {showInitialToolbarSkeleton ? (
+                        <LedgerToolbarSkeleton />
+                    ) : (
+                    <>
                     <div className="min-w-0">
                         <h2 className="text-base sm:text-lg font-bold text-slate-800">Client Ledger</h2>
                         {clientNameProp ? (
@@ -867,6 +873,8 @@ const ClientLedger = ({
                             )}
                         </div>
                     </div>
+                    </>
+                    )}
                 </div>
             </motion.div>
 

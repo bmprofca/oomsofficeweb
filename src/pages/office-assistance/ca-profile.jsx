@@ -11,6 +11,7 @@ import {
   FiRefreshCw,
   FiUser,
   FiX,
+  FiBarChart2,
 } from "react-icons/fi";
 import { HiOutlineCurrencyRupee } from "react-icons/hi2";
 import { Header, Sidebar } from "../../components/header";
@@ -18,6 +19,7 @@ import ProfileTab from "../../CAComponents/ProfileTab";
 import TaskTab from "../../CAComponents/TaskTab";
 import LedgerTab from "../../CAComponents/LedgerTab";
 import BillingTab from "../../CAComponents/BillingTab";
+import ReportTab from "../../CAComponents/ReportTab";
 import { fetchCaDetailsProfile } from "../../services/caService";
 
 const EMPTY_CA_DATA = {
@@ -98,7 +100,7 @@ const SkeletonBone = ({ className = "" }) => (
 );
 
 /** Full-page skeleton matching CA profile header + tabs + profile tab layout. */
-const CAProfilePageSkeleton = ({ tabsMinimized = true, tabCount = 4 }) => {
+const CAProfilePageSkeleton = ({ tabsMinimized = true, tabCount = 5 }) => {
   const tabPlaceholders = Array.from({ length: tabCount }, (_, i) => i);
 
   return (
@@ -258,6 +260,7 @@ const CAProfile = () => {
     { id: "tasks", name: "Tasks", icon: FiCheckSquare },
     { id: "billing", name: "Billing", icon: FiFileText },
     { id: "ledger", name: "Ledger", icon: HiOutlineCurrencyRupee },
+    { id: "report", name: "Report", icon: FiBarChart2 },
     { id: "profile", name: "Profile", icon: FiUser },
   ];
 
@@ -383,6 +386,7 @@ const CAProfile = () => {
       tasks: "tasks",
       billing: "billing",
       ledger: "ledger",
+      report: "report",
     };
     const componentKey = tabMap[tab] || "tasks";
 
@@ -407,6 +411,7 @@ const CAProfile = () => {
           caCountryCode={caData.country_code}
         />
       ),
+      report: <ReportTab caUsername={username} />,
     };
 
     return tabComponents[componentKey] || tabComponents.tasks;
@@ -700,7 +705,7 @@ const CAProfile = () => {
                       </>
                     ) : (
                       <>
-                        <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3">
+                        <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                           {profileTabs.map((tabItem) => {
                             const Icon = tabItem.icon;
                             return (

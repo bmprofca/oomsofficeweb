@@ -27,6 +27,7 @@ import {
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import toast from 'react-hot-toast';
+import { StaffTableSkeleton } from './taskTabSkeletons.jsx';
 
 /* ─────────────────────────────────────────────
    Animated custom checkbox
@@ -102,7 +103,7 @@ const DetailRow = ({ icon: Icon, label, value }) => {
 ═══════════════════════════════════════════ */
 const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
     // ── core list ──────────────────────────────
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [staffList, setStaffList] = useState([]);
 
     // ── table row multi-select ──────────────────
@@ -427,12 +428,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
 
                 {/* ── Table ── */}
                 {loading ? (
-                    <div className="flex justify-center items-center py-16">
-                        <div className="text-center">
-                            <FiLoader className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-3" />
-                            <p className="text-gray-500">Loading staff list...</p>
-                        </div>
-                    </div>
+                    <StaffTableSkeleton rowCount={6} />
                 ) : (
                     <div className="overflow-x-auto">
                         {staffList.length > 0 ? (

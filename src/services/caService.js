@@ -78,3 +78,42 @@ export const changeCaStatus = async (username, status) => {
     );
     return response.data;
 };
+
+export const fetchCaReportByService = async ({
+    username,
+    serviceIds = [],
+    type = '',
+    firmId = '',
+    statuses = [],
+    fromDate = '',
+    toDate = '',
+    complianceYear = '',
+    compliancePeriod = '',
+    search = '',
+    pageNo = 1,
+    limit = 20,
+    signal,
+} = {}) => {
+    const headers = withHeaders();
+    const params = {
+        username: String(username || '').trim(),
+        page_no: Math.max(1, Number(pageNo) || 1),
+        limit: Math.min(100, Math.max(1, Number(limit) || 20)),
+    };
+    if (serviceIds.length > 0) params.service_ids = serviceIds.join(',');
+    if (type) params.type = type;
+    if (firmId) params.firm_id = firmId;
+    if (statuses.length > 0) params.status = statuses.join(',');
+    if (fromDate) params.from_date = fromDate;
+    if (toDate) params.to_date = toDate;
+    if (complianceYear) params.compliance_year = complianceYear;
+    if (compliancePeriod) params.compliance_period = compliancePeriod;
+    if (search) params.search = search;
+
+    const response = await axios.get(`${API_BASE_URL}/ca/details/report-by-service`, {
+        headers,
+        params,
+        signal,
+    });
+    return response.data;
+};

@@ -1,32 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    FiEdit, FiX, FiClipboard, FiLoader,
+    FiEdit, FiClipboard, FiLoader,
     FiUser, FiUsers, FiBriefcase,
-    FiCalendar, FiSave,
-    FiUserCheck, FiFileText, FiAlertCircle,
-    FiLock, FiMail, FiPhone, FiHash, FiClock, FiEye,
+    FiCalendar,
+    FiFileText, FiAlertCircle,
+    FiMail, FiPhone, FiHash, FiClock, FiEye,
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { toast } from 'react-hot-toast';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
-import { DatePickerField } from '../components/PortalDatePicker';
+import TaskEditModal from '../components/Modals/TaskEditModal';
 import { checkPermissionSync } from '../utils/permission-helper';
-import CustomSelect from '../components/CustomSelect';
-import { optionByValue } from '../utils/customSelectHelpers';
 import {
     FirmModalShell,
     FirmViewDetails,
 } from '../components/Modals/FirmModalParts';
-import {
-    searchFirmSelectOptions,
-    fetchCaOptions,
-    fetchAgentOptions,
-} from '../services/complianceService';
+import { DetailsTabSkeleton } from './taskTabSkeletons';
 
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
 const BILLING_GENERATE_NONBILLABLE = '/billing/generate/nonbillable';
@@ -109,17 +103,6 @@ const formatDate = (dateString) => {
     }
 };
 
-const formatDateForAPI = (dateString) => {
-    if (!dateString) return '';
-    try {
-        const d = new Date(dateString);
-        if (isNaN(d.getTime())) return '';
-        return d.toISOString().split('T')[0];
-    } catch {
-        return '';
-    }
-};
-
 const formatMoney = (value) =>
     `₹${Number(value ?? 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
@@ -164,18 +147,6 @@ const SectionBlock = ({ icon: Icon, title, children, action }) => (
     </section>
 );
 
-const LockedField = ({ label, value }) => (
-    <div>
-        {label ? (
-            <label className="mb-1.5 block text-xs font-semibold text-gray-600">{label}</label>
-        ) : null}
-        <div className="flex min-h-[40px] items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-            <FiLock className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span className="truncate text-sm font-medium text-gray-500">{value || '—'}</span>
-        </div>
-    </div>
-);
-
 const ContactLine = ({ icon: Icon, value }) => (
     <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-gray-700">
         <Icon className="h-3 w-3 shrink-0 text-gray-400" />
@@ -183,78 +154,23 @@ const ContactLine = ({ icon: Icon, value }) => (
     </p>
 );
 
-const toMemberSelectOption = (member) => {
-    if (!member) return null;
-    const username = member.username || member.value || member.ca_id || member.agent_id || '';
-    if (!username) return null;
-    const name = member.name || member.label || username;
-    return {
-        value: username,
-        label: member.mobile ? `${name} · ${member.mobile}` : name,
-        username,
-        name,
-        mobile: member.mobile || '',
-        email: member.email || '',
-    };
-};
-
-const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
+const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = false }) => {
     const [taskData, setTaskData] = useState(initialData);
     const [showEditModal, setShowEditModal] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
 
     const [billingModal, setBillingModal] = useState(null);
     const [isBillingAction, setIsBillingAction] = useState(false);
 
-    const [editForm, setEditForm] = useState({});
-    const setEF = (patch) => setEditForm((prev) => ({ ...prev, ...patch }));
-
     const [isChangingStatus, setIsChangingStatus] = useState(false);
     const [statusModalOpen, setStatusModalOpen] = useState(false);
 
-    const [services, setServices] = useState([]);
     const [showFirmViewModal, setShowFirmViewModal] = useState(false);
     const [viewFirm, setViewFirm] = useState(null);
     const [firmViewLoading, setFirmViewLoading] = useState(false);
 
-    const loadFirmOptions = useCallback(async (search, page = 1) => {
-        return searchFirmSelectOptions({
-            search,
-            page_no: page,
-            limit: 30,
-        });
-    }, []);
-
-    const loadCaOptions = useCallback(async (search) => {
-        const res = await fetchCaOptions({ search, page: 1, limit: 50 });
-        return (res?.data || []).map(toMemberSelectOption).filter(Boolean);
-    }, []);
-
-    const loadAgentOptions = useCallback(async (search) => {
-        const res = await fetchAgentOptions({ search, page: 1, limit: 50 });
-        return (res?.data || []).map(toMemberSelectOption).filter(Boolean);
-    }, []);
-
-    useEffect(() => {
-        if (taskData) fetchServices();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
     useEffect(() => {
         if (initialData) setTaskData(initialData);
     }, [initialData]);
-
-    const fetchServices = async () => {
-        try {
-            const headers = getHeaders();
-            if (!headers) return;
-            const res = await fetch(`${API_BASE_URL}/service/list`, { headers });
-            const data = await res.json();
-            if (data?.success) setServices(data.data || []);
-        } catch (err) {
-            console.error(err);
-        }
-    };
 
     const handleStatusChange = async (_taskId, newStatus) => {
         if (!newStatus || newStatus === taskData.status) return;
@@ -346,41 +262,17 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         }
     };
 
-    const handleEditClick = () => {
-        const firmOption = taskData.firm
-            ? {
-                value: taskData.firm.firm_id,
-                label: taskData.firm.firm_name
-                    ? (taskData.firm.pan_no
-                        ? `${taskData.firm.firm_name} - ${taskData.firm.pan_no}`
-                        : taskData.firm.firm_name)
-                    : taskData.firm.firm_id,
-                firm_name: taskData.firm.firm_name || '',
-                pan_no: taskData.firm.pan_no || '',
-                owner_name: taskData.firm.owner_name || taskData.firm.owner?.name || '',
-            }
-            : null;
-
-        setEditForm({
-            firm_id: taskData.firm?.firm_id || '',
-            firmOption,
-            service_id: taskData.service?.service_id || '',
-            fees: taskData.charges?.fees ?? 0,
-            has_ca: !!taskData.has_ca,
-            ca_id: taskData.ca?.username || '',
-            caOption: taskData.has_ca ? toMemberSelectOption(taskData.ca) : null,
-            has_agent: !!taskData.has_agent,
-            agent_id: taskData.agent?.username || '',
-            agentOption: taskData.has_agent ? toMemberSelectOption(taskData.agent) : null,
-            due_date: taskData.dates?.due_date ? formatDateForAPI(taskData.dates.due_date) : '',
-            target_date: taskData.dates?.target_date ? formatDateForAPI(taskData.dates.target_date) : '',
-            complete_date: taskData.dates?.complete_date ? formatDateForAPI(taskData.dates.complete_date) : '',
-        });
-        setShowEditModal(true);
-    };
-
-    const closeEditModal = () => {
-        if (!isSaving) setShowEditModal(false);
+    const handleTaskEditSaved = (updates) => {
+        setTaskData((prev) => ({
+            ...prev,
+            ...(updates.charges ? { charges: { ...prev.charges, ...updates.charges } } : {}),
+            ...(updates.dates ? { dates: { ...prev.dates, ...updates.dates } } : {}),
+            ...(updates.has_ca !== undefined ? { has_ca: updates.has_ca } : {}),
+            ...(updates.ca !== undefined ? { ca: updates.ca } : {}),
+            ...(updates.has_agent !== undefined ? { has_agent: updates.has_agent } : {}),
+            ...(updates.agent !== undefined ? { agent: updates.agent } : {}),
+        }));
+        if (onTaskUpdated) onTaskUpdated();
     };
 
     const handleConfirmBilling = async () => {
@@ -429,138 +321,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         }
     };
 
-    const handleSaveChanges = async () => {
-        const headers = getHeaders();
-        if (!headers) {
-            toast.error('Authentication failed.');
-            return;
-        }
-        if (!editForm.firm_id) {
-            toast.error('Please select a firm.');
-            return;
-        }
-        if (!editForm.service_id) {
-            toast.error('Please select a service.');
-            return;
-        }
-        if (editForm.has_ca && !editForm.ca_id) {
-            toast.error('CA is enabled — please select a CA.');
-            return;
-        }
-        if (editForm.has_agent && !editForm.agent_id) {
-            toast.error('Agent is enabled — please select an agent.');
-            return;
-        }
-
-        setIsSaving(true);
-        const toastId = toast.loading('Saving changes…');
-        try {
-            const feesNum = Number(editForm.fees);
-            const safeFees = Number.isFinite(feesNum) ? feesNum : 0;
-
-            const payload = {
-                firm_id: editForm.firm_id,
-                service_id: editForm.service_id,
-                fees: safeFees,
-                ca: editForm.has_ca
-                    ? { has_ca: true, ca_id: editForm.ca_id }
-                    : { has_ca: false },
-                agent: editForm.has_agent
-                    ? { has_agent: true, agent_id: editForm.agent_id }
-                    : { has_agent: false },
-                due_date: editForm.due_date || '',
-                target_date: editForm.target_date || '',
-            };
-
-            const mayChangeCompleteDate =
-                String(taskData.status || '').toLowerCase() === 'complete' &&
-                checkPermissionSync('task_complete_date_change');
-            if (mayChangeCompleteDate) {
-                if (!editForm.complete_date) {
-                    toast.error('Complete date is required.', { id: toastId });
-                    setIsSaving(false);
-                    return;
-                }
-                payload.complete_date = editForm.complete_date;
-            }
-
-            const res = await fetch(`${API_BASE_URL}/task/edit/${task_id}`, {
-                method: 'PUT',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                toast.success('Task updated successfully', { id: toastId });
-                setTaskData((prev) => ({
-                    ...prev,
-                    firm: editForm.firmOption
-                        ? {
-                            ...prev.firm,
-                            firm_id: editForm.firm_id,
-                            firm_name: editForm.firmOption.firm_name || editForm.firmOption.label,
-                            owner_name: editForm.firmOption.owner_name,
-                            pan_no: editForm.firmOption.pan_no,
-                        }
-                        : prev.firm,
-                    service: {
-                        ...prev.service,
-                        service_id: editForm.service_id,
-                        name: services.find((s) => s.service_id === editForm.service_id)?.name || prev.service?.name,
-                    },
-                    charges: {
-                        ...prev.charges,
-                        fees: safeFees,
-                    },
-                    dates: {
-                        ...prev.dates,
-                        due_date: editForm.due_date,
-                        target_date: editForm.target_date,
-                        ...(mayChangeCompleteDate
-                            ? { complete_date: editForm.complete_date }
-                            : {}),
-                    },
-                    has_ca: editForm.has_ca,
-                    ca: editForm.has_ca && editForm.caOption
-                        ? {
-                            username: editForm.caOption.username,
-                            name: editForm.caOption.name,
-                            mobile: editForm.caOption.mobile,
-                            email: editForm.caOption.email,
-                        }
-                        : null,
-                    has_agent: editForm.has_agent,
-                    agent: editForm.has_agent && editForm.agentOption
-                        ? {
-                            username: editForm.agentOption.username,
-                            name: editForm.agentOption.name,
-                            mobile: editForm.agentOption.mobile,
-                            email: editForm.agentOption.email,
-                        }
-                        : null,
-                }));
-                setShowEditModal(false);
-                if (onTaskUpdated) onTaskUpdated();
-            } else {
-                toast.error(data.message || 'Failed to update task', { id: toastId });
-            }
-        } catch (err) {
-            toast.error(err.message || 'An error occurred', { id: toastId });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const fees = parseFloat(editForm.fees) || 0;
-
-    const billGenerated =
-        taskData.billing_status === 'complete' || taskData.billing_status === 'non billable';
     const billNotGenerated = taskData.status === 'complete' && taskData.billing_status === 'pending';
     const canViewFees = checkPermissionSync('task_fees_view');
     const isTaskComplete = String(taskData.status || '').toLowerCase() === 'complete';
-    const canChangeCompleteDate =
-        isTaskComplete && checkPermissionSync('task_complete_date_change');
     const feesBlur = !canViewFees ? 'blur-[3.5px] select-none' : '';
 
     const statusLabel =
@@ -579,10 +342,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     const clientMobile = taskData.client?.profile?.mobile || '—';
     const clientEmail = taskData.client?.profile?.email || '—';
 
-    const serviceOptions = services.map((service) => ({
-        value: service.service_id,
-        label: service.name || 'Unnamed Service',
-    }));
+    if (loading || !taskData?.task_id) {
+        return <DetailsTabSkeleton />;
+    }
 
     const modalRootClass =
         'fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none';
@@ -639,7 +401,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                         </button>
                         <button
                             type="button"
-                            onClick={handleEditClick}
+                            onClick={() => setShowEditModal(true)}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
                         >
                             <FiEdit className="h-3.5 w-3.5" />
@@ -871,401 +633,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 </div>
             </div>
 
-            {/* Edit Modal */}
-            {typeof document !== 'undefined' &&
-                createPortal(
-                    <AnimatePresence>
-                        {showEditModal && (
-                            <motion.div
-                                key="edit-task-modal"
-                                className={modalRootClass}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <motion.button
-                                    type="button"
-                                    aria-label="Close dialog"
-                                    className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                                    onClick={closeEditModal}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                />
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className={`${modalPanelClass} max-w-3xl`}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3.5">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-                                                <FiEdit className="h-4 w-4 text-indigo-600" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-bold text-gray-800">Edit Task</h3>
-                                                <p className="text-xs text-gray-500">Update task information</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={closeEditModal}
-                                            disabled={isSaving}
-                                            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40"
-                                        >
-                                            <FiX className="h-4 w-4" />
-                                        </button>
-                                    </div>
-
-                                    <div className={modalBodyClass} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                                        <div className="space-y-5">
-                                            {billGenerated && (
-                                                <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-                                                    <FiLock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-amber-800">Bill already generated</p>
-                                                        <p className="mt-0.5 text-xs text-amber-700">
-                                                            Only Fees can be edited. Other fields are locked.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div>
-                                                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
-                                                    <FiBriefcase className="h-4 w-4 text-indigo-500" /> Firm & Service
-                                                </h4>
-                                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                    {billGenerated ? (
-                                                        <LockedField
-                                                            label="Firm"
-                                                            value={editForm.firmOption?.label || taskData.firm?.firm_name}
-                                                        />
-                                                    ) : (
-                                                        <CustomSelect
-                                                            label="Firm"
-                                                            required
-                                                            loadOptions={loadFirmOptions}
-                                                            value={editForm.firmOption || null}
-                                                            onChange={(opt) =>
-                                                                setEF({
-                                                                    firm_id: opt?.value || '',
-                                                                    firmOption: opt || null,
-                                                                })
-                                                            }
-                                                            getOptionLabel={(opt) => opt?.label || ''}
-                                                            getOptionValue={(opt) => opt?.value}
-                                                            placeholder="Search firm by name or PAN…"
-                                                            searchPlaceholder="Type to search firms…"
-                                                            noOptionsMessage="No firms found"
-                                                            minSearchLength={0}
-                                                            isClearable
-                                                        />
-                                                    )}
-
-                                                    {billGenerated ? (
-                                                        <LockedField
-                                                            label="Service"
-                                                            value={
-                                                                services.find((s) => s.service_id === editForm.service_id)?.name ||
-                                                                taskData.service?.name
-                                                            }
-                                                        />
-                                                    ) : (
-                                                        <CustomSelect
-                                                            label="Service"
-                                                            required
-                                                            options={serviceOptions}
-                                                            value={optionByValue(serviceOptions, editForm.service_id || null)}
-                                                            onChange={(opt) => setEF({ service_id: opt ? opt.value : '' })}
-                                                            getOptionLabel={(opt) => opt.label}
-                                                            getOptionValue={(opt) => opt.value}
-                                                            placeholder="Select service"
-                                                            searchPlaceholder="Search service..."
-                                                            isClearable
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {canViewFees && (
-                                                <div>
-                                                    <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
-                                                        <TbCurrencyRupee className="h-4 w-4 text-indigo-500" /> Financials
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 gap-3">
-                                                        <div>
-                                                            <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                                                                Fees (₹) <span className="text-red-500">*</span>
-                                                            </label>
-                                                            <div className="relative">
-                                                                <TbCurrencyRupee className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                                                <input
-                                                                    type="text"
-                                                                    inputMode="decimal"
-                                                                    value={editForm.fees}
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.value;
-                                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) setEF({ fees: val });
-                                                                    }}
-                                                                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                                    placeholder="0.00"
-                                                                />
-                                                            </div>
-                                                            <p className="mt-1.5 text-xs text-gray-500">
-                                                                GST is applied automatically by the server when applicable for this branch.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div>
-                                                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
-                                                    <FiCalendar className="h-4 w-4 text-indigo-500" /> Dates
-                                                </h4>
-                                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                    {billGenerated ? (
-                                                        <LockedField
-                                                            label="Due Date"
-                                                            value={editForm.due_date ? formatDate(editForm.due_date) : '—'}
-                                                        />
-                                                    ) : (
-                                                        <div>
-                                                            <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                                                                Due Date
-                                                            </label>
-                                                            <DatePickerField
-                                                                value={editForm.due_date}
-                                                                onChange={(value) => setEF({ due_date: value || '' })}
-                                                                placeholder="Select due date"
-                                                                mode="single"
-                                                                initialTab="single"
-                                                                quickOptionKeys={['td', 'tom', 'n7', 'eom']}
-                                                                buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    {billGenerated ? (
-                                                        <LockedField
-                                                            label="Target Date"
-                                                            value={editForm.target_date ? formatDate(editForm.target_date) : '—'}
-                                                        />
-                                                    ) : (
-                                                        <div>
-                                                            <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                                                                Target Date
-                                                            </label>
-                                                            <DatePickerField
-                                                                value={editForm.target_date}
-                                                                onChange={(value) => setEF({ target_date: value || '' })}
-                                                                placeholder="Select target date"
-                                                                mode="single"
-                                                                initialTab="single"
-                                                                quickOptionKeys={['td', 'tom', 'n7', 'eom']}
-                                                                buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    {isTaskComplete ? (
-                                                        canChangeCompleteDate ? (
-                                                            <div>
-                                                                <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                                                                    Complete Date
-                                                                </label>
-                                                                <DatePickerField
-                                                                    value={editForm.complete_date}
-                                                                    onChange={(value) => setEF({ complete_date: value || '' })}
-                                                                    placeholder="Select complete date"
-                                                                    mode="single"
-                                                                    initialTab="single"
-                                                                    quickOptionKeys={['td', 'yd', 'n7', 'eom']}
-                                                                    buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <LockedField
-                                                                label="Complete Date"
-                                                                value={editForm.complete_date ? formatDate(editForm.complete_date) : '—'}
-                                                            />
-                                                        )
-                                                    ) : null}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
-                                                    <FiUserCheck className="h-4 w-4 text-indigo-500" /> CA & Agent
-                                                </h4>
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                    <div>
-                                                        <div className="mb-1.5 flex items-center justify-between">
-                                                            <label className="text-xs font-semibold text-gray-600">CA</label>
-                                                            <button
-                                                                type="button"
-                                                                role="switch"
-                                                                aria-checked={editForm.has_ca}
-                                                                disabled={billGenerated}
-                                                                onClick={() => {
-                                                                    const next = !editForm.has_ca;
-                                                                    setEF({
-                                                                        has_ca: next,
-                                                                        ca_id: next ? editForm.ca_id : '',
-                                                                        caOption: next ? editForm.caOption : null,
-                                                                    });
-                                                                }}
-                                                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${editForm.has_ca ? 'bg-indigo-600' : 'bg-gray-200'}`}
-                                                            >
-                                                                <span
-                                                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${editForm.has_ca ? 'translate-x-4' : 'translate-x-0'}`}
-                                                                />
-                                                            </button>
-                                                        </div>
-                                                        <AnimatePresence initial={false}>
-                                                            {editForm.has_ca && (
-                                                                <motion.div
-                                                                    initial={{ height: 0, opacity: 0 }}
-                                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                                    exit={{ height: 0, opacity: 0 }}
-                                                                    transition={{ duration: 0.18 }}
-                                                                    className="overflow-hidden"
-                                                                >
-                                                                    {billGenerated ? (
-                                                                        <LockedField
-                                                                            label=""
-                                                                            value={editForm.caOption?.label || editForm.caOption?.name}
-                                                                        />
-                                                                    ) : (
-                                                                        <CustomSelect
-                                                                            loadOptions={loadCaOptions}
-                                                                            value={editForm.caOption || null}
-                                                                            onChange={(opt) =>
-                                                                                setEF({
-                                                                                    ca_id: opt?.value || '',
-                                                                                    caOption: opt || null,
-                                                                                })
-                                                                            }
-                                                                            getOptionLabel={(opt) => opt?.label || ''}
-                                                                            getOptionValue={(opt) => opt?.value}
-                                                                            placeholder="Search CA…"
-                                                                            searchPlaceholder="Search by name or mobile…"
-                                                                            noOptionsMessage="No CA found"
-                                                                            isClearable
-                                                                        />
-                                                                    )}
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                        {!editForm.has_ca && (
-                                                            <p className="mt-1 text-xs text-gray-400">Enable toggle to assign a CA</p>
-                                                        )}
-                                                    </div>
-
-                                                    <div>
-                                                        <div className="mb-1.5 flex items-center justify-between">
-                                                            <label className="text-xs font-semibold text-gray-600">Agent</label>
-                                                            <button
-                                                                type="button"
-                                                                role="switch"
-                                                                aria-checked={editForm.has_agent}
-                                                                disabled={billGenerated}
-                                                                onClick={() => {
-                                                                    const next = !editForm.has_agent;
-                                                                    setEF({
-                                                                        has_agent: next,
-                                                                        agent_id: next ? editForm.agent_id : '',
-                                                                        agentOption: next ? editForm.agentOption : null,
-                                                                    });
-                                                                }}
-                                                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${editForm.has_agent ? 'bg-indigo-600' : 'bg-gray-200'}`}
-                                                            >
-                                                                <span
-                                                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${editForm.has_agent ? 'translate-x-4' : 'translate-x-0'}`}
-                                                                />
-                                                            </button>
-                                                        </div>
-                                                        <AnimatePresence initial={false}>
-                                                            {editForm.has_agent && (
-                                                                <motion.div
-                                                                    initial={{ height: 0, opacity: 0 }}
-                                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                                    exit={{ height: 0, opacity: 0 }}
-                                                                    transition={{ duration: 0.18 }}
-                                                                    className="overflow-hidden"
-                                                                >
-                                                                    {billGenerated ? (
-                                                                        <LockedField
-                                                                            label=""
-                                                                            value={editForm.agentOption?.label || editForm.agentOption?.name}
-                                                                        />
-                                                                    ) : (
-                                                                        <CustomSelect
-                                                                            loadOptions={loadAgentOptions}
-                                                                            value={editForm.agentOption || null}
-                                                                            onChange={(opt) =>
-                                                                                setEF({
-                                                                                    agent_id: opt?.value || '',
-                                                                                    agentOption: opt || null,
-                                                                                })
-                                                                            }
-                                                                            getOptionLabel={(opt) => opt?.label || ''}
-                                                                            getOptionValue={(opt) => opt?.value}
-                                                                            placeholder="Search agent…"
-                                                                            searchPlaceholder="Search by name or mobile…"
-                                                                            noOptionsMessage="No agent found"
-                                                                            isClearable
-                                                                        />
-                                                                    )}
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                        {!editForm.has_agent && (
-                                                            <p className="mt-1 text-xs text-gray-400">
-                                                                Enable toggle to assign an agent
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-5 py-3">
-                                        <button
-                                            type="button"
-                                            onClick={closeEditModal}
-                                            disabled={isSaving}
-                                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleSaveChanges}
-                                            disabled={isSaving}
-                                            className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                                        >
-                                            {isSaving ? (
-                                                <>
-                                                    <FiLoader className="h-4 w-4 animate-spin" /> Saving…
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <FiSave className="h-4 w-4" /> Save Changes
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>,
-                    document.body,
-                )}
+            <TaskEditModal
+                isOpen={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                taskId={task_id}
+                taskData={taskData}
+                onSaved={handleTaskEditSaved}
+            />
 
             {/* Billing Modal */}
             {typeof document !== 'undefined' &&

@@ -59,9 +59,30 @@ export function isKeepAlivePath(pathname = '') {
   );
 }
 
+/**
+ * Profile pages use tab segments in the URL but one mounted shell per entity.
+ * Without this, each tab path is a separate keep-alive entry → full remount + skeleton.
+ */
+function normalizeKeepAlivePathname(pathname = '') {
+  const path = String(pathname || '').replace(/\/+$/, '') || '/';
+
+  let match = path.match(/^\/task\/profile\/([^/]+)(?:\/[^/]+)?$/);
+  if (match) return `/task/profile/${match[1]}`;
+
+  match = path.match(/^\/task\/([^/]+)$/);
+  if (match && match[1] !== 'detailed') {
+    return `/task/profile/${match[1]}`;
+  }
+
+  match = path.match(/^\/client\/profile\/([^/]+)(?:\/[^/]+)?$/);
+  if (match) return `/client/profile/${match[1]}`;
+
+  return path;
+}
+
 export function getKeepAliveKey(location) {
   if (!location) return '';
-  const path = String(location.pathname || '').replace(/\/+$/, '') || '/';
+  const path = normalizeKeepAlivePathname(location.pathname);
   return `${path}${location.search || ''}`;
 }
 

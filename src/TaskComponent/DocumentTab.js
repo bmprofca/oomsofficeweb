@@ -19,71 +19,12 @@ import {
 import TaskDocumentCreate, { getTaskDocumentAuthHeaders } from './TaskDocumentCreate';
 import API_BASE_URL from '../utils/api-controller';
 import { toast } from 'react-hot-toast';
+import { DocumentTableSkeletonRows } from './taskTabSkeletons';
 
 const TASK_UPLOAD_FORM_ID = 'task-document-upload-modal-form';
 const SKELETON_ROW_COUNT = 8;
 const DEFAULT_ITEMS_PER_PAGE = 20;
 const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
-
-/** Shimmer skeleton bar (list loading) */
-const SkeletonCell = ({ className = '' }) => (
-    <div
-        className={`relative overflow-hidden rounded-md bg-slate-200/80 ${className}`}
-        aria-hidden
-    >
-        <motion.div
-            className="pointer-events-none absolute inset-y-0 left-0 w-[55%] max-w-[140px] bg-gradient-to-r from-transparent via-white/55 to-transparent"
-            style={{ willChange: 'transform' }}
-            initial={{ x: '-100%' }}
-            animate={{ x: '320%' }}
-            transition={{
-                duration: 1.45,
-                repeat: Infinity,
-                ease: 'linear',
-                repeatDelay: 0.2,
-            }}
-        />
-    </div>
-);
-
-const DocumentTableSkeletonRows = ({ rowCount = SKELETON_ROW_COUNT }) =>
-    Array.from({ length: rowCount }, (_, i) => (
-        <tr key={`doc-sk-${i}`} className="border-b border-slate-100">
-            <td className="px-3 py-3">
-                <SkeletonCell className="h-[18px] w-[18px] rounded-[5px]" />
-            </td>
-            <td className="px-3 py-3">
-                <SkeletonCell className="h-4 w-7" />
-            </td>
-            <td className="px-3 py-3">
-                <div className="flex items-center gap-2">
-                    <SkeletonCell className="h-5 w-5 rounded" />
-                    <SkeletonCell className="h-4 max-w-[200px] flex-1" />
-                </div>
-            </td>
-            <td className="px-3 py-3">
-                <SkeletonCell className="h-4 w-24" />
-            </td>
-            <td className="px-3 py-3">
-                <SkeletonCell className="h-5 w-14" />
-            </td>
-            <td className="px-3 py-3">
-                <SkeletonCell className="h-4 w-12" />
-            </td>
-            <td className="px-3 py-3">
-                <SkeletonCell className="h-4 w-20" />
-            </td>
-            <td className="px-3 py-3">
-                <SkeletonCell className="h-8 w-8 rounded-lg" />
-            </td>
-            <td className="px-3 py-3">
-                <div className="flex gap-1">
-                    <SkeletonCell className="h-8 w-8 rounded-lg" />
-                    <SkeletonCell className="h-8 w-8 rounded-lg" />
-                </div>
-            </td>
-        </tr>
-    ));
 
 const apiRoot = () => String(API_BASE_URL || '').replace(/\/+$/, '');
 

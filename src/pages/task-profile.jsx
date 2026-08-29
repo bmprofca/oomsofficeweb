@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sidebar, Header } from "../components/header";
@@ -29,6 +29,7 @@ import TimelogTab from "../TaskComponent/TimelogTab";
 import SubtaskTab from "../TaskComponent/SubTaskTab";
 import DocumentsTab from "../TaskComponent/DocumentTab";
 import LedgerTab from "../TaskComponent/LedgerTab";
+import { DetailsTabSkeleton } from "../TaskComponent/taskTabSkeletons";
 
 // Format date helper
 const formatDate = (dateString) => {
@@ -70,8 +71,8 @@ const TaskProfilePageSkeleton = ({ tabCount = 7 }) => {
       </div>
 
       {/* Tabs bar — mirrors horizontal tab strip */}
-      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-1">
-        <div className="flex gap-1 overflow-x-auto">
+      <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="flex gap-1 overflow-x-auto overflow-y-hidden px-1 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {tabPlaceholders.map((i) => (
             <div
               key={`tab-sk-${i}`}
@@ -84,37 +85,8 @@ const TaskProfilePageSkeleton = ({ tabCount = 7 }) => {
         </div>
       </div>
 
-      {/* Tab content — mirrors Details-style cards */}
-      <div className="space-y-4">
-        {[0, 1, 2].map((card) => (
-          <div
-            key={`content-card-sk-${card}`}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <SkeletonBone className="h-8 w-8 rounded-lg" />
-                <div className="space-y-1.5">
-                  <SkeletonBone className="h-3.5 w-28 rounded" />
-                  <SkeletonBone className="h-2.5 w-40 rounded" />
-                </div>
-              </div>
-              <SkeletonBone className="h-7 w-16 rounded-md" />
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: card === 0 ? 6 : 4 }, (_, i) => (
-                <div
-                  key={`field-sk-${card}-${i}`}
-                  className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
-                >
-                  <SkeletonBone className="h-3 w-20 rounded" />
-                  <SkeletonBone className="mt-2 h-3 w-full rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Tab content — mirrors Details tab layout */}
+      <DetailsTabSkeleton />
     </div>
   );
 };
@@ -129,9 +101,11 @@ const TaskProfile = () => {
     const saved = localStorage.getItem("sidebarMinimized");
     return saved ? JSON.parse(saved) : false;
   });
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState(null);
   const [previousTaskId, setPreviousTaskId] = useState(null);
+  const hasHydratedTaskRef = useRef(false);
 
   // Task data state from API
   const [taskData, setTaskData] = useState({
@@ -164,24 +138,27 @@ const TaskProfile = () => {
 
   // Fetch task data from API
   const fetchTaskData = useCallback(
-    async (currentTaskId) => {
+    async (currentTaskId, { initial = false } = {}) => {
       const taskIdToFetch = currentTaskId || task_id;
 
       if (!taskIdToFetch) {
         setError("No task ID provided");
-        setLoading(false);
+        if (initial) setInitialLoading(false);
         return;
       }
 
       const headers = getHeaders();
       if (!headers) {
         setError("Authentication headers missing. Please login again.");
-        setLoading(false);
+        if (initial) setInitialLoading(false);
         return;
       }
 
       try {
-        setLoading(true);
+        if (initial) {
+          setInitialLoading(true);
+          setHasLoadedOnce(false);
+        }
         setError(null);
 
         const response = await axios.get(
@@ -191,6 +168,7 @@ const TaskProfile = () => {
 
         if (response.data.success && response.data.data) {
           setTaskData(response.data.data);
+          setHasLoadedOnce(true);
         } else {
           setError(response.data.message || "Failed to fetch task data");
         }
@@ -198,23 +176,32 @@ const TaskProfile = () => {
         console.error("Error fetching task data:", err);
         setError("Failed to load task details");
       } finally {
-        setLoading(false);
+        if (initial) setInitialLoading(false);
       }
     },
     [task_id],
   );
 
-  // Watch for URL changes
+  // Initial load / task switch — full-page skeleton
   useEffect(() => {
     if (task_id && task_id !== previousTaskId) {
       setPreviousTaskId(task_id);
-      fetchTaskData(task_id);
+      hasHydratedTaskRef.current = false;
+      fetchTaskData(task_id, { initial: true });
     }
+  }, [task_id, previousTaskId, fetchTaskData]);
 
+  useEffect(() => {
     if (task_id && !tab) {
       navigate(`/task/profile/${task_id}/details`, { replace: true });
     }
-  }, [task_id, tab, previousTaskId, fetchTaskData, navigate]);
+  }, [task_id, tab, navigate]);
+
+  useEffect(() => {
+    if (!initialLoading && taskData?.task_id) {
+      hasHydratedTaskRef.current = true;
+    }
+  }, [initialLoading, taskData?.task_id]);
 
   useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
@@ -265,7 +252,7 @@ const TaskProfile = () => {
             <DetailsTab
               taskData={taskData}
               task_id={task_id}
-              onTaskUpdated={() => fetchTaskData(task_id)}
+              onTaskUpdated={() => fetchTaskData(task_id, { initial: false })}
             />
           </motion.div>
         );
@@ -354,6 +341,8 @@ const TaskProfile = () => {
     }
   };
 
+  const showFullPageSkeleton = initialLoading && !hasLoadedOnce;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
       <Header
@@ -374,11 +363,11 @@ const TaskProfile = () => {
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
         <div className="w-full px-2 sm:px-4 md:px-8 py-4 md:py-6">
-          {loading && (
+          {showFullPageSkeleton && (
             <TaskProfilePageSkeleton tabCount={profileTabs.length} />
           )}
 
-          {error && !loading && (
+          {error && !showFullPageSkeleton && !hasLoadedOnce && (
             <div className="mb-6 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-6">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
@@ -394,7 +383,7 @@ const TaskProfile = () => {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => fetchTaskData(task_id)}
+                  onClick={() => fetchTaskData(task_id, { initial: true })}
                   className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:from-blue-700 hover:to-indigo-700"
                 >
                   <FiRefreshCw className="h-4 w-4" />
@@ -411,7 +400,7 @@ const TaskProfile = () => {
             </div>
           )}
 
-          {!loading && !error && (
+          {!showFullPageSkeleton && hasLoadedOnce && !error && (
             <>
               {/* Simple Header Card */}
               <motion.div
@@ -459,40 +448,33 @@ const TaskProfile = () => {
                 </div>
               </motion.div>
 
-              {/* Simple Profile Tabs */}
-              <motion.div
-                className="mb-6 rounded-lg border border-gray-200 bg-white p-1"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className="flex overflow-x-auto">
+              {/* Profile tabs */}
+              <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                <div className="flex gap-1 overflow-x-auto overflow-y-hidden px-1 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   {profileTabs.map((tabItem) => {
                     const Icon = tabItem.icon;
                     const isActive = tab === tabItem.id;
 
                     return (
-                      <motion.button
+                      <button
                         key={tabItem.id}
                         type="button"
                         onClick={() => handleTabClick(tabItem.id)}
-                        className={`flex items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium ${
+                        className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
                           isActive
                             ? "bg-blue-100 text-blue-700"
                             : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                         }`}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-4 w-4 shrink-0" />
                         {tabItem.name}
-                      </motion.button>
+                      </button>
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
 
-              {/* Tab Content */}
+              {/* Tab content */}
               <AnimatePresence mode="wait">
                 {renderTabContent()}
               </AnimatePresence>

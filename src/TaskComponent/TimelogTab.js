@@ -17,6 +17,7 @@ import {
 import axios from 'axios';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { TimelogTableSkeleton } from './taskTabSkeletons.jsx';
 
 // Add custom styles for rsuite datepicker to fix z-index issue
 const datePickerStyles = `
@@ -35,7 +36,7 @@ const TimelogTab = ({
     console.log('TimelogTab initialized with taskId:', effectiveTaskId);
 
     const [timelogs, setTimelogs] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
@@ -416,12 +417,7 @@ const TimelogTab = ({
                 {/* Timelogs Table */}
                 <div className="overflow-x-auto">
                     {loading ? (
-                        <div className="text-center py-12">
-                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-                                <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                            </div>
-                            <p className="text-gray-600">Loading timelogs...</p>
-                        </div>
+                        <TimelogTableSkeleton rowCount={6} />
                     ) : (
                         <>
                             <table className="w-full text-sm text-left text-gray-700">
