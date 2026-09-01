@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import debounce from "lodash.debounce";
 import { toast } from "react-hot-toast";
-import { Document, Page, pdfjs } from "react-pdf";
 import {
   FiArrowLeft,
   FiCheck,
@@ -16,7 +15,6 @@ import {
   FiCornerUpLeft,
   FiDownload,
   FiFile,
-  FiFileText,
   FiImage,
   FiLayout,
   FiLoader,
@@ -45,7 +43,9 @@ import { Header, Sidebar } from "../../../components/header";
 import { useUserPermissions } from "../../../utils/permission-helper";
 import OneChattingAttachModal from "../../../components/Modals/OneChattingAttachModal";
 import OneChattingMediaModal from "../../../components/Modals/OneChattingMediaModal";
+import SaveChatMediaToDocumentsModal from "../../../components/Modals/SaveChatMediaToDocumentsModal";
 import OneChattingTemplateModal from "../../../components/Modals/OneChattingTemplateModal";
+import OneChattingChatMediaPanel from "../../../components/WhatsApp/OneChattingChatMediaPanel";
 import OneChattingTemplatePreview from "../../../components/WhatsApp/OneChattingTemplatePreview";
 import { whatsappApi } from "../../../services/whatsappApi";
 import {
@@ -68,12 +68,15 @@ import {
   getGoogleMapsEmbedUrl,
   getGoogleMapsLink,
   getLocationFromMessage,
-  getMediaPreviewType,
+  getMediaModalType,
+  getMessageMediaName,
+  getMessageMediaUrl,
   getMessageCaption,
   getMessageContentLabel,
   getMessagePreview,
-  isPdfMedia,
+  isDocumentMessage,
   isTemplateMessage,
+  normalizeMessageType,
   WhatsAppFormattedText,
 } from "../../../utils/oneChattingChatUtils";
 import {
@@ -87,12 +90,12 @@ import {
   updateMessageStatus,
   upsertMessage,
 } from "../../../utils/oneChattingSocketUtils";
+import {
+  buildChatMediaLookupMap,
+  findMediaListItemForMessage,
+} from "../../../utils/oneChattingMediaResolve";
 import { extractDeveloperToken } from "../../../services/developerSocket";
 import useDeveloperSocket from "../../../hooks/useDeveloperSocket";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
-
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const LIVE_CHAT_PATH = "/broadcast/whatsapp/onechatting/live-chat";
 const LIVE_CHAT_FULLSCREEN_KEY = "oneChattingLiveChatFullScreen";
@@ -304,114 +307,7 @@ const ChatVisualMediaPreview = ({
   );
 };
 
-const isPdfPasswordError = (error) => {
-  if (!error) return false;
-  return (
-    error.name === "PasswordException" ||
-    error.code === 1 ||
-    error.code === 2 ||
-    /password/i.test(error.message || "")
-  );
-};
-
-const ChatPdfPreview = ({
-  src,
-  name,
-  isOutgoing,
-  onClick,
-  clickable = true,
-}) => {
-  const [loadState, setLoadState] = useState("loading");
-  const [numPages, setNumPages] = useState(null);
-  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
-
-  const markPasswordProtected = () => {
-    setIsPasswordProtected(true);
-    setLoadState("password-protected");
-  };
-
-  if (isPasswordProtected) {
-    return (
-      <ChatDocumentFilePreview url={src} name={name} isOutgoing={isOutgoing} />
-    );
-  }
-
-  const preview = (
-    <div className={`relative ${MEDIA_PREVIEW_BOX_CLASS}`}>
-      {loadState === "loading" && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-[#cfd4d6] via-[#e9edef] to-[#cfd4d6]" />
-          <FiLoader className="relative w-6 h-6 animate-spin text-gray-500" />
-        </div>
-      )}
-
-      {loadState === "error" && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-3 text-center">
-          <FiFileText className="w-8 h-8 text-red-500" />
-          <span className="text-xs text-gray-500">PDF preview unavailable</span>
-        </div>
-      )}
-
-      <Document
-        file={src}
-        onLoadSuccess={({ numPages: pages }) => {
-          setNumPages(pages);
-          setLoadState("loaded");
-        }}
-        onLoadError={(error) => {
-          if (isPdfPasswordError(error)) {
-            markPasswordProtected();
-            return;
-          }
-          setLoadState("error");
-        }}
-        onPassword={(updatePassword) => {
-          markPasswordProtected();
-          updatePassword(null);
-        }}
-        loading=""
-        className={loadState === "loaded" ? "flex justify-center" : "hidden"}
-      >
-        <Page
-          pageNumber={1}
-          height={158}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-        />
-      </Document>
-
-      <div className="absolute bottom-0 left-0 right-0 z-[2] flex items-center gap-2 bg-[#f0f2f5]/95 px-2.5 py-1.5 border-t border-black/5">
-        <span className="w-7 h-7 rounded bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-          PDF
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-gray-800 truncate m-0 leading-tight">
-            {name || "Document"}
-          </p>
-          {numPages ? (
-            <p className="text-[10px] text-gray-500 m-0 leading-tight">
-              {numPages} {numPages === 1 ? "page" : "pages"}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!clickable) return preview;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`block ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 text-left rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-green-400/50`}
-    >
-      {preview}
-    </button>
-  );
-};
-
-const ChatDocumentFilePreview = ({ url, name, isOutgoing }) => {
+const ChatDocumentFilePreview = ({ url, name, isOutgoing, onClick }) => {
   const extension = getFileExtension(name, url);
   const meta = getDocumentTypeMeta(extension);
 
@@ -449,29 +345,47 @@ const ChatDocumentFilePreview = ({ url, name, isOutgoing }) => {
 
   return (
     <div className="flex items-center gap-3 min-w-[240px] max-w-[320px] py-1">
-      <div
-        className={`w-11 h-12 rounded-md flex items-center justify-center shrink-0 ${meta.bg}`}
-      >
-        <span className={`text-[10px] font-bold uppercase ${meta.color}`}>
-          {meta.label}
-        </span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm truncate m-0 leading-tight ${isOutgoing ? "text-white" : "text-gray-800"}`}
-        >
-          {name || "Document"}
-        </p>
-        <p
-          className={`text-[11px] m-0 mt-0.5 leading-tight ${isOutgoing ? "text-green-100" : "text-gray-500"}`}
-        >
-          {extension ? `${extension.toUpperCase()} file` : "Document"}
-        </p>
-      </div>
       <button
         type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick?.();
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+        disabled={!onClick}
+        className={`relative z-[1] flex min-w-0 flex-1 items-center gap-3 text-left rounded-md transition-colors ${
+          onClick
+            ? isOutgoing
+              ? "hover:bg-green-700/30 cursor-pointer"
+              : "hover:bg-gray-100 cursor-pointer"
+            : "cursor-default opacity-80"
+        }`}
+      >
+        <div
+          className={`w-11 h-12 rounded-md flex items-center justify-center shrink-0 ${meta.bg}`}
+        >
+          <span className={`text-[10px] font-bold uppercase ${meta.color}`}>
+            {meta.label}
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p
+            className={`text-sm truncate m-0 leading-tight ${isOutgoing ? "text-white" : "text-gray-800"}`}
+          >
+            {name || "Document"}
+          </p>
+          <p
+            className={`text-[11px] m-0 mt-0.5 leading-tight ${isOutgoing ? "text-green-100" : "text-gray-500"}`}
+          >
+            {extension ? `${extension.toUpperCase()} file` : "Document"}
+          </p>
+        </div>
+      </button>
+      <button
+        type="button"
+        data-doc-download="1"
         onClick={handleDownload}
-        className={`p-2 rounded-full shrink-0 transition-colors ${
+        className={`relative z-[1] p-2 rounded-full shrink-0 transition-colors ${
           isOutgoing
             ? "text-green-100 hover:bg-green-700/50"
             : "text-gray-500 hover:bg-gray-100"
@@ -642,6 +556,7 @@ const OneChattingLiveChat = ({
   embedded = false,
   clientNumber: fixedClientNumber = "",
   clientName: fixedClientName = "",
+  clientUsername: fixedClientUsername = "",
 } = {}) => {
   const { check } = useUserPermissions();
   const { number: numberParam } = useParams();
@@ -700,6 +615,7 @@ const OneChattingLiveChat = ({
     total: 0,
   });
   const [mediaPreview, setMediaPreview] = useState(null);
+  const [saveMediaTarget, setSaveMediaTarget] = useState(null);
   const [isFullScreen, setIsFullScreen] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -718,6 +634,7 @@ const OneChattingLiveChat = ({
   const [attachModalType, setAttachModalType] = useState(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [developerToken, setDeveloperToken] = useState("");
+  const [chatSideView, setChatSideView] = useState("messages");
 
   const messagesContainerRef = useRef(null);
   const selectedContactRef = useRef(selectedContact);
@@ -735,8 +652,52 @@ const OneChattingLiveChat = ({
   const stickBottomEndTimerRef = useRef(null);
   const lastScrollTopRef = useRef(0);
   const pendingMarkAsReadRef = useRef(null);
+  const chatMediaLookupRef = useRef(new Map());
+  const [mediaLookupVersion, setMediaLookupVersion] = useState(0);
 
   selectedContactRef.current = selectedContact;
+
+  const syncChatMediaLookup = useCallback(async (number) => {
+    if (!number) {
+      chatMediaLookupRef.current = new Map();
+      setMediaLookupVersion((value) => value + 1);
+      return;
+    }
+
+    try {
+      const mergedItems = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore && page <= 5) {
+        const res = await whatsappApi.getMediaList({
+          number: String(number).trim(),
+          filter: "all",
+          page_no: page,
+          limit: 50,
+        });
+        const list = Array.isArray(res?.data) ? res.data : [];
+        mergedItems.push(...list);
+
+        const pagination = res?.pagination || {};
+        hasMore = Boolean(
+          pagination.has_more ??
+            Number(pagination.page_no || page) <
+              Number(pagination.total_pages || page),
+        );
+        page += 1;
+        if (!list.length) break;
+      }
+
+      chatMediaLookupRef.current = buildChatMediaLookupMap(mergedItems);
+      setMediaLookupVersion((value) => value + 1);
+      return mergedItems;
+    } catch {
+      chatMediaLookupRef.current = new Map();
+      setMediaLookupVersion((value) => value + 1);
+      return [];
+    }
+  }, []);
 
   const isPageVisible = useCallback(
     () =>
@@ -1069,6 +1030,8 @@ const OneChattingLiveChat = ({
         if (!append) {
           skipScrollRef.current = false;
         }
+
+        syncChatMediaLookup(number);
       } catch (error) {
         toast.error(
           error?.response?.data?.message ||
@@ -1086,8 +1049,12 @@ const OneChattingLiveChat = ({
         setHistoryLoadingMore(false);
       }
     },
-    [storeDeveloperToken],
+    [storeDeveloperToken, syncChatMediaLookup],
   );
+
+  useEffect(() => {
+    syncChatMediaLookup(selectedContact?.number);
+  }, [selectedContact?.number, syncChatMediaLookup]);
 
   const fetchAssignPermission = useCallback(async (number) => {
     if (!number) {
@@ -1267,6 +1234,7 @@ const OneChattingLiveChat = ({
     canLoadOlderRef.current = false;
     lastScrollTopRef.current = 0;
     setSelectedContact(item.contact);
+    setChatSideView("messages");
     navigate(`${LIVE_CHAT_PATH}/${encodeURIComponent(item.contact.number)}`);
   };
 
@@ -1646,30 +1614,97 @@ const OneChattingLiveChat = ({
     ? getMessageContentLabel(replyToMessage)
     : "";
 
-  const openMediaPreview = (message) => {
-    const previewType = getMediaPreviewType(
-      message.message_type,
-      message.media_url,
-      message.media_name,
-    );
-    if (!previewType) return;
+  const openMediaPreview = useCallback(
+    async (message) => {
+      const messageType = normalizeMessageType(message);
+      const lookup = chatMediaLookupRef.current;
+      let mediaUrl = getMessageMediaUrl(message, lookup);
+      let mediaName = getMessageMediaName(message, lookup);
+
+      if (!mediaUrl && isDocumentMessage(message)) {
+        const items = (await syncChatMediaLookup(selectedContact?.number)) || [];
+        const refreshedLookup = chatMediaLookupRef.current;
+        mediaUrl = getMessageMediaUrl(message, refreshedLookup);
+        mediaName = getMessageMediaName(message, refreshedLookup);
+
+        if (!mediaUrl) {
+          const matched = findMediaListItemForMessage(message, items);
+          if (matched?.media_url) {
+            mediaUrl = matched.media_url;
+            mediaName = matched.media_name || mediaName;
+          }
+        }
+
+        if (!mediaUrl && selectedContact?.number) {
+          try {
+            const searchName = (
+              mediaName ||
+              getMessageMediaName(message) ||
+              String(message?.message || "").trim()
+            ).trim();
+            const res = await whatsappApi.getMediaList({
+              number: String(selectedContact.number).trim(),
+              filter: "document",
+              page_no: 1,
+              limit: 50,
+              ...(searchName ? { search: searchName } : {}),
+            });
+            const matched = findMediaListItemForMessage(
+              message,
+              Array.isArray(res?.data) ? res.data : [],
+            );
+            if (matched?.media_url) {
+              mediaUrl = matched.media_url;
+              mediaName = matched.media_name || mediaName;
+            }
+          } catch {
+            /* ignore secondary lookup failure */
+          }
+        }
+      }
+
+      if (!mediaUrl) {
+        toast.error("File link is not available for this message");
+        return;
+      }
+
+      setMediaPreview({
+        url: mediaUrl,
+        type: getMediaModalType(messageType, mediaUrl, mediaName),
+        name: mediaName || messageType || "Document",
+      });
+    },
+    [selectedContact?.number, syncChatMediaLookup],
+  );
+
+  const handleOpenChatMedia = (media) => {
+    if (!media?.url) return;
+    const messageType = media.message?.message_type || media.type;
     setMediaPreview({
-      url: message.media_url,
-      type: previewType,
-      name: message.media_name || message.message_type,
+      url: media.url,
+      type: getMediaModalType(messageType, media.url, media.name),
+      name: media.name || messageType,
     });
   };
+
+  const handleSaveToDocuments = useCallback((media) => {
+    if (!fixedClientUsername || !media?.url) return;
+    setSaveMediaTarget({
+      url: media.url,
+      name: media.name || media.type || "Chat media",
+      type: media.type,
+    });
+  }, [fixedClientUsername]);
 
   const renderMediaAttachment = (
     message,
     isOutgoing,
     { mediaOnly, timestamp },
   ) => {
-    const {
-      message_type: messageType,
-      media_url: mediaUrl,
-      media_name: mediaName,
-    } = message;
+    const messageType = normalizeMessageType(message);
+    const mediaLookup = chatMediaLookupRef.current;
+    const mediaUrl = getMessageMediaUrl(message, mediaLookup);
+    const mediaName = getMessageMediaName(message, mediaLookup);
 
     const mediaTimestampOverlay =
       mediaOnly && timestamp ? (
@@ -1692,6 +1727,17 @@ const OneChattingLiveChat = ({
           />
           {mediaTimestampOverlay}
         </div>
+      );
+    }
+
+    if (isDocumentMessage(message)) {
+      return (
+        <ChatDocumentFilePreview
+          url={mediaUrl}
+          name={mediaName}
+          isOutgoing={isOutgoing}
+          onClick={() => openMediaPreview(message)}
+        />
       );
     }
 
@@ -1742,30 +1788,6 @@ const OneChattingLiveChat = ({
       );
     }
 
-    if (messageType === "document") {
-      if (isPdfMedia(mediaUrl, mediaName)) {
-        return (
-          <div className={`relative ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0`}>
-            <ChatPdfPreview
-              src={mediaUrl}
-              name={mediaName}
-              isOutgoing={isOutgoing}
-              onClick={() => openMediaPreview(message)}
-            />
-            {mediaTimestampOverlay}
-          </div>
-        );
-      }
-
-      return (
-        <ChatDocumentFilePreview
-          url={mediaUrl}
-          name={mediaName}
-          isOutgoing={isOutgoing}
-        />
-      );
-    }
-
     return null;
   };
 
@@ -1777,24 +1799,20 @@ const OneChattingLiveChat = ({
       ? resolveTemplateMessage(message)
       : null;
     const hasTemplateCard = Boolean(templateContent);
-    const isPdfDocument =
-      message.message_type === "document" &&
-      Boolean(message.media_url) &&
-      isPdfMedia(message.media_url, message.media_name);
     const locationData = getLocationFromMessage(message);
     const hasLocationMap = Boolean(locationData);
     const usesWhiteCard = hasLocationMap || hasTemplateCard;
+    const messageMediaUrl = getMessageMediaUrl(
+      message,
+      chatMediaLookupRef.current,
+    );
+    void mediaLookupVersion;
+    const messageType = normalizeMessageType(message);
     const isVisualMedia =
-      (["image", "video"].includes(message.message_type) &&
-        Boolean(message.media_url)) ||
-      isPdfDocument ||
+      (["image", "video"].includes(messageType) && Boolean(messageMediaUrl)) ||
       hasLocationMap;
-    const hasAudioMedia =
-      message.message_type === "audio" && Boolean(message.media_url);
-    const hasFileDocument =
-      message.message_type === "document" &&
-      Boolean(message.media_url) &&
-      !isPdfDocument;
+    const hasAudioMedia = messageType === "audio" && Boolean(messageMediaUrl);
+    const hasFileDocument = isDocumentMessage(message);
     const hasRichMedia = isVisualMedia || hasAudioMedia || hasFileDocument;
     const isMediaOnly = isVisualMedia && !hasMediaCaption && !message.is_reply;
     const showVisualCaption = isVisualMedia && hasMediaCaption;
@@ -1871,7 +1889,9 @@ const OneChattingLiveChat = ({
               : isVisualMedia
                 ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1`
                 : hasAudioMedia || hasFileDocument
-                  ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2`
+                  ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2${
+                      hasFileDocument ? " cursor-pointer" : ""
+                    }`
                   : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
           } ${
             usesWhiteCard
@@ -1880,6 +1900,26 @@ const OneChattingLiveChat = ({
                 ? "bg-green-600 text-white rounded-br-sm"
                 : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
           }`}
+          onClick={
+            hasFileDocument
+              ? (event) => {
+                  if (event.target.closest('[data-doc-download="1"]')) return;
+                  openMediaPreview(message);
+                }
+              : undefined
+          }
+          onKeyDown={
+            hasFileDocument
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openMediaPreview(message);
+                  }
+                }
+              : undefined
+          }
+          role={hasFileDocument ? "button" : undefined}
+          tabIndex={hasFileDocument ? 0 : undefined}
         >
           {message.is_reply && message.reply_to_message && (
             <div
@@ -2465,10 +2505,39 @@ const OneChattingLiveChat = ({
                       ) : null}
                     </div>
 
+                    <div className="flex items-center gap-0.5 shrink-0 rounded-lg border border-gray-200 bg-white p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setChatSideView("messages")}
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                          chatSideView === "messages"
+                            ? "bg-green-600 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-gray-50"
+                        }`}
+                        title="Messages"
+                      >
+                        <FiMessageCircle className="h-3.5 w-3.5" />
+                        Chat
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setChatSideView("media")}
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                          chatSideView === "media"
+                            ? "bg-green-600 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-gray-50"
+                        }`}
+                        title="Media, docs and audio"
+                      >
+                        <FiImage className="h-3.5 w-3.5" />
+                        Media
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       onClick={handleRefreshConversation}
-                      disabled={historyLoading}
+                      disabled={historyLoading || chatSideView === "media"}
                       className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50 shrink-0"
                       title="Refresh conversation"
                     >
@@ -2479,7 +2548,20 @@ const OneChattingLiveChat = ({
                   </div>
 
                   <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                    <div className="relative flex-1 min-h-0 overflow-hidden">
+                    {chatSideView === "media" ? (
+                      <OneChattingChatMediaPanel
+                        contactNumber={selectedContact.number}
+                        contactName={getDisplayName(selectedContact)}
+                        onOpenMedia={handleOpenChatMedia}
+                        onSaveToDocuments={
+                          embedded && fixedClientUsername
+                            ? handleSaveToDocuments
+                            : undefined
+                        }
+                      />
+                    ) : (
+                    <>
+                    <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
                       {historyLoading && (
                         <div className="absolute inset-0 z-10 overflow-hidden bg-[#e5ddd5]">
                           <ConversationSkeleton />
@@ -2648,6 +2730,8 @@ const OneChattingLiveChat = ({
                         </div>
                       </form>
                     ) : null}
+                    </>
+                    )}
                   </div>
                 </>
               )}
@@ -2659,6 +2743,17 @@ const OneChattingLiveChat = ({
       <OneChattingMediaModal
         media={mediaPreview}
         onClose={() => setMediaPreview(null)}
+        onSaveToDocuments={
+          embedded && fixedClientUsername ? handleSaveToDocuments : undefined
+        }
+      />
+
+      <SaveChatMediaToDocumentsModal
+        isOpen={Boolean(saveMediaTarget)}
+        onClose={() => setSaveMediaTarget(null)}
+        clientUsername={fixedClientUsername}
+        media={saveMediaTarget}
+        onSuccess={() => setSaveMediaTarget(null)}
       />
 
       <OneChattingAttachModal

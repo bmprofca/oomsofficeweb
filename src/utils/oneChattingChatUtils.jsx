@@ -18,6 +18,235 @@ export const parseCoordinate = (value) => {
   return Number.isFinite(num) ? num : null;
 };
 
+const DIRECTION_MESSAGE_TYPES = new Set(['in', 'out', 'incoming', 'outgoing']);
+
+const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || '').trim());
+
+export const normalizeMessageType = (message) => {
+  if (!message) return '';
+
+  const explicitFields = [
+    message.message_type,
+    message.msg_type,
+    message.messageType,
+  ];
+
+  for (const field of explicitFields) {
+    const normalized = String(field || '').trim().toLowerCase();
+    if (normalized) return normalized;
+  }
+
+  const fallbackType = String(message.type || '').trim().toLowerCase();
+  if (fallbackType && !DIRECTION_MESSAGE_TYPES.has(fallbackType)) {
+    return fallbackType;
+  }
+
+  return '';
+};
+
+export const getMessageId = (message) =>
+  getMessageIdCandidates(message)[0] || '';
+
+export const getMessageIdCandidates = (message) => {
+  if (!message || typeof message !== 'object') return [];
+
+  const ids = new Set();
+  ['message_id', 'id', 'wamid', 'unique_id'].forEach((field) => {
+    const value = String(message[field] ?? '').trim();
+    if (value) ids.add(value);
+  });
+  return [...ids];
+};
+
+const extractDirectMediaUrl = (message) => {
+  if (!message || typeof message !== 'object') return '';
+
+  const candidates = [
+    message.media_url,
+    message.mediaUrl,
+    message.file_url,
+    message.fileUrl,
+    message.document_url,
+    message.documentUrl,
+    message.url,
+    message.link,
+    message.media?.url,
+    message.media?.link,
+    message.document?.url,
+    message.document?.link,
+    message.attachment?.url,
+    message.attachment?.link,
+  ];
+
+  const caption = String(message.message || '').trim();
+  if (isHttpUrl(caption)) candidates.push(caption);
+
+  for (const value of candidates) {
+    const url = String(value || '').trim();
+    if (url) return url;
+  }
+
+  return '';
+};
+
+const lookupMediaEntry = (message, mediaLookup) => {
+  if (!message || !(mediaLookup instanceof Map)) return null;
+
+  for (const id of getMessageIdCandidates(message)) {
+    const hit = mediaLookup.get(id);
+    if (hit?.url) return hit;
+  }
+
+  const rawName = String(
+    message.media_name ||
+      message.mediaName ||
+      message.file_name ||
+      message.fileName ||
+      message.filename ||
+      message.document_name ||
+      message.documentName ||
+      message.document?.filename ||
+      message.document?.name ||
+      message.media?.name ||
+      message.media?.filename ||
+      message.message ||
+      '',
+  ).trim();
+  const name = rawName && !isHttpUrl(rawName) ? rawName : '';
+  const date = String(message?.create_date || '').trim();
+
+  if (date && name) {
+    const hit = mediaLookup.get(`dt:${date}|${name}`);
+    if (hit?.url) return hit;
+  }
+
+  if (name) {
+    const hit = mediaLookup.get(`name:${name.toLowerCase()}`);
+    if (hit?.url) return hit;
+  }
+
+  return null;
+};
+
+export const getMessageMediaUrl = (message, mediaLookup) => {
+  const directUrl = extractDirectMediaUrl(message);
+  if (directUrl) return directUrl;
+
+  const hit = lookupMediaEntry(message, mediaLookup);
+  return hit?.url || '';
+};
+
+export const getMessageMediaName = (message, mediaLookup) => {
+  if (!message || typeof message !== 'object') return '';
+
+  const hit = lookupMediaEntry(message, mediaLookup);
+  if (hit?.name) return hit.name;
+
+  const messageType = normalizeMessageType(message);
+  if (messageType === 'document' || messageType === 'file') {
+    const caption = String(message.message || '').trim();
+    if (caption && !isHttpUrl(caption)) return caption;
+  }
+
+  const candidates = [
+    message.media_name,
+    message.mediaName,
+    message.file_name,
+    message.fileName,
+    message.filename,
+    message.document_name,
+    message.documentName,
+    message.document?.filename,
+    message.document?.name,
+    message.media?.name,
+    message.media?.filename,
+  ];
+
+  for (const value of candidates) {
+    const name = String(value || '').trim();
+    if (name) return name;
+  }
+
+  return '';
+};
+
+const DOCUMENT_MESSAGE_TYPES = new Set([
+  'document',
+  'file',
+  'attachment',
+  'documents',
+]);
+
+const MEDIA_MESSAGE_TYPES = new Set([
+  'image',
+  'video',
+  'audio',
+  'sticker',
+  'location',
+  'template',
+  'text',
+  'reaction',
+  'contacts',
+  'interactive',
+]);
+
+const DOCUMENT_EXTENSIONS = new Set([
+  'pdf',
+  'doc',
+  'docx',
+  'xls',
+  'xlsx',
+  'ppt',
+  'pptx',
+  'txt',
+  'csv',
+  'zip',
+  'rar',
+  '7z',
+]);
+
+export const isDocumentMessage = (message) => {
+  const messageType = normalizeMessageType(message);
+
+  if (DOCUMENT_MESSAGE_TYPES.has(messageType)) return true;
+  if (MEDIA_MESSAGE_TYPES.has(messageType) && messageType !== 'text') {
+    return false;
+  }
+
+  const caption = String(message?.message || '').trim();
+  const name =
+    getMessageMediaName(message) ||
+    (caption && !isHttpUrl(caption) ? caption : '');
+  const url = extractDirectMediaUrl(message);
+  const ext = getFileExtension(name, url);
+
+  if (ext && DOCUMENT_EXTENSIONS.has(ext)) return true;
+  if (isPdfMedia(url, name)) return true;
+
+  if (name && /\.[a-z0-9]{2,8}$/i.test(name)) {
+    const mediaExts = new Set([
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'bmp',
+      'mp4',
+      'mov',
+      'avi',
+      'webm',
+      'mp3',
+      'ogg',
+      'wav',
+      'm4a',
+      'aac',
+    ]);
+    if (!mediaExts.has(ext)) return true;
+  }
+
+  return false;
+};
+
 export const getLocationFromMessage = (message) => {
   if (!message || message.message_type !== 'location') return null;
 
@@ -215,6 +444,22 @@ export const getMediaPreviewType = (messageType, url, name) => {
   if (messageType === 'audio') return 'audio';
   if (messageType === 'document' && isPdfMedia(url, name)) return 'pdf';
   return null;
+};
+
+/** Modal display type — documents open modal without inline preview */
+export const getMediaModalType = (messageType, url, name) => {
+  const previewType = getMediaPreviewType(messageType, url, name);
+  if (previewType === 'image' || previewType === 'video' || previewType === 'audio') {
+    return previewType;
+  }
+  if (
+    messageType === 'document' ||
+    previewType === 'pdf' ||
+    (url && ['document', 'file'].includes(String(messageType || '').toLowerCase()))
+  ) {
+    return 'file';
+  }
+  return previewType || messageType || 'file';
 };
 
 export const canPreviewMedia = (messageType, url, name) =>

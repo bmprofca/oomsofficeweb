@@ -2,13 +2,19 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-hot-toast";
-import { FiDownload, FiExternalLink, FiLoader, FiX } from "react-icons/fi";
+import { FiDownload, FiExternalLink, FiFolderPlus, FiLoader, FiX } from "react-icons/fi";
 import { whatsappApi } from "../../services/whatsappApi";
+import {
+  getDocumentTypeMeta,
+  getFileExtension,
+} from "../../utils/oneChattingChatUtils";
 
 const HEADER_CLASS =
   "shrink-0 h-14 px-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between gap-3";
-const BODY_CLASS =
+const BODY_CLASS_PREVIEW =
   "shrink-0 h-[min(70vh,560px)] min-h-[280px] max-h-[70vh] p-4 overflow-hidden flex items-center justify-center bg-gray-100 relative";
+const BODY_CLASS_FILE =
+  "shrink-0 p-8 overflow-hidden flex items-center justify-center bg-gray-100 relative";
 const FOOTER_CLASS =
   "shrink-0 h-14 px-4 border-t border-gray-200 bg-white flex items-center justify-end gap-2";
 
@@ -54,15 +60,45 @@ const triggerBlobDownload = (blob, filename) => {
   window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
 };
 
-const MediaPreviewContent = ({ media, onClose }) => {
+const MediaFilePlaceholder = ({ name, url }) => {
+  const extension = getFileExtension(name, url);
+  const meta = getDocumentTypeMeta(extension);
+
+  return (
+    <div className="flex flex-col items-center gap-4 text-center max-w-sm mx-auto">
+      <div
+        className={`flex h-20 w-20 items-center justify-center rounded-2xl shadow-sm ${meta.bg}`}
+      >
+        <span className={`text-lg font-bold uppercase ${meta.color}`}>
+          {meta.label}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="m-0 text-sm font-semibold text-gray-800 break-words">
+          {name || "Document"}
+        </p>
+        <p className="m-0 mt-1 text-xs text-gray-500">
+          {extension ? `${extension.toUpperCase()} file` : "Document file"}
+        </p>
+        <p className="m-0 mt-3 text-xs text-gray-500">
+          Preview is not available. Download the file or save it to client documents.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
   const [downloading, setDownloading] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaError, setMediaError] = useState(false);
 
   const { url, type, name } = media;
   const title = name || type || "Media";
+  const isFileModal = type === "file" || type === "document" || type === "pdf";
   const needsLoadGate =
-    type === "image" || type === "video" || type === "pdf" || type === "audio";
+    !isFileModal &&
+    (type === "image" || type === "video" || type === "audio");
 
   useEffect(() => {
     setMediaLoading(needsLoadGate);
@@ -127,6 +163,10 @@ const MediaPreviewContent = ({ media, onClose }) => {
   };
 
   const renderPreview = () => {
+    if (isFileModal) {
+      return <MediaFilePlaceholder name={name} url={url} />;
+    }
+
     switch (type) {
       case "image":
         return (
@@ -173,24 +213,8 @@ const MediaPreviewContent = ({ media, onClose }) => {
             </audio>
           </div>
         );
-      case "pdf":
-        return (
-          <iframe
-            src={url}
-            title={title}
-            onLoad={markLoaded}
-            onError={markError}
-            className={`w-full h-full rounded-lg bg-white border border-gray-200 transition-opacity duration-200 ${
-              mediaLoading ? "opacity-0 absolute inset-0" : "opacity-100"
-            }`}
-          />
-        );
       default:
-        return (
-          <div className="text-center text-gray-500 py-12">
-            <p className="text-sm">Preview not available for this file type.</p>
-          </div>
-        );
+        return <MediaFilePlaceholder name={name} url={url} />;
     }
   };
 
@@ -242,10 +266,10 @@ const MediaPreviewContent = ({ media, onClose }) => {
           </button>
         </div>
 
-        <div className={BODY_CLASS}>
+        <div className={isFileModal ? BODY_CLASS_FILE : BODY_CLASS_PREVIEW}>
           {needsLoadGate && mediaLoading ? <MediaBodySkeleton /> : null}
 
-          {mediaError ? (
+          {mediaError && !isFileModal ? (
             <div className="text-center text-gray-500 px-4 relative z-[1]">
               <p className="text-sm m-0">Failed to load preview.</p>
             </div>
@@ -257,6 +281,16 @@ const MediaPreviewContent = ({ media, onClose }) => {
         </div>
 
         <div className={FOOTER_CLASS}>
+          {onSaveToDocuments ? (
+            <button
+              type="button"
+              onClick={() => onSaveToDocuments(media)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors mr-auto"
+            >
+              <FiFolderPlus className="w-4 h-4" />
+              Save to Documents
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handleDownload}
@@ -293,7 +327,7 @@ const MediaPreviewContent = ({ media, onClose }) => {
   );
 };
 
-const OneChattingMediaModal = ({ media, onClose }) => {
+const OneChattingMediaModal = ({ media, onClose, onSaveToDocuments }) => {
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -303,6 +337,7 @@ const OneChattingMediaModal = ({ media, onClose }) => {
           key={media.url}
           media={media}
           onClose={onClose}
+          onSaveToDocuments={onSaveToDocuments}
         />
       ) : null}
     </AnimatePresence>,

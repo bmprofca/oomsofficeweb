@@ -941,9 +941,8 @@ export default function ReportTab({ caUsername: caUsernameProp } = {}) {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3.5 align-top">
-                                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                                                        STATUS_COLORS[statusKey] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'
-                                                    }`}>
+                                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_COLORS[statusKey] || 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'
+                                                        }`}>
                                                         {getStatusLabel(statusKey)}
                                                     </span>
                                                 </td>

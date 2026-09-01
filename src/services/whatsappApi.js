@@ -86,6 +86,10 @@ export const whatsappApi = {
     }),
   markAsRead: (payload) =>
     whatsappAxios.post('/broadcast/whatsapp/onechatting/mark-as-read', payload).then(unwrap),
+  getMediaList: (payload) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/onechatting/media-list', payload)
+      .then(unwrap),
   sendTextMessage: (payload) =>
     whatsappAxios.post('/broadcast/whatsapp/onechatting/send-text-message', payload).then(unwrap),
   sendImageMessage: (payload) =>

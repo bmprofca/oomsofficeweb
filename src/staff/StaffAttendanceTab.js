@@ -133,11 +133,15 @@ function getDayCellStats(record) {
   if (extra > 0) {
     const ot = formatCompactMinutes(extra);
     if (ot) {
+      const applied = Boolean(att.overtime_enabled);
       stats.push({
         key: "ot",
         label: "OT",
         value: ot,
-        className: "text-emerald-700",
+        applied,
+        className: applied
+          ? "text-emerald-700"
+          : "text-emerald-700 line-through opacity-70",
       });
     }
   }
@@ -146,11 +150,15 @@ function getDayCellStats(record) {
   if (less > 0) {
     const fn = formatCompactMinutes(less);
     if (fn) {
+      const applied = Boolean(att.fine_enabled);
       stats.push({
         key: "fn",
         label: "FN",
         value: fn,
-        className: "text-rose-700",
+        applied,
+        className: applied
+          ? "text-rose-700"
+          : "text-rose-700 line-through opacity-70",
       });
     }
   }
@@ -160,7 +168,25 @@ function getDayCellStats(record) {
 
 function dayCellTitle(cell, state, stats) {
   const parts = [`${cell.date}`, statusLabel(state)];
-  stats.forEach((s) => parts.push(`${s.label} ${s.value}`));
+  stats.forEach((s) => {
+    if (s.key === "ot") {
+      parts.push(
+        s.applied
+          ? `Overtime applied · ${s.label} ${s.value}`
+          : `Overtime not applied · ${s.label} ${s.value}`,
+      );
+      return;
+    }
+    if (s.key === "fn") {
+      parts.push(
+        s.applied
+          ? `Fine applied · ${s.label} ${s.value}`
+          : `Fine not applied · ${s.label} ${s.value}`,
+      );
+      return;
+    }
+    parts.push(`${s.label} ${s.value}`);
+  });
   if (cell.record?.is_approved) parts.push("Approved");
   return parts.join(" · ");
 }
@@ -780,9 +806,10 @@ const StaffAttendanceTab = ({
               <span className="inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">
                 OT
               </span>
-              <span className="inline-flex items-center rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-700">
+              <span className="inline-flex items-center rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-700 line-through opacity-70">
                 FN
               </span>
+              <span className="text-gray-400">Strikethrough = not applied</span>
               <span className="inline-flex items-center gap-1 text-gray-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
                 Approved

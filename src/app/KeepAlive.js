@@ -80,10 +80,23 @@ function normalizeKeepAlivePathname(pathname = '') {
   return path;
 }
 
+/** Transient query params that must not create a separate keep-alive cache entry. */
+const KEEP_ALIVE_IGNORE_SEARCH_PARAMS = new Set(["duplicate"]);
+
+function normalizeKeepAliveSearch(search = "") {
+  const raw = String(search || "").trim();
+  if (!raw) return "";
+
+  const params = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw);
+  KEEP_ALIVE_IGNORE_SEARCH_PARAMS.forEach((key) => params.delete(key));
+  const normalized = params.toString();
+  return normalized ? `?${normalized}` : "";
+}
+
 export function getKeepAliveKey(location) {
   if (!location) return '';
   const path = normalizeKeepAlivePathname(location.pathname);
-  return `${path}${location.search || ''}`;
+  return `${path}${normalizeKeepAliveSearch(location.search)}`;
 }
 
 let version = 0;

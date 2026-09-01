@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import {
+  FiEye,
   FiLoader,
   FiLock,
   FiSend,
   FiUsers,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
 import CustomSelect from "../../../components/CustomSelect";
 import useDebounce from "../../../components/useDebounce";
@@ -134,6 +135,126 @@ function resolveTemplateVariableKeys(template) {
   return [];
 }
 
+const SMS_MERGE_FIELD_DEMO_VALUES = {
+  "{{name}}": "Rahul Sharma",
+  "{{email}}": "client@example.com",
+  "{{mobile}}": "9876543210",
+  "{{username}}": "client01",
+  "{{balance}}": "1250.00",
+  "{{balance_amount}}": "1250.00",
+  "{{payment_link}}": "https://yourdomain.com/payment/client01",
+};
+
+const PREVIEW_VARIABLE_CLASS =
+  "rounded px-1 py-px font-semibold text-indigo-800 bg-indigo-100 ring-1 ring-indigo-200/80";
+
+function formatPreviewDateOnly(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function isSmsMergeField(value) {
+  return /^\{\{\s*[a-zA-Z0-9_]+\s*\}\}$/.test(String(value || "").trim());
+}
+
+function resolveSmsMergeFieldDemoValue(rawValue) {
+  const value = String(rawValue || "").trim();
+  const normalized = value.replace(/\s+/g, "");
+  if (normalized === "{{current_date}}") {
+    return formatPreviewDateOnly(new Date());
+  }
+  return (
+    SMS_MERGE_FIELD_DEMO_VALUES[normalized] ||
+    SMS_MERGE_FIELD_DEMO_VALUES[value] ||
+    value
+  );
+}
+
+/** Resolve one slot for preview: static text as entered, merge fields as demo values. */
+function resolveSmsVariablePreviewPart(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) {
+    return { text: "—", kind: "empty" };
+  }
+  if (isSmsMergeField(value)) {
+    return { text: resolveSmsMergeFieldDemoValue(value), kind: "dynamic" };
+  }
+  return { text: value, kind: "static" };
+}
+
+/**
+ * Build preview segments: plain template text + highlighted variable slots.
+ * Returns [] when there is nothing to show.
+ */
+function buildSmsCampaignPreviewSegments(messageBody, variableKeys, variableInputs) {
+  const keys = Array.isArray(variableKeys) ? variableKeys : [];
+  const parts = keys.map((key) =>
+    resolveSmsVariablePreviewPart(variableInputs?.[key]),
+  );
+  const body = String(messageBody || "");
+  const segments = [];
+
+  if (body.trim()) {
+    const regex = /\{#\s*var\s*#\}/gi;
+    let lastIndex = 0;
+    let varIndex = 0;
+    let match = regex.exec(body);
+    while (match) {
+      if (match.index > lastIndex) {
+        segments.push({ type: "text", value: body.slice(lastIndex, match.index) });
+      }
+      const part = parts[varIndex] || { text: "—", kind: "empty" };
+      segments.push({
+        type: "variable",
+        value: part.text,
+        kind: part.kind,
+      });
+      varIndex += 1;
+      lastIndex = match.index + match[0].length;
+      match = regex.exec(body);
+    }
+    if (lastIndex < body.length) {
+      segments.push({ type: "text", value: body.slice(lastIndex) });
+    }
+  }
+
+  if (!segments.length && parts.length) {
+    parts.forEach((part, index) => {
+      if (index > 0) {
+        segments.push({ type: "text", value: " · " });
+      }
+      segments.push({
+        type: "variable",
+        value: part.text,
+        kind: part.kind,
+      });
+    });
+  }
+
+  return segments;
+}
+
+function SmsCampaignPreviewContent({ segments }) {
+  if (!Array.isArray(segments) || !segments.length) return null;
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.type === "variable" ? (
+          <span key={`var-${index}`} className={PREVIEW_VARIABLE_CLASS}>
+            {segment.value}
+          </span>
+        ) : (
+          <span key={`text-${index}`} className="text-gray-800">
+            {segment.value}
+          </span>
+        ),
+      )}
+    </>
+  );
+}
+
 const formatClientDisplayNumber = (item) => {
   const cc = String(item?.country_code || "")
     .replace(/\D/g, "")
@@ -256,8 +377,36 @@ const loadServiceOptions = createFetchLoadOptions({
     })),
 });
 
+const fetchClientsByUsernames = async (usernames = []) => {
+  const unique = [
+    ...new Set(
+      (Array.isArray(usernames) ? usernames : [])
+        .map((u) => String(u || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (!unique.length) return [];
+
+  const results = await Promise.all(
+    unique.map(async (username) => {
+      try {
+        const { options } = await loadClientOptions(username, 1);
+        const match = (options || []).find(
+          (client) => String(client?.username || "") === username,
+        );
+        return match || { username, name: username };
+      } catch {
+        return { username, name: username };
+      }
+    }),
+  );
+  return results;
+};
+
 const Fast2SmsCampaignCreate = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const duplicateCampaignId = String(searchParams.get("duplicate") || "").trim();
   const { check } = useUserPermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() =>
@@ -266,7 +415,7 @@ const Fast2SmsCampaignCreate = () => {
 
   const [name, setName] = useState("");
   const [templates, setTemplates] = useState([]);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [variableInputs, setVariableInputs] = useState({});
 
@@ -286,6 +435,13 @@ const Fast2SmsCampaignCreate = () => {
   const [resolvedRecipients, setResolvedRecipients] = useState([]);
   const [resolveError, setResolveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
+  const [duplicateSourceName, setDuplicateSourceName] = useState("");
+
+  const pendingDuplicateVariablesRef = useRef(null);
+  const duplicateAppliedRef = useRef(false);
+  const skipVariableResetRef = useRef(false);
+  const templateOptionsRef = useRef([]);
 
   useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
@@ -358,20 +514,224 @@ const Fast2SmsCampaignCreate = () => {
     [templates],
   );
 
+  useEffect(() => {
+    templateOptionsRef.current = templateOptions;
+  }, [templateOptions]);
+
   const selectedRaw = selectedTemplate?.raw || null;
   const variableKeys = useMemo(
     () => resolveTemplateVariableKeys(selectedRaw),
     [selectedRaw],
   );
 
+  const messagePreviewSegments = useMemo(
+    () =>
+      buildSmsCampaignPreviewSegments(
+        selectedRaw?.message_body,
+        variableKeys,
+        variableInputs,
+      ),
+    [selectedRaw?.message_body, variableKeys, variableInputs],
+  );
+
   useEffect(() => {
-    const next = {};
-    variableKeys.forEach((key) => {
-      next[key] = variableInputs[key] || "";
+    if (skipVariableResetRef.current) {
+      skipVariableResetRef.current = false;
+      return;
+    }
+
+    if (!selectedTemplate?.value) {
+      setVariableInputs({});
+      return;
+    }
+
+    const pending = pendingDuplicateVariablesRef.current;
+    if (pending) {
+      if (!variableKeys.length) return;
+      const parts = String(pending).split("|");
+      const next = {};
+      variableKeys.forEach((key, index) => {
+        next[key] = parts[index] || "";
+      });
+      setVariableInputs(next);
+      pendingDuplicateVariablesRef.current = null;
+      return;
+    }
+
+    setVariableInputs((prev) => {
+      const next = {};
+      variableKeys.forEach((key) => {
+        next[key] = prev[key] || "";
+      });
+      return next;
     });
-    setVariableInputs(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTemplate?.value]);
+  }, [selectedTemplate?.value, variableKeys]);
+
+  useEffect(() => {
+    if (!selectedTemplate?.value || !templateOptions.length) return;
+    const isFromOptions = templateOptions.some(
+      (option) => option === selectedTemplate,
+    );
+    if (isFromOptions) return;
+
+    const match = templateOptions.find(
+      (option) => String(option.value) === String(selectedTemplate.value),
+    );
+    if (!match) return;
+
+    skipVariableResetRef.current = true;
+    setSelectedTemplate(match);
+  }, [selectedTemplate, templateOptions]);
+
+  const applyDuplicateCampaign = useCallback(async (campaign) => {
+    const audience = campaign?.audience || {};
+    const audienceTypeValue = String(audience.audience_type || "client").toLowerCase();
+    const options = templateOptionsRef.current;
+
+    setName("");
+    setDuplicateSourceName(campaign?.name || "");
+
+    let templateToSelect = null;
+    const templateOption = options.find(
+      (option) => String(option.value) === String(campaign.template_id),
+    );
+    if (templateOption) {
+      templateToSelect = templateOption;
+    } else if (campaign.template_id) {
+      templateToSelect = {
+        value: campaign.template_id,
+        label:
+          campaign.template_name ||
+          `Template ${campaign.template_id}`,
+        raw: {
+          template_id: campaign.template_id,
+          name: campaign.template_name,
+          message_body: campaign.message_body,
+          dlt_message_id: campaign.dlt_message_id,
+        },
+      };
+    }
+
+    const keys = resolveTemplateVariableKeys(templateToSelect?.raw);
+    const parts = String(campaign.variables_values || "").split("|");
+    const variableMap = {};
+    keys.forEach((key, index) => {
+      variableMap[key] = parts[index] || "";
+    });
+
+    if (templateToSelect) {
+      skipVariableResetRef.current = true;
+      setSelectedTemplate(templateToSelect);
+    }
+    if (keys.length) {
+      setVariableInputs(variableMap);
+      pendingDuplicateVariablesRef.current = null;
+    } else {
+      pendingDuplicateVariablesRef.current = campaign.variables_values || "";
+    }
+
+    setAudienceType(audienceTypeValue);
+
+    if (audienceTypeValue === "client") {
+      setSelectedGroups([]);
+      setSelectedService(null);
+      setSelectedStatus(TASK_STATUS_OPTIONS[0]);
+      const selectAll = Boolean(audience.select_all_clients);
+      setSelectAllClients(selectAll);
+      if (selectAll) {
+        setSelectedClients([]);
+      } else {
+        const clients = await fetchClientsByUsernames(audience.usernames);
+        setSelectedClients(clients);
+      }
+    } else if (audienceTypeValue === "group") {
+      setSelectAllClients(false);
+      setSelectedClients([]);
+      setSelectedService(null);
+      setSelectedStatus(TASK_STATUS_OPTIONS[0]);
+      const groups = await fetchGroupOptions({ force: true });
+      setGroupOptions(groups);
+      const selectedIds = new Set(
+        (Array.isArray(audience.group_ids) ? audience.group_ids : []).map(
+          (id) => String(id),
+        ),
+      );
+      setSelectedGroups(
+        groups.filter((group) => selectedIds.has(String(group.value))),
+      );
+    } else if (audienceTypeValue === "task") {
+      setSelectAllClients(false);
+      setSelectedClients([]);
+      setSelectedGroups([]);
+      const services = await loadServiceOptions("");
+      const serviceId = String(audience.service_id || "");
+      const serviceOption =
+        (services || []).find(
+          (option) => String(option.value) === serviceId,
+        ) || null;
+      setSelectedService(serviceOption);
+      const statusValue = String(audience.status || "all").toLowerCase();
+      setSelectedStatus(
+        TASK_STATUS_OPTIONS.find((option) => option.value === statusValue) ||
+          TASK_STATUS_OPTIONS[0],
+      );
+    } else {
+      setSelectAllClients(false);
+      setSelectedClients([]);
+      setSelectedGroups([]);
+      setSelectedService(null);
+      setSelectedStatus(TASK_STATUS_OPTIONS[0]);
+    }
+
+    setFieldErrors({});
+    setResolvedRecipients([]);
+    setResolveError("");
+  }, []);
+
+  useEffect(() => {
+    if (!duplicateCampaignId || duplicateAppliedRef.current || templatesLoading) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDuplicate = async () => {
+      setDuplicateLoading(true);
+      try {
+        const res = await smsApi.getCampaignDetails({
+          campaign_id: duplicateCampaignId,
+        });
+        if (cancelled) return;
+        const campaign = res?.data;
+        if (!campaign) {
+          throw new Error("Campaign not found");
+        }
+        await applyDuplicateCampaign(campaign);
+        duplicateAppliedRef.current = true;
+        toast.success("Campaign prefilled — review and start when ready");
+        setSearchParams({}, { replace: true });
+      } catch (error) {
+        if (cancelled) return;
+        toast.error(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Failed to load campaign for duplication",
+        );
+      } finally {
+        if (!cancelled) setDuplicateLoading(false);
+      }
+    };
+
+    loadDuplicate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    duplicateCampaignId,
+    templatesLoading,
+    setSearchParams,
+  ]);
 
   const audiencePayload = useMemo(() => {
     if (audienceType === "client") {
@@ -589,9 +949,24 @@ const Fast2SmsCampaignCreate = () => {
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-4 py-3">
               <h1 className="m-0 text-lg font-bold text-gray-800">
-                Create Fast2SMS Campaign
+                {duplicateSourceName
+                  ? "Duplicate Fast2SMS Campaign"
+                  : "Create Fast2SMS Campaign"}
               </h1>
+              {duplicateSourceName ? (
+                <p className="m-0 mt-1 text-sm text-gray-500">
+                  Prefilled from &ldquo;{duplicateSourceName}&rdquo; — enter a new
+                  campaign name and send when ready.
+                </p>
+              ) : null}
             </div>
+
+            {duplicateLoading ? (
+              <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+                <FiLoader className="h-4 w-4 animate-spin" />
+                Loading campaign to duplicate…
+              </div>
+            ) : null}
 
             <form onSubmit={handleCreate} className="space-y-5 p-4 md:p-5">
               <div>
@@ -602,7 +977,7 @@ const Fast2SmsCampaignCreate = () => {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Campaign name"
                   required
-                  disabled={saving}
+                  disabled={saving || duplicateLoading}
                 />
               </div>
 
@@ -614,13 +989,47 @@ const Fast2SmsCampaignCreate = () => {
                   options={templateOptions}
                   isLoading={templatesLoading}
                   placeholder="Select template"
-                  isDisabled={saving}
+                  isDisabled={saving || duplicateLoading}
                 />
-                {selectedRaw?.message_body ? (
-                  <p className="mt-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 whitespace-pre-wrap">
-                    {selectedRaw.message_body}
-                  </p>
-                ) : null}
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="flex min-w-0 flex-col">
+                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                      Template body
+                    </p>
+                    {selectedRaw?.message_body ? (
+                      <p className="m-0 flex flex-1 min-h-[7.5rem] rounded-lg border border-gray-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600 whitespace-pre-wrap">
+                        {selectedRaw.message_body}
+                      </p>
+                    ) : (
+                      <p className="m-0 flex flex-1 min-h-[7.5rem] rounded-lg border border-dashed border-gray-200 bg-slate-50/60 p-3 text-xs leading-relaxed text-gray-400">
+                        {selectedTemplate
+                          ? "No message body on this template (DLT message ID only)."
+                          : "Select a template to view the approved message body."}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-col">
+                    <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                      <FiEye className="h-3.5 w-3.5" aria-hidden />
+                      Message preview
+                    </p>
+                    <div className="flex flex-1 min-h-[7.5rem] flex-col rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 shadow-sm">
+                      {messagePreviewSegments.length > 0 ? (
+                        <p className="m-0 flex-1 text-xs leading-relaxed whitespace-pre-wrap">
+                          <SmsCampaignPreviewContent
+                            segments={messagePreviewSegments}
+                          />
+                        </p>
+                      ) : (
+                        <p className="m-0 flex-1 text-xs leading-relaxed text-gray-400">
+                          {selectedTemplate
+                            ? "Fill variables below to preview the outgoing SMS."
+                            : "Select a template to preview the message."}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {variableKeys.length > 0 ? (
@@ -659,7 +1068,7 @@ const Fast2SmsCampaignCreate = () => {
                             placeholder="Select field…"
                             searchPlaceholder="Search…"
                             isClearable
-                            isDisabled={saving}
+                            isDisabled={saving || duplicateLoading}
                           />
                           <input
                             className={`${FIELD_INPUT} mt-2`}
@@ -671,7 +1080,7 @@ const Fast2SmsCampaignCreate = () => {
                               }))
                             }
                             placeholder="Or type static value"
-                            disabled={saving}
+                            disabled={saving || duplicateLoading}
                           />
                         </div>
                       );
@@ -691,7 +1100,7 @@ const Fast2SmsCampaignCreate = () => {
                       <button
                         key={tab.id}
                         type="button"
-                        disabled={saving}
+                        disabled={saving || duplicateLoading}
                         onClick={() => handleAudienceTypeChange(tab.id)}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-50 ${
                           audienceType === tab.id
@@ -710,7 +1119,7 @@ const Fast2SmsCampaignCreate = () => {
                     <label className="inline-flex items-center gap-2.5 text-sm font-medium text-gray-700 select-none">
                       <AnimatedCheckbox
                         checked={selectAllClients}
-                        disabled={saving}
+                        disabled={saving || duplicateLoading}
                         ariaLabel="Select all clients"
                         onChange={(e) => {
                           setSelectAllClients(e.target.checked);
@@ -743,7 +1152,7 @@ const Fast2SmsCampaignCreate = () => {
                           placeholder="Search and select clients…"
                           searchPlaceholder="Search clients…"
                           noOptionsMessage="No clients found"
-                          isDisabled={saving}
+                          isDisabled={saving || duplicateLoading}
                         />
                         <FieldError message={fieldErrors.clients} />
                       </div>
@@ -783,7 +1192,7 @@ const Fast2SmsCampaignCreate = () => {
                       placeholder="Search and select groups…"
                       searchPlaceholder="Search groups…"
                       noOptionsMessage="No groups found"
-                      isDisabled={saving || groupsLoading}
+                      isDisabled={saving || groupsLoading || duplicateLoading}
                     />
                     {groupsLoading ? (
                       <p className="text-xs text-gray-400 mt-1 m-0">Loading…</p>
@@ -809,7 +1218,7 @@ const Fast2SmsCampaignCreate = () => {
                         searchPlaceholder="Search services…"
                         noOptionsMessage="No services found"
                         isClearable={false}
-                        isDisabled={saving}
+                        isDisabled={saving || duplicateLoading}
                       />
                       <FieldError message={fieldErrors.service} />
                     </div>
@@ -823,7 +1232,7 @@ const Fast2SmsCampaignCreate = () => {
                         }
                         isClearable={false}
                         isSearchable={false}
-                        isDisabled={saving}
+                        isDisabled={saving || duplicateLoading}
                       />
                     </div>
                   </div>
@@ -881,13 +1290,13 @@ const Fast2SmsCampaignCreate = () => {
                   type="button"
                   onClick={() => navigate("/broadcast/sms/fast2sms/campaigns")}
                   className="rounded-lg border px-4 py-2 text-sm"
-                  disabled={saving}
+                  disabled={saving || duplicateLoading}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || duplicateLoading}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   {saving ? (

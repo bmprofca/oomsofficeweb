@@ -45,6 +45,7 @@ const ChattingTab = ({ clientData, loading = false }) => {
         embedded
         clientNumber={clientNumber}
         clientName={clientData?.name || ''}
+        clientUsername={clientData?.username || ''}
       />
     </div>
   );

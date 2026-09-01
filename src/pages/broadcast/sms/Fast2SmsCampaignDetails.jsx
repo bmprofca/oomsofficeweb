@@ -19,6 +19,7 @@ import {
   FiMessageSquare,
   FiMoreVertical,
   FiPhone,
+  FiCopy,
   FiRefreshCw,
   FiSend,
   FiTrash2,
@@ -701,6 +702,20 @@ const Fast2SmsCampaignDetails = () => {
                   className={`h-4 w-4 ${detailLoading || messagesLoading ? "animate-spin" : ""}`}
                 />
               </button>
+              {canSend ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/broadcast/sms/fast2sms/campaigns/create?duplicate=${encodeURIComponent(campaignId)}`,
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                >
+                  <FiCopy className="h-4 w-4" />
+                  Duplicate
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
