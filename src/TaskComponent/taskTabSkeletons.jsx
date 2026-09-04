@@ -348,14 +348,8 @@ export const DocumentTableSkeletonRows = ({ rowCount = 8 }) =>
             <td className="px-3 py-3">
                 <ShimmerBone className="h-4 w-20" />
             </td>
-            <td className="px-3 py-3">
-                <ShimmerBone className="h-8 w-8 rounded-lg" />
-            </td>
-            <td className="px-3 py-3">
-                <div className="flex gap-1">
-                    <ShimmerBone className="h-8 w-8 rounded-lg" />
-                    <ShimmerBone className="h-8 w-8 rounded-lg" />
-                </div>
+            <td className="px-3 py-3 text-center">
+                <ShimmerBone className="mx-auto h-8 w-8 rounded-lg" />
             </td>
         </tr>
     ));

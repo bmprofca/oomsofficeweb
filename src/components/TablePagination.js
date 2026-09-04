@@ -184,11 +184,10 @@ const TablePagination = ({
                                     disabled={safePage === 1}
                                     title="First page"
                                     aria-label="First page"
-                                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${
-                                        safePage === 1
-                                            ? 'cursor-not-allowed text-slate-300'
-                                            : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                    }`}
+                                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${safePage === 1
+                                        ? 'cursor-not-allowed text-slate-300'
+                                        : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                        }`}
                                 >
                                     <FiChevronsLeft className="h-4 w-4" aria-hidden />
                                 </button>
@@ -199,11 +198,10 @@ const TablePagination = ({
                                 disabled={safePage === 1}
                                 title="Previous page"
                                 aria-label="Previous page"
-                                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${
-                                    safePage === 1
-                                        ? 'cursor-not-allowed text-slate-300'
-                                        : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                }`}
+                                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${safePage === 1
+                                    ? 'cursor-not-allowed text-slate-300'
+                                    : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                    }`}
                             >
                                 <FiChevronLeft className="h-4 w-4" aria-hidden />
                             </button>
@@ -216,11 +214,10 @@ const TablePagination = ({
                                 disabled={atLastPage}
                                 title="Next page"
                                 aria-label="Next page"
-                                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${
-                                    atLastPage
-                                        ? 'cursor-not-allowed text-slate-300'
-                                        : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                }`}
+                                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${atLastPage
+                                    ? 'cursor-not-allowed text-slate-300'
+                                    : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                    }`}
                             >
                                 <FiChevronRight className="h-4 w-4" aria-hidden />
                             </button>
@@ -231,11 +228,10 @@ const TablePagination = ({
                                     disabled={safePage === resolvedTotalPages}
                                     title="Last page"
                                     aria-label="Last page"
-                                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${
-                                        safePage === resolvedTotalPages
-                                            ? 'cursor-not-allowed text-slate-300'
-                                            : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                    }`}
+                                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm transition-colors ${safePage === resolvedTotalPages
+                                        ? 'cursor-not-allowed text-slate-300'
+                                        : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                        }`}
                                 >
                                     <FiChevronsRight className="h-4 w-4" aria-hidden />
                                 </button>
@@ -259,11 +255,10 @@ const TablePagination = ({
                                         onChange={(e) => setJumpPageInput(e.target.value)}
                                         aria-invalid={jumpPageInputInvalid}
                                         aria-label={`Go to page, 1–${totalPagesForJump}`}
-                                        className={`w-16 rounded-lg border px-2 py-2 text-center text-sm focus:outline-none focus:ring-2 ${
-                                            jumpPageInputInvalid
-                                                ? 'border-red-500 text-red-700 focus:border-red-500 focus:ring-red-500/30'
-                                                : 'border-slate-200 bg-white text-slate-800 focus:border-indigo-500 focus:ring-indigo-500/30'
-                                        }`}
+                                        className={`w-16 rounded-lg border px-2 py-2 text-center text-sm focus:outline-none focus:ring-2 ${jumpPageInputInvalid
+                                            ? 'border-red-500 text-red-700 focus:border-red-500 focus:ring-red-500/30'
+                                            : 'border-slate-200 bg-white text-slate-800 focus:border-indigo-500 focus:ring-indigo-500/30'
+                                            }`}
                                     />
                                     <button
                                         type="submit"

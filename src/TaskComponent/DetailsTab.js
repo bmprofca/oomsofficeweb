@@ -7,7 +7,7 @@ import {
     FiUser, FiUsers, FiBriefcase,
     FiCalendar,
     FiFileText, FiAlertCircle,
-    FiMail, FiPhone, FiHash, FiClock, FiEye,
+    FiMail, FiPhone, FiHash, FiClock, FiEye, FiShield, FiCheckCircle,
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import API_BASE_URL from "../utils/api-controller";
@@ -117,6 +117,12 @@ const STATUS_COLORS = {
     cancel: 'bg-red-100 text-red-700',
 };
 
+const CA_APPROVAL_OPTIONS = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'sent', label: 'Sent' },
+    { value: 'complete', label: 'Complete' },
+];
+
 const STATUS_OPTIONS = [
     { value: 'in process', label: 'In Process' },
     { value: 'pending from client', label: 'Pending from Client' },
@@ -163,6 +169,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
 
     const [isChangingStatus, setIsChangingStatus] = useState(false);
     const [statusModalOpen, setStatusModalOpen] = useState(false);
+    const [savingCaApproval, setSavingCaApproval] = useState(false);
+    const [savingUdin, setSavingUdin] = useState(false);
+    const [udinDraft, setUdinDraft] = useState('');
 
     const [showFirmViewModal, setShowFirmViewModal] = useState(false);
     const [viewFirm, setViewFirm] = useState(null);
@@ -171,6 +180,10 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
     useEffect(() => {
         if (initialData) setTaskData(initialData);
     }, [initialData]);
+
+    useEffect(() => {
+        setUdinDraft(initialData?.udin || '');
+    }, [initialData?.udin, initialData?.task_id]);
 
     const handleStatusChange = async (_taskId, newStatus) => {
         if (!newStatus || newStatus === taskData.status) return;
@@ -205,6 +218,56 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
             throw err;
         } finally {
             setIsChangingStatus(false);
+        }
+    };
+
+    const handleCaApprovalChange = async (nextApproval) => {
+        if (!taskData?.has_ca) return;
+        const next = String(nextApproval || '').toLowerCase();
+        if (!next || next === taskData.ca_approval) return;
+        setSavingCaApproval(true);
+        try {
+            const headers = getHeaders();
+            const res = await fetch(`${API_BASE_URL}/task/details/ca-approval`, {
+                method: 'PUT',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task_id, ca_approval: next }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Failed to update CA approval');
+            }
+            setTaskData((prev) => ({ ...prev, ca_approval: next }));
+            toast.success(`CA approval set to "${CA_APPROVAL_OPTIONS.find((o) => o.value === next)?.label || next}"`);
+            if (onTaskUpdated) onTaskUpdated();
+        } catch (err) {
+            toast.error(err.message || 'Failed to update CA approval');
+        } finally {
+            setSavingCaApproval(false);
+        }
+    };
+
+    const handleSaveUdin = async () => {
+        if (!taskData?.has_ca) return;
+        setSavingUdin(true);
+        try {
+            const headers = getHeaders();
+            const res = await fetch(`${API_BASE_URL}/task/details/udin`, {
+                method: 'PUT',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task_id, udin: udinDraft.trim() || null }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Failed to update UDIN');
+            }
+            setTaskData((prev) => ({ ...prev, udin: data.data?.udin ?? (udinDraft.trim() || null) }));
+            toast.success('UDIN updated');
+            if (onTaskUpdated) onTaskUpdated();
+        } catch (err) {
+            toast.error(err.message || 'Failed to update UDIN');
+        } finally {
+            setSavingUdin(false);
         }
     };
 
@@ -607,6 +670,55 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                             </div>
                         </SectionBlock>
                     </div>
+
+                    {taskData.has_ca ? (
+                        <SectionBlock icon={FiShield} title="CA Approval & UDIN">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <MetaField label="CA Approval">
+                                    <select
+                                        value={taskData.ca_approval || 'pending'}
+                                        onChange={(e) => handleCaApprovalChange(e.target.value)}
+                                        disabled={savingCaApproval}
+                                        className="w-full rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2 text-sm font-semibold text-violet-800 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 disabled:opacity-60"
+                                    >
+                                        {CA_APPROVAL_OPTIONS.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1.5 text-[11px] text-gray-500">
+                                        Set to <span className="font-semibold">Sent</span> when waiting for CA UDIN.
+                                    </p>
+                                </MetaField>
+                                <MetaField label="UDIN Number">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <input
+                                            type="text"
+                                            value={udinDraft}
+                                            onChange={(e) => setUdinDraft(e.target.value)}
+                                            placeholder="Enter UDIN"
+                                            maxLength={100}
+                                            className="w-full rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-2 text-sm font-semibold text-teal-900 placeholder:text-teal-700/40 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveUdin}
+                                            disabled={savingUdin || (udinDraft || '') === (taskData.udin || '')}
+                                            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {savingUdin ? (
+                                                <FiLoader className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                                <FiCheckCircle className="h-3.5 w-3.5" />
+                                            )}
+                                            Save
+                                        </button>
+                                    </div>
+                                </MetaField>
+                            </div>
+                        </SectionBlock>
+                    ) : null}
 
                     <SectionBlock icon={FiClock} title="Audit">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

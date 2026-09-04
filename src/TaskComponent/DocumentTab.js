@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import {
@@ -15,11 +16,13 @@ import {
     FiPlus,
     FiSearch,
     FiAlertCircle,
+    FiMoreVertical,
 } from 'react-icons/fi';
 import TaskDocumentCreate, { getTaskDocumentAuthHeaders } from './TaskDocumentCreate';
 import API_BASE_URL from '../utils/api-controller';
 import { toast } from 'react-hot-toast';
 import { DocumentTableSkeletonRows } from './taskTabSkeletons';
+import TablePagination from '../components/TablePagination';
 
 const TASK_UPLOAD_FORM_ID = 'task-document-upload-modal-form';
 const SKELETON_ROW_COUNT = 8;
@@ -134,8 +137,12 @@ const mimeToLabel = (mime) => {
 
 const DocumentsTab = ({
     task_id: taskIdProp = '',
+    has_ca: hasCaProp = false,
+    ca_username: caUsernameProp = '',
     onTaskDocumentsCreateSuccess,
 }) => {
+    const showUploaderTabs = Boolean(hasCaProp && caUsernameProp);
+    const [docScope, setDocScope] = useState('office'); // office | ca
     const [selectedDocs, setSelectedDocs] = useState([]);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploadFormBusy, setUploadFormBusy] = useState(false);
@@ -148,13 +155,15 @@ const DocumentsTab = ({
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
-    const [pageJumpInput, setPageJumpInput] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [listRefresh, setListRefresh] = useState(0);
     const [downloadingId, setDownloadingId] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [deleteModal, setDeleteModal] = useState(null);
+    const [showActionMenu, setShowActionMenu] = useState(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState(null);
+    const actionAnchorRef = useRef(null);
 
     const handleUploadBusyChange = useCallback((busy) => {
         setUploadFormBusy(!!busy);
@@ -167,7 +176,13 @@ const DocumentsTab = ({
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [debouncedSearch, taskIdProp, itemsPerPage]);
+    }, [debouncedSearch, taskIdProp, itemsPerPage, docScope]);
+
+    useEffect(() => {
+        if (!showUploaderTabs && docScope !== 'office') {
+            setDocScope('office');
+        }
+    }, [showUploaderTabs, docScope]);
 
     const fetchDocuments = useCallback(async () => {
         if (!taskIdProp) {
@@ -198,6 +213,9 @@ const DocumentsTab = ({
             search: debouncedSearch,
             task_id: taskIdProp,
         });
+        if (showUploaderTabs) {
+            params.set('scope', docScope === 'ca' ? 'ca' : 'office');
+        }
 
         try {
             const url = `${API_BASE_URL}/task/details/document/list?${params.toString()}`;
@@ -248,7 +266,15 @@ const DocumentsTab = ({
         } finally {
             setListLoading(false);
         }
-    }, [taskIdProp, currentPage, itemsPerPage, debouncedSearch, listRefresh]);
+    }, [
+        taskIdProp,
+        currentPage,
+        itemsPerPage,
+        debouncedSearch,
+        listRefresh,
+        showUploaderTabs,
+        docScope,
+    ]);
 
     useEffect(() => {
         fetchDocuments();
@@ -267,6 +293,8 @@ const DocumentsTab = ({
         setListRefresh((n) => n + 1);
     }, []);
 
+    const docKey = (id) => String(id);
+
     const getFileIcon = (mime) => {
         const t = (mime || '').toLowerCase();
         if (t.includes('pdf')) {
@@ -277,8 +305,6 @@ const DocumentsTab = ({
         }
         return <FiFile className="w-5 h-5 text-blue-500" />;
     };
-
-    const docKey = (id) => String(id);
 
     const handleSelectAll = () => {
         if (selectedDocs.length === documents.length && documents.length > 0) {
@@ -365,17 +391,132 @@ const DocumentsTab = ({
         const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
         if (page >= 1 && page <= totalPages) {
             setCurrentPage(page);
-            setPageJumpInput('');
         }
     };
 
-    const handlePageJump = (e) => {
-        e.preventDefault();
-        const page = parseInt(pageJumpInput, 10);
-        if (!Number.isNaN(page)) {
-            handlePageChange(page);
+    const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
+        if (!anchorEl) return null;
+
+        const itemCount = Math.max(1, Number(options.itemCount) || 2);
+        const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 168;
+        const menuHeight = 8 + itemCount * 36;
+        const gap = 8;
+        const margin = 8;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const space = {
+            top: rect.top - margin,
+            bottom: vh - rect.bottom - margin,
+            right: vw - rect.right - margin,
+            left: rect.left - margin,
+        };
+
+        const fits = {
+            top: space.top >= menuHeight + gap,
+            bottom: space.bottom >= menuHeight + gap,
+            right: space.right >= menuWidth + gap,
+            left: space.left >= menuWidth + gap,
+        };
+
+        const preferred = ['top', 'bottom', 'right', 'left'];
+        let placement = preferred.find((p) => fits[p]);
+        if (!placement) {
+            placement = preferred.reduce((best, p) => (space[p] > space[best] ? p : best), 'bottom');
         }
-    };
+
+        let top = 0;
+        let left = 0;
+        if (placement === 'top') {
+            top = rect.top - menuHeight - gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'bottom') {
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'right') {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.right + gap;
+        } else {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.left - menuWidth - gap;
+        }
+
+        return {
+            top: Math.max(margin, Math.min(top, vh - menuHeight - margin)),
+            left: Math.max(margin, Math.min(left, vw - menuWidth - margin)),
+            placement,
+            height: menuHeight,
+        };
+    }, []);
+
+    const closeActionMenu = useCallback(() => {
+        setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
+    }, []);
+
+    const openActionMenu = useCallback(
+        (doc, event) => {
+            event.stopPropagation();
+            const id = docKey(doc.document_id);
+            if (showActionMenu === id) {
+                closeActionMenu();
+                return;
+            }
+            actionAnchorRef.current = event.currentTarget;
+            const itemCount = 1 + (doc.file ? 2 : 0); // delete always; view+download if file
+            setShowActionMenu(id);
+            setActionMenuPosition(
+                computeActionMenuPosition(event.currentTarget, { itemCount })
+            );
+        },
+        [showActionMenu, closeActionMenu, computeActionMenuPosition]
+    );
+
+    useEffect(() => {
+        if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+        const selected = documents.find(
+            (d) => docKey(d.document_id) === String(showActionMenu)
+        );
+        const itemCount = 1 + (selected?.file ? 2 : 0);
+
+        const updatePosition = () => {
+            if (!actionAnchorRef.current) return;
+            setActionMenuPosition(
+                computeActionMenuPosition(actionAnchorRef.current, { itemCount })
+            );
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') closeActionMenu();
+        };
+
+        const handleOutside = (e) => {
+            if (actionAnchorRef.current?.contains(e.target)) return;
+            const menu = document.getElementById('task-doc-action-menu');
+            if (menu?.contains(e.target)) return;
+            closeActionMenu();
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        document.addEventListener('keydown', handleEscape);
+        document.addEventListener('mousedown', handleOutside);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+            document.removeEventListener('keydown', handleEscape);
+            document.removeEventListener('mousedown', handleOutside);
+        };
+    }, [showActionMenu, documents, computeActionMenuPosition, closeActionMenu]);
+
+    const selectedActionDoc = documents.find(
+        (d) => docKey(d.document_id) === String(showActionMenu)
+    );
 
     const openFile = (fileUrl) => {
         const url = resolveTaskFileUrl(fileUrl);
@@ -455,16 +596,65 @@ const DocumentsTab = ({
     return (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-4 sm:px-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100">
-                            <FiFile className="h-5 w-5 text-cyan-600" />
-                        </div>
-                        <div>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+                    <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+                        <div className="flex shrink-0 items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100">
+                                <FiFile className="h-5 w-5 text-cyan-600" />
+                            </div>
                             <h3 className="text-lg font-semibold text-slate-900">Documents</h3>
                         </div>
+                        {showUploaderTabs ? (
+                            <div className="inline-flex shrink-0 rounded-xl border border-cyan-200 bg-white p-1 shadow-sm">
+                                {[
+                                    { id: 'office', label: 'Office' },
+                                    { id: 'ca', label: 'CA' },
+                                ].map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => {
+                                            if (docScope === item.id) return;
+                                            setDocScope(item.id);
+                                            setSelectedDocs([]);
+                                            setListLoading(true);
+                                            closeActionMenu();
+                                        }}
+                                        className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                                            docScope === item.id
+                                                ? 'bg-cyan-600 text-white shadow-sm'
+                                                : 'text-slate-600 hover:bg-cyan-50'
+                                        }`}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
+                        <div className="relative w-full min-w-0 max-w-md sm:flex-1">
+                            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="search"
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                placeholder={
+                                    showUploaderTabs
+                                        ? docScope === 'ca'
+                                            ? 'Search CA documents…'
+                                            : 'Search office documents…'
+                                        : 'Search documents…'
+                                }
+                                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-9 text-sm text-slate-800 outline-none ring-cyan-500/20 transition focus:border-cyan-500 focus:ring-2"
+                                aria-label="Search documents"
+                            />
+                            {listLoading && (
+                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <FiLoader className="h-4 w-4 animate-spin text-cyan-600" />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                         {selectedDocs.length > 0 && (
                             <div className="flex flex-wrap items-center gap-2">
                                 <motion.button
@@ -491,35 +681,20 @@ const DocumentsTab = ({
                                 </button>
                             </div>
                         )}
-                        <motion.button
-                            type="button"
-                            onClick={() => setShowUploadModal(true)}
-                            disabled={!taskIdProp}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            whileHover={{ scale: taskIdProp ? 1.02 : 1 }}
-                            whileTap={{ scale: taskIdProp ? 0.98 : 1 }}
-                        >
-                            <FiUpload className="h-4 w-4" />
-                            Upload
-                        </motion.button>
+                        {(!showUploaderTabs || docScope === 'office') ? (
+                            <motion.button
+                                type="button"
+                                onClick={() => setShowUploadModal(true)}
+                                disabled={!taskIdProp}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                whileHover={{ scale: taskIdProp ? 1.02 : 1 }}
+                                whileTap={{ scale: taskIdProp ? 0.98 : 1 }}
+                            >
+                                <FiUpload className="h-4 w-4" />
+                                Upload
+                            </motion.button>
+                        ) : null}
                     </div>
-                </div>
-
-                <div className="relative mt-4 max-w-md">
-                    <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                        type="search"
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        placeholder="Search documents…"
-                        className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 outline-none ring-cyan-500/20 transition focus:border-cyan-500 focus:ring-2"
-                        aria-label="Search documents"
-                    />
-                    {listLoading && (
-                        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <FiLoader className="h-4 w-4 animate-spin text-cyan-600" />
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -561,8 +736,7 @@ const DocumentsTab = ({
                                     <th className="px-3 py-3 font-semibold">Type</th>
                                     <th className="px-3 py-3 font-semibold">Size</th>
                                     <th className="px-3 py-3 font-semibold">Added</th>
-                                    <th className="px-3 py-3 font-semibold">View</th>
-                                    <th className="px-3 py-3 font-semibold">Actions</th>
+                                    <th className="w-16 px-3 py-3 text-center font-semibold">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -629,68 +803,18 @@ const DocumentsTab = ({
                                                         })
                                                         : '—'}
                                                 </td>
-                                                <td className="px-3 py-3">
-                                                    <motion.button
+                                                <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <button
                                                         type="button"
-                                                        onClick={() => openFile(doc.file)}
-                                                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
-                                                        whileHover={{ scale: 1.08 }}
-                                                        whileTap={{ scale: 0.92 }}
-                                                        title="Open"
+                                                        aria-label="Actions"
+                                                        aria-haspopup="menu"
+                                                        aria-expanded={showActionMenu === docKey(doc.document_id)}
+                                                        onClick={(e) => openActionMenu(doc, e)}
+                                                        disabled={deleteLoading}
+                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
                                                     >
-                                                        <FiEye className="h-4 w-4" />
-                                                    </motion.button>
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex items-center gap-1">
-                                                        <motion.button
-                                                            type="button"
-                                                            onClick={() => downloadDocument(doc)}
-                                                            disabled={
-                                                                !doc.file ||
-                                                                downloadingId === doc.document_id ||
-                                                                deleteLoading
-                                                            }
-                                                            className={`rounded p-1.5 ${doc.file
-                                                                    ? 'text-green-600 hover:bg-green-50'
-                                                                    : 'cursor-not-allowed text-slate-300'
-                                                                } disabled:opacity-50`}
-                                                            whileHover={{
-                                                                scale:
-                                                                    doc.file &&
-                                                                        downloadingId !== doc.document_id
-                                                                        ? 1.08
-                                                                        : 1,
-                                                            }}
-                                                            whileTap={{
-                                                                scale:
-                                                                    doc.file &&
-                                                                        downloadingId !== doc.document_id
-                                                                        ? 0.92
-                                                                        : 1,
-                                                            }}
-                                                            title="Download"
-                                                        >
-                                                            {downloadingId === doc.document_id ? (
-                                                                <FiLoader className="h-4 w-4 animate-spin" />
-                                                            ) : (
-                                                                <FiDownload className="h-4 w-4" />
-                                                            )}
-                                                        </motion.button>
-                                                        <motion.button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleDeleteOne(doc.document_id)
-                                                            }
-                                                            disabled={deleteLoading}
-                                                            className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                                            whileHover={{ scale: deleteLoading ? 1 : 1.08 }}
-                                                            whileTap={{ scale: deleteLoading ? 1 : 0.92 }}
-                                                            title="Delete document"
-                                                        >
-                                                            <FiTrash2 className="h-4 w-4" />
-                                                        </motion.button>
-                                                    </div>
+                                                        <FiMoreVertical className="h-4 w-4" />
+                                                    </button>
                                                 </td>
                                             </motion.tr>
                                         ))}
@@ -702,123 +826,108 @@ const DocumentsTab = ({
                         {!listLoading && documents.length === 0 && !listError && (
                             <div className="py-12 text-center text-slate-500">
                                 <FiFile className="mx-auto mb-3 h-12 w-12 text-slate-300" />
-                                <p>No documents match your search.</p>
+                                <p>
+                                    {showUploaderTabs
+                                        ? docScope === 'ca'
+                                            ? 'No CA-uploaded documents yet.'
+                                            : 'No office documents match your search.'
+                                        : 'No documents match your search.'}
+                                </p>
                             </div>
                         )}
 
                         {!listLoading &&
                             !listError &&
-                            (documents.length > 0 || totalItems > 0) &&
-                            totalPages > 0 && (
-                                <div className="border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
-                                    <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-                                        <div className="flex flex-wrap items-center justify-center gap-4 sm:justify-start">
-                                            <div className="text-center text-sm text-slate-600 sm:text-left">
-                                                Showing{' '}
-                                                {totalItems === 0
-                                                    ? 0
-                                                    : (currentPage - 1) * itemsPerPage + 1}{' '}
-                                                to{' '}
-                                                {Math.min(
-                                                    currentPage * itemsPerPage,
-                                                    totalItems
-                                                )}{' '}
-                                                of {totalItems} entries
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <label
-                                                    htmlFor="task-doc-limit-select"
-                                                    className="text-sm text-slate-500"
-                                                >
-                                                    Show
-                                                </label>
-                                                <select
-                                                    id="task-doc-limit-select"
-                                                    value={itemsPerPage}
-                                                    onChange={(e) =>
-                                                        setItemsPerPage(Number(e.target.value))
-                                                    }
-                                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                >
-                                                    {LIMIT_OPTIONS.map((n) => (
-                                                        <option key={n} value={n}>
-                                                            {n}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <span className="text-sm text-slate-500">
-                                                    per page
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap items-center justify-center gap-3">
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handlePageChange(currentPage - 1);
-                                                    }}
-                                                    disabled={currentPage <= 1 || listLoading}
-                                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
-                                                >
-                                                    Previous
-                                                </button>
-                                                <span className="min-w-[2.5rem] rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white">
-                                                    {currentPage}
-                                                </span>
-                                                <span className="px-1 text-sm text-slate-400">
-                                                    /
-                                                </span>
-                                                <span className="px-2 py-2 text-sm font-medium text-slate-600">
-                                                    {totalPages}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handlePageChange(currentPage + 1);
-                                                    }}
-                                                    disabled={
-                                                        currentPage >= totalPages || listLoading
-                                                    }
-                                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
-                                                >
-                                                    Next
-                                                </button>
-                                            </div>
-                                            <form
-                                                onSubmit={handlePageJump}
-                                                className="flex items-center gap-2"
-                                            >
-                                                <span className="text-sm text-slate-500">
-                                                    Go to
-                                                </span>
-                                                <input
-                                                    type="number"
-                                                    min={1}
-                                                    max={totalPages}
-                                                    value={pageJumpInput}
-                                                    onChange={(e) =>
-                                                        setPageJumpInput(e.target.value)
-                                                    }
-                                                    placeholder={String(currentPage)}
-                                                    className="w-14 rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <button
-                                                    type="submit"
-                                                    className="rounded-lg px-2 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
-                                                >
-                                                    Go
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
+                            (documents.length > 0 || totalItems > 0) && (
+                                <div className="border-t border-slate-200 bg-white px-2 py-3 sm:px-4">
+                                    <TablePagination
+                                        page={currentPage}
+                                        limit={itemsPerPage}
+                                        total={totalItems}
+                                        totalPages={totalPages}
+                                        rowOptions={LIMIT_OPTIONS}
+                                        defaultRows={DEFAULT_ITEMS_PER_PAGE}
+                                        onPageChange={handlePageChange}
+                                        onLimitChange={(l) => {
+                                            setItemsPerPage(l);
+                                            setCurrentPage(1);
+                                        }}
+                                    />
                                 </div>
                             )}
                     </>
                 )}
             </div>
+
+            {showActionMenu && actionMenuPosition && selectedActionDoc
+                ? createPortal(
+                    <motion.div
+                        id="task-doc-action-menu"
+                        role="menu"
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.14 }}
+                        className="fixed z-[99999] w-[168px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl"
+                        style={{
+                            top: actionMenuPosition.top,
+                            left: actionMenuPosition.left,
+                            height: 'auto',
+                        }}
+                    >
+                        {selectedActionDoc.file ? (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                    openFile(selectedActionDoc.file);
+                                    closeActionMenu();
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50"
+                            >
+                                <FiEye className="h-4 w-4 text-blue-600" />
+                                View
+                            </button>
+                        ) : null}
+                        {selectedActionDoc.file ? (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                disabled={
+                                    downloadingId === selectedActionDoc.document_id ||
+                                    deleteLoading
+                                }
+                                onClick={() => {
+                                    downloadDocument(selectedActionDoc);
+                                    closeActionMenu();
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {downloadingId === selectedActionDoc.document_id ? (
+                                    <FiLoader className="h-4 w-4 animate-spin text-green-600" />
+                                ) : (
+                                    <FiDownload className="h-4 w-4 text-green-600" />
+                                )}
+                                Download
+                            </button>
+                        ) : null}
+                        <button
+                            type="button"
+                            role="menuitem"
+                            disabled={deleteLoading}
+                            onClick={() => {
+                                handleDeleteOne(selectedActionDoc.document_id);
+                                closeActionMenu();
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-rose-700 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <FiTrash2 className="h-4 w-4 text-rose-600" />
+                            Delete
+                        </button>
+                    </motion.div>,
+                    document.body
+                )
+                : null}
 
             <AnimatePresence>
                 {showUploadModal && (

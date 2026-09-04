@@ -314,7 +314,11 @@ const TaskProfile = () => {
             animate="animate"
             exit="exit"
           >
-            <DocumentsTab task_id={task_id} />
+            <DocumentsTab
+              task_id={task_id}
+              has_ca={Boolean(taskData?.has_ca)}
+              ca_username={taskData?.ca?.username || ""}
+            />
           </motion.div>
         );
       case "ledger":

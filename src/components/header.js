@@ -571,7 +571,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
 
             <button
               type="button"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/')}
               className="group flex h-8 items-center gap-2 rounded-lg px-1 transition-colors hover:bg-slate-50"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 text-xs font-bold text-white shadow-sm ring-1 ring-indigo-500/20">

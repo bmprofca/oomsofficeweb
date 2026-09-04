@@ -27,10 +27,10 @@ import {
 import getHeaders from "../utils/get-headers";
 import { uploadOneSaasFile } from "../utils/onesaas-upload";
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
-const createRow = () => ({
-  id: `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+const createRow = (index = 0) => ({
+  id: `${Date.now()}_${index}_${Math.random().toString(36).slice(2, 11)}`,
   url: "",
   name: "",
   remark: "",
@@ -148,7 +148,7 @@ const mapUploadHttpError = (error) => {
       return "Unauthorized. Please login again.";
     }
     if (status === 413) {
-      return "File too large. Maximum size is 10MB.";
+      return "File too large. Maximum size is 50MB.";
     }
     if (status === 415) {
       return "Unsupported file type.";
@@ -259,7 +259,7 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
             r.id === rowId
               ? {
                   ...r,
-                  uploadError: "File exceeds the 10MB limit.",
+                  uploadError: "File exceeds the 50MB limit.",
                   uploading: false,
                   uploadProgress: 0,
                 }
@@ -385,12 +385,40 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
     setStatus({ type: "", message: "" });
   }, []);
 
+  /** OS multi-select → one card per file; upload starts immediately (same as CA UDIN). */
+  const appendFiles = useCallback(
+    (fileList) => {
+      const files = Array.from(fileList || []).filter(Boolean);
+      if (!files.length) return;
+
+      const newRows = files.map((_, index) => createRow(index));
+      setRows((prev) => {
+        const onlyEmptyPlaceholder =
+          prev.length === 1 &&
+          !String(prev[0].url || "").trim() &&
+          !prev[0].uploading &&
+          !prev[0].fileName;
+        return onlyEmptyPlaceholder ? newRows : [...newRows, ...prev];
+      });
+      setStatus({ type: "", message: "" });
+      setFieldErrors((fe) => ({ ...fe, documents: [] }));
+
+      queueMicrotask(() => {
+        newRows.forEach((row, index) => {
+          if (files[index]) handleFileForRow(row.id, files[index]);
+        });
+      });
+    },
+    [handleFileForRow],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
       addSlot: addRow,
+      appendFiles,
     }),
-    [addRow],
+    [addRow, appendFiles],
   );
 
   const removeRow = (id) => {
@@ -522,6 +550,32 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
           onSubmit={handleSubmit}
           className={`space-y-6 ${embedded ? "p-0" : "p-4 sm:p-6"}`}
         >
+          <label
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-teal-300 bg-gradient-to-b from-teal-50/70 to-cyan-50/40 px-4 py-6 text-center transition ${
+              submitting
+                ? "cursor-not-allowed opacity-50"
+                : "cursor-pointer hover:border-teal-400 hover:from-teal-50 hover:to-cyan-50"
+            }`}
+          >
+            <FiUploadCloud className="h-7 w-7 text-teal-600" />
+            <span className="text-sm font-semibold text-slate-800">
+              Browse and select multiple files
+            </span>
+            <span className="text-xs text-slate-500">
+              Hold Ctrl/Cmd to pick several — each becomes its own card and uploads immediately
+            </span>
+            <input
+              type="file"
+              multiple
+              className="sr-only"
+              disabled={submitting}
+              onChange={(e) => {
+                appendFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </label>
+
           <AnimatePresence mode="wait">
             {status.message && (
               <motion.div
@@ -702,12 +756,15 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                                 <input
                                   id={inputId}
                                   type="file"
+                                  multiple
                                   className="sr-only"
                                   disabled={submitting || row.uploading}
                                   onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f) handleFileForRow(row.id, f);
+                                    const files = Array.from(e.target.files || []);
                                     e.target.value = "";
+                                    if (!files.length) return;
+                                    handleFileForRow(row.id, files[0]);
+                                    if (files.length > 1) appendFiles(files.slice(1));
                                   }}
                                 />
 
@@ -738,8 +795,10 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                                     e.preventDefault();
                                     e.stopPropagation();
                                     updateRow(row.id, { dragActive: false });
-                                    const f = e.dataTransfer.files?.[0];
-                                    if (f) handleFileForRow(row.id, f);
+                                    const files = Array.from(e.dataTransfer.files || []);
+                                    if (!files.length) return;
+                                    handleFileForRow(row.id, files[0]);
+                                    if (files.length > 1) appendFiles(files.slice(1));
                                   }}
                                   className={`relative flex min-h-[128px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-4 text-center transition ${
                                     row.dragActive

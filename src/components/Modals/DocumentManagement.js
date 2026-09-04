@@ -605,9 +605,9 @@ export function DocumentUploadModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error('File size exceeds 10MB limit');
+      toast.error('File size exceeds 50MB limit');
       e.target.value = '';
       return;
     }
@@ -827,7 +827,7 @@ export function DocumentUploadModal({
                     <span className="text-[11px] font-medium text-slate-600">
                       Choose file
                     </span>
-                    <span className="text-[10px] text-slate-400">max 10MB</span>
+                    <span className="text-[10px] text-slate-400">max 50MB</span>
                   </div>
                 ) : (
                   <div
