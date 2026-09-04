@@ -648,8 +648,13 @@ const OneChattingLiveChat = ({
   const canLoadOlderRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
   const stickToBottomRef = useRef(false);
+  // Stays true from chat open until history has painted + scrolled once.
+  // Unlike stickToBottomRef, this does NOT expire after 1.5s — that race left
+  // slow loads stuck at scrollTop 0 (oldest messages in the page).
+  const pendingInitialScrollRef = useRef(false);
   const stickScrollTimerRef = useRef(null);
   const stickBottomEndTimerRef = useRef(null);
+  const initialScrollSettleTimersRef = useRef([]);
   const lastScrollTopRef = useRef(0);
   const pendingMarkAsReadRef = useRef(null);
   const chatMediaLookupRef = useRef(new Map());
@@ -717,8 +722,15 @@ const OneChattingLiveChat = ({
     });
   }, []);
 
+  const clearInitialScrollSettleTimers = useCallback(() => {
+    if (initialScrollSettleTimersRef.current.length) {
+      initialScrollSettleTimersRef.current.forEach((id) => clearTimeout(id));
+      initialScrollSettleTimersRef.current = [];
+    }
+  }, []);
+
   const scheduleStickToBottom = useCallback(() => {
-    if (!stickToBottomRef.current) return;
+    if (!stickToBottomRef.current && !pendingInitialScrollRef.current) return;
     if (stickScrollTimerRef.current) {
       clearTimeout(stickScrollTimerRef.current);
     }
@@ -727,15 +739,43 @@ const OneChattingLiveChat = ({
     }, 80);
   }, [scrollToBottomInstant]);
 
-  const activateStickToBottom = useCallback(() => {
+  const activateStickToBottom = useCallback((durationMs = 1500) => {
     stickToBottomRef.current = true;
     if (stickBottomEndTimerRef.current) {
       clearTimeout(stickBottomEndTimerRef.current);
     }
     stickBottomEndTimerRef.current = setTimeout(() => {
       stickToBottomRef.current = false;
-    }, 1500);
+    }, durationMs);
   }, []);
+
+  const beginPendingInitialScroll = useCallback(() => {
+    pendingInitialScrollRef.current = true;
+    clearInitialScrollSettleTimers();
+    activateStickToBottom(2500);
+  }, [activateStickToBottom, clearInitialScrollSettleTimers]);
+
+  const finishPendingInitialScroll = useCallback(() => {
+    if (!pendingInitialScrollRef.current) return;
+
+    scrollToBottomInstant();
+    // Keep pinning while images/media lookup change bubble heights.
+    activateStickToBottom(2500);
+    clearInitialScrollSettleTimers();
+    initialScrollSettleTimersRef.current = [50, 150, 400, 800].map((delay) =>
+      setTimeout(() => {
+        if (stickToBottomRef.current || pendingInitialScrollRef.current) {
+          scrollToBottomInstant();
+        }
+      }, delay),
+    );
+
+    pendingInitialScrollRef.current = false;
+  }, [
+    activateStickToBottom,
+    clearInitialScrollSettleTimers,
+    scrollToBottomInstant,
+  ]);
 
   const clearStickScrollTimers = useCallback(() => {
     if (stickScrollTimerRef.current) {
@@ -746,7 +786,8 @@ const OneChattingLiveChat = ({
       clearTimeout(stickBottomEndTimerRef.current);
       stickBottomEndTimerRef.current = null;
     }
-  }, []);
+    clearInitialScrollSettleTimers();
+  }, [clearInitialScrollSettleTimers]);
 
   useEffect(() => {
     if (embedded) return;
@@ -779,7 +820,7 @@ const OneChattingLiveChat = ({
     if (!container || !selectedContact?.number) return undefined;
 
     const observer = new ResizeObserver(() => {
-      if (stickToBottomRef.current) {
+      if (stickToBottomRef.current || pendingInitialScrollRef.current) {
         scheduleStickToBottom();
       }
     });
@@ -1029,9 +1070,17 @@ const OneChattingLiveChat = ({
 
         if (!append) {
           skipScrollRef.current = false;
+          // Refresh stick window when data actually arrives (may be >1.5s after open).
+          activateStickToBottom(2500);
         }
 
-        syncChatMediaLookup(number);
+        syncChatMediaLookup(number).then(() => {
+          if (selectedContactRef.current?.number !== number) return;
+          if (stickToBottomRef.current || pendingInitialScrollRef.current) {
+            activateStickToBottom(2000);
+            scheduleStickToBottom();
+          }
+        });
       } catch (error) {
         toast.error(
           error?.response?.data?.message ||
@@ -1043,13 +1092,19 @@ const OneChattingLiveChat = ({
           setAssigned(false);
           setAssignPermission(null);
           setAssignTeam([]);
+          pendingInitialScrollRef.current = false;
         }
       } finally {
         setHistoryLoading(false);
         setHistoryLoadingMore(false);
       }
     },
-    [storeDeveloperToken, syncChatMediaLookup],
+    [
+      activateStickToBottom,
+      scheduleStickToBottom,
+      storeDeveloperToken,
+      syncChatMediaLookup,
+    ],
   );
 
   useEffect(() => {
@@ -1123,7 +1178,7 @@ const OneChattingLiveChat = ({
     setAssignPermission(null);
     setAssignTeam([]);
     setAssignMenuOpen(false);
-    activateStickToBottom();
+    beginPendingInitialScroll();
     canLoadOlderRef.current = false;
     lastScrollTopRef.current = 0;
     skipScrollRef.current = false;
@@ -1135,7 +1190,7 @@ const OneChattingLiveChat = ({
     selectedContact?.number,
     fetchChatHistory,
     fetchAssignPermission,
-    activateStickToBottom,
+    beginPendingInitialScroll,
   ]);
 
   useEffect(() => {
@@ -1207,6 +1262,16 @@ const OneChattingLiveChat = ({
   useLayoutEffect(() => {
     if (skipScrollRef.current || historyLoading || messages.length === 0)
       return;
+
+    if (pendingInitialScrollRef.current) {
+      finishPendingInitialScroll();
+      canLoadOlderRef.current = false;
+      const enableOlderTimer = setTimeout(() => {
+        canLoadOlderRef.current = true;
+      }, 400);
+      return () => clearTimeout(enableOlderTimer);
+    }
+
     if (!stickToBottomRef.current) return;
 
     scrollToBottomInstant();
@@ -1220,6 +1285,7 @@ const OneChattingLiveChat = ({
     historyLoading,
     messages.length,
     selectedContact?.number,
+    finishPendingInitialScroll,
     scrollToBottomInstant,
   ]);
 
@@ -1230,7 +1296,7 @@ const OneChattingLiveChat = ({
     }
     skipScrollRef.current = false;
     loadingOlderRef.current = false;
-    activateStickToBottom();
+    beginPendingInitialScroll();
     canLoadOlderRef.current = false;
     lastScrollTopRef.current = 0;
     setSelectedContact(item.contact);
@@ -1260,7 +1326,7 @@ const OneChattingLiveChat = ({
 
   const handleRefreshConversation = () => {
     if (!selectedContact?.number || historyLoading) return;
-    activateStickToBottom();
+    beginPendingInitialScroll();
     canLoadOlderRef.current = false;
     lastScrollTopRef.current = 0;
     setMessages([]);
@@ -1615,17 +1681,39 @@ const OneChattingLiveChat = ({
     : "";
 
   const openMediaPreview = useCallback(
-    async (message) => {
+    async (message, fallback = {}) => {
       const messageType = normalizeMessageType(message);
       const lookup = chatMediaLookupRef.current;
-      let mediaUrl = getMessageMediaUrl(message, lookup);
-      let mediaName = getMessageMediaName(message, lookup);
+      const templateHeader = isTemplateMessage(message)
+        ? resolveTemplateMessage(message)?.header
+        : null;
+      const templateMediaType = String(templateHeader?.format || "")
+        .trim()
+        .toLowerCase();
+      let mediaUrl =
+        fallback.url ||
+        getMessageMediaUrl(message, lookup) ||
+        templateHeader?.mediaUrl ||
+        "";
+      let mediaName =
+        fallback.name ||
+        getMessageMediaName(message, lookup) ||
+        templateHeader?.fileName ||
+        "";
+      const shouldLookupDocument =
+        isDocumentMessage(message) || templateMediaType === "document";
 
-      if (!mediaUrl && isDocumentMessage(message)) {
+      if (!mediaUrl && shouldLookupDocument) {
         const items = (await syncChatMediaLookup(selectedContact?.number)) || [];
         const refreshedLookup = chatMediaLookupRef.current;
-        mediaUrl = getMessageMediaUrl(message, refreshedLookup);
-        mediaName = getMessageMediaName(message, refreshedLookup);
+        mediaUrl =
+          getMessageMediaUrl(message, refreshedLookup) ||
+          resolveTemplateMessage(message)?.header?.mediaUrl ||
+          "";
+        mediaName =
+          getMessageMediaName(message, refreshedLookup) ||
+          resolveTemplateMessage(message)?.header?.fileName ||
+          mediaName;
 
         if (!mediaUrl) {
           const matched = findMediaListItemForMessage(message, items);
@@ -1640,6 +1728,7 @@ const OneChattingLiveChat = ({
             const searchName = (
               mediaName ||
               getMessageMediaName(message) ||
+              templateHeader?.fileName ||
               String(message?.message || "").trim()
             ).trim();
             const res = await whatsappApi.getMediaList({
@@ -1670,7 +1759,11 @@ const OneChattingLiveChat = ({
 
       setMediaPreview({
         url: mediaUrl,
-        type: getMediaModalType(messageType, mediaUrl, mediaName),
+        type: getMediaModalType(
+          fallback.type || templateMediaType || messageType,
+          mediaUrl,
+          mediaName,
+        ),
         name: mediaName || messageType || "Document",
       });
     },
@@ -1799,9 +1892,15 @@ const OneChattingLiveChat = ({
       ? resolveTemplateMessage(message)
       : null;
     const hasTemplateCard = Boolean(templateContent);
+    const templateHeaderFormat = String(
+      templateContent?.header?.format || "",
+    ).toUpperCase();
+    const hasTemplateVisualHeader = ["IMAGE", "VIDEO"].includes(
+      templateHeaderFormat,
+    );
     const locationData = getLocationFromMessage(message);
     const hasLocationMap = Boolean(locationData);
-    const usesWhiteCard = hasLocationMap || hasTemplateCard;
+    const usesWhiteCard = hasLocationMap;
     const messageMediaUrl = getMessageMediaUrl(
       message,
       chatMediaLookupRef.current,
@@ -1886,13 +1985,17 @@ const OneChattingLiveChat = ({
               ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1 bg-white text-gray-800 border border-gray-200 ${
                   isOutgoing ? "rounded-br-sm" : "rounded-bl-sm"
                 }`
-              : isVisualMedia
-                ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1`
-                : hasAudioMedia || hasFileDocument
-                  ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2${
-                      hasFileDocument ? " cursor-pointer" : ""
-                    }`
-                  : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
+              : hasTemplateCard
+                ? hasTemplateVisualHeader
+                  ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1`
+                  : `w-fit min-w-0 max-w-[330px] ${BUBBLE_MAX_WIDTH_CLASS} px-2.5 py-2`
+                : isVisualMedia
+                  ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1`
+                  : hasAudioMedia || hasFileDocument
+                    ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2${
+                        hasFileDocument ? " cursor-pointer" : ""
+                      }`
+                    : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
           } ${
             usesWhiteCard
               ? ""
@@ -1946,9 +2049,23 @@ const OneChattingLiveChat = ({
               <OneChattingTemplatePreview
                 content={templateContent}
                 className="max-w-full"
-                onOpenHeaderMedia={(url, type) =>
-                  setMediaPreview({ url, type, name: templateContent.templateName })
-                }
+                variant="message"
+                isOutgoing={isOutgoing}
+                onOpenHeaderMedia={(url, type, name) => {
+                  const mediaName =
+                    name ||
+                    templateContent.header?.fileName ||
+                    templateContent.templateName;
+                  if (!url) {
+                    openMediaPreview(message, { type, name: mediaName });
+                    return;
+                  }
+                  setMediaPreview({
+                    url,
+                    type: getMediaModalType(type, url, mediaName),
+                    name: mediaName || type || "Document",
+                  });
+                }}
               />
               <div className={`${timestampRowClass} px-2 pb-1 pt-1`}>
                 {timestampNode}

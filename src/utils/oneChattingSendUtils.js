@@ -337,11 +337,35 @@ export const getTemplatePreviewText = (templateDef) => {
   return body?.text || templateDef?.name || 'Template message';
 };
 
-const getSentTemplateComponents = (message) => {
-  if (Array.isArray(message?.component)) return message.component;
-  if (Array.isArray(message?.components)) return message.components;
-  return [];
+const pickTrimmed = (...values) => {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text) return text;
+  }
+  return '';
 };
+
+const pickHttpUrl = (...values) => {
+  for (const value of values) {
+    const url = String(value || '').trim();
+    if (/^https?:\/\//i.test(url)) return url;
+  }
+  return '';
+};
+
+const fileNameFromUrl = (url) => {
+  try {
+    const segment = decodeURIComponent(
+      new URL(url).pathname.split('/').pop() || '',
+    );
+    return segment.includes('.') ? segment : '';
+  } catch {
+    return '';
+  }
+};
+
+const getSentTemplateComponents = (message) =>
+  normalizeTemplateComponents(message?.component ?? message?.components);
 
 const findSentTemplateComponent = (sentComponents, type) =>
   sentComponents.find(
@@ -403,26 +427,49 @@ export const resolveTemplateMessage = (message) => {
         headerDef.example?.header_text?.[0] ||
         '';
     } else if (format === 'IMAGE') {
-      header.mediaUrl =
-        parameters.find((item) => item.type === 'image')?.image?.link ||
-        headerDef.example?.header_handle?.[0] ||
-        headerDef.example?.header_url?.[0] ||
-        '';
+      header.mediaUrl = pickHttpUrl(
+        parameters.find((item) => item.type === 'image')?.image?.link,
+        message?.media_url,
+        message?.mediaUrl,
+        headerDef.example?.header_handle?.[0],
+        headerDef.example?.header_url?.[0],
+      );
     } else if (format === 'VIDEO') {
-      header.mediaUrl =
-        parameters.find((item) => item.type === 'video')?.video?.link ||
-        headerDef.example?.header_handle?.[0] ||
-        headerDef.example?.header_url?.[0] ||
-        '';
+      header.mediaUrl = pickHttpUrl(
+        parameters.find((item) => item.type === 'video')?.video?.link,
+        message?.media_url,
+        message?.mediaUrl,
+        headerDef.example?.header_handle?.[0],
+        headerDef.example?.header_url?.[0],
+      );
     } else if (format === 'DOCUMENT') {
-      header.mediaUrl =
-        parameters.find((item) => item.type === 'document')?.document?.link ||
-        headerDef.example?.header_handle?.[0] ||
-        headerDef.example?.header_url?.[0] ||
-        '';
+      const documentParam =
+        parameters.find((item) => item.type === 'document')?.document || {};
+      header.mediaUrl = pickHttpUrl(
+        documentParam.link,
+        documentParam.url,
+        message?.media_url,
+        message?.mediaUrl,
+        message?.document_url,
+        message?.documentUrl,
+        message?.file_url,
+        message?.fileUrl,
+        headerDef.example?.header_handle?.[0],
+        headerDef.example?.header_url?.[0],
+      );
       header.fileName =
-        parameters.find((item) => item.type === 'document')?.document
-          ?.filename || 'Document';
+        pickTrimmed(
+          documentParam.filename,
+          documentParam.name,
+          message?.media_name,
+          message?.mediaName,
+          message?.file_name,
+          message?.fileName,
+          message?.filename,
+          message?.document_name,
+          message?.documentName,
+          fileNameFromUrl(header.mediaUrl),
+        ) || 'Document';
     }
   }
 

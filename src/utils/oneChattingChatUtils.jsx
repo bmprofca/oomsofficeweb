@@ -1,5 +1,5 @@
 import React from 'react';
-import { getTemplateMessageSummary } from './oneChattingSendUtils';
+import { getTemplateMessageSummary, resolveTemplateMessage } from './oneChattingSendUtils';
 
 const MEDIA_LABELS = {
   image: '📷 Image',
@@ -133,7 +133,9 @@ export const getMessageMediaUrl = (message, mediaLookup) => {
   if (directUrl) return directUrl;
 
   const hit = lookupMediaEntry(message, mediaLookup);
-  return hit?.url || '';
+  if (hit?.url) return hit.url;
+
+  return resolveTemplateMessage(message)?.header?.mediaUrl || '';
 };
 
 export const getMessageMediaName = (message, mediaLookup) => {
@@ -167,7 +169,8 @@ export const getMessageMediaName = (message, mediaLookup) => {
     if (name) return name;
   }
 
-  return '';
+  const templateFileName = resolveTemplateMessage(message)?.header?.fileName;
+  return templateFileName && templateFileName !== 'Document' ? templateFileName : '';
 };
 
 const DOCUMENT_MESSAGE_TYPES = new Set([

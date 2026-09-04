@@ -1,8 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { FiCheck, FiLoader, FiUpload, FiX } from 'react-icons/fi';
 import { extractApiError } from '../../utils/oneChattingSendUtils';
 import { uploadOneSaasFile } from '../../utils/onesaas-upload';
+
+const BODY_CLASS =
+  'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
 const ATTACH_CONFIG = {
   image: {
@@ -124,10 +129,18 @@ const OneChattingAttachModal = ({
     [previewUrl],
   );
 
-  if (!isOpen || !config) return null;
-
   const isBusy = sending || uploading;
-  const isDocumentModal = type === 'document';
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (event) => {
+      if (event.key === 'Escape' && !isBusy) onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, isBusy, onClose]);
+
+  if (typeof document === 'undefined' || !config) return null;
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
@@ -212,42 +225,62 @@ const OneChattingAttachModal = ({
       ? 'Uploading…'
       : 'Send';
 
-  return (
-    <div
-      className={`fixed inset-0 z-[1100] flex items-center justify-center ${
-        isDocumentModal ? 'p-6 sm:p-10' : 'p-4'
-      }`}
-    >
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={isBusy ? undefined : onClose}
-      />
-      <div
-        className={`relative w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col ${
-          isDocumentModal ? 'max-h-[calc(100vh-3rem)]' : ''
-        }`}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
-          <h3 className="text-base font-semibold text-gray-800 m-0">
-            {config.title}
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isBusy}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-50"
-            aria-label="Close"
-          >
-            <FiX className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className={`p-4 space-y-4 ${
-            isDocumentModal ? 'overflow-y-auto min-h-0' : ''
-          }`}
+  return createPortal(
+    <AnimatePresence>
+      {isOpen ? (
+        <motion.div
+          key="onechatting-attach-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-[1100] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
         >
+          <motion.button
+            type="button"
+            aria-label="Close"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+            onClick={isBusy ? undefined : onClose}
+          />
+
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onechatting-attach-title"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="relative z-[1] pointer-events-auto flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="shrink-0 px-5 py-3.5 border-b border-gray-200 flex items-center justify-between gap-3">
+              <h3
+                id="onechatting-attach-title"
+                className="text-base font-semibold text-gray-800 m-0"
+              >
+                {config.title}
+              </h3>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isBusy}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </header>
+
+            <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+              <div
+                className={`${BODY_CLASS} space-y-4`}
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
           {replyPreview ? (
             <div className="px-3 py-2 rounded-lg bg-green-50 border border-green-100 text-xs text-gray-600">
               <span className="font-medium text-green-700">Replying to: </span>
@@ -420,27 +453,32 @@ const OneChattingAttachModal = ({
             </label>
           ) : null}
 
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isBusy}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
-            >
-              {isBusy ? <FiLoader className="w-4 h-4 animate-spin" /> : null}
-              {sendButtonLabel}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+              </div>
+
+              <footer className="shrink-0 px-5 py-3 border-t border-gray-200 bg-white flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isBusy}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                >
+                  {isBusy ? <FiLoader className="w-4 h-4 animate-spin" /> : null}
+                  {sendButtonLabel}
+                </button>
+              </footer>
+            </form>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
   );
 };
 

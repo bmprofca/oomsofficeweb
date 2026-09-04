@@ -173,6 +173,8 @@ const STATUS_FILTER_OPTIONS = STATUS_OPTIONS.filter(
 const IN_PROCESS_STATUS_OPTION =
   STATUS_FILTER_OPTIONS.find((opt) => opt.value === 'in process') || null;
 
+const IN_PROCESS_ONLY_CATEGORIES = ['OD', 'DT', 'D7', 'FT'];
+
 const TASK_DETAILED_CACHE_PREFIX = 'taskDetailedViewState:';
 const TASK_DETAILED_SCROLL_ID = 'task-table-scroll';
 
@@ -457,11 +459,12 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   const cacheKey = `${TASK_DETAILED_CACHE_PREFIX}${category}`;
   const savedViewRef = useRef(loadListViewCache(cacheKey));
 
-  const defaultStatusFilter =
-    category === 'OD' ? IN_PROCESS_STATUS_OPTION : null;
-  const restoredStatusFilter = resolveStatusFilterOption(
-    savedViewRef.current?.statusFilter,
-  );
+  const defaultStatusFilter = IN_PROCESS_ONLY_CATEGORIES.includes(category)
+    ? IN_PROCESS_STATUS_OPTION
+    : null;
+  const restoredStatusFilter = IN_PROCESS_ONLY_CATEGORIES.includes(category)
+    ? IN_PROCESS_STATUS_OPTION
+    : resolveStatusFilterOption(savedViewRef.current?.statusFilter);
   const initialSearch =
     typeof savedViewRef.current?.search === 'string'
       ? savedViewRef.current.search
@@ -563,7 +566,11 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       skipCategoryStatusResetRef.current = false;
       return;
     }
-    setStatusFilter(category === 'OD' ? IN_PROCESS_STATUS_OPTION : null);
+    setStatusFilter(
+      IN_PROCESS_ONLY_CATEGORIES.includes(category)
+        ? IN_PROCESS_STATUS_OPTION
+        : null,
+    );
   }, [category]);
 
   useEffect(() => {
@@ -873,7 +880,9 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       if (debouncedSearch.trim()) {
         paramsObj.set('search', debouncedSearch.trim());
       }
-      if (statusFilter?.value) {
+      if (IN_PROCESS_ONLY_CATEGORIES.includes(category)) {
+        paramsObj.set('status_filter', 'in process');
+      } else if (statusFilter?.value) {
         paramsObj.set('status_filter', statusFilter.value);
       }
 
@@ -1468,6 +1477,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                   isDisabled={staffLoading}
                 />
               </div>
+              {!IN_PROCESS_ONLY_CATEGORIES.includes(category) ? (
               <div className="xl:col-span-2">
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                   <FiCheckCircle className="w-3 h-3" />
@@ -1482,7 +1492,12 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                   isSearchable={false}
                 />
               </div>
-              <div className="sm:col-span-2 xl:col-span-4">
+              ) : null}
+              <div className={`sm:col-span-2 ${
+                IN_PROCESS_ONLY_CATEGORIES.includes(category)
+                  ? 'xl:col-span-6'
+                  : 'xl:col-span-4'
+              }`}>
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                   <FiSearch className="w-3 h-3" />
                   Search

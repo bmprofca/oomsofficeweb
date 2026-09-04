@@ -73,6 +73,15 @@ export default function SaveChatMediaToDocumentsModal({
   }, [isOpen, media?.name, media?.url]);
 
   useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (event) => {
+      if (event.key === 'Escape' && !saving) onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, saving, onClose]);
+
+  useEffect(() => {
     if (!isOpen || !clientUsername) return undefined;
 
     let cancelled = false;
@@ -413,10 +422,10 @@ export default function SaveChatMediaToDocumentsModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="save-chat-media-modal-title"
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
             className={`relative z-[1] pointer-events-auto flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${PANEL_MAX_H}`}
             onClick={(event) => event.stopPropagation()}
           >
@@ -432,7 +441,10 @@ export default function SaveChatMediaToDocumentsModal({
               </p>
             </header>
 
-            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 py-4 space-y-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
           <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
               <FiCheck className="h-4 w-4" strokeWidth={3} />

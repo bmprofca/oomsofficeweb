@@ -10,13 +10,11 @@ import {
 } from "../../utils/oneChattingChatUtils";
 
 const HEADER_CLASS =
-  "shrink-0 h-14 px-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between gap-3";
-const BODY_CLASS_PREVIEW =
-  "shrink-0 h-[min(70vh,560px)] min-h-[280px] max-h-[70vh] p-4 overflow-hidden flex items-center justify-center bg-gray-100 relative";
-const BODY_CLASS_FILE =
-  "shrink-0 p-8 overflow-hidden flex items-center justify-center bg-gray-100 relative";
+  "shrink-0 px-5 py-3.5 border-b border-gray-200 bg-white flex items-center justify-between gap-3";
+const BODY_CLASS =
+  "flex-1 min-h-[280px] overflow-hidden flex items-center justify-center bg-gray-100 relative";
 const FOOTER_CLASS =
-  "shrink-0 h-14 px-4 border-t border-gray-200 bg-white flex items-center justify-end gap-2";
+  "shrink-0 px-5 py-3 border-t border-gray-200 bg-white flex items-center justify-end gap-2";
 
 const MediaBodySkeleton = () => (
   <div
@@ -104,6 +102,14 @@ const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
     setMediaLoading(needsLoadGate);
     setMediaError(false);
   }, [url, type, needsLoadGate]);
+
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const handleDownload = async () => {
     if (!url || downloading) return;
@@ -225,7 +231,7 @@ const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-[1100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[1100] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
     >
       <motion.button
         type="button"
@@ -234,7 +240,7 @@ const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.18 }}
-        className="absolute inset-0 bg-black/70 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
         onClick={onClose}
       />
 
@@ -242,11 +248,11 @@ const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="onechatting-media-title"
-        initial={{ opacity: 0, y: 12, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 8, scale: 0.98 }}
-        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-[1] w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        className="relative z-[1] pointer-events-auto w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className={HEADER_CLASS}>
@@ -259,14 +265,14 @@ const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-600 hover:bg-gray-200 transition-colors shrink-0"
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
             aria-label="Close preview"
           >
             <FiX className="w-5 h-5" />
           </button>
         </div>
 
-        <div className={isFileModal ? BODY_CLASS_FILE : BODY_CLASS_PREVIEW}>
+        <div className={`${BODY_CLASS} ${isFileModal ? "p-8" : "p-4"}`}>
           {needsLoadGate && mediaLoading ? <MediaBodySkeleton /> : null}
 
           {mediaError && !isFileModal ? (

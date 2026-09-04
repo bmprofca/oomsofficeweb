@@ -300,15 +300,17 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
     };
 
     const handleHeaderClick = (status) => {
-        const params = new URLSearchParams();
-        if (taskTypeFilter !== 'all') {
-            params.append('type', taskTypeFilter);
+        if (!status) {
+            navigate('/task/view');
+            return;
         }
-        if (selectedServiceIds.length > 0) {
-            params.append('service_ids', selectedServiceIds.join(','));
+
+        if (status === 'YNS') {
+            navigate('/task/compliance/yet-not-started');
+            return;
         }
-        if (status) params.append('status', status);
-        navigate(`/task/view?${params.toString()}`);
+
+        navigate(`/task/detailed/${String(status).toLowerCase()}`);
     };
 
     useEffect(() => {
