@@ -25,6 +25,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`auth-and-api.md`](./auth-and-api.md) | `getHeaders` vs `getAccountHeaders`, base URL |
 | [`search-input-icon.md`](./search-input-icon.md) | Search input placeholder/text overlapping leading `FiSearch` icon |
 | [`action-button.md`](./action-button.md) | ⋮ action buttons, dropdown menus, viewport-safe floating panels |
+| [`password-groups.md`](./password-groups.md) | Password groups list + firm credentials, add modal, select-all delete |
 
 ## Other files
 
@@ -61,6 +62,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | `account-profile.md` | `SERVER/context/account-profile.md` |
 | `attendance.md` | `SERVER/context/attendance.md` |
 | `settings-branch.md` | `SERVER/routes/settings.js` + GST / branch docs |
+| `password-groups.md` | `SERVER/context/password-groups.md` |
 | `layout.md` | — (client-only) |
 
 See also [`SERVER/context/README.md`](../../SERVER/context/README.md).

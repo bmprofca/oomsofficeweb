@@ -2,11 +2,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { motion } from "framer-motion";
 import {
   FiArrowLeft,
   FiBriefcase,
-  FiLoader,
   FiMail,
   FiPhone,
   FiRefreshCw,
@@ -22,24 +20,19 @@ import API_BASE_URL from "../../utils/api-controller";
 import getHeaders from "../../utils/get-headers";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
 
+const contentInset = (isMinimized) => (isMinimized ? "md:pl-20" : "md:pl-[260px]");
+
 const formatPhone = (row) => {
   if (!row) return "—";
-  const code = row.country_code
-    ? `+${String(row.country_code).replace(/^\+/, "")}`
-    : "";
+  const code = row.country_code ? `+${String(row.country_code).replace(/^\+/, "")}` : "";
   const mobile = row.mobile || "";
   if (!mobile) return "—";
   return code ? `${code} ${mobile}` : mobile;
 };
 
-const COLUMNS = [
-  { id: "client", name: "Client", flex: "1.5" },
-  { id: "pan", name: "PAN", flex: "1" },
-  { id: "contact", name: "Contact", flex: "1.2" },
-  { id: "firms", name: "Firms", flex: "0.7" },
-  { id: "deleted", name: "Deleted", flex: "1" },
-  { id: "action", name: "Action", flex: "0.9" },
-];
+const COLUMNS = ["#", "Client", "PAN", "Contact", "Firms", "Deleted", "Actions"];
+const GRID_COLS =
+  "grid-cols-[40px_minmax(170px,1.5fr)_minmax(110px,0.9fr)_minmax(160px,1.3fr)_80px_minmax(140px,1fr)_100px]";
 
 const DeletedClients = () => {
   const navigate = useNavigate();
@@ -94,9 +87,7 @@ const DeletedClients = () => {
         });
 
         if (!response.data?.success) {
-          throw new Error(
-            response.data?.message || "Failed to load deleted clients",
-          );
+          throw new Error(response.data?.message || "Failed to load deleted clients");
         }
 
         setClients(Array.isArray(response.data.data) ? response.data.data : []);
@@ -109,9 +100,7 @@ const DeletedClients = () => {
         });
       } catch (err) {
         const message =
-          err.response?.data?.message ||
-          err.message ||
-          "Failed to load deleted clients";
+          err.response?.data?.message || err.message || "Failed to load deleted clients";
         setError(message);
         setClients([]);
         toast.error(message);
@@ -128,84 +117,62 @@ const DeletedClients = () => {
   }, [debouncedSearch]);
 
   const openRestoreModal = (client) => {
-    setRestoreModal({
-      open: true,
-      client,
-      loading: false,
-      error: null,
-    });
+    setRestoreModal({ open: true, client, loading: false, error: null });
   };
 
   const closeRestoreModal = () => {
     if (restoreModal.loading) return;
-    setRestoreModal({
-      open: false,
-      client: null,
-      loading: false,
-      error: null,
-    });
+    setRestoreModal({ open: false, client: null, loading: false, error: null });
   };
 
   const handleRestore = async () => {
     const username = String(restoreModal.client?.username || "").trim();
     if (!username) {
-      setRestoreModal((prev) => ({
-        ...prev,
-        error: "Client username is missing",
-      }));
+      setRestoreModal((prev) => ({ ...prev, error: "Client username is missing" }));
       return;
     }
 
     const headers = getHeaders();
     if (!headers) {
-      setRestoreModal((prev) => ({
-        ...prev,
-        error: "Please log in again",
-      }));
+      setRestoreModal((prev) => ({ ...prev, error: "Please log in again" }));
       return;
     }
 
     setRestoreModal((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/client/restore`,
-        { username },
-        { headers },
-      );
+      const response = await axios.post(`${API_BASE_URL}/client/restore`, { username }, { headers });
 
       if (!response.data?.success) {
         throw new Error(response.data?.message || "Failed to restore client");
       }
 
       toast.success(response.data?.message || "Client restored successfully");
-      setRestoreModal({
-        open: false,
-        client: null,
-        loading: false,
-        error: null,
-      });
+      setRestoreModal({ open: false, client: null, loading: false, error: null });
       setClients((prev) => prev.filter((c) => c.username !== username));
       fetchDeletedClients(pagination.page, pagination.limit);
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
       const message =
-        (Array.isArray(apiErrors) && apiErrors.length
-          ? apiErrors.join(". ")
-          : null) ||
+        (Array.isArray(apiErrors) && apiErrors.length ? apiErrors.join(". ") : null) ||
         err.response?.data?.message ||
         err.message ||
         "Failed to restore client";
-      setRestoreModal((prev) => ({
-        ...prev,
-        loading: false,
-        error: message,
-      }));
+      setRestoreModal((prev) => ({ ...prev, loading: false, error: message }));
     }
   };
 
-  const serialBase = (pagination.page - 1) * pagination.limit;
   const restoreName =
     restoreModal.client?.name || restoreModal.client?.username || "this client";
+
+  const SkeletonRow = () => (
+    <div className={`grid ${GRID_COLS} items-center border-b border-gray-100 animate-pulse`}>
+      {COLUMNS.map((col) => (
+        <div key={col} className="p-3">
+          <div className="h-3 bg-gray-200 rounded w-3/4" />
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -222,351 +189,171 @@ const DeletedClients = () => {
         setIsMinimized={setIsMinimized}
       />
 
-      <div
-        className={`pt-16 transition-all duration-300 ease-in-out ${
-          isMinimized ? "md:pl-20" : "md:pl-[260px]"
-        }`}
-      >
-        <div className="h-full flex flex-col">
-          <motion.div
-            className="mx-2 my-3 flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm sm:mx-4 md:mx-8 md:my-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 md:gap-3">
-                <div className="w-full md:w-auto flex items-start gap-2.5 min-w-0">
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${contentInset(isMinimized)}`}>
+        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <button
                     type="button"
                     onClick={() => navigate("/staff/office-assistance")}
-                    className="mt-0.5 w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors shrink-0"
+                    className="w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-200 shrink-0"
                     aria-label="Back to Office Assistance"
                   >
                     <FiArrowLeft className="w-4 h-4" />
                   </button>
+                  <div className="p-1.5 bg-rose-50 rounded-lg shrink-0">
+                    <FiTrash2 className="w-4 h-4 text-rose-600" />
+                  </div>
                   <div className="min-w-0">
-                    <h5 className="text-base md:text-lg font-bold text-gray-800 mb-0.5">
-                      Deleted Clients
-                    </h5>
-                    <p className="text-gray-500 text-xs">
-                      Soft-deleted clients · restore after create-style
-                      validation
-                    </p>
+                    <h1 className="text-base md:text-lg font-bold text-gray-800 m-0">Deleted Clients</h1>
+                    <p className="text-xs text-gray-500 m-0">Restore after create-style validation</p>
                   </div>
                 </div>
-
-                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full lg:w-auto">
-                  <div className="flex-1 md:flex-none md:min-w-[200px] lg:min-w-[250px]">
-                    <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <input
-                        type="text"
-                        placeholder="Search deleted clients..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-sm bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <motion.button
-                    type="button"
-                    onClick={() =>
-                      fetchDeletedClients(pagination.page, pagination.limit)
-                    }
-                    disabled={loading}
-                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 text-gray-700 font-medium flex items-center justify-center gap-2 shadow-sm text-sm disabled:opacity-50"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <FiRefreshCw
-                      className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
+                  <div className="relative min-w-0 sm:w-56">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search deleted clients…"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                     />
-                    <span className="hidden sm:inline">Refresh</span>
-                  </motion.button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchDeletedClients(pagination.page, pagination.limit)}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 shrink-0"
+                  >
+                    <FiRefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden min-h-[420px]">
-              <div className="hidden md:block border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10">
-                <div className="flex items-center min-w-max bg-white">
-                  <div className="w-12 p-3 font-bold text-gray-700 text-xs flex-shrink-0 text-center">
-                    #
-                  </div>
-                  {COLUMNS.map((column) => (
+            <div className="overflow-x-auto">
+              <div className="min-w-[920px]">
+                <div className={`grid ${GRID_COLS} items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10`}>
+                  {COLUMNS.map((col, i) => (
                     <div
-                      key={column.id}
-                      className="p-3 font-semibold text-gray-700 text-xs flex-1 min-w-0 text-center border-l border-gray-100"
-                      style={{ flex: column.flex }}
+                      key={col}
+                      className={`p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide ${
+                        i === 0 ? "text-left" : "border-l border-gray-100"
+                      } ${i === COLUMNS.length - 1 ? "text-right" : "text-left"}`}
                     >
-                      <div className="truncate">{column.name}</div>
+                      {col}
                     </div>
                   ))}
                 </div>
-              </div>
 
-              <div className="md:hidden border-b border-gray-200 bg-white px-3 py-2 sticky top-0 z-10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FiTrash2 className="w-4 h-4 text-rose-500" />
-                    <span className="font-semibold text-gray-800 text-sm">
-                      Deleted Clients
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-600">
-                    {pagination.total} total
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto overflow-x-hidden">
                 {loading ? (
-                  <div className="md:min-w-max">
-                    {Array.from({ length: 6 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center border-b border-gray-100 animate-pulse p-3"
-                      >
-                        <div className="w-12 flex-shrink-0 mr-2">
-                          <div className="h-3 bg-gray-200 rounded w-4 mx-auto" />
-                        </div>
-                        {COLUMNS.map((column) => (
-                          <div
-                            key={column.id}
-                            className="hidden md:block flex-1 p-2"
-                            style={{ flex: column.flex }}
-                          >
-                            <div className="h-3 bg-gray-200 rounded w-3/4 mx-auto" />
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
+                  Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
                 ) : error ? (
-                  <div className="flex items-center justify-center py-12 px-4">
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-red-600">
-                        {error}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          fetchDeletedClients(1, pagination.limit)
-                        }
-                        className="mt-3 text-sm text-indigo-600 hover:underline"
-                      >
-                        Try again
-                      </button>
-                    </div>
+                  <div className="flex flex-col items-center justify-center py-12 px-4">
+                    <p className="text-sm font-medium text-red-600 m-0">{error}</p>
+                    <button
+                      type="button"
+                      onClick={() => fetchDeletedClients(1, pagination.limit)}
+                      className="mt-3 text-sm font-medium text-indigo-600 hover:underline"
+                    >
+                      Try again
+                    </button>
                   </div>
                 ) : clients.length === 0 ? (
-                  <div className="flex items-center justify-center py-12 text-gray-500 px-4">
-                    <div className="text-center">
-                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <FiUser className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <p className="text-gray-500 font-medium text-sm">
-                        No deleted clients found
-                      </p>
-                      <p className="text-gray-400 text-xs mt-1">
-                        Try adjusting your search
-                      </p>
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500 px-4">
+                    <div className="w-14 h-14 bg-gray-100 rounded-full mb-3 flex items-center justify-center">
+                      <FiUser className="w-6 h-6 text-gray-400" />
                     </div>
+                    <p className="text-sm font-medium text-gray-500 m-0">No deleted clients found</p>
+                    <p className="text-xs text-gray-400 mt-1 mb-0">Try adjusting your search</p>
                   </div>
                 ) : (
-                  <>
-                    <div className="md:hidden px-3 py-2 space-y-2">
-                      {clients.map((client, index) => (
-                        <motion.div
-                          key={client.username || client.id}
-                          className="bg-white border border-gray-200 rounded-lg p-3"
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="font-bold text-gray-800 text-sm w-5 shrink-0">
-                                {serialBase + index + 1}
-                              </div>
-                              <div className="w-7 h-7 bg-gradient-to-br from-rose-500 to-rose-600 rounded-lg flex items-center justify-center shrink-0">
-                                <FiUser className="w-3.5 h-3.5 text-white" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-semibold text-gray-800 text-sm truncate">
-                                  {client.name || "N/A"}
-                                </div>
-                                <div className="text-xs text-gray-500 truncate">
-                                  {client.guardian_name || "—"}
-                                </div>
-                                {client.pan_number ? (
-                                  <div className="text-xs text-gray-500 font-mono truncate">
-                                    PAN: {client.pan_number}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => openRestoreModal(client)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shrink-0"
-                            >
-                              <FiRotateCcw className="w-3.5 h-3.5" />
-                              Restore
-                            </button>
+                  clients.map((client, index) => (
+                    <div
+                      key={client.username || client.id}
+                      className={`grid ${GRID_COLS} items-center border-b border-gray-100 bg-white hover:bg-gray-50`}
+                    >
+                      <div className="p-3 text-[11px] font-bold text-gray-800">
+                        {(pagination.page - 1) * pagination.limit + index + 1}
+                      </div>
+                      <div className="p-3 min-w-0 border-l border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-gradient-to-br from-rose-500 to-rose-600 rounded-lg shadow-sm flex items-center justify-center shrink-0">
+                            <FiUser className="w-3.5 h-3.5 text-white" />
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                            <div className="flex items-center gap-1.5 truncate">
-                              <FiPhone className="w-3 h-3 text-gray-400 shrink-0" />
-                              <span className="truncate">
-                                {formatPhone(client)}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 truncate">
-                              <FiBriefcase className="w-3 h-3 text-gray-400 shrink-0" />
-                              <span>
-                                {Array.isArray(client.firms)
-                                  ? client.firms.length
-                                  : 0}{" "}
-                                firms
-                              </span>
-                            </div>
-                            <div className="col-span-2 flex items-center gap-1.5 truncate">
-                              <FiMail className="w-3 h-3 text-gray-400 shrink-0" />
-                              <span className="truncate">
-                                {client.email || "—"}
-                              </span>
-                            </div>
-                            <div className="col-span-2 text-gray-500">
-                              Deleted: {client.deleted_date || "—"}
-                              {client.deleted_by
-                                ? ` · by ${client.deleted_by}`
-                                : ""}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    <div className="hidden md:block md:min-w-max">
-                      {clients.map((client, index) => (
-                        <motion.div
-                          key={client.username || client.id}
-                          className="flex items-center border-b border-gray-100 hover:bg-gray-50 transition-colors group bg-white"
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.03 }}
-                        >
-                          <div className="w-12 p-3 flex-shrink-0 text-center">
-                            <span className="font-bold text-gray-800 text-xs">
-                              {serialBase + index + 1}
-                            </span>
-                          </div>
-
-                          <div
-                            className="p-3 min-w-0 text-center border-l border-gray-100"
-                            style={{ flex: "1.5" }}
-                          >
-                            <div className="font-semibold text-gray-800 text-sm truncate">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-800 text-sm m-0 truncate">
                               {client.name || "—"}
-                            </div>
-                            <div className="text-xs text-gray-400 truncate mt-0.5">
-                              {client.username}
-                            </div>
+                            </p>
+                            <p className="text-xs text-gray-500 m-0 truncate">{client.username || "—"}</p>
                           </div>
-
-                          <div
-                            className="p-3 min-w-0 text-center border-l border-gray-100"
-                            style={{ flex: "1" }}
-                          >
-                            <span className="font-mono text-xs text-gray-700">
-                              {client.pan_number || "—"}
-                            </span>
-                          </div>
-
-                          <div
-                            className="p-3 min-w-0 text-center border-l border-gray-100"
-                            style={{ flex: "1.2" }}
-                          >
-                            <div className="text-sm text-gray-700 truncate">
-                              {formatPhone(client)}
-                            </div>
-                            <div className="text-xs text-gray-400 truncate mt-0.5">
-                              {client.email || "—"}
-                            </div>
-                          </div>
-
-                          <div
-                            className="p-3 min-w-0 text-center border-l border-gray-100"
-                            style={{ flex: "0.7" }}
-                          >
-                            <span className="text-sm text-gray-700">
-                              {Array.isArray(client.firms)
-                                ? client.firms.length
-                                : 0}
-                            </span>
-                          </div>
-
-                          <div
-                            className="p-3 min-w-0 text-center border-l border-gray-100"
-                            style={{ flex: "1" }}
-                          >
-                            <div className="text-sm text-gray-700">
-                              {client.deleted_date || "—"}
-                            </div>
-                            {client.deleted_by ? (
-                              <div className="text-xs text-gray-400 mt-0.5 truncate">
-                                by {client.deleted_by}
-                              </div>
-                            ) : null}
-                          </div>
-
-                          <div
-                            className="p-3 min-w-0 text-center border-l border-gray-100"
-                            style={{ flex: "0.9" }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => openRestoreModal(client)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                            >
-                              <FiRotateCcw className="w-3.5 h-3.5" />
-                              Restore
-                            </button>
-                          </div>
-                        </motion.div>
-                      ))}
+                        </div>
+                      </div>
+                      <div className="p-3 min-w-0 border-l border-gray-100">
+                        <p className="text-sm font-medium text-gray-700 font-mono m-0 truncate">
+                          {client.pan_number || "—"}
+                        </p>
+                      </div>
+                      <div className="p-3 min-w-0 border-l border-gray-100">
+                        <p className="flex items-center gap-1.5 text-sm font-medium text-gray-700 m-0">
+                          <FiPhone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          {formatPhone(client)}
+                        </p>
+                        <p className="flex items-center gap-1.5 text-xs text-gray-500 m-0 mt-0.5 truncate">
+                          <FiMail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          {client.email || "—"}
+                        </p>
+                      </div>
+                      <div className="p-3 min-w-0 border-l border-gray-100">
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-700">
+                          <FiBriefcase className="w-3.5 h-3.5 text-gray-400" />
+                          {Array.isArray(client.firms) ? client.firms.length : 0}
+                        </span>
+                      </div>
+                      <div className="p-3 min-w-0 border-l border-gray-100">
+                        <p className="text-sm font-medium text-gray-700 m-0">{client.deleted_date || "—"}</p>
+                        {client.deleted_by ? (
+                          <p className="text-xs text-gray-500 m-0 truncate">by {client.deleted_by}</p>
+                        ) : null}
+                      </div>
+                      <div className="p-3 border-l border-gray-100 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => openRestoreModal(client)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          <FiRotateCcw className="w-3.5 h-3.5" />
+                          Restore
+                        </button>
+                      </div>
                     </div>
-                  </>
+                  ))
                 )}
               </div>
             </div>
 
-            {pagination.total > 0 ? (
-              <div className="border-t border-gray-200 px-3 md:px-4 py-2 bg-white">
-                <TablePagination
-                  showRange
-                  showRows
-                  showJump
-                  showFirstLast
-                  rowOptions={[10, 20, 50, 100]}
-                  page={pagination.page}
-                  limit={pagination.limit}
-                  total={pagination.total}
-                  totalPages={pagination.total_pages}
-                  isLastPage={pagination.is_last_page}
-                  onPageChange={(page) =>
-                    fetchDeletedClients(page, pagination.limit)
-                  }
-                  onLimitChange={(limit) => {
-                    setPagination((prev) => ({ ...prev, limit, page: 1 }));
-                    fetchDeletedClients(1, limit);
-                  }}
-                />
-              </div>
-            ) : null}
-          </motion.div>
+            <TablePagination
+              showRange
+              showRows
+              showJump
+              showFirstLast
+              rowOptions={[10, 20, 50, 100]}
+              page={pagination.page}
+              limit={pagination.limit}
+              total={pagination.total}
+              totalPages={pagination.total_pages}
+              isLastPage={pagination.is_last_page}
+              onPageChange={(page) => fetchDeletedClients(page, pagination.limit)}
+              onLimitChange={(limit) => {
+                setPagination((prev) => ({ ...prev, limit, page: 1 }));
+                fetchDeletedClients(1, limit);
+              }}
+            />
+          </div>
         </div>
       </div>
 

@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, Card, Col, Row, Spinner, Table } from 'react-bootstrap';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList } from './emailApi';
 import {
-  FiArrowLeft, FiMail, FiClock, FiSend, FiAlertCircle, FiCheckCircle,
+  FiArrowLeft, FiMail, FiClock, FiAlertCircle, FiCheckCircle,
   FiX, FiPause, FiPlay, FiRefreshCw, FiUsers, FiCalendar, FiEye,
-  FiZap, FiHash, FiInfo, FiUser, FiAtSign, FiActivity, FiHome, FiChevronRight, FiLock
+  FiZap, FiHash, FiInfo, FiAtSign, FiActivity, FiLock
 } from 'react-icons/fi';
 import { useUserPermissions } from '../../../utils/permission-helper';
 
@@ -17,7 +16,7 @@ const styles = `
 
   .ebd-root * { font-family: 'Plus Jakarta Sans', sans-serif; }
   .ebd-root { background: #f0f2f7; min-height: 100vh; }
-  .ebd-page { max-width: 1200px; margin: 0 auto; padding: 28px 20px 48px; }
+  .ebd-page { width: 100%; margin: 0; padding: 0; }
 
   /* Back + title bar */
   .ebd-topbar {
@@ -263,6 +262,65 @@ const Section = ({ icon, title, badge, children }) => (
   </div>
 );
 
+const Pulse = ({ w = 80, h = 12, extra }) => (
+  <div className="animate-pulse rounded bg-slate-200" style={{ width: w, height: h, ...extra }} />
+);
+
+const DetailsSkeleton = () => (
+  <>
+    <Section icon={<FiInfo size={12} />} title="Overview">
+      <div className="ebd-meta-grid">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="ebd-meta-item">
+            <Pulse w={72} h={10} extra={{ marginBottom: 8 }} />
+            <Pulse w={i % 2 ? 120 : 160} h={14} />
+          </div>
+        ))}
+      </div>
+      <hr className="ebd-divider" />
+      <div className="ebd-stats-row">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="ebd-stat-card gray">
+            <Pulse w={40} h={22} extra={{ margin: '0 auto 8px' }} />
+            <Pulse w={48} h={10} extra={{ margin: '0 auto' }} />
+          </div>
+        ))}
+      </div>
+      <div className="ebd-actions">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Pulse key={i} w={88} h={32} extra={{ borderRadius: 8 }} />
+        ))}
+      </div>
+    </Section>
+    <Section icon={<FiEye size={12} />} title="Template Snapshot Preview">
+      <Pulse w="40%" h={12} extra={{ marginBottom: 12 }} />
+      <Pulse w="100%" h={160} extra={{ borderRadius: 12 }} />
+    </Section>
+    <Section icon={<FiUsers size={12} />} title="Recipients">
+      <div className="ebd-table-wrap">
+        <table className="ebd-table">
+          <thead>
+            <tr>
+              {['#', 'Name', 'Email', 'Variables', 'Status', 'Attempts', 'Error', 'Provider Msg ID', 'Sent At', 'Last Attempt'].map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <tr key={i}>
+                {Array.from({ length: 10 }).map((_, c) => (
+                  <td key={c}><Pulse w={c === 0 ? 100 : 64} h={10} /></td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  </>
+);
+
 // ─── Main Component (Permissions Refactored) ──────────────────────────────────
 const EmailBroadcastDetails = () => {
   const { check } = useUserPermissions();
@@ -337,34 +395,13 @@ const EmailBroadcastDetails = () => {
         <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
-        <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-          <div className="ebd-page">
-
-            {/* Breadcrumbs */}
-            <div className="mb-4">
-              <nav className="flex items-center text-sm text-gray-600">
-                <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                  <FiHome className="w-4 h-4" />
-                  <span>Dashboard</span>
-                </Link>
-                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                  <FiSend className="w-4 h-4" />
-                  <span>Broadcast</span>
-                </Link>
-                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                <Link to="/broadcast/email" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                  <span>Email</span>
-                </Link>
-                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                <span className="text-gray-900 font-medium">Details</span>
-              </nav>
-            </div>
+        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+          <div className="ebd-page mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
 
             {/* ── Top bar ── */}
             <div className="ebd-topbar">
               <div className="ebd-topbar-left">
-                <button className="ebd-back-btn" onClick={() => navigate('/broadcast/email')}>
+                <button className="ebd-back-btn" onClick={() => navigate('/broadcast/email/campaigns')}>
                   <FiArrowLeft size={15} />
                 </button>
                 <div>
@@ -376,10 +413,7 @@ const EmailBroadcastDetails = () => {
             </div>
 
             {loading ? (
-              <div className="ebd-loading">
-                <Spinner animation="border" variant="primary" style={{ width: 28, height: 28, borderWidth: 3 }} />
-                <p>Loading broadcast details…</p>
-              </div>
+              <DetailsSkeleton />
             ) : (
               <>
                 {/* ── Overview ── */}
@@ -494,6 +528,7 @@ const EmailBroadcastDetails = () => {
                       <table className="ebd-table">
                         <thead>
                           <tr>
+                            <th>#</th>
                             <th>Name</th>
                             <th>Email</th>
                             <th>Variables</th>
@@ -508,10 +543,11 @@ const EmailBroadcastDetails = () => {
                         <tbody>
                           {recipients.length === 0 ? (
                             <tr className="ebd-empty-row">
-                              <td colSpan={9}>No recipients found</td>
+                              <td colSpan={10}>No recipients found</td>
                             </tr>
                           ) : recipients.map((r, idx) => (
                             <tr key={r.recipient_id || idx}>
+                              <td style={{ color: '#9ca3af', fontSize: '0.78rem' }}>{idx + 1}</td>
                               <td>
                                 <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.82rem' }}>{r.recipient_name || '—'}</div>
                               </td>

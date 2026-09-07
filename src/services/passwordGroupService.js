@@ -52,7 +52,18 @@ export const passwordGroupService = {
         );
     },
 
-    async deleteFirmCredentials(credentialIds) {
+    async deleteFirmCredentials(credentialIds, options = {}) {
+        const selectAll = Boolean(options.selectAll);
+        if (selectAll) {
+            return axios.delete(`${API_BASE_URL}/assistance/password-group/delete-firm-credentials`, {
+                ...(await withHeaders()),
+                data: {
+                    select_all: true,
+                    group_id: options.groupId,
+                    search: options.search || "",
+                },
+            });
+        }
         const ids = Array.isArray(credentialIds) ? credentialIds.filter(Boolean) : [];
         return axios.delete(`${API_BASE_URL}/assistance/password-group/delete-firm-credentials`, {
             ...(await withHeaders()),

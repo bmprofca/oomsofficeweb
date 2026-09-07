@@ -1,3 +1,28 @@
+# Branch Email: SMTP, Campaign Templates, and Static Notifications
+
+Email is entirely branch-owned. The company does not provide a template picker for notification types.
+
+## Two independent template systems
+
+| System | Table | Use |
+|--------|--------|-----|
+| **Email Templates** | `email_templates` | User-created templates for campaigns / broadcasts only |
+| **Static Templates** | `email_static_templates` | Exactly seven predefined notification types |
+
+There is no mapping table and no link between the two.
+
+### Static types (fixed)
+
+Payment Reminder, Task Create, Payment, Payment Receive, Task Complete, Document Share, Birthday Wish
+
+The branch customizes subject/body and **activates** a type. When a notification is sent and email is selected on the send modal, the active static template of that type is used.
+
+## SMTP
+
+A branch can add multiple SMTP configs. **Only one can be active.** Activating one deactivates the others. All sending (broadcasts and notifications) uses the active config.
+
+---
+
 # Email Template Management System Documentation
 
 ## Technology Stack
@@ -39,13 +64,13 @@
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/email/static-template/create` | Create new static template |
-| PUT | `/email/static-template/update` | Update existing static template |
-| GET | `/email/static-template/active-list` | Fetch paginated list with search/filter |
-| GET | `/email/static-template/details/:template_id` | Get single template by ID |
-| GET | `/email/static-template/by-type/:template_type` | Get templates by type |
-| PUT | `/email/static-template/delete` | Soft delete (set status inactive) |
-| PUT | `/email/static-template/set-default` | Set template as default for its type |
+| GET | `/broadcast/email/static-template/catalog` | Ensure and return the 7-type catalog (active + inactive) |
+| GET | `/broadcast/email/static-template/active-list` | Same as catalog (compat) |
+| PUT | `/broadcast/email/static-template/update` | Customize subject/body/status of a catalog type |
+| GET | `/broadcast/email/static-template/details/:template_id` | Get single template by ID |
+| GET | `/broadcast/email/static-template/by-type/:template_type` | Get the catalog row for a type |
+| PUT | `/broadcast/email/static-template/change-status` | Activate or deactivate a notification type |
+| PUT | `/broadcast/email/static-template/delete` | Deactivate a type |
 
 ### Email Templates API (Legacy/Broadcast)
 

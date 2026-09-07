@@ -33,7 +33,7 @@ import { useUserPermissions } from "../utils/permission-helper";
 const TAB_META = {
   whatsapp: { label: "WhatsApp", accent: "green", icon: FiMessageCircle },
   sms: { label: "SMS", accent: "blue", icon: FiMessageSquare },
-  "email-channel": { label: "Email", accent: "indigo", icon: FiMail },
+  email: { label: "Email", accent: "indigo", icon: FiMail },
 };
 
 const ACCENT_CLASS = {
@@ -111,7 +111,7 @@ const ChannelSwitchPills = ({
 const Broadcast = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
-  const allowedTabs = ["whatsapp", "sms", "email-channel"];
+  const allowedTabs = ["whatsapp", "sms", "email"];
   const activeTab = allowedTabs.includes(tab) ? tab : "whatsapp";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
@@ -287,15 +287,15 @@ const Broadcast = () => {
 
   const emailCards = [
     {
-      title: "SMTP Configs",
-      description: "Manage SMTP connections",
-      icon: <FiSettings className="w-5 h-5" />,
-      link: "/broadcast/email/configs",
+      title: "Campaign",
+      description: "View campaigns and create a new one",
+      icon: <FiMail className="w-5 h-5" />,
+      link: "/broadcast/email/campaigns",
       color: "bg-indigo-100 text-indigo-600",
-      permission: "broadcast_config_edit",
+      permission: ["broadcast_send", "broadcast_config_edit"],
     },
     {
-      title: "Templates",
+      title: "Template",
       description: "Manage email templates",
       icon: <FiFileText className="w-5 h-5" />,
       link: "/broadcast/email/templates",
@@ -303,28 +303,20 @@ const Broadcast = () => {
       permission: "broadcast_config_edit",
     },
     {
-      title: "Broadcasts",
-      description: "View all email broadcasts",
-      icon: <FiMail className="w-5 h-5" />,
-      link: "/broadcast/email",
-      color: "bg-indigo-100 text-indigo-600",
-      permission: ["broadcast_send", "broadcast_config_edit"],
-    },
-    {
-      title: "Create Broadcast",
-      description: "Create new email campaign",
-      icon: <FiSend className="w-5 h-5" />,
-      link: "/broadcast/email/create",
-      color: "bg-indigo-100 text-indigo-600",
-      permission: "broadcast_send",
-    },
-    {
-      title: "Reports",
+      title: "Report",
       description: "View email campaign reports",
       icon: <FiBarChart2 className="w-5 h-5" />,
       link: "/broadcast/email/reports",
       color: "bg-indigo-100 text-indigo-600",
       permission: ["broadcast_send", "broadcast_config_edit"],
+    },
+    {
+      title: "Config",
+      description: "Manage SMTP connections",
+      icon: <FiSettings className="w-5 h-5" />,
+      link: "/broadcast/email/configs",
+      color: "bg-indigo-100 text-indigo-600",
+      permission: "broadcast_config_edit",
     },
   ];
 
@@ -706,7 +698,7 @@ const Broadcast = () => {
 
                 {activeTab === "sms" && renderSmsSection()}
 
-                {activeTab === "email-channel" && renderEmailSection()}
+                {activeTab === "email" && renderEmailSection()}
               </div>
             </div>
           </motion.div>

@@ -317,7 +317,8 @@ Pass **`effectiveSelectedItems`** (not raw `selectedItems`) to child table/card 
 5. Table: fixed **`w-12`** checkbox column in header and every row.  
 6. Cards: **`ring-2 ring-blue-500`** on selected card (not table rows).  
 7. Paginated lists: optional cross-page banner + **`selectAllAcrossPages`** + **`effectiveSelectedItems`**.  
-8. Bulk actions: **`AnimatePresence`** floating bar at **`z-50`**, clear selection on success.
+8. Bulk actions: **`AnimatePresence`** floating bar at **`z-50`**, clear selection on success.  
+9. Password group firms (`PasswordGroupFirms.jsx`) uses this pattern for credential delete. Cross-page delete sends `select_all` + `group_id` + `search` — see [`password-groups.md`](./password-groups.md).
 
 ---
 

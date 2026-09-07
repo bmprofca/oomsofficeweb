@@ -1,15 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Badge, Button, Card, Form, Spinner, Table, Overlay, Popover } from 'react-bootstrap';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { 
-  FiPlus, FiMoreVertical, FiEye, FiPause, FiPlay, FiX, FiRefreshCw, 
-  FiChevronLeft, FiChevronRight, FiMail, FiCalendar, FiUsers,
-  FiSend, FiClock, FiAlertCircle, FiCheckCircle, FiZap, FiHome, FiLock
+  FiPlus, FiEye, FiPause, FiPlay, FiX, FiRefreshCw, 
+  FiMail, FiCalendar, FiUsers,
+  FiSend, FiClock, FiAlertCircle, FiCheckCircle, FiZap, FiLock
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList, normalizePagination } from './emailApi';
 import { useUserPermissions } from '../../../utils/permission-helper';
+import EmailActionMenu from './EmailActionMenu';
+import TablePagination from '../../../components/TablePagination';
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = `
@@ -20,10 +21,11 @@ const styles = `
   .ebl-root {
     background: #f0f2f7;
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
-  /* Page wrapper */
-  .ebl-page { max-width: 1200px; margin: 0 auto; padding: 28px 20px 40px; }
+  /* Page wrapper — avoid width:100% + horizontal margin overflow */
+  .ebl-page { max-width: 100%; min-width: 0; }
 
   /* Header card */
   .ebl-header-card {
@@ -88,7 +90,7 @@ const styles = `
   }
 
   /* Table */
-  .ebl-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .ebl-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
   .ebl-table thead tr th {
     background: #f8fafc;
     font-size: 0.7rem;
@@ -96,12 +98,14 @@ const styles = `
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.6px;
-    padding: 11px 14px;
+    padding: 11px 10px;
     border-bottom: 1px solid #e5e7eb;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .ebl-table tbody tr td {
-    padding: 13px 14px;
+    padding: 13px 10px;
     border-bottom: 1px solid #f3f4f6;
     font-size: 0.83rem;
     vertical-align: middle;
@@ -116,7 +120,7 @@ const styles = `
     font-weight: 700;
     color: #111827;
     font-size: 0.845rem;
-    max-width: 200px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -151,7 +155,7 @@ const styles = `
   .ebl-schedule-date  { font-size: 0.72rem; color: #9ca3af; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 
   /* Stats row */
-  .ebl-stats { display: flex; align-items: center; gap: 14px; }
+  .ebl-stats { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
   .ebl-stat-item { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 600; }
 
   /* Template badge */
@@ -188,41 +192,6 @@ const styles = `
     font-family: 'Plus Jakarta Sans', sans-serif;
   }
   .ebl-action-btn:hover { border-color: #93c5fd; background: #eff6ff; color: #2563eb; }
-
-  /* Popover menu */
-  .ebl-popover .popover {
-    border: 1.5px solid #e5e7eb !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-    min-width: 170px;
-  }
-  .ebl-popover .popover-body { padding: 6px !important; }
-  .ebl-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    width: 100%;
-    text-align: left;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #374151;
-    cursor: pointer;
-    transition: background 0.1s;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-  }
-  .ebl-menu-item:hover { background: #f3f4f6; }
-  .ebl-menu-item.warning { color: #92400e; }
-  .ebl-menu-item.warning:hover { background: #fffbeb; }
-  .ebl-menu-item.success { color: #065f46; }
-  .ebl-menu-item.success:hover { background: #ecfdf5; }
-  .ebl-menu-item.danger { color: #991b1b; }
-  .ebl-menu-item.danger:hover { background: #fef2f2; }
-  .ebl-menu-divider { border: none; border-top: 1px solid #f3f4f6; margin: 4px 0; }
 
   /* Empty state */
   .ebl-empty {
@@ -291,8 +260,6 @@ const styles = `
   .ebl-page-select:focus { border-color: #3b82f6; }
 
   /* Loading */
-  .ebl-loading { text-align: center; padding: 60px 20px; color: #6b7280; }
-  .ebl-loading p { font-size: 0.82rem; margin-top: 10px; }
 `;
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -340,48 +307,33 @@ const getScheduleInfo = (row) => {
   );
 };
 
-// ─── Action Menu ──────────────────────────────────────────────────────────────
-const ActionMenu = ({ row, actionMenuId, setActionMenuId, actionRefs, navigate, doAction }) => (
-  <div className="ebl-popover">
-    <Overlay
-      show={actionMenuId === row.broadcast_id}
-      target={actionRefs.current[row.broadcast_id]}
-      placement="left"
-      container={actionRefs.current[row.broadcast_id]}
-      rootClose
-      onHide={() => setActionMenuId(null)}
-    >
-      <Popover id={`action-popover-${row.broadcast_id}`}>
-        <Popover.Body>
-          <button className="ebl-menu-item" onClick={() => { navigate(`/broadcast/email/details/${row.broadcast_id}`); setActionMenuId(null); }}>
-            <FiEye size={14} /> View Details
-          </button>
-          {row.status === 'running' && (
-            <button className="ebl-menu-item warning" onClick={() => doAction('pause', row)}>
-              <FiPause size={14} /> Pause Broadcast
-            </button>
-          )}
-          {row.status === 'paused' && (
-            <button className="ebl-menu-item success" onClick={() => doAction('resume', row)}>
-              <FiPlay size={14} /> Resume Broadcast
-            </button>
-          )}
-          {['running', 'paused'].includes(row.status) && (
-            <>
-              <hr className="ebl-menu-divider" />
-              <button className="ebl-menu-item danger" onClick={() => doAction('cancel', row)}>
-                <FiX size={14} /> Cancel Broadcast
-              </button>
-            </>
-          )}
-          {row.total_failed > 0 && (
-            <button className="ebl-menu-item" onClick={() => doAction('retry', row)}>
-              <FiRefreshCw size={14} /> Retry Failed
-            </button>
-          )}
-        </Popover.Body>
-      </Popover>
-    </Overlay>
+const BroadcastTableSkeleton = ({ rows = 8 }) => (
+  <div className="min-w-0 overflow-x-hidden">
+    <table className="ebl-table">
+      <thead>
+        <tr>
+          <th style={{ paddingLeft: 20 }}>#</th>
+          <th>Broadcast</th>
+          <th>Template</th>
+          <th>Schedule</th>
+          <th>Status</th>
+          <th>Statistics</th>
+          <th>Created</th>
+          <th style={{ textAlign: 'right', paddingRight: 20 }}>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: rows }).map((_, i) => (
+          <tr key={i}>
+            {Array.from({ length: 8 }).map((_, c) => (
+              <td key={c} style={c === 0 ? { paddingLeft: 20 } : c === 7 ? { textAlign: 'right', paddingRight: 20 } : undefined}>
+                <div className="animate-pulse rounded bg-slate-200" style={{ height: 12, width: c === 0 ? 140 : 72 }} />
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
 );
 
@@ -395,13 +347,11 @@ const EmailBroadcastList = () => {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState({ page_no: 1, limit: 10, total: 0, total_pages: 1 });
-  const [actionMenuId, setActionMenuId] = useState(null);
-  const actionRefs = useRef({});
 
-  const fetchData = async (page = 1) => {
+  const fetchData = async (page = 1, limit = pagination.limit) => {
     setLoading(true);
     try {
-      const res = await emailApi.listBroadcasts({ page_no: page, limit: pagination.limit });
+      const res = await emailApi.listBroadcasts({ page_no: page, limit });
       setRows(normalizeList(res?.data));
       setPagination(normalizePagination(res?.pagination));
     } catch (e) {
@@ -417,7 +367,6 @@ const EmailBroadcastList = () => {
   const doAction = async (type, row) => {
     if (!check('broadcast_config_edit')) {
       toast.error('You do not have permission to manage campaigns.');
-      setActionMenuId(null);
       return;
     }
     try {
@@ -431,13 +380,9 @@ const EmailBroadcastList = () => {
       if (actions[type]) { await actions[type](); toast.success(`Broadcast ${type}d successfully`); fetchData(pagination.page_no); }
     } catch (e) {
       toast.error(e?.response?.data?.message || `Failed to ${type} broadcast`);
-    } finally {
-      setActionMenuId(null);
     }
   };
 
-  const from = ((pagination.page_no - 1) * pagination.limit) + 1;
-  const to   = Math.min(pagination.page_no * pagination.limit, pagination.total);
 
   if (!check('broadcast_send') && !check('broadcast_config_edit')) {
     return (
@@ -464,55 +409,46 @@ const EmailBroadcastList = () => {
         <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
-        <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-          <div className="ebl-page">
-
-            {/* ── Breadcrumbs ── */}
-            <div className="mb-4">
-              <nav className="flex items-center text-sm text-gray-600">
-                <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                  <FiHome className="w-4 h-4" />
-                  <span>Dashboard</span>
-                </Link>
-                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                  <FiSend className="w-4 h-4" />
-                  <span>Broadcast</span>
-                </Link>
-                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                <span className="text-gray-900 font-medium">Email</span>
-              </nav>
-            </div>
+        <div className={`pt-16 min-w-0 overflow-x-hidden transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+          <div className="ebl-page mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
 
             {/* ── Header ── */}
             <div className="ebl-header-card">
               <div>
                 <div className="ebl-header-title">
                   <FiMail size={18} style={{ opacity: 0.9 }} />
-                  Email Broadcasts
+                  Email Campaigns
                   <span className="ebl-count-pill">{pagination.total}</span>
                 </div>
-                <div className="ebl-header-sub">Manage and monitor all your email broadcast campaigns</div>
+                <div className="ebl-header-sub">Manage and monitor all your email campaigns</div>
               </div>
               <button className="ebl-btn-create" onClick={() => navigate('/broadcast/email/create')}>
-                <FiPlus size={15} /> Create Broadcast
+                <FiPlus size={15} /> Create Campaign
               </button>
             </div>
 
             {/* ── Table Card ── */}
             <div className="ebl-card">
               {loading ? (
-                <div className="ebl-loading">
-                  <Spinner animation="border" variant="primary" style={{ width: 28, height: 28, borderWidth: 3 }} />
-                  <p>Loading broadcasts…</p>
-                </div>
+                <BroadcastTableSkeleton />
               ) : (
                 <>
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="min-w-0 overflow-x-hidden">
                     <table className="ebl-table">
+                      <colgroup>
+                        <col style={{ width: '6%' }} />
+                        <col style={{ width: '22%' }} />
+                        <col style={{ width: '14%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '18%' }} />
+                        <col style={{ width: '9%' }} />
+                        <col style={{ width: '6%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
-                          <th style={{ paddingLeft: 20 }}>Broadcast</th>
+                          <th style={{ paddingLeft: 20 }}>#</th>
+                          <th>Broadcast</th>
                           <th>Template</th>
                           <th>Schedule</th>
                           <th>Status</th>
@@ -524,7 +460,7 @@ const EmailBroadcastList = () => {
                       <tbody>
                         {rows.length === 0 ? (
                           <tr>
-                            <td colSpan={7} style={{ border: 'none' }}>
+                            <td colSpan={8} style={{ border: 'none' }}>
                               <div className="ebl-empty">
                                 <div className="ebl-empty-icon"><FiSend size={22} /></div>
                                 <div className="ebl-empty-title">No broadcasts found</div>
@@ -532,9 +468,12 @@ const EmailBroadcastList = () => {
                               </div>
                             </td>
                           </tr>
-                        ) : rows.map((row) => (
+                        ) : rows.map((row, index) => (
                           <tr key={row.broadcast_id}>
-                            <td style={{ paddingLeft: 20 }}>
+                            <td style={{ paddingLeft: 20, color: '#9ca3af', fontSize: '0.78rem' }}>
+                              {((pagination.page_no - 1) * pagination.limit) + index + 1}
+                            </td>
+                            <td>
                               <div className="ebl-broadcast-name">{row.broadcast_name}</div>
                               <div className="ebl-broadcast-id">#{row.broadcast_id}</div>
                             </td>
@@ -578,21 +517,15 @@ const EmailBroadcastList = () => {
                               </div>
                             </td>
                             <td style={{ textAlign: 'right', paddingRight: 20 }}>
-                              <div ref={el => actionRefs.current[row.broadcast_id] = el} style={{ display: 'inline-block' }}>
-                                <button
-                                  className="ebl-action-btn"
-                                  onClick={() => setActionMenuId(actionMenuId === row.broadcast_id ? null : row.broadcast_id)}
-                                >
-                                  <FiMoreVertical size={15} />
-                                </button>
-                              </div>
-                              <ActionMenu
-                                row={row}
-                                actionMenuId={actionMenuId}
-                                setActionMenuId={setActionMenuId}
-                                actionRefs={actionRefs}
-                                navigate={navigate}
-                                doAction={doAction}
+                              <EmailActionMenu
+                                buttonClassName="ebl-action-btn"
+                                items={[
+                                  { label: 'View Details', icon: FiEye, onClick: () => navigate(`/broadcast/email/details/${row.broadcast_id}`) },
+                                  row.status === 'running' && { label: 'Pause Broadcast', icon: FiPause, warning: true, onClick: () => doAction('pause', row) },
+                                  row.status === 'paused' && { label: 'Resume Broadcast', icon: FiPlay, onClick: () => doAction('resume', row) },
+                                  ['running', 'paused'].includes(row.status) && { label: 'Cancel Broadcast', icon: FiX, danger: true, onClick: () => doAction('cancel', row) },
+                                  row.total_failed > 0 && { label: 'Retry Failed', icon: FiRefreshCw, onClick: () => doAction('retry', row) },
+                                ]}
                               />
                             </td>
                           </tr>
@@ -601,30 +534,19 @@ const EmailBroadcastList = () => {
                     </table>
                   </div>
 
-                  {/* ── Pagination ── */}
-                  <div className="ebl-footer">
-                    <div className="ebl-footer-info">
-                      <FiUsers size={13} />
-                      {pagination.total > 0 ? `Showing ${from}–${to} of ${pagination.total} results` : 'No results'}
-                    </div>
-                    <div className="ebl-footer-controls">
-                      <button className="ebl-page-btn" disabled={pagination.page_no <= 1} onClick={() => fetchData(pagination.page_no - 1)}>
-                        <FiChevronLeft size={14} /> Prev
-                      </button>
-                      <select
-                        className="ebl-page-select"
-                        value={pagination.page_no}
-                        onChange={e => fetchData(Number(e.target.value))}
-                      >
-                        {[...Array(pagination.total_pages)].map((_, i) => (
-                          <option key={i + 1} value={i + 1}>Page {i + 1} of {pagination.total_pages}</option>
-                        ))}
-                      </select>
-                      <button className="ebl-page-btn" disabled={pagination.page_no >= pagination.total_pages} onClick={() => fetchData(pagination.page_no + 1)}>
-                        Next <FiChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
+                  <TablePagination
+                    page={pagination.page_no}
+                    limit={pagination.limit}
+                    total={pagination.total}
+                    totalPages={pagination.total_pages}
+                    rowOptions={[10, 20, 50, 100]}
+                    defaultRows={10}
+                    onPageChange={(page) => fetchData(page)}
+                    onLimitChange={(limit) => {
+                      setPagination((p) => ({ ...p, limit, page_no: 1 }));
+                      fetchData(1, Number(limit));
+                    }}
+                  />
                 </>
               )}
             </div>

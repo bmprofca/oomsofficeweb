@@ -82,6 +82,18 @@ See [`finance-registers.md`](./finance-registers.md) for shell, actions, and `pa
 - **Clients modal** is self-contained: file parse (SheetJS), column mapping UI, server preview + commit. Props: `open`, `onClose`, `onImported?`.
 - Uses gradient header, drag-and-drop upload zone, required/optional field mapping grid, preview table with stats.
 
+## Password group credentials
+
+| Modal | File | Opens from |
+|-------|------|------------|
+| `PasswordGroupAddCredentialsModal` | [`Modals/PasswordGroupAddCredentialsModal.jsx`](../src/components/Modals/PasswordGroupAddCredentialsModal.jsx) | Password group firms — Add Credentials |
+| View / Edit credential | inline in `PasswordGroupFirms.jsx` | Row ⋮ View / Edit |
+
+- Large add panel (`max-w-6xl`): fixed title + firm picker, scrollable credential **card grid**.
+- Firm search is `GET /firm/list` (`searchFirmSelectOptions`) — **not** `/firm/search`.
+- Import from office group: `GET /group/list` then `GET /group/group-firms/list`.
+- See [`password-groups.md`](./password-groups.md).
+
 ## Attendance modal
 
 | Modal | Opens from | Notes |

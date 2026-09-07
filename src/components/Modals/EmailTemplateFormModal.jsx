@@ -10,7 +10,10 @@ import {
   FaAlignCenter, FaAlignRight, FaListUl, FaListOl, FaLink, FaImage,
   FaChevronDown, FaTimes, FaCrown
 } from 'react-icons/fa';
-import { emailApi } from './emailApi';
+import { emailApi } from '../../pages/broadcast/email/emailApi';
+import EmailModalShell, { EMAIL_MODAL_BODY } from './EmailModalShell';
+import CustomSelect from '../CustomSelect';
+import { optionByValue } from '../../utils/customSelectHelpers';
 
 const emptyForm = {
   template_id: '',
@@ -575,44 +578,37 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
     { value: 'newsletter', label: 'Newsletter', icon: <FaEnvelope />, color: '#3b82f6', description: 'Newsletter campaigns' }
   ];
 
-  if (!show) return null;
+  const templateTypeOptions = templateTypesList.map((type) => ({
+    value: type.value,
+    label: `${type.label} — ${type.description}`,
+  }));
+  const statusOptions = [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+  ];
 
   const currentType = templateTypesList.find(t => t.value === form.template_type);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={onHide}></div>
-        
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl transform transition-all">
-          {/* Header - Fixed at top */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <FaTags className="text-white" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">
-                    {isEdit ? 'Edit Email Template' : 'Create Email Template'}
-                  </h2>
-                  <p className="text-blue-100 text-sm mt-0.5">
-                    Design professional email templates with dynamic variables
-                  </p>
-                </div>
-              </div>
-              <button onClick={onHide} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <FaTimes className="text-white" size={18} />
-              </button>
+    <EmailModalShell show={show} onHide={onHide} fullScreen>
+          <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-200">
+            <div>
+              <h2 className="text-base font-semibold text-gray-800">
+                {isEdit ? 'Edit Email Template' : 'Add Email Template'}
+              </h2>
+              <p className="text-xs text-gray-500">Configure type, content, and variables</p>
             </div>
+            <button type="button" onClick={onHide} className="p-1.5 hover:bg-gray-100 rounded-lg">
+              <FaTimes className="text-gray-500" size={14} />
+            </button>
           </div>
 
           {/* Scrollable Body */}
-          <div className="p-6 overflow-y-auto max-h-[calc(100vh-240px)]">
+          <div className={EMAIL_MODAL_BODY} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {/* Template Type Selection with Dropdown */}
-            <div className="mb-6">
-              <div className="bg-blue-50/30 rounded-xl border border-blue-200 p-5">
-                <div className="flex justify-between items-start mb-4">
+            <div className="mb-4">
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                <div className="flex justify-between items-start mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <FaCrown className="text-blue-500" size={16} />
@@ -662,25 +658,15 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      Template Type <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={form.template_type}
-                        onChange={(e) => handleTypeChange(e.target.value)}
-                        className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white appearance-none cursor-pointer font-medium"
-                      >
-                        {templateTypesList.map(type => (
-                          <option key={type.value} value={type.value}>
-                            {type.label} - {type.description}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <FaChevronDown className="text-blue-400" size={14} />
-                      </div>
-                    </div>
+                    <CustomSelect
+                      label="Template Type"
+                      required
+                      options={templateTypeOptions}
+                      value={optionByValue(templateTypeOptions, form.template_type)}
+                      onChange={(opt) => handleTypeChange(opt?.value || 'general')}
+                      isClearable={false}
+                      placeholder="Select template type"
+                    />
                     {currentType && (
                       <div className="mt-2 flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-blue-500"></div>
@@ -708,19 +694,15 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  <FaCheckCircle className="inline mr-2 text-blue-500" size={14} />
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={onChange}
-                  className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
-                >
-                  <option value="active">✅ Active</option>
-                  <option value="inactive">⭕ Inactive</option>
-                </select>
+                <CustomSelect
+                  label="Status"
+                  options={statusOptions}
+                  value={optionByValue(statusOptions, form.status)}
+                  onChange={(opt) => setForm((prev) => ({ ...prev, status: opt?.value || 'active' }))}
+                  isClearable={false}
+                  isSearchable={false}
+                  placeholder="Select status"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -936,24 +918,27 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
           </div>
 
           {/* Footer - Fixed at bottom always visible */}
-          <div className="border-t border-blue-200 px-6 py-4 bg-blue-50/30 rounded-b-2xl flex justify-end gap-3">
+          <div className="shrink-0 border-t border-gray-200 px-5 py-2.5 bg-gray-50 flex justify-end gap-2">
             <button
+              type="button"
               onClick={onHide}
-              className="px-4 py-2 text-slate-700 bg-white border-2 border-blue-200 rounded-lg hover:bg-blue-50 transition-colors font-medium"
+              className="px-3.5 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => setActiveView('preview')}
-              className="px-4 py-2 text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors font-medium flex items-center gap-2"
+              className="px-3.5 py-1.5 text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 inline-flex items-center gap-1.5"
             >
-              <FaEye size={14} />
+              <FaEye size={12} />
               Preview
             </button>
             <button
+              type="button"
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all font-medium flex items-center gap-2 shadow-md disabled:opacity-50"
+              className="px-3.5 py-1.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center gap-1.5"
             >
               {saving ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -963,9 +948,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
               {saving ? ' Saving...' : isEdit ? ' Update Template' : ' Save Template'}
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </EmailModalShell>
   );
 };
 

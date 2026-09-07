@@ -48,7 +48,7 @@ const KEEP_ALIVE_EXCLUDE_EXACT = new Set([
   '/broadcast',
   '/broadcast/whatsapp',
   '/broadcast/sms',
-  '/broadcast/email-channel',
+  '/broadcast/email',
 ]);
 
 export function isKeepAlivePath(pathname = '') {

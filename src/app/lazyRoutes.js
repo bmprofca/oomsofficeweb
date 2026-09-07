@@ -159,4 +159,3 @@ export const ServiceWiseSales = lazyWithRetry(() => import('../DashboardComponen
 export const StaffSalesDetails = lazyWithRetry(() => import('../DashboardComponents/StaffSalesDetails'));
 export const StaffWiseSalesPage = lazyWithRetry(() => import('../DashboardComponents/StaffWiseSalesPage'));
 export const TopClientsViewAll = lazyWithRetry(() => import('../DashboardComponents/TopClientsViewAll'));
-export const BulkImportPage = lazyWithRetry(() => import('../pages/broadcast/email/BulkEmailImport'));

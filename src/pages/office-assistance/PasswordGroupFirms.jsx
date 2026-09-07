@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    FiPlus, FiEdit, FiTrash, FiArrowLeft, FiMoreVertical, FiCheck, FiSearch,
-    FiEye, FiEyeOff, FiX, FiPhone, FiMail, FiCopy, FiCheckCircle, FiXCircle,
+    FiPlus, FiEdit, FiTrash, FiArrowLeft, FiMoreVertical, FiSearch,
+    FiEye, FiEyeOff, FiX, FiPhone, FiMail, FiCopy,
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
 import TablePagination from '../../components/TablePagination';
-import API_BASE_URL from '../../utils/api-controller';
-import getHeaders from '../../utils/get-headers';
+import ConfirmActionModal from '../../components/ConfirmActionModal';
+import AnimatedCheckbox from '../../components/AnimatedCheckbox';
+import PasswordGroupAddCredentialsModal from '../../components/Modals/PasswordGroupAddCredentialsModal';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { passwordGroupService } from '../../services/passwordGroupService';
@@ -25,41 +26,90 @@ const formatTypeLabel = (value) => {
 /** API returns boolean (`true`/`false`); legacy values may be `'active'` / `'inactive'`. */
 const isCredentialActiveStatus = (status) =>
     status === true ||
+    status === 1 ||
+    status === '1' ||
     status === 'true' ||
     String(status || '').toLowerCase() === 'active';
 
 const credentialStatusLabel = (status) =>
     isCredentialActiveStatus(status) ? 'Active' : 'Inactive';
 
-const ACTIONS_MENU_WIDTH = 224;
-/** Used only to decide flip above/below; real menu height is content-based. */
-const ACTIONS_MENU_HEIGHT = 240;
-const MENU_EDGE_GAP = 4;
-const FIRM_SEARCH_MIN_CHARS = 3;
+const ACTIONS_MENU_WIDTH = 176;
+const MENU_ITEM_HEIGHT = 36;
+const MENU_EDGE_GAP = 8;
+const MENU_VIEWPORT_MARGIN = 8;
+const ACTION_MENU_ITEM_COUNT = 4;
+const MODAL_BODY =
+    'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
-const computeActionsMenuCoords = (buttonEl) => {
-    const rect = buttonEl.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceRight = window.innerWidth - rect.right;
-    const alignRight = spaceRight < ACTIONS_MENU_WIDTH;
+const computeActionMenuPosition = (anchorEl, options = {}) => {
+    if (!anchorEl) return null;
 
-    let left = alignRight ? rect.right - ACTIONS_MENU_WIDTH : rect.left;
-    left = Math.max(8, Math.min(left, window.innerWidth - ACTIONS_MENU_WIDTH - 8));
+    const itemCount = Math.max(1, Number(options.itemCount) || ACTION_MENU_ITEM_COUNT);
+    const rect = anchorEl.getBoundingClientRect();
+    const menuWidth = ACTIONS_MENU_WIDTH;
+    const menuHeight = 8 + itemCount * MENU_ITEM_HEIGHT;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-    const topIfDown = rect.bottom + MENU_EDGE_GAP;
-    const wouldOverflowBottom = topIfDown + ACTIONS_MENU_HEIGHT > window.innerHeight - 8;
-    const openUp =
-        spaceBelow < ACTIONS_MENU_HEIGHT || (wouldOverflowBottom && spaceBelow < rect.top);
+    const space = {
+        top: rect.top - MENU_VIEWPORT_MARGIN,
+        bottom: vh - rect.bottom - MENU_VIEWPORT_MARGIN,
+        right: vw - rect.right - MENU_VIEWPORT_MARGIN,
+        left: rect.left - MENU_VIEWPORT_MARGIN,
+    };
 
-    if (!openUp) {
-        return { placement: 'down', left, top: topIfDown };
+    const fits = {
+        top: space.top >= menuHeight + MENU_EDGE_GAP,
+        bottom: space.bottom >= menuHeight + MENU_EDGE_GAP,
+        right: space.right >= menuWidth + MENU_EDGE_GAP,
+        left: space.left >= menuWidth + MENU_EDGE_GAP,
+    };
+
+    const preferred = ['top', 'bottom', 'right', 'left'];
+    let placement = preferred.find((side) => fits[side]);
+
+    if (!placement) {
+        placement = preferred.reduce(
+            (best, side) => (space[side] > space[best] ? side : best),
+            'bottom',
+        );
     }
 
-    // Anchor by bottom so the gap to the trigger stays exact regardless of menu height.
+    let top = 0;
+    let left = 0;
+
+    if (placement === 'top') {
+        top = rect.top - menuHeight - MENU_EDGE_GAP;
+        left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === 'bottom') {
+        top = rect.bottom + MENU_EDGE_GAP;
+        left = rect.left + rect.width / 2 - menuWidth / 2;
+    } else if (placement === 'right') {
+        top = rect.top + rect.height / 2 - menuHeight / 2;
+        left = rect.right + MENU_EDGE_GAP;
+    } else {
+        top = rect.top + rect.height / 2 - menuHeight / 2;
+        left = rect.left - menuWidth - MENU_EDGE_GAP;
+    }
+
+    const clampedLeft = Math.max(
+        MENU_VIEWPORT_MARGIN,
+        Math.min(left, vw - menuWidth - MENU_VIEWPORT_MARGIN),
+    );
+    const clampedTop = Math.max(
+        MENU_VIEWPORT_MARGIN,
+        Math.min(top, vh - menuHeight - MENU_VIEWPORT_MARGIN),
+    );
+    const anchorCenterX = rect.left + rect.width / 2;
+    const anchorCenterY = rect.top + rect.height / 2;
+
     return {
-        placement: 'up',
-        left,
-        bottom: window.innerHeight - rect.top + MENU_EDGE_GAP,
+        top: clampedTop,
+        left: clampedLeft,
+        placement,
+        arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+        arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
     };
 };
 
@@ -70,47 +120,52 @@ const ViewCredentialModal = ({ credential, onClose }) => {
         toast.success(`${label} copied to clipboard`);
     };
 
-    if (!credential) return null;
+    if (!credential || typeof document === 'undefined') return null;
 
-    return (
+    return createPortal(
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
-            onClick={onClose}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
         >
+            <button
+                type="button"
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+                aria-label="Close"
+                onClick={onClose}
+            />
             <motion.div
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.9, y: 20 }}
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                role="dialog"
+                aria-modal="true"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5 shrink-0">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white/20 rounded-xl">
-                                <FiEye className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-white">Credential Details</h3>
-                                <p className="text-xs text-blue-100 mt-1">View complete credential information</p>
-                            </div>
+                <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3.5 border-b border-gray-200">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="p-1.5 rounded-lg bg-indigo-50">
+                            <FiEye className="w-4 h-4 text-indigo-600" />
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                        >
-                            <FiX className="w-5 h-5 text-white" />
-                        </button>
+                        <div className="min-w-0">
+                            <h3 className="text-base font-bold text-gray-800 m-0">Credential details</h3>
+                            <p className="text-xs text-gray-500 m-0 truncate">{credential.firm?.firm_name || '—'}</p>
+                        </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                    >
+                        <FiX className="w-4 h-4" />
+                    </button>
                 </div>
 
-                <div
-                    className="px-5 py-4 overflow-y-auto flex-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
+                <div className={MODAL_BODY} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     {/* Credential details — first */}
                     <div className="mb-6">
                         <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Credential Details</h4>
@@ -264,16 +319,18 @@ const ViewCredentialModal = ({ credential, onClose }) => {
                     </div>
                 </div>
 
-                <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end shrink-0">
+                <div className="shrink-0 flex items-center justify-end px-5 py-3 border-t border-gray-200 bg-gray-50">
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="px-6 py-2.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-slate-200 hover:shadow-xl transition-all duration-200"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
                     >
                         Close
                     </button>
                 </div>
             </motion.div>
-        </motion.div>
+        </motion.div>,
+        document.body,
     );
 };
 
@@ -297,13 +354,13 @@ const PasswordGroupFirms = () => {
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedCredential, setSelectedCredential] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [firms, setFirms] = useState([]);
-    const [firmsLoading, setFirmsLoading] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [dropdownCoords, setDropdownCoords] = useState(null);
     const dropdownAnchorRef = useRef(null);
     const [showPassword, setShowPassword] = useState({});
-    const [selectedCredentialIds, setSelectedCredentialIds] = useState([]);
+    const [selectedCredentialIds, setSelectedCredentialIds] = useState(() => new Set());
+    const [selectAll, setSelectAll] = useState(false);
+    const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 20,
@@ -311,25 +368,12 @@ const PasswordGroupFirms = () => {
         total_pages: 1,
         is_last_page: false
     });
-    // Search query for firms
-    const [firmSearchQuery, setFirmSearchQuery] = useState('');
-    const [searchPerformed, setSearchPerformed] = useState(false);
-
-    // Form states
-    const [addForm, setAddForm] = useState({
-        group_id: group_id,
-        firm_id: '',
-        username: '',
-        password: '',
-        description: ''
-    });
-
     const [editForm, setEditForm] = useState({
         credential_id: '',
         username: '',
         password: '',
         description: '',
-        status: 'active'
+        status: true
     });
 
     const closeActionsMenu = useCallback(() => {
@@ -361,20 +405,6 @@ const PasswordGroupFirms = () => {
     useEffect(() => {
         fetchGroupFirms(group_id, pagination.page, pagination.limit, debouncedSearch);
     }, [group_id, pagination.page, pagination.limit, debouncedSearch]);
-
-    // Debounced firm search
-    useEffect(() => {
-        const delayDebounce = setTimeout(() => {
-            if (showAddModal && firmSearchQuery.length >= FIRM_SEARCH_MIN_CHARS) {
-                searchFirms(firmSearchQuery);
-            } else if (firmSearchQuery.length < FIRM_SEARCH_MIN_CHARS) {
-                setFirms([]);
-                setSearchPerformed(false);
-            }
-        }, 500);
-
-        return () => clearTimeout(delayDebounce);
-    }, [firmSearchQuery, showAddModal]);
 
     const fetchGroupFirms = async (currentGroupId = group_id, pageNo = pagination.page, limitValue = pagination.limit, searchValue = searchTerm) => {
         setLoading(true);
@@ -410,119 +440,6 @@ const PasswordGroupFirms = () => {
         }
     };
 
-    const searchFirms = async (searchQuery) => {
-        if (!searchQuery || searchQuery.length < FIRM_SEARCH_MIN_CHARS) {
-            setFirms([]);
-            setSearchPerformed(false);
-            return;
-        }
-
-        setFirmsLoading(true);
-        setSearchPerformed(true);
-
-        try {
-            const headers = await getHeaders();
-            const url = `${API_BASE_URL}/firm/search?search=${encodeURIComponent(searchQuery)}`;
-
-            const response = await fetch(url, { headers });
-            const result = await response.json();
-
-            if (result.success) {
-                // Handle different possible response structures
-                let firmsData = [];
-
-                if (Array.isArray(result.data)) {
-                    firmsData = result.data;
-                } else if (result.data && typeof result.data === 'object') {
-                    if (Array.isArray(result.data.firms)) {
-                        firmsData = result.data.firms;
-                    } else if (result.data.items && Array.isArray(result.data.items)) {
-                        firmsData = result.data.items;
-                    } else if (result.data.records && Array.isArray(result.data.records)) {
-                        firmsData = result.data.records;
-                    } else {
-                        const values = Object.values(result.data);
-                        if (values.length > 0 && typeof values[0] === 'object') {
-                            firmsData = values;
-                        }
-                    }
-                }
-
-                setFirms(firmsData);
-
-                if (firmsData.length === 0) {
-                    toast(`No firms found matching "${searchQuery}"`, { icon: 'ℹ️' });
-                }
-            } else {
-                console.error('Failed to search firms:', result.message);
-                toast.error(result.message || 'Failed to search firms');
-                setFirms([]);
-            }
-        } catch (error) {
-            console.error('Error searching firms:', error);
-            toast.error('Network error. Please check your connection.');
-            setFirms([]);
-        } finally {
-            setFirmsLoading(false);
-        }
-    };
-
-    const handleAddCredential = async (e) => {
-        e.preventDefault();
-
-        if (!addForm.firm_id) {
-            toast.error('Please select a firm');
-            return;
-        }
-
-        if (!addForm.username.trim()) {
-            toast.error('Please enter a username');
-            return;
-        }
-
-        if (!addForm.password.trim()) {
-            toast.error('Please enter a password');
-            return;
-        }
-
-        const loadingToast = toast.loading('Adding credential...');
-
-        try {
-            const response = await passwordGroupService.createFirmCredential({
-                group_id: addForm.group_id,
-                firm_id: addForm.firm_id,
-                username: addForm.username?.trim(),
-                password: addForm.password,
-                description: addForm.description?.trim() || undefined,
-            });
-            const result = response.data;
-
-            toast.dismiss(loadingToast);
-
-            if (result.success) {
-                toast.success('Credential added successfully');
-                fetchGroupFirms();
-                setShowAddModal(false);
-                setAddForm({
-                    group_id: group_id,
-                    firm_id: '',
-                    username: '',
-                    password: '',
-                    description: ''
-                });
-                setFirmSearchQuery('');
-                setFirms([]);
-                setSearchPerformed(false);
-            } else {
-                toast.error(result.message || 'Failed to add credential');
-            }
-        } catch (error) {
-            console.error('Error adding credential:', error);
-            toast.dismiss(loadingToast);
-            toast.error('Network error. Please check your connection.');
-        }
-    };
-
     const handleEditCredential = async (e) => {
         e.preventDefault();
 
@@ -543,7 +460,7 @@ const PasswordGroupFirms = () => {
                 username: editForm.username?.trim(),
                 password: editForm.password,
                 description: editForm.description?.trim() || null,
-                status: editForm.status === 'active',
+                status: isCredentialActiveStatus(editForm.status) ? '1' : '0',
             });
             const result = response.data;
 
@@ -559,7 +476,7 @@ const PasswordGroupFirms = () => {
                     username: '',
                     password: '',
                     description: '',
-                    status: 'active'
+                    status: true
                 });
             } else {
                 toast.error(result.message || 'Failed to update credential');
@@ -580,25 +497,37 @@ const PasswordGroupFirms = () => {
                 : selectedCredential?.credential?.credential_id
                   ? [selectedCredential.credential.credential_id]
                   : [];
-        if (!ids.length) {
+        const deleteAllMatching = mode === 'bulk' && selectAllAcrossPages;
+        if (!deleteAllMatching && !ids.length) {
             toast.error('No credentials selected to delete');
             return;
         }
 
         const loadingToast = toast.loading(
-            ids.length > 1 ? `Deleting ${ids.length} credentials...` : 'Deleting credential...'
+            deleteAllMatching
+                ? `Deleting ${pagination.total} credentials...`
+                : ids.length > 1
+                  ? `Deleting ${ids.length} credentials...`
+                  : 'Deleting credential...'
         );
         try {
-            const response = await passwordGroupService.deleteFirmCredentials(ids);
+            const response = deleteAllMatching
+                ? await passwordGroupService.deleteFirmCredentials([], {
+                    selectAll: true,
+                    groupId: group_id,
+                    search: debouncedSearch,
+                })
+                : await passwordGroupService.deleteFirmCredentials(ids);
             const result = response.data;
             toast.dismiss(loadingToast);
             if (result.success) {
                 toast.success(result.message || 'Credential deleted successfully');
                 fetchGroupFirms();
                 setPendingDelete(null);
-                if (mode === 'bulk') {
-                    setSelectedCredentialIds([]);
-                } else {
+                setSelectedCredentialIds(new Set());
+                setSelectAll(false);
+                setSelectAllAcrossPages(false);
+                if (mode !== 'bulk') {
                     setSelectedCredential(null);
                 }
             } else {
@@ -623,7 +552,7 @@ const PasswordGroupFirms = () => {
             username: credential.credential.username || '',
             password: credential.credential.password || '',
             description: credential.credential.description || '',
-            status: isCredentialActiveStatus(credential.credential.status) ? 'active' : 'inactive',
+            status: isCredentialActiveStatus(credential.credential.status),
         });
         setShowEditModal(true);
         closeActionsMenu();
@@ -642,7 +571,7 @@ const PasswordGroupFirms = () => {
         }
         dropdownAnchorRef.current = buttonElement || null;
         if (buttonElement) {
-            setDropdownCoords(computeActionsMenuCoords(buttonElement));
+            setDropdownCoords(computeActionMenuPosition(buttonElement, { itemCount: ACTION_MENU_ITEM_COUNT }));
         } else {
             setDropdownCoords(null);
         }
@@ -658,54 +587,74 @@ const PasswordGroupFirms = () => {
 
     const handleSelectCredential = (credentialId) => {
         if (!credentialId) return;
-        setSelectedCredentialIds((prev) =>
-            prev.includes(credentialId)
-                ? prev.filter((id) => id !== credentialId)
-                : [...prev, credentialId]
-        );
+        const pageIds = credentials
+            .map((item) => item?.credential?.credential_id)
+            .filter(Boolean);
+        const next = selectAllAcrossPages ? new Set(pageIds) : new Set(selectedCredentialIds);
+        if (selectAllAcrossPages) setSelectAllAcrossPages(false);
+        if (next.has(credentialId)) {
+            next.delete(credentialId);
+        } else {
+            next.add(credentialId);
+        }
+        setSelectedCredentialIds(next);
+        setSelectAll(pageIds.length > 0 && pageIds.every((id) => next.has(id)));
     };
 
     const handleSelectAllCredentials = () => {
-        const allIds = credentials
+        const pageIds = credentials
             .map((item) => item?.credential?.credential_id)
             .filter(Boolean);
-        if (!allIds.length) return;
-        const allSelected =
-            allIds.length > 0 &&
-            allIds.every((id) => selectedCredentialIds.includes(id));
-        if (allSelected) {
-            setSelectedCredentialIds([]);
+        if (!pageIds.length) return;
+        if (selectAll) {
+            setSelectedCredentialIds(new Set());
         } else {
-            setSelectedCredentialIds(allIds);
+            setSelectedCredentialIds(new Set(pageIds));
         }
+        setSelectAllAcrossPages(false);
+        setSelectAll(!selectAll);
     };
 
     useEffect(() => {
-        const validIds = credentials
+        if (selectAllAcrossPages) {
+            setSelectAll(true);
+            return;
+        }
+        const pageIds = credentials
             .map((item) => item?.credential?.credential_id)
             .filter(Boolean);
-        setSelectedCredentialIds((prev) => prev.filter((id) => validIds.includes(id)));
-    }, [credentials]);
+        setSelectAll(pageIds.length > 0 && pageIds.every((id) => selectedCredentialIds.has(id)));
+    }, [credentials, selectedCredentialIds, selectAllAcrossPages]);
 
     useEffect(() => {
-        if (pendingDelete === 'bulk' && selectedCredentialIds.length === 0) {
+        setSelectedCredentialIds(new Set());
+        setSelectAll(false);
+        setSelectAllAcrossPages(false);
+    }, [debouncedSearch, group_id]);
+
+    useEffect(() => {
+        if (pendingDelete === 'bulk' && !selectAllAcrossPages && selectedCredentialIds.size === 0) {
             setPendingDelete(null);
         }
-    }, [pendingDelete, selectedCredentialIds]);
+    }, [pendingDelete, selectedCredentialIds, selectAllAcrossPages]);
 
-    // Reposition actions menu on scroll/resize (menu is portaled + fixed)
     useEffect(() => {
-        if (!activeDropdown || !dropdownAnchorRef.current) return;
+        if (!activeDropdown || !dropdownAnchorRef.current) return undefined;
         const el = dropdownAnchorRef.current;
-        const update = () => setDropdownCoords(computeActionsMenuCoords(el));
+        const update = () => setDropdownCoords(computeActionMenuPosition(el, { itemCount: ACTION_MENU_ITEM_COUNT }));
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') closeActionsMenu();
+        };
         update();
         window.addEventListener('resize', update);
         window.addEventListener('scroll', update, true);
+        document.addEventListener('keydown', handleEscape);
         return () => {
             window.removeEventListener('resize', update);
             window.removeEventListener('scroll', update, true);
+            document.removeEventListener('keydown', handleEscape);
         };
-    }, [activeDropdown]);
+    }, [activeDropdown, closeActionsMenu]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -729,52 +678,29 @@ const PasswordGroupFirms = () => {
         navigate('/staff/office-assistance/password-groups');
     };
 
-    const handleSelectFirm = (firm) => {
-        setAddForm({ ...addForm, firm_id: firm.firm_id || firm.id });
-        setFirmSearchQuery(firm.firm_name || firm.name || '');
-        setFirms([]);
-        setSearchPerformed(false);
-    };
-
-    const handleClearSelectedFirm = () => {
-        setAddForm({ ...addForm, firm_id: '' });
-        setFirmSearchQuery('');
-        setFirms([]);
-        setSearchPerformed(false);
-    };
-
-    // Format date
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        });
-    };
-
     const credentialIdsOnPage = credentials
         .map((item) => item?.credential?.credential_id)
         .filter(Boolean);
-    const selectAllOnPage =
-        credentialIdsOnPage.length > 0 &&
-        credentialIdsOnPage.every((id) => selectedCredentialIds.includes(id));
+    const effectiveSelectedIds = selectAllAcrossPages
+        ? new Set(credentialIdsOnPage)
+        : selectedCredentialIds;
+    const selectedCount = selectAllAcrossPages ? pagination.total : selectedCredentialIds.size;
+    const pageSelectedCount = credentialIdsOnPage.filter((id) => selectedCredentialIds.has(id)).length;
+    const headerIndeterminate =
+        !selectAllAcrossPages &&
+        pageSelectedCount > 0 &&
+        pageSelectedCount < credentialIdsOnPage.length;
 
     const activeActionsItem =
         activeDropdown == null
             ? null
             : credentials.find((c) => c.credential?.credential_id === activeDropdown) ?? null;
-    const portalActionsCredId = activeActionsItem?.credential?.credential_id;
-    const portalActionsRowSelected = Boolean(
-        portalActionsCredId && selectedCredentialIds.includes(portalActionsCredId)
-    );
 
     const deleteConfirmOpen =
         Boolean(pendingDelete) &&
         (pendingDelete === 'single'
             ? Boolean(selectedCredential)
-            : selectedCredentialIds.length > 0);
+            : selectedCount > 0);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
@@ -796,8 +722,8 @@ const PasswordGroupFirms = () => {
                     <div className="h-full flex flex-col">
                         {/* Credentials table (title + toolbar merged above grid) */}
                         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-5">
-                                <div className="flex min-w-0 flex-nowrap items-center justify-between gap-3 overflow-x-auto py-0.5 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] sm:gap-4 md:gap-5">
+                            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-5 overflow-x-hidden">
+                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 overflow-x-hidden sm:flex-nowrap sm:gap-4">
                                     <div className="flex min-w-0 max-w-[min(100%,16rem)] items-center gap-3 sm:max-w-xs md:max-w-sm lg:max-w-md">
                                         <button
                                             type="button"
@@ -812,15 +738,15 @@ const PasswordGroupFirms = () => {
                                         </h1>
                                     </div>
                                     <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-2 sm:gap-3 md:min-w-0 md:pl-2">
-                                        {selectedCredentialIds.length > 0 && (
+                                        {selectedCount > 0 && (
                                             <div className="flex h-10 shrink-0 items-center gap-2 text-sm text-gray-600">
-                                                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">
-                                                    {selectedCredentialIds.length}
+                                                <div className="flex h-8 min-w-8 items-center justify-center rounded-md bg-indigo-100 px-1.5 text-xs font-bold text-indigo-700">
+                                                    {selectedCount}
                                                 </div>
                                                 <span className="hidden sm:inline">selected</span>
                                             </div>
                                         )}
-                                        {selectedCredentialIds.length > 0 && (
+                                        {selectedCount > 0 && (
                                             <button
                                                 type="button"
                                                 onClick={() => setPendingDelete('bulk')}
@@ -843,55 +769,68 @@ const PasswordGroupFirms = () => {
                                             />
                                             <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         </div>
-                                        <motion.button
+                                        <button
                                             type="button"
                                             onClick={() => setShowAddModal(true)}
-                                            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-indigo-700 hover:to-indigo-800"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-700"
                                         >
                                             <FiPlus className="h-4 w-4 shrink-0" />
                                             Add Credentials
-                                        </motion.button>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
+                            {selectAll && pagination.total > credentials.length && (
+                                <div className="border-b border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs text-indigo-800">
+                                    {selectAllAcrossPages ? (
+                                        <>
+                                            All {pagination.total.toLocaleString()} credentials are selected.{' '}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedCredentialIds(new Set());
+                                                    setSelectAll(false);
+                                                    setSelectAllAcrossPages(false);
+                                                }}
+                                                className="font-semibold underline hover:text-indigo-950"
+                                            >
+                                                Clear selection
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            All {credentials.length.toLocaleString()} credentials on this page are selected.{' '}
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectAllAcrossPages(true)}
+                                                className="font-semibold underline hover:text-indigo-950"
+                                            >
+                                                Select all {pagination.total.toLocaleString()} credentials
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead className="bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
                                         <tr>
-                                            <th className="px-4 py-4 text-left align-middle min-w-[7.5rem]">
-                                                <div className="flex items-center gap-2.5">
-                                                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider leading-none">
-                                                        #
-                                                    </span>
+                                            <th className="w-12 p-3 flex-shrink-0">
+                                                <div className="flex justify-center">
                                                     {!loading && credentials.length > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleSelectAllCredentials}
-                                                            className="inline-flex items-center justify-center rounded-md p-0.5 text-slate-600 hover:bg-slate-100/90 hover:text-slate-900"
-                                                            aria-label={selectAllOnPage ? 'Deselect all on this page' : 'Select all on this page'}
-                                                            title={selectAllOnPage ? 'Deselect all on this page' : 'Select all on this page'}
-                                                        >
-                                                            <div
-                                                                className={`relative w-8 h-4 rounded-full transition-colors duration-300 ${selectAllOnPage ? 'bg-indigo-600' : 'bg-gray-300'
-                                                                    }`}
-                                                            >
-                                                                <motion.div
-                                                                    className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow ${selectAllOnPage ? 'left-4' : 'left-0.5'
-                                                                        }`}
-                                                                    layout
-                                                                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                                                />
-                                                                {selectAllOnPage && (
-                                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                                        <FiCheckCircle className="w-1.5 h-1.5 text-white absolute left-1" />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </button>
+                                                        <AnimatedCheckbox
+                                                            checked={selectAll}
+                                                            indeterminate={headerIndeterminate}
+                                                            onChange={handleSelectAllCredentials}
+                                                            ariaLabel="Select all"
+                                                        />
                                                     )}
                                                 </div>
+                                            </th>
+                                            <th className="px-4 py-4 text-left align-middle">
+                                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider leading-none">
+                                                    #
+                                                </span>
                                             </th>
                                             <th className="px-4 py-4 text-left align-middle text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm Details</th>
                                             <th className="px-4 py-4 text-left align-middle text-xs font-semibold text-slate-600 uppercase tracking-wider">Client Details</th>
@@ -905,7 +844,7 @@ const PasswordGroupFirms = () => {
                                             // Skeleton Loading
                                             Array.from({ length: 5 }).map((_, index) => (
                                                 <tr key={index} className="animate-pulse">
-                                                    {Array.from({ length: 6 }).map((_, cellIndex) => (
+                                                    {Array.from({ length: 7 }).map((_, cellIndex) => (
                                                         <td key={cellIndex} className="px-4 py-4">
                                                             <div className="h-4 bg-slate-200 rounded w-full"></div>
                                                         </td>
@@ -914,7 +853,7 @@ const PasswordGroupFirms = () => {
                                             ))
                                         ) : credentials.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="px-4 py-12 text-center">
+                                                <td colSpan="7" className="px-4 py-12 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <div className="p-4 bg-slate-100 rounded-full mb-4">
                                                             <FiEyeOff className="w-8 h-8 text-slate-400" />
@@ -940,42 +879,28 @@ const PasswordGroupFirms = () => {
                                         ) : (
                                             credentials.map((item, index) => {
                                                 const credId = item.credential?.credential_id;
-                                                const isRowSelected = Boolean(credId && selectedCredentialIds.includes(credId));
+                                                const isRowSelected = Boolean(credId && effectiveSelectedIds.has(credId));
                                                 return (
                                                     <motion.tr
                                                         key={credId || index}
                                                         initial={{ opacity: 0 }}
                                                         animate={{ opacity: 1 }}
                                                         transition={{ delay: index * 0.05 }}
-                                                        className={`group transition-all duration-300 ${isRowSelected
-                                                                ? 'bg-indigo-50/50'
-                                                                : 'hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-blue-50/50'
-                                                            }`}
+                                                        className="group border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors"
                                                     >
+                                                        <td className="w-12 p-3 flex-shrink-0">
+                                                            <div className="flex justify-center">
+                                                                <AnimatedCheckbox
+                                                                    checked={isRowSelected}
+                                                                    onChange={() => handleSelectCredential(credId)}
+                                                                    ariaLabel={`Select ${item.firm?.firm_name || 'credential'}`}
+                                                                    disabled={!credId}
+                                                                />
+                                                            </div>
+                                                        </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded text-xs font-medium text-gray-700 shrink-0">
-                                                                    {((pagination.page - 1) * pagination.limit) + index + 1}
-                                                                </div>
-                                                                <motion.button
-                                                                    type="button"
-                                                                    onClick={() => handleSelectCredential(credId)}
-                                                                    className={`relative w-7 h-3.5 rounded-full transition-colors duration-300 shrink-0 ${isRowSelected ? 'bg-indigo-600' : 'bg-gray-300'
-                                                                        }`}
-                                                                    whileTap={{ scale: 0.95 }}
-                                                                >
-                                                                    <motion.div
-                                                                        className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow ${isRowSelected ? 'left-3.5' : 'left-0.5'
-                                                                            }`}
-                                                                        layout
-                                                                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                                                                    />
-                                                                    {isRowSelected && (
-                                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                                            <FiCheckCircle className="w-1.5 h-1.5 text-white absolute left-1" />
-                                                                        </div>
-                                                                    )}
-                                                                </motion.button>
+                                                            <div className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded text-xs font-medium text-gray-700">
+                                                                {((pagination.page - 1) * pagination.limit) + index + 1}
                                                             </div>
                                                         </td>
 
@@ -1080,11 +1005,15 @@ const PasswordGroupFirms = () => {
                                                         <td className="px-4 py-4 whitespace-nowrap text-right">
                                                             <div className="dropdown-container relative">
                                                                 <button
-                                                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"
-                                                                    onClick={(e) => toggleDropdown(item.credential?.credential_id, e.currentTarget)}
-                                                                    title="More actions"
+                                                                    type="button"
+                                                                    aria-label="Actions"
+                                                                    className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-150 border border-slate-200 hover:border-indigo-300"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        toggleDropdown(item.credential?.credential_id, e.currentTarget);
+                                                                    }}
                                                                 >
-                                                                    <FiMoreVertical className="w-5 h-5" />
+                                                                    <FiMoreVertical className="w-4 h-4" />
                                                                 </button>
                                                             </div>
                                                         </td>
@@ -1121,330 +1050,58 @@ const PasswordGroupFirms = () => {
                 </div>
             </div>
 
-            {/* Add Credential Modal — layout per context/modal.md: fixed header/footer, single scrollable body */}
-            <AnimatePresence>
-                {showAddModal && (
-                    <div
-                        className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
-                        onClick={() => {
-                            setShowAddModal(false);
-                            setFirmSearchQuery('');
-                            setFirms([]);
-                            setSearchPerformed(false);
-                            setAddForm({
-                                group_id: group_id,
-                                firm_id: '',
-                                username: '',
-                                password: '',
-                                description: ''
-                            });
-                        }}
-                    >
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
-                            transition={{ duration: 0.2 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-2 sm:my-4 min-h-0 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5 shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiPlus className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-white">Add Firm Credentials</h3>
-                                        <p className="text-xs text-indigo-100 mt-1">Search a firm, then enter credentials</p>
-                                    </div>
-                                </div>
-                            </div>
+            <PasswordGroupAddCredentialsModal
+                open={showAddModal}
+                groupId={group_id}
+                saving={loading}
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => fetchGroupFirms()}
+            />
 
-                            <form
-                                onSubmit={handleAddCredential}
-                                className="flex flex-col flex-1 min-h-0 overflow-hidden"
-                                autoComplete="off"
+            {typeof document !== 'undefined' &&
+                createPortal(
+                    <AnimatePresence>
+                        {showEditModal && selectedCredential ? (
+                            <motion.div
+                                key="pwg-edit-overlay"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
                             >
-                                {/* Nudge some browsers to skip heuristics for a generic "login" form (non-reliable) */}
-                                <div className="h-0 overflow-hidden" aria-hidden="true">
-                                    <input type="text" readOnly tabIndex={-1} autoComplete="off" id="a_off_usr" />
-                                    <input type="password" readOnly tabIndex={-1} autoComplete="off" id="a_off_pw" />
-                                </div>
-                                <div
-                                    className="px-5 py-4 overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                <button
+                                    type="button"
+                                    className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+                                    aria-label="Close"
+                                    onClick={() => setShowEditModal(false)}
+                                />
+                                <motion.div
+                                    role="dialog"
+                                    aria-modal="true"
+                                    initial={{ opacity: 0, scale: 0.96 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.96 }}
+                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                    className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                                    onClick={(e) => e.stopPropagation()}
                                 >
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label
-                                                className="block text-sm font-semibold text-slate-700 mb-2"
-                                                htmlFor="pwg-firm-search-input"
-                                            >
-                                                Search firm <span className="text-red-500">*</span>
-                                            </label>
-
-                                            {addForm.firm_id && (
-                                                <div className="mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <FiCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-                                                        <span className="text-sm font-medium text-indigo-700 truncate">
-                                                            Selected: {firmSearchQuery}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleClearSelectedFirm}
-                                                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium shrink-0"
-                                                    >
-                                                        Change
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            <div className="relative">
-                                                <input
-                                                    id="pwg-firm-search-input"
-                                                    name="pwg_firm_query"
-                                                    type="search"
-                                                    value={firmSearchQuery}
-                                                    onChange={(e) => setFirmSearchQuery(e.target.value)}
-                                                    placeholder={
-                                                        addForm.firm_id
-                                                            ? 'Search for a different firm…'
-                                                            : `Type at least ${FIRM_SEARCH_MIN_CHARS} characters to search…`
-                                                    }
-                                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                                    disabled={!!addForm.firm_id}
-                                                    autoComplete="off"
-                                                />
-                                                <FiSearch className="absolute left-3 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
-                                                {firmsLoading && (
-                                                    <div className="absolute right-3 top-3.5">
-                                                        <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {!addForm.firm_id && (
-                                                <p className="text-xs text-slate-500 mt-2">
-                                                    {firmSearchQuery.length < FIRM_SEARCH_MIN_CHARS
-                                                        ? `Type at least ${FIRM_SEARCH_MIN_CHARS} characters to search for firms`
-                                                        : searchPerformed
-                                                          ? `Found ${firms.length} firm${firms.length !== 1 ? 's' : ''}`
-                                                          : ''}
-                                                </p>
-                                            )}
-
-                                            {!addForm.firm_id && firmSearchQuery.length >= FIRM_SEARCH_MIN_CHARS && (
-                                                <div className="mt-3 max-h-80 sm:max-h-[22rem] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                                                    {firmsLoading ? (
-                                                        <div className="p-6 text-center">
-                                                            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                                                            <p className="text-sm text-slate-600">Searching firms…</p>
-                                                        </div>
-                                                    ) : firms.length > 0 ? (
-                                                        firms.map((firm) => (
-                                                            <div
-                                                                key={firm.firm_id || firm.id}
-                                                                role="button"
-                                                                tabIndex={0}
-                                                                onClick={() => handleSelectFirm(firm)}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter' || e.key === ' ') {
-                                                                        e.preventDefault();
-                                                                        handleSelectFirm(firm);
-                                                                    }
-                                                                }}
-                                                                className="px-3 py-2 border-b border-slate-100 last:border-b-0 cursor-pointer hover:bg-indigo-50/80 transition-colors"
-                                                            >
-                                                                <div className="flex min-w-0 items-center gap-2">
-                                                                    <span
-                                                                        className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-slate-800"
-                                                                        title={firm.firm_name || firm.name || 'Unknown'}
-                                                                    >
-                                                                        {firm.firm_name || firm.name || 'Unknown'}
-                                                                    </span>
-                                                                    <span className="shrink-0 text-[10px] font-medium uppercase leading-none text-slate-500">
-                                                                        {formatTypeLabel(firm.firm_type)}
-                                                                    </span>
-                                                                </div>
-                                                                {(firm.pan_no || firm.client?.name || firm.client?.mobile) && (
-                                                                    <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-left text-[11px] leading-snug text-slate-600">
-                                                                        {firm.pan_no && (
-                                                                            <span>
-                                                                                <span className="text-slate-400">PAN</span> {firm.pan_no}
-                                                                            </span>
-                                                                        )}
-                                                                        {firm.pan_no && (firm.client?.name || firm.client?.mobile) && (
-                                                                            <span className="text-slate-300" aria-hidden>
-                                                                                ·
-                                                                            </span>
-                                                                        )}
-                                                                        {firm.client?.name && (
-                                                                            <span
-                                                                                className="min-w-0 max-w-full truncate"
-                                                                                title={firm.client.name}
-                                                                            >
-                                                                                <span className="text-slate-400">Owner</span>{' '}
-                                                                                {firm.client.name}
-                                                                            </span>
-                                                                        )}
-                                                                        {(firm.client?.name || firm.pan_no) && firm.client?.mobile && (
-                                                                            <span className="text-slate-300" aria-hidden>
-                                                                                ·
-                                                                            </span>
-                                                                        )}
-                                                                        {firm.client?.mobile && (
-                                                                            <span className="inline-flex min-w-0 max-w-full items-center gap-0.5 text-slate-600">
-                                                                                <FiPhone
-                                                                                    className="h-3 w-3 shrink-0 text-slate-400"
-                                                                                    aria-hidden
-                                                                                />
-                                                                                {firm.client.mobile}
-                                                                            </span>
-                                                                        )}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="p-8 text-center">
-                                                            <div className="p-3 bg-slate-100 rounded-full inline-block mb-3">
-                                                                <FiSearch className="w-5 h-5 text-slate-400" />
-                                                            </div>
-                                                            <p className="text-slate-600 font-medium mb-1">No firms found</p>
-                                                            <p className="text-xs text-slate-400">
-                                                                Try a different search term
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <label
-                                                className="block text-sm font-semibold text-slate-700 mb-2"
-                                                htmlFor="pwg-cred-username"
-                                            >
-                                                Username <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                id="pwg-cred-username"
-                                                name="pwg_credential_username"
-                                                type="text"
-                                                value={addForm.username}
-                                                onChange={(e) => setAddForm({ ...addForm, username: e.target.value })}
-                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                                placeholder="Enter username for this group"
-                                                autoComplete="nope"
-                                                data-1p-ignore
-                                                data-lpignore="true"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label
-                                                className="block text-sm font-semibold text-slate-700 mb-2"
-                                                htmlFor="pwg-cred-password"
-                                            >
-                                                Password <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                id="pwg-cred-password"
-                                                name="pwg_credential_secret"
-                                                type="text"
-                                                value={addForm.password}
-                                                onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                                placeholder="Enter password for this group"
-                                                autoComplete="new-password"
-                                                autoCorrect="off"
-                                                autoCapitalize="off"
-                                                data-1p-ignore
-                                                data-lpignore="true"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                                Description
-                                            </label>
-                                            <textarea
-                                                value={addForm.description}
-                                                onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
-                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white resize-y min-h-[80px]"
-                                                placeholder="Optional notes"
-                                                rows={3}
-                                            />
-                                        </div>
-                                    </div>
+                            <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3.5 border-b border-gray-200">
+                                <div className="min-w-0">
+                                    <h3 className="text-base font-bold text-gray-800 m-0">Edit credentials</h3>
+                                    <p className="text-xs text-gray-500 m-0 truncate">{selectedCredential.firm?.firm_name || '—'}</p>
                                 </div>
-
-                                <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3 shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowAddModal(false);
-                                            setFirmSearchQuery('');
-                                            setFirms([]);
-                                            setSearchPerformed(false);
-                                            setAddForm({
-                                                group_id: group_id,
-                                                firm_id: '',
-                                                username: '',
-                                                password: '',
-                                                description: ''
-                                            });
-                                        }}
-                                        className="px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl border border-slate-200 transition-all duration-200"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-indigo-200 hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled={loading || !addForm.firm_id}
-                                    >
-                                        {loading ? 'Adding…' : 'Add credentials'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Edit Credential Modal */}
-            <AnimatePresence>
-                {showEditModal && selectedCredential && (
-                    <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto" onClick={() => setShowEditModal(false)}>
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-3.5 shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiEdit className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-white">Edit Credentials</h3>
-                                        <p className="text-xs text-amber-100 mt-1">Update credential information</p>
-                                    </div>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditModal(false)}
+                                    className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                                >
+                                    <FiX className="w-4 h-4" />
+                                </button>
                             </div>
 
                             <form onSubmit={handleEditCredential} className="flex flex-col flex-1 min-h-0">
-                                <div
-                                    className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                >
+                                <div className={`${MODAL_BODY} space-y-4`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">
                                             Firm
@@ -1502,128 +1159,65 @@ const PasswordGroupFirms = () => {
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">
                                             Status
                                         </label>
-                                        <select
-                                            value={editForm.status}
-                                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm"
-                                        >
-                                            <option value="active">Active</option>
-                                            <option value="inactive">Inactive</option>
-                                        </select>
+                                        <div className="flex items-center gap-2.5">
+                                            <AnimatedCheckbox
+                                                checked={isCredentialActiveStatus(editForm.status)}
+                                                onChange={() =>
+                                                    setEditForm((prev) => ({
+                                                        ...prev,
+                                                        status: !isCredentialActiveStatus(prev.status),
+                                                    }))
+                                                }
+                                                ariaLabel="Active status"
+                                            />
+                                            <span className="text-sm font-medium text-slate-700">
+                                                {isCredentialActiveStatus(editForm.status) ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3 shrink-0">
+                                <div className="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-200 bg-gray-50">
                                     <button
                                         type="button"
                                         onClick={() => setShowEditModal(false)}
-                                        className="px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl border border-slate-200 transition-all duration-200"
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-amber-200 hover:shadow-xl transition-all duration-200 disabled:opacity-50"
+                                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                                         disabled={loading}
                                     >
-                                        {loading ? 'Updating...' : 'Update Credentials'}
+                                        {loading ? 'Updating…' : 'Update'}
                                     </button>
                                 </div>
                             </form>
-                        </motion.div>
-                    </div>
+                                </motion.div>
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>,
+                    document.body,
                 )}
-            </AnimatePresence>
 
-            {/* Delete confirmation (single row or bulk selection) */}
-            <AnimatePresence>
-                {deleteConfirmOpen && (
-                    <div
-                        className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
-                        onClick={() => setPendingDelete(null)}
-                    >
-                        <motion.div
-                            key={pendingDelete}
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="bg-gradient-to-r from-red-600 to-red-700 px-5 py-3.5 shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiTrash className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-white">
-                                            {pendingDelete === 'bulk' ? 'Delete selected credentials' : 'Delete credential'}
-                                        </h3>
-                                        <p className="text-xs text-red-100 mt-1">This action cannot be undone</p>
-                                    </div>
-                                </div>
-                            </div>
+            <ConfirmActionModal
+                isOpen={deleteConfirmOpen}
+                title={pendingDelete === 'bulk' ? 'Delete selected credentials' : 'Delete credential'}
+                heading={
+                    pendingDelete === 'bulk'
+                        ? `Delete ${selectedCount} selected credential${selectedCount === 1 ? '' : 's'}?`
+                        : `Delete credentials for ${selectedCredential?.firm?.firm_name || 'this firm'}?`
+                }
+                message="This permanently removes the selected credential data. You cannot recover it afterwards."
+                confirmLabel={pendingDelete === 'bulk' ? 'Delete selected' : 'Delete'}
+                cancelLabel="Cancel"
+                loading={loading}
+                tone="danger"
+                onCancel={() => setPendingDelete(null)}
+                onConfirm={handleConfirmDelete}
+            />
 
-                            <div
-                                className="px-5 py-4 overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                            >
-                                <div className="flex items-center justify-center mb-5">
-                                    <div className="p-4 bg-red-100 rounded-full">
-                                        <FiTrash className="w-8 h-8 text-red-600" />
-                                    </div>
-                                </div>
-
-                                <p className="text-center text-slate-700 text-sm mb-3">
-                                    {pendingDelete === 'bulk' ? (
-                                        <>
-                                            Only the <span className="font-semibold text-slate-900">{selectedCredentialIds.length}</span>{' '}
-                                            selected credential{selectedCredentialIds.length !== 1 ? 's' : ''} will be deleted. Other credentials in this group are not affected.
-                                        </>
-                                    ) : (
-                                        <>
-                                            Only this credential will be deleted. Other credentials in this group are not affected.
-                                        </>
-                                    )}
-                                </p>
-
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                                    <p className="font-medium text-amber-900 mb-1">Please confirm</p>
-                                    <p className="text-amber-900/90 leading-snug">
-                                        This permanently removes the selected credential data from the server. You cannot recover it afterwards.
-                                    </p>
-                                </div>
-
-                                {pendingDelete === 'single' && selectedCredential && (
-                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 mt-4">
-                                        <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Firm</p>
-                                        <p className="text-sm font-semibold text-slate-800 text-center">
-                                            {selectedCredential.firm?.firm_name || 'N/A'}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3 shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => setPendingDelete(null)}
-                                    className="px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl border border-slate-200 transition-all duration-200"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleConfirmDelete}
-                                    className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-red-200 hover:shadow-xl transition-all duration-200"
-                                >
-                                    {pendingDelete === 'bulk' ? 'Delete selected' : 'Delete credential'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
 
             {/* View Credential Modal */}
             <AnimatePresence>
@@ -1646,88 +1240,87 @@ const PasswordGroupFirms = () => {
                                 key={activeDropdown}
                                 role="menu"
                                 data-password-group-actions-menu
-                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                initial={{ opacity: 0, scale: 0.96 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.96 }}
                                 transition={{ duration: 0.15 }}
+                                className="fixed w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
                                 style={{
-                                    position: 'fixed',
-                                    ...(dropdownCoords.placement === 'up'
-                                        ? {
-                                              bottom: dropdownCoords.bottom,
-                                              left: dropdownCoords.left,
-                                          }
-                                        : {
-                                              top: dropdownCoords.top,
-                                              left: dropdownCoords.left,
-                                          }),
-                                    width: ACTIONS_MENU_WIDTH,
-                                    zIndex: 2147483647,
+                                    top: dropdownCoords.top,
+                                    left: dropdownCoords.left,
+                                    height: 'auto',
                                 }}
-                                className="bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="py-1">
-                                    <button
-                                        type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-                                        onClick={() => {
-                                            handleSelectCredential(portalActionsCredId);
-                                            closeActionsMenu();
-                                        }}
-                                    >
-                                        {portalActionsRowSelected ? (
-                                            <>
-                                                <FiXCircle className="w-4 h-4 mr-3 text-red-500" />
-                                                Deselect
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FiCheckCircle className="w-4 h-4 mr-3 text-emerald-500" />
-                                                Select
-                                            </>
-                                        )}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedCredential(activeActionsItem);
-                                            setShowViewModal(true);
-                                            closeActionsMenu();
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200"
-                                    >
-                                        <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
-                                            <FiEye className="w-3.5 h-3.5 text-blue-600" />
-                                        </div>
-                                        <span>View</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleEditClick(activeActionsItem)}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50 transition-all duration-200"
-                                    >
-                                        <div className="p-1.5 bg-amber-100 rounded-lg mr-3">
-                                            <FiEdit className="w-3.5 h-3.5 text-amber-600" />
-                                        </div>
-                                        <span>Edit</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(
-                                                `Username: ${activeActionsItem.credential?.username || ''}\nPassword: ${activeActionsItem.credential?.password || ''}`
-                                            );
-                                            toast.success('Credential details copied to clipboard');
-                                            closeActionsMenu();
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 transition-all duration-200"
-                                    >
-                                        <div className="p-1.5 bg-purple-100 rounded-lg mr-3">
-                                            <FiCopy className="w-3.5 h-3.5 text-purple-600" />
-                                        </div>
-                                        <span>Copy</span>
-                                    </button>
-                                </div>
+                                <span
+                                    className="absolute w-2.5 h-2.5 bg-white border-slate-200 rotate-45"
+                                    style={{
+                                        left:
+                                            dropdownCoords.placement === 'left' ||
+                                            dropdownCoords.placement === 'right'
+                                                ? undefined
+                                                : `${dropdownCoords.arrowX - 5}px`,
+                                        top:
+                                            dropdownCoords.placement === 'bottom'
+                                                ? '-5px'
+                                                : dropdownCoords.placement === 'top'
+                                                  ? undefined
+                                                  : `${dropdownCoords.arrowY - 5}px`,
+                                        bottom: dropdownCoords.placement === 'top' ? '-5px' : undefined,
+                                        right: dropdownCoords.placement === 'left' ? '-5px' : undefined,
+                                        borderTopWidth: dropdownCoords.placement === 'bottom' ? '1px' : '0',
+                                        borderLeftWidth: dropdownCoords.placement === 'bottom' ? '1px' : '0',
+                                        borderBottomWidth: dropdownCoords.placement === 'top' ? '1px' : '0',
+                                        borderRightWidth:
+                                            dropdownCoords.placement === 'left'
+                                                ? '1px'
+                                                : dropdownCoords.placement === 'right'
+                                                  ? '1px'
+                                                  : '0',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedCredential(activeActionsItem);
+                                        setShowViewModal(true);
+                                        closeActionsMenu();
+                                    }}
+                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <FiEye className="w-4 h-4 text-indigo-600" />
+                                    View
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleEditClick(activeActionsItem)}
+                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <FiEdit className="w-4 h-4 text-blue-600" />
+                                    Edit
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(
+                                            `Username: ${activeActionsItem.credential?.username || ''}\nPassword: ${activeActionsItem.credential?.password || ''}`
+                                        );
+                                        toast.success('Credential details copied to clipboard');
+                                        closeActionsMenu();
+                                    }}
+                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-purple-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <FiCopy className="w-4 h-4 text-purple-600" />
+                                    Copy
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteClick(activeActionsItem)}
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <FiTrash className="w-4 h-4" />
+                                    Delete
+                                </button>
                             </motion.div>
                         )}
                     </AnimatePresence>,

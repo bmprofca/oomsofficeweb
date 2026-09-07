@@ -7,9 +7,18 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import { emailApi } from './emailApi';
+import { emailApi } from '../../pages/broadcast/email/emailApi';
+import EmailModalShell, { EMAIL_MODAL_BODY } from './EmailModalShell';
+import { formatEmailTemplateType } from '../../pages/broadcast/email/emailTemplateTypes';
+import CustomSelect from '../CustomSelect';
+import { optionByValue } from '../../utils/customSelectHelpers';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
+
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
 
 const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -33,8 +42,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
     subject: '',
     html_body: '',
     text_body: '',
-    status: 'active',
-    is_default: 0
+    status: 'inactive',
   });
 
   const editor = useEditor({
@@ -196,13 +204,12 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
       
       setFormData({
         template_id: template.template_id,
-        template_type: template.template_type || '',
+        template_type: formatEmailTemplateType(template.template_type) || '',
         template_name: template.template_name || '',
         subject: template.subject || '',
         html_body: htmlContent,
         text_body: template.text_body || '',
-        status: template.status || 'active',
-        is_default: template.is_default || 0
+        status: template.status || 'inactive',
       });
       
       setHtmlCode(htmlContent);
@@ -219,50 +226,36 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
       
       // Generate preview after setting data
       setTimeout(() => generatePreview(htmlContent), 200);
-    } catch (error) {
-      console.error('Error fetching template details:', error);
+    } catch {
       toast.error('Failed to load template details');
     } finally {
       setLoading(false);
     }
   };
 
-  const getExampleValue = (varName) => {
-    const examples = {
-      'task_name': 'Complete Project Report',
-      'due_date': '2024-12-31',
-      'customer_name': 'John Doe',
-      'invoice_no': 'INV-2024-001',
-      'amount_due': '5,000.00',
-      'days_overdue': '5',
-      'payment_link': 'https://example.com/pay',
-      'contact_number': '+91-9876543210',
-      'user_name': 'John Doe',
-      'company_name': 'Acme Inc.'
-    };
-    return examples[varName] || `[${varName}]`;
+  const getExampleValue = (varName, source = availableVariables) => {
+    const match = (source || []).find((item) => item.name === varName);
+    if (match?.example) return match.example;
+    return `[${varName}]`;
   };
 
   const fetchAvailableVariables = async (templateType) => {
     try {
       const response = await emailApi.getTemplateVariables(templateType);
-      setAvailableVariables(response.data || []);
+      const vars = response?.data?.variables || [];
+      setAvailableVariables(vars);
+      setPreviewData((prev) => {
+        const next = { ...prev };
+        vars.forEach((item) => {
+          if (!next[item.name]) next[item.name] = item.example || `[${item.name}]`;
+        });
+        return next;
+      });
     } catch (error) {
       console.error('Error fetching variables:', error);
-      setAvailableVariables(commonVariables);
+      setAvailableVariables([]);
     }
   };
-
-  const commonVariables = [
-    { name: 'task_name', label: 'Task Name', description: 'Name of the task', example: 'Complete Report', category: 'Task' },
-    { name: 'due_date', label: 'Due Date', description: 'Task due date', example: '2024-12-31', category: 'Task' },
-    { name: 'customer_name', label: 'Customer Name', description: 'Name of the customer', example: 'John Doe', category: 'Customer' },
-    { name: 'invoice_no', label: 'Invoice Number', description: 'Invoice reference number', example: 'INV-2024-001', category: 'Invoice' },
-    { name: 'amount_due', label: 'Amount Due', description: 'Amount to be paid', example: '₹5,000.00', category: 'Payment' },
-    { name: 'contact_number', label: 'Contact Number', description: 'Support contact number', example: '+91-9876543210', category: 'Contact' },
-    { name: 'company_name', label: 'Company Name', description: 'Name of the company', example: 'Acme Inc.', category: 'Company' },
-    { name: 'user_name', label: 'User Name', description: 'Full name of the user', example: 'John Doe', category: 'User' },
-  ];
 
   const resetForm = () => {
     const defaultHtml = getDefaultTemplate();
@@ -275,12 +268,11 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
       subject: '',
       html_body: defaultHtml,
       text_body: '',
-      status: 'active',
-      is_default: 0
+      status: 'inactive',
     });
     setHtmlCode(defaultHtml);
     setVariables(vars);
-    setAvailableVariables(commonVariables);
+    setAvailableVariables([]);
     setIsInitialized(true);
     
     const initialData = {};
@@ -441,12 +433,12 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.template_type.trim()) {
-      toast.error('Template type is required');
+    if (!formData.template_id) {
+      toast.error('Static templates are predefined. Open an existing type to customize it.');
       return;
     }
-    if (!formData.template_name.trim()) {
-      toast.error('Template name is required');
+    if (!formData.template_type.trim()) {
+      toast.error('Template type is required');
       return;
     }
     if (!formData.subject.trim()) {
@@ -460,13 +452,13 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
 
     setLoading(true);
     try {
-      if (formData.template_id) {
-        await emailApi.updateStaticTemplate(formData);
-        toast.success('Static template updated successfully');
-      } else {
-        await emailApi.createStaticTemplate(formData);
-        toast.success('Static template created successfully');
-      }
+      const payload = {
+        ...formData,
+        template_type: formatEmailTemplateType(formData.template_type),
+        template_name: formatEmailTemplateType(formData.template_type) || formData.template_name,
+      };
+      await emailApi.updateStaticTemplate(payload);
+      toast.success('Static template updated successfully');
       onSuccess();
       onHide();
     } catch (e) {
@@ -489,64 +481,42 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
     </button>
   );
 
-  if (!show) return null;
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 py-4">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onHide}></div>
-        
-        <div className="relative bg-white rounded-lg shadow-xl max-w-7xl w-full mx-auto max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+    <EmailModalShell show={show} onHide={onHide} fullScreen>
+          <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-200">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {formData.template_id ? 'Edit Static Template' : 'Create Static Template'}
+                <h3 className="text-base font-semibold text-gray-800">
+                  Customize {formData.template_type || 'Static Template'}
                 </h3>
                 {variables.length > 0 && (
-                  <span className="inline-flex items-center px-2 py-1 mt-1 text-xs bg-blue-100 text-blue-700 rounded">
-                    {variables.length} variable{variables.length !== 1 ? 's' : ''} found
-                  </span>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {variables.length} variable{variables.length !== 1 ? 's' : ''} available
+                  </p>
                 )}
               </div>
-              <button onClick={onHide} className="text-gray-400 hover:text-gray-500">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button type="button" onClick={onHide} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </div>
+          </div>
 
+          <div className={EMAIL_MODAL_BODY} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {/* Form Fields */}
-            <div className="grid grid-cols-1 gap-4 mb-6 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 mb-4 lg:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Template Type *</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Notification Type</label>
                 <input
                   type="text"
                   name="template_type"
                   value={formData.template_type}
-                  onChange={handleChange}
-                  placeholder="e.g., task_create"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-2"
-                  required
+                  readOnly
+                  className="mt-1 block w-full rounded-md border-gray-200 bg-gray-50 text-gray-700 shadow-sm sm:text-sm border px-3 py-2"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Template Name *</label>
-                <input
-                  type="text"
-                  name="template_name"
-                  value={formData.template_name}
-                  onChange={handleChange}
-                  placeholder="e.g., Task Created"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-2"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Subject Line *</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Subject Line *</label>
                 <input
                   type="text"
                   name="subject"
@@ -632,9 +602,15 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                   {/* Variables Panel */}
                   <div className="space-y-4">
                     <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">Available Variables</h4>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Suggested variables</h4>
+                      <p className="text-xs text-gray-500 mb-3">
+                        These keys are filled when this notification is sent. Click to insert.
+                        {formData.template_type === 'Document Share' && ' The shared file is attached to the email automatically.'}
+                      </p>
                       <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {(availableVariables.length > 0 ? availableVariables : commonVariables).map(variable => (
+                        {availableVariables.length === 0 ? (
+                          <p className="text-xs text-gray-400">No suggested variables for this type.</p>
+                        ) : availableVariables.map(variable => (
                           <button
                             key={variable.name}
                             type="button"
@@ -642,7 +618,8 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                             className="w-full text-left px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-blue-50 hover:border-blue-300"
                           >
                             <code className="text-blue-600 font-mono">{`{{${variable.name}}}`}</code>
-                            <p className="text-xs text-gray-500 mt-1">{variable.description}</p>
+                            <p className="text-xs text-gray-700 mt-0.5">{variable.label}</p>
+                            <p className="text-xs text-gray-500">{variable.description}</p>
                           </button>
                         ))}
                       </div>
@@ -651,29 +628,19 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="text-sm font-medium text-gray-900 mb-3">Settings</h4>
                       <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm text-gray-700">Status</label>
-                          <select
-                            name="status"
-                            value={formData.status}
-                            onChange={handleChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-2"
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        </div>
+                        <CustomSelect
+                          label="Status"
+                          options={STATUS_OPTIONS}
+                          value={optionByValue(STATUS_OPTIONS, formData.status)}
+                          onChange={(opt) => setFormData((prev) => ({ ...prev, status: opt?.value || 'inactive' }))}
+                          isClearable={false}
+                          isSearchable={false}
+                          placeholder="Select status"
+                        />
 
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            name="is_default"
-                            checked={formData.is_default === 1}
-                            onChange={handleChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label className="ml-2 text-sm text-gray-700">Set as default</label>
-                        </div>
+                        <p className="text-xs text-gray-500">
+                          Active means this type is used when email is selected on the send notification modal.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -699,7 +666,9 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Variables</label>
                     <div className="bg-gray-50 rounded-lg p-4 h-[calc(100%-2rem)] overflow-y-auto">
-                      {(availableVariables.length > 0 ? availableVariables : commonVariables).map(variable => (
+                      {availableVariables.length === 0 ? (
+                        <p className="text-xs text-gray-400">No suggested variables for this type.</p>
+                      ) : availableVariables.map(variable => (
                         <button
                           key={variable.name}
                           type="button"
@@ -707,7 +676,8 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                           className="w-full text-left px-3 py-2 text-sm bg-white border border-gray-300 rounded-md mb-2 hover:bg-blue-50"
                         >
                           <code className="text-blue-600">{`{{${variable.name}}}`}</code>
-                          <p className="text-xs text-gray-500 mt-1">{variable.description}</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{variable.label}</p>
+                          <p className="text-xs text-gray-500">{variable.description}</p>
                         </button>
                       ))}
                     </div>
@@ -840,28 +810,26 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                 </details>
               </div>
 
-              {/* Actions */}
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={onHide}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {loading ? 'Saving...' : (formData.template_id ? 'Update Template' : 'Create Template')}
-                </button>
-              </div>
             </form>
           </div>
-        </div>
-      </div>
-    </div>
+          <div className="shrink-0 flex justify-end gap-2 px-5 py-2.5 border-t border-gray-200 bg-gray-50">
+            <button
+              type="button"
+              onClick={onHide}
+              className="px-3.5 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleSubmit}
+              className="px-3.5 py-1.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading ? 'Saving...' : (formData.template_id ? 'Update Template' : 'Create Template')}
+            </button>
+          </div>
+    </EmailModalShell>
   );
 };
 

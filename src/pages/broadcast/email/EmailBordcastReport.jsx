@@ -3,41 +3,46 @@ import { Sidebar, Header } from '../../../components/header';
 import {
     FiBarChart2,
     FiTrash2,
-    FiCheckSquare,
-    FiSquare,
     FiClock,
     FiCheckCircle,
     FiXCircle,
     FiPauseCircle,
     FiEye,
     FiRefreshCw,
-    FiCalendar,
-    FiSearch,
     FiFilter,
-    FiDownload,
-    FiHome,
-    FiChevronRight,
-    FiSend
 } from 'react-icons/fi';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import API_BASE_URL from '../../../utils/api-controller';
 import getHeaders from '../../../utils/get-headers';
+import EmailActionMenu from './EmailActionMenu';
+import ConfirmActionModal from '../../../components/ConfirmActionModal';
+import TablePagination from '../../../components/TablePagination';
+import CustomSelect from '../../../components/CustomSelect';
+import { optionByValue } from '../../../utils/customSelectHelpers';
+import AnimatedCheckbox from '../../../components/AnimatedCheckbox';
+import { DateRangePickerField } from '../../../components/PortalDatePicker';
+
+const REPORT_STATUS_OPTIONS = [
+  { value: '', label: 'All Status' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'paused', label: 'Paused' },
+  { value: 'partially_failed', label: 'Partially Failed' },
+];
 
 const BroadcastReport = () => {
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    
-    // Get active tab from URL or default to 'text-message'
-    const urlTab = searchParams.get('tab');
-    const [activeTab, setActiveTab] = useState(urlTab || 'text-message');
-    
+
     // Report states
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -69,7 +74,8 @@ const BroadcastReport = () => {
         search: ''
     });
     const [showFilters, setShowFilters] = useState(false);
-    const [exporting, setExporting] = useState(false);
+    const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -88,26 +94,9 @@ const BroadcastReport = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Update URL when tab changes
-    useEffect(() => {
-        if (urlTab !== activeTab) {
-            const newParams = new URLSearchParams(searchParams);
-            newParams.set('tab', activeTab);
-            setSearchParams(newParams);
-        }
-    }, [activeTab, setSearchParams, searchParams, urlTab]);
-
-    // Set active tab from URL on component mount or when URL changes
-    useEffect(() => {
-        if (urlTab && urlTab !== activeTab) {
-            setActiveTab(urlTab);
-        }
-    }, [urlTab, activeTab]);
-
-    // Load reports based on active tab and filters
     useEffect(() => {
         fetchReports();
-    }, [activeTab, pagination.page_no, filters]);
+    }, [pagination.page_no, pagination.limit, filters]);
 
     useEffect(() => {
         setShowBulkActions(selectedItems.length > 0);
@@ -127,17 +116,7 @@ const BroadcastReport = () => {
                 ...(filters.search && { search: filters.search })
             });
 
-            let endpoint = '';
-            switch (activeTab) {
-                case 'text-message':
-                    endpoint = `${API_BASE_URL}/broadcast/email/email/report-list?${params}`;
-                    break;
-                case 'whatsapp':
-                    endpoint = `${API_BASE_URL}/whatsapp/broadcast/report-list?${params}`;
-                    break;
-                default:
-                    endpoint = `${API_BASE_URL}/email/broadcast/report-list?${params}`;
-            }
+            const endpoint = `${API_BASE_URL}/broadcast/email/email/report-list?${params}`;
 
             const response = await fetch(endpoint, { headers });
             const result = await response.json();
@@ -164,36 +143,21 @@ const BroadcastReport = () => {
     };
 
     
-    const handleTabChange = (tab) => {
-        setActiveTab(tab);
-    };
-
     // Handle bulk delete
-    const handleBulkDelete = async () => {
+    const requestBulkDelete = () => {
         if (selectedItems.length === 0) {
             toast.error('Please select at least one item to delete');
             return;
         }
+        setConfirmBulkDelete(true);
+    };
 
-        if (!window.confirm(`Are you sure you want to delete ${selectedItems.length} selected broadcast(s)? This action cannot be undone.`)) {
-            return;
-        }
-
+    const handleBulkDelete = async () => {
+        setBulkDeleting(true);
         setLoading(true);
         try {
             const headers = await getHeaders();
-            let endpoint = '';
-            
-            switch (activeTab) {
-                case 'text-message':
-                    endpoint = `${API_BASE_URL}/email/broadcast/bulk-delete`;
-                    break;
-                case 'whatsapp':
-                    endpoint = `${API_BASE_URL}/whatsapp/broadcast/bulk-delete`;
-                    break;
-                default:
-                    endpoint = `${API_BASE_URL}/email/broadcast/bulk-delete`;
-            }
+            const endpoint = `${API_BASE_URL}/email/broadcast/bulk-delete`;
 
             const response = await fetch(endpoint, {
                 method: 'DELETE',
@@ -218,63 +182,14 @@ const BroadcastReport = () => {
             toast.error('Failed to delete broadcasts');
         } finally {
             setLoading(false);
+            setBulkDeleting(false);
+            setConfirmBulkDelete(false);
         }
     };
 
     // Handle view details
-    const handleViewDetails = async (broadcastId, status) => {
-        navigate(`/batch-report?broadcast_id=${broadcastId}&status=${status}&tab=${activeTab}`);
-    };
-
-    // Handle export
-    const handleExport = async (format = 'csv') => {
-        setExporting(true);
-        try {
-            const headers = await getHeaders();
-            const params = new URLSearchParams({
-                start_date: filters.start_date || '2024-01-01',
-                end_date: filters.end_date || new Date().toISOString().split('T')[0],
-                format
-            });
-
-            let endpoint = '';
-            switch (activeTab) {
-                case 'text-message':
-                    endpoint = `${API_BASE_URL}/email/analytics/export?${params}`;
-                    break;
-                case 'whatsapp':
-                    endpoint = `${API_BASE_URL}/whatsapp/analytics/export?${params}`;
-                    break;
-                default:
-                    endpoint = `${API_BASE_URL}/email/analytics/export?${params}`;
-            }
-
-            if (format === 'csv') {
-                window.open(endpoint, '_blank');
-            } else {
-                const response = await fetch(endpoint, { headers });
-                const result = await response.json();
-                if (result.success) {
-                    // Download JSON as file
-                    const dataStr = JSON.stringify(result.data, null, 2);
-                    const blob = new Blob([dataStr], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `broadcast_report_${new Date().toISOString().split('T')[0]}.json`;
-                    link.click();
-                    URL.revokeObjectURL(url);
-                    toast.success('Export completed successfully');
-                } else {
-                    toast.error(result.message || 'Export failed');
-                }
-            }
-        } catch (error) {
-            console.error('Export error:', error);
-            toast.error('Failed to export data');
-        } finally {
-            setExporting(false);
-        }
+    const handleViewDetails = (broadcastId) => {
+        navigate(`/broadcast/email/details/${broadcastId}`);
     };
 
     // Handle item selection
@@ -364,6 +279,20 @@ const BroadcastReport = () => {
         </div>
     );
 
+    const ReportTableSkeleton = () => (
+        <>
+            {Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i} className="border-b border-gray-100">
+                    {Array.from({ length: 11 }).map((_, c) => (
+                        <td key={c} className="p-3">
+                            <div className="h-3 bg-gray-200 rounded animate-pulse mx-auto" style={{ width: c === 2 ? 120 : 48 }} />
+                        </td>
+                    ))}
+                </tr>
+            ))}
+        </>
+    );
+
     // Filter panel
     const FilterPanel = () => (
         <motion.div
@@ -372,41 +301,41 @@ const BroadcastReport = () => {
             exit={{ opacity: 0, height: 0 }}
             className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200"
         >
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input
-                        type="date"
-                        value={filters.start_date}
-                        onChange={(e) => handleFilterChange('start_date', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date range</label>
+                    <DateRangePickerField
+                        value={{ start: filters.start_date, end: filters.end_date }}
+                        onChange={(range) => {
+                            setFilters((prev) => ({
+                                ...prev,
+                                start_date: range?.start || '',
+                                end_date: range?.end || '',
+                            }));
+                            setPagination((prev) => ({ ...prev, page_no: 1 }));
+                        }}
+                        placeholder="Select date range"
+                        mode="range"
+                        initialTab="quick"
+                        defaultQuickKey="tm"
+                        quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                        showRangeHint={false}
+                        showResetButton
+                        truncateRangeLabel={false}
+                        buttonClassName="w-full min-w-0 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:border-indigo-400 focus:outline-none"
+                        wrapperClassName="w-full min-w-0"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <input
-                        type="date"
-                        value={filters.end_date}
-                        onChange={(e) => handleFilterChange('end_date', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    <CustomSelect
+                        label="Status"
+                        options={REPORT_STATUS_OPTIONS}
+                        value={optionByValue(REPORT_STATUS_OPTIONS, filters.status) || REPORT_STATUS_OPTIONS[0]}
+                        onChange={(opt) => handleFilterChange('status', opt?.value || '')}
+                        isClearable={false}
+                        isSearchable={false}
+                        placeholder="All Status"
                     />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                        value={filters.status}
-                        onChange={(e) => handleFilterChange('status', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    >
-                        <option value="">All Status</option>
-                        <option value="completed">Completed</option>
-                        <option value="processing">Processing</option>
-                        <option value="scheduled">Scheduled</option>
-                        <option value="failed">Failed</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="paused">Paused</option>
-                        <option value="partially_failed">Partially Failed</option>
-                    </select>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -453,28 +382,7 @@ const BroadcastReport = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col px-4 sm:px-6 md:px-8 pt-6">
-                    {/* Breadcrumbs */}
-                    <div className="mb-4">
-                      <nav className="flex items-center text-sm text-gray-600">
-                        <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                          <FiHome className="w-4 h-4" />
-                          <span>Dashboard</span>
-                        </Link>
-                        <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                        <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                          <FiSend className="w-4 h-4" />
-                          <span>Broadcast</span>
-                        </Link>
-                        <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                        <Link to="/broadcast/email" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                          <span>Email</span>
-                        </Link>
-                        <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                        <span className="text-gray-900 font-medium">Reports</span>
-                      </nav>
-                    </div>
-
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
                     <motion.div 
                         className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mb-6"
                         initial={{ opacity: 0, y: 20 }}
@@ -507,27 +415,12 @@ const BroadcastReport = () => {
                                         <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                                         Refresh
                                     </button>
-                                    <button
-                                        onClick={() => handleExport('csv')}
-                                        disabled={exporting}
-                                        className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                                    >
-                                        <FiDownload className="w-4 h-4" />
-                                        {exporting ? 'Exporting...' : 'Export'}
-                                    </button>
                                 </div>
                             </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6">
-                            <div className="max-w-7xl mx-auto">
-                                {/* Tabs */}
-                                <div className="mb-6">
-                                    <div className="border-b border-gray-200">
-                                        
-                                    </div>
-                                </div>
-
+                            <div>
                                 {/* Filter Panel */}
                                 <AnimatePresence>
                                     {showFilters && <FilterPanel />}
@@ -650,25 +543,21 @@ const BroadcastReport = () => {
                                                     <th className="text-center p-3 font-medium text-gray-700">Paused</th>
                                                     <th className="text-center p-3 font-medium text-gray-700">Status</th>
                                                     <th className="text-center p-3 font-medium text-gray-700">Actions</th>
-                                                    <th className="text-center p-3 font-medium text-gray-700">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectAll}
-                                                            onChange={handleSelectAll}
-                                                            className="form-check-input h-4 w-4 text-blue-600 rounded border-gray-300"
-                                                        />
+                                                    <th className="text-center p-3 font-medium text-gray-700 w-12">
+                                                        <div className="flex justify-center">
+                                                            <AnimatedCheckbox
+                                                                checked={selectAll}
+                                                                indeterminate={selectedItems.length > 0 && selectedItems.length < reports.length}
+                                                                onChange={handleSelectAll}
+                                                                ariaLabel="Select all"
+                                                            />
+                                                        </div>
                                                     </th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {loading ? (
-                                                    <tr>
-                                                        <td colSpan="11" className="text-center py-8">
-                                                            <div className="flex justify-center items-center">
-                                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
+                                                    <ReportTableSkeleton />
                                                 ) : reports.length === 0 ? (
                                                     <tr>
                                                         <td colSpan="11" className="text-center py-8 text-gray-500">
@@ -690,7 +579,7 @@ const BroadcastReport = () => {
                                                             <td className="p-3 text-center font-semibold">{report.total}</td>
                                                             <td className="p-3 text-center">
                                                                 <button
-                                                                    onClick={() => handleViewDetails(report.broadcast_id, 'pending')}
+                                                                    onClick={() => handleViewDetails(report.broadcast_id)}
                                                                     className="text-yellow-600 hover:text-yellow-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
                                                                 >
                                                                     <FiClock className="w-4 h-4" />
@@ -699,7 +588,7 @@ const BroadcastReport = () => {
                                                             </td>
                                                             <td className="p-3 text-center">
                                                                 <button
-                                                                    onClick={() => handleViewDetails(report.broadcast_id, 'sent')}
+                                                                    onClick={() => handleViewDetails(report.broadcast_id)}
                                                                     className="text-green-600 hover:text-green-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
                                                                 >
                                                                     <FiCheckCircle className="w-4 h-4" />
@@ -708,7 +597,7 @@ const BroadcastReport = () => {
                                                             </td>
                                                             <td className="p-3 text-center">
                                                                 <button
-                                                                    onClick={() => handleViewDetails(report.broadcast_id, 'failed')}
+                                                                    onClick={() => handleViewDetails(report.broadcast_id)}
                                                                     className="text-red-600 hover:text-red-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
                                                                 >
                                                                     <FiXCircle className="w-4 h-4" />
@@ -717,7 +606,7 @@ const BroadcastReport = () => {
                                                             </td>
                                                             <td className="p-3 text-center">
                                                                 <button
-                                                                    onClick={() => handleViewDetails(report.broadcast_id, 'paused')}
+                                                                    onClick={() => handleViewDetails(report.broadcast_id)}
                                                                     className="text-blue-600 hover:text-blue-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
                                                                 >
                                                                     <FiPauseCircle className="w-4 h-4" />
@@ -730,21 +619,20 @@ const BroadcastReport = () => {
                                                                 </span>
                                                             </td>
                                                             <td className="p-3 text-center">
-                                                                <button
-                                                                    onClick={() => handleViewDetails(report.broadcast_id, 'all')}
-                                                                    className="text-blue-600 hover:text-blue-800 p-1"
-                                                                    title="View Details"
-                                                                >
-                                                                    <FiEye className="w-5 h-5" />
-                                                                </button>
+                                                                <EmailActionMenu
+                                                                    items={[
+                                                                        { label: 'View Details', icon: FiEye, onClick: () => handleViewDetails(report.broadcast_id) },
+                                                                    ]}
+                                                                />
                                                             </td>
                                                             <td className="p-3 text-center">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedItems.includes(report.broadcast_id)}
-                                                                    onChange={() => handleItemSelect(report.broadcast_id)}
-                                                                    className="form-check-input h-4 w-4 text-blue-600 rounded border-gray-300"
-                                                                />
+                                                                <div className="flex justify-center">
+                                                                    <AnimatedCheckbox
+                                                                        checked={selectedItems.includes(report.broadcast_id)}
+                                                                        onChange={() => handleItemSelect(report.broadcast_id)}
+                                                                        ariaLabel={`Select ${report.template || 'broadcast'}`}
+                                                                    />
+                                                                </div>
                                                             </td>
                                                         </motion.tr>
                                                     ))
@@ -755,30 +643,16 @@ const BroadcastReport = () => {
 
                                     {/* Pagination */}
                                     {!loading && reports.length > 0 && (
-                                        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-                                            <div className="text-sm text-gray-700">
-                                                Showing {((pagination.page_no - 1) * pagination.limit) + 1} to {Math.min(pagination.page_no * pagination.limit, pagination.total)} of {pagination.total} entries
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => setPagination(prev => ({ ...prev, page_no: prev.page_no - 1 }))}
-                                                    disabled={!pagination.has_prev}
-                                                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    Previous
-                                                </button>
-                                                <span className="px-3 py-1 text-sm text-gray-700">
-                                                    Page {pagination.page_no} of {pagination.total_pages}
-                                                </span>
-                                                <button
-                                                    onClick={() => setPagination(prev => ({ ...prev, page_no: prev.page_no + 1 }))}
-                                                    disabled={!pagination.has_next}
-                                                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    Next
-                                                </button>
-                                            </div>
-                                        </div>
+                                        <TablePagination
+                                            page={pagination.page_no}
+                                            limit={pagination.limit}
+                                            total={pagination.total}
+                                            totalPages={pagination.total_pages}
+                                            rowOptions={[10, 20, 50, 100]}
+                                            defaultRows={20}
+                                            onPageChange={(page) => setPagination((prev) => ({ ...prev, page_no: page }))}
+                                            onLimitChange={(limit) => setPagination((prev) => ({ ...prev, limit, page_no: 1 }))}
+                                        />
                                     )}
                                 </motion.div>
                             </div>
@@ -799,7 +673,7 @@ const BroadcastReport = () => {
                         <div className="flex flex-col items-center space-y-3">
                             <div className="flex space-x-3">
                                 <motion.button
-                                    onClick={handleBulkDelete}
+                                    onClick={requestBulkDelete}
                                     className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded hover:from-red-700 hover:to-red-800 transition-colors flex items-center gap-2 text-sm"
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
@@ -808,19 +682,31 @@ const BroadcastReport = () => {
                                     Delete ({selectedItems.length})
                                 </motion.button>
                             </div>
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
+                            <div className="flex items-center gap-2">
+                                <AnimatedCheckbox
                                     checked={selectAll}
+                                    indeterminate={selectedItems.length > 0 && selectedItems.length < reports.length}
                                     onChange={handleSelectAll}
-                                    className="form-check-input h-4 w-4 text-blue-600 rounded border-gray-300 mr-2"
+                                    ariaLabel="Select all"
                                 />
-                                <label className="text-sm text-gray-600">Select All</label>
+                                <span className="text-sm text-gray-600">Select All</span>
                             </div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <ConfirmActionModal
+                isOpen={confirmBulkDelete}
+                title="Delete broadcasts"
+                heading="Delete selected broadcasts?"
+                message={`This will permanently delete ${selectedItems.length} selected broadcast(s). This action cannot be undone.`}
+                confirmLabel="Delete"
+                loading={bulkDeleting}
+                tone="danger"
+                onCancel={() => { if (!bulkDeleting) setConfirmBulkDelete(false); }}
+                onConfirm={handleBulkDelete}
+            />
         </div>
     );
 };

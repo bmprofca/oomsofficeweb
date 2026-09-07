@@ -1,27 +1,70 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { useNavigate, Link } from 'react-router-dom';
 import { Header, Sidebar } from '../../../components/header';
-import EmailConfigFormModal from './EmailConfigFormModal';
+import EmailConfigFormModal from '../../../components/Modals/EmailConfigFormModal';
+import EmailActionMenu from './EmailActionMenu';
 import { emailApi, normalizeList, normalizePagination } from './emailApi';
+import TablePagination from '../../../components/TablePagination';
 import { 
   FiPlus, 
   FiEdit, 
   FiMail, 
-  FiStar, 
   FiPower, 
-  FiMenu,
-  FiChevronLeft,
-  FiChevronRight,
-  FiServer,
   FiDatabase,
   FiCalendar,
   FiAtSign,
-  FiHome,
-  FiSend,
-  FiLock
+  FiLock,
+  FiTrash2
 } from 'react-icons/fi';
 import { useUserPermissions } from '../../../utils/permission-helper';
+import ConfirmActionModal from '../../../components/ConfirmActionModal';
+
+const ConfigTableSkeleton = () => (
+  <>
+    <div className="block lg:hidden">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="border-b border-slate-200 p-4 animate-pulse">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="h-8 w-8 rounded-lg bg-slate-200" />
+              <div className="space-y-2">
+                <div className="h-3 w-32 rounded bg-slate-200" />
+                <div className="h-2.5 w-24 rounded bg-slate-100" />
+              </div>
+            </div>
+            <div className="h-8 w-8 rounded-lg bg-slate-200" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="h-8 rounded bg-slate-100" />
+            <div className="h-8 rounded bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="hidden lg:block overflow-x-auto">
+      <table className="w-full min-w-[700px]">
+        <thead className="bg-slate-50 border-b border-slate-200">
+          <tr>
+            {['#', 'Name', 'Host', 'Port', 'From Email', 'Status', 'Create Date', 'Actions'].map((h) => (
+              <th key={h} className="p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <tr key={i} className="animate-pulse">
+              {Array.from({ length: 8 }).map((_, c) => (
+                <td key={c} className="px-4 py-3">
+                  <div className="h-3 rounded bg-slate-200" style={{ width: c === 0 ? 140 : 72 }} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </>
+);
 
 const EmailConfigList = () => {
   const { check } = useUserPermissions();
@@ -32,12 +75,14 @@ const EmailConfigList = () => {
   const [pagination, setPagination] = useState({ page_no: 1, limit: 10, total: 0, total_pages: 1 });
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null);
+  const [testingId, setTestingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const fetchData = async (page = pagination.page_no) => {
+  const fetchData = async (page = pagination.page_no, limit = pagination.limit) => {
     setLoading(true);
     try {
-      const res = await emailApi.listConfigs({ page_no: page, limit: pagination.limit });
+      const res = await emailApi.listConfigs({ page_no: page, limit });
       setRows(normalizeList(res?.data));
       setPagination(normalizePagination(res?.pagination));
     } catch (e) {
@@ -55,24 +100,15 @@ const EmailConfigList = () => {
       await emailApi.changeConfigStatus({ config_id: row.config_id, status: row.status === 'active' ? 'inactive' : 'active' });
       toast.success('Status updated successfully');
       fetchData();
-      setOpenMenuId(null);
     } catch (e) { 
       toast.error(e?.response?.data?.message || 'Failed to update status'); 
     }
   };
 
-  const setDefault = async (row) => {
-    try {
-      await emailApi.setDefaultConfig({ config_id: row.config_id });
-      toast.success('Default configuration updated');
-      fetchData();
-      setOpenMenuId(null);
-    } catch (e) { 
-      toast.error(e?.response?.data?.message || 'Failed to set default'); 
-    }
-  };
-
   const testSmtp = async (row) => {
+    if (testingId) return;
+    setTestingId(row.config_id);
+    const toastId = toast.loading('Testing SMTP connection…');
     try {
       await emailApi.testConfig({
         host: row.host,
@@ -81,19 +117,40 @@ const EmailConfigList = () => {
         username: row.username || row.smtp_username,
         password: row.password,
       });
-      toast.success('SMTP connection test successful');
-      setOpenMenuId(null);
+      toast.success('SMTP connection test successful', { id: toastId });
     } catch (e) { 
-      toast.error(e?.response?.data?.message || 'SMTP test failed'); 
+      toast.error(e?.response?.data?.message || 'SMTP test failed', { id: toastId });
+    } finally {
+      setTestingId(null);
     }
   };
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+  const confirmDelete = async () => {
+    if (!deleteTarget?.config_id) return;
+    setDeleting(true);
+    try {
+      await emailApi.deleteConfig({ config_id: deleteTarget.config_id });
+      toast.success('SMTP config deleted');
+      setDeleteTarget(null);
+      fetchData();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to delete SMTP config');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const configMenuItems = (row) => [
+    { label: 'Edit', icon: FiEdit, onClick: () => { setEditData(row); setShowModal(true); } },
+    {
+      label: testingId === row.config_id ? 'Testing…' : 'Test SMTP',
+      icon: FiMail,
+      disabled: Boolean(testingId),
+      onClick: () => testSmtp(row),
+    },
+    { label: row.status === 'active' ? 'Deactivate' : 'Activate', icon: FiPower, warning: true, onClick: () => updateStatus(row) },
+    { label: 'Delete', icon: FiTrash2, danger: true, onClick: () => setDeleteTarget(row) },
+  ];
 
   if (!check('broadcast_config_edit')) {
     return (
@@ -114,99 +171,63 @@ const EmailConfigList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gray-50">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       
-      <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="p-4 md:p-6 lg:p-8">
-          {/* Breadcrumbs */}
-          <div className="mb-4">
-            <nav className="flex items-center text-sm text-gray-600">
-              <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                <FiHome className="w-4 h-4" />
-                <span>Dashboard</span>
-              </Link>
-              <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-              <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                <FiSend className="w-4 h-4" />
-                <span>Broadcast</span>
-              </Link>
-              <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-              <span className="text-gray-900 font-medium">SMTP Configs</span>
-            </nav>
-          </div>
-
-          {/* Header Section */}
-          <div className="mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                  SMTP Configuration
-                </h1>
-                <p className="text-slate-500 mt-1 text-sm">
-                  Manage and monitor your email server configurations
-                </p>
-              </div>
-              <button
-                onClick={() => { setEditData(null); setShowModal(true); }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 text-sm"
-              >
-                <FiPlus className="w-4 h-4" />
-                Add New Configuration
-              </button>
-            </div>
-          </div>
-
-          {/* Main Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-            {/* Card Header */}
-            <div className="px-4 md:px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <FiServer className="w-4 h-4 text-blue-600" />
-                </div>
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base md:text-lg font-semibold text-slate-800">Email Configurations</h2>
-                  <p className="text-xs md:text-sm text-slate-500 mt-0.5">Configure SMTP servers for reliable email delivery</p>
+                  <h1 className="text-base md:text-lg font-bold text-gray-800">SMTP Configuration</h1>
+                  <p className="text-xs text-gray-500 mt-0.5">The active config is used for all branch emails</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setEditData(null); setShowModal(true); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
+                >
+                  <FiPlus className="w-4 h-4" />
+                  Add
+                </button>
               </div>
             </div>
 
             {/* Content */}
             <div className="p-0">
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-16">
-                  <div className="relative">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                  </div>
-                  <p className="mt-4 text-slate-500 font-medium">Loading configurations...</p>
-                </div>
+                <ConfigTableSkeleton />
               ) : (
                 <>
                   {rows.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 px-4">
-                      <div className="p-4 bg-slate-100 rounded-full mb-4">
-                        <FiDatabase className="w-10 h-10 text-slate-400" />
+                    <div className="flex flex-col items-center justify-center py-12 px-4">
+                      <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                        <FiDatabase className="w-7 h-7 text-gray-400" />
                       </div>
-                      <p className="text-slate-600 text-center font-medium">No SMTP configs found</p>
-                      <p className="text-slate-400 text-sm text-center mt-1">Get started by creating your first configuration</p>
+                      <p className="text-gray-500 font-medium text-sm">No SMTP configs found</p>
+                      <p className="text-gray-400 text-xs mt-1">Add your first configuration to start sending</p>
                       <button
+                        type="button"
                         onClick={() => { setEditData(null); setShowModal(true); }}
-                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium rounded-lg transition-colors duration-200 text-sm"
+                        className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
                       >
                         <FiPlus className="w-4 h-4" />
-                        Create Configuration
+                        Add
                       </button>
                     </div>
                   ) : (
                     <>
                       {/* Responsive Grid View for Mobile, Table View for Desktop */}
                       <div className="block lg:hidden">
-                        {rows.map((row) => (
+                        {rows.map((row, index) => (
                           <div key={row.config_id} className="border-b border-slate-200 p-4 hover:bg-slate-50 transition-colors">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2 flex-1">
+                                <span className="text-xs tabular-nums text-slate-400 w-5">
+                                  {((pagination.page_no - 1) * pagination.limit) + index + 1}
+                                </span>
                                 <div className="p-1.5 bg-blue-50 rounded-lg">
                                   <FiMail className="w-4 h-4 text-blue-600" />
                                 </div>
@@ -215,52 +236,7 @@ const EmailConfigList = () => {
                                   <p className="text-xs text-slate-500 font-mono">{row.host}:{row.port}</p>
                                 </div>
                               </div>
-                              <div className="relative">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(openMenuId === row.config_id ? null : row.config_id);
-                                  }}
-                                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                >
-                                  <FiMenu className="w-4 h-4 text-slate-600" />
-                                </button>
-                                {openMenuId === row.config_id && (
-                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999]">
-                                    <div className="py-1">
-                                      <button
-                                        onClick={() => { setEditData(row); setShowModal(true); }}
-                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3"
-                                      >
-                                        <FiEdit className="w-4 h-4" />
-                                        Edit
-                                      </button>
-                                      <button
-                                        onClick={() => testSmtp(row)}
-                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3"
-                                      >
-                                        <FiMail className="w-4 h-4" />
-                                        Test SMTP
-                                      </button>
-                                      <button
-                                        onClick={() => setDefault(row)}
-                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3"
-                                      >
-                                        <FiStar className="w-4 h-4" />
-                                        Set Default
-                                      </button>
-                                      <div className="border-t border-slate-100 my-1"></div>
-                                      <button
-                                        onClick={() => updateStatus(row)}
-                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600 flex items-center gap-3"
-                                      >
-                                        <FiPower className="w-4 h-4" />
-                                        {row.status === 'active' ? 'Deactivate' : 'Activate'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                              <EmailActionMenu items={configMenuItems(row)} />
                             </div>
                             <div className="grid grid-cols-2 gap-3 text-sm">
                               <div>
@@ -300,30 +276,28 @@ const EmailConfigList = () => {
                         <table className="w-full min-w-[700px]">
                           <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Host</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Port</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">From Email</th>
-                              <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Create Date</th>
-                              <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                              <th className="p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide w-12">#</th>
+                              <th className="p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">Name</th>
+                              <th className="p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">Host</th>
+                              <th className="p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">Port</th>
+                              <th className="p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">From Email</th>
+                              <th className="p-3 text-center text-[11px] font-bold text-gray-700 uppercase tracking-wide">Status</th>
+                              <th className="p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">Create Date</th>
+                              <th className="p-3 text-center text-[11px] font-bold text-gray-700 uppercase tracking-wide">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {rows.map((row) => (
+                            {rows.map((row, index) => (
                               <tr key={row.config_id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-3 text-xs tabular-nums text-slate-500">
+                                  {((pagination.page_no - 1) * pagination.limit) + index + 1}
+                                </td>
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
                                     <div className="p-1.5 bg-blue-50 rounded-lg">
                                       <FiMail className="w-3.5 h-3.5 text-blue-600" />
                                     </div>
                                     <span className="text-sm font-medium text-slate-900">{row.config_name}</span>
-                                    {row.is_default && (
-                                      <span className="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                                        <FiStar className="w-3 h-3 fill-current" />
-                                        Default
-                                      </span>
-                                    )}
                                   </div>
                                 </td>
                                 <td className="px-4 py-3">
@@ -360,53 +334,7 @@ const EmailConfigList = () => {
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                  <div className="relative">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setOpenMenuId(openMenuId === row.config_id ? null : row.config_id);
-                                      }}
-                                      className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center"
-                                    >
-                                      <FiMenu className="w-4 h-4 text-slate-600" />
-                                    </button>
-                                    
-                                    {openMenuId === row.config_id && (
-                                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999]">
-                                        <div className="py-1">
-                                          <button
-                                            onClick={() => { setEditData(row); setShowModal(true); }}
-                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3"
-                                          >
-                                            <FiEdit className="w-4 h-4" />
-                                            Edit
-                                          </button>
-                                          <button
-                                            onClick={() => testSmtp(row)}
-                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3"
-                                          >
-                                            <FiMail className="w-4 h-4" />
-                                            Test SMTP
-                                          </button>
-                                          <button
-                                            onClick={() => setDefault(row)}
-                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-3"
-                                          >
-                                            <FiStar className="w-4 h-4" />
-                                            Set Default
-                                          </button>
-                                          <div className="border-t border-slate-100 my-1"></div>
-                                          <button
-                                            onClick={() => updateStatus(row)}
-                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600 flex items-center gap-3"
-                                          >
-                                            <FiPower className="w-4 h-4" />
-                                            {row.status === 'active' ? 'Deactivate' : 'Activate'}
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
+                                  <EmailActionMenu items={configMenuItems(row)} />
                                 </td>
                               </tr>
                             ))}
@@ -414,39 +342,19 @@ const EmailConfigList = () => {
                         </table>
                       </div>
 
-                      {/* Pagination */}
-                      <div className="px-4 md:px-6 py-4 border-t border-slate-200 bg-slate-50">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div className="text-xs md:text-sm text-slate-600">
-                            Showing <span className="font-semibold text-slate-800">{rows.length}</span> of{' '}
-                            <span className="font-semibold text-slate-800">{pagination.total}</span> configurations
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => fetchData(pagination.page_no - 1)}
-                              disabled={pagination.page_no <= 1}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs md:text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                              <FiChevronLeft className="w-3.5 h-3.5" />
-                              Previous
-                            </button>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-slate-300">
-                              <span className="text-xs md:text-sm text-slate-600">Page</span>
-                              <span className="text-xs md:text-sm font-semibold text-slate-800">{pagination.page_no}</span>
-                              <span className="text-xs md:text-sm text-slate-600">of</span>
-                              <span className="text-xs md:text-sm font-semibold text-slate-800">{pagination.total_pages}</span>
-                            </div>
-                            <button
-                              onClick={() => fetchData(pagination.page_no + 1)}
-                              disabled={pagination.page_no >= pagination.total_pages}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs md:text-sm font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                              Next
-                              <FiChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <TablePagination
+                        page={pagination.page_no}
+                        limit={pagination.limit}
+                        total={pagination.total}
+                        totalPages={pagination.total_pages}
+                        rowOptions={[10, 20, 50, 100]}
+                        defaultRows={10}
+                        onPageChange={(page) => fetchData(page)}
+                        onLimitChange={(limit) => {
+                          setPagination((p) => ({ ...p, limit, page_no: 1 }));
+                          fetchData(1, Number(limit));
+                        }}
+                      />
                     </>
                   )}
                 </>
@@ -457,6 +365,21 @@ const EmailConfigList = () => {
       </div>
 
       <EmailConfigFormModal show={showModal} onHide={() => setShowModal(false)} editData={editData} onSuccess={() => fetchData()} />
+      <ConfirmActionModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete SMTP"
+        heading={deleteTarget?.status === 'active' ? 'Delete the active SMTP config?' : 'Delete this SMTP config?'}
+        message={
+          deleteTarget?.status === 'active'
+            ? `${deleteTarget.config_name} is currently active. Emails will stop sending until you activate another config.`
+            : `Delete "${deleteTarget?.config_name || 'this config'}"? This cannot be undone.`
+        }
+        confirmLabel="Delete"
+        loading={deleting}
+        tone="danger"
+        onCancel={() => { if (!deleting) setDeleteTarget(null); }}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 };

@@ -79,7 +79,7 @@ const EXACT_TITLES = {
   '/broadcast/email/configs': 'Email Configs',
   '/broadcast/email/templates': 'Email Templates',
   '/broadcast/email': 'Email Broadcast',
-  '/broadcast/bulk-import': 'Bulk Import',
+  '/broadcast/email/campaigns': 'Email Campaigns',
   '/broadcast/email/create': 'Create Email Broadcast',
   '/settings': 'Settings',
   '/settings/staff-list': 'Staff List',

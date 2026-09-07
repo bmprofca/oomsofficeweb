@@ -127,7 +127,6 @@ import {
   StaffSalesDetails,
   StaffWiseSalesPage,
   TopClientsViewAll,
-  BulkImportPage,
 } from './app/lazyRoutes';
 
 // Google Client ID
@@ -805,19 +804,14 @@ root.render(
                 <EmailTemplateList />
               </ProtectedRoute>
             } />
-            <Route path="/broadcast/email" element={
+            <Route path="/broadcast/email/campaigns" element={
               <ProtectedRoute>
                 <EmailBroadcastList />
               </ProtectedRoute>
             } />
-            <Route path="/broadcast/bulk-import" element={
-              <ProtectedRoute>
-                <BulkImportPage />
-              </ProtectedRoute>
+            <Route path="/broadcast/email-channel" element={
+              <Navigate to="/broadcast/email" replace />
             } />
-
-
-
             <Route path="/broadcast/email/create" element={
               <ProtectedRoute>
                 <EmailBroadcastCreate />

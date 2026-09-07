@@ -58,7 +58,7 @@ Use this for **table row ⋮ action buttons**, **dropdown action menus**, and an
 
 ## Implementation notes (CLIENT)
 
-- Row action menus: portal + fixed position + flip/clamp (see Groups, Group Firms, OneChatting Configure, Compliance assignment board, Services)
+- Row action menus: portal + fixed position + flip/clamp (see Groups, Group Firms, Password Group Firms, OneChatting Configure, Compliance assignment board, Services)
 - **Finance voucher registers (canonical):** `sale-display.jsx`, `purchase-display.jsx`, `received-display.jsx` — `computeActionMenuPosition` + `z-[99999]` + `FiMoreVertical` + fade/scale. Full register action set: [`finance-registers.md`](./finance-registers.md)
 - `ViewportTooltip` is for other controls (e.g. Refresh) — **not** for table action ⋮ buttons
 - Tag this file when adding or changing any action-button / action-menu UX
