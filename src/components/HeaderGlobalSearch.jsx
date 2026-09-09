@@ -233,6 +233,7 @@ export default function HeaderGlobalSearch() {
     left: 12,
     width: 720,
   });
+  const [backdropStyle, setBackdropStyle] = useState({ top: 64, left: 0 });
   const debouncedQuery = useDebouncedValue(query, 180);
 
   const modules = useMemo(
@@ -264,36 +265,54 @@ export default function HeaderGlobalSearch() {
       setActiveType("all");
   }, [activeType, groupedRecords]);
 
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => {
+    setOpen(false);
+    inputRef.current?.blur();
+  }, []);
 
   const go = useCallback(
     (path) => {
       if (!path) return;
-      setOpen(false);
       setQuery("");
+      close();
       navigate(path);
     },
-    [navigate],
+    [close, navigate],
   );
 
   const updatePanelStyle = useCallback(() => {
     const rect = wrapRef.current?.getBoundingClientRect();
+    const headerEl = document.querySelector("header");
+    const sidebarEl = document.querySelector("[data-app-sidebar]");
     const vw = window.innerWidth;
     const width = Math.round(Math.min(vw * 0.76, vw - 24));
     const left = Math.round((vw - width) / 2);
+    const headerBottom = Math.round(headerEl?.getBoundingClientRect().bottom ?? 64);
+    const sidebarRight =
+      vw >= 768 && sidebarEl
+        ? Math.round(sidebarEl.getBoundingClientRect().right)
+        : 0;
     setPanelStyle({
-      top: Math.round((rect?.bottom || 56) + 8),
+      top: Math.round((rect?.bottom || headerBottom) + 8),
       left,
       width,
     });
+    setBackdropStyle({ top: headerBottom, left: sidebarRight });
   }, []);
 
   useLayoutEffect(() => {
     if (!open) return undefined;
     updatePanelStyle();
+    const sidebarEl = document.querySelector("[data-app-sidebar]");
+    const observer =
+      sidebarEl && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updatePanelStyle)
+        : null;
+    observer?.observe(sidebarEl);
     window.addEventListener("resize", updatePanelStyle);
     window.addEventListener("scroll", updatePanelStyle, true);
     return () => {
+      observer?.disconnect();
       window.removeEventListener("resize", updatePanelStyle);
       window.removeEventListener("scroll", updatePanelStyle, true);
     };
@@ -347,7 +366,6 @@ export default function HeaderGlobalSearch() {
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
         close();
-        inputRef.current?.blur();
         return;
       }
       const isSlash = e.key === "/" || e.code === "Slash" || e.key === "?";
@@ -365,11 +383,11 @@ export default function HeaderGlobalSearch() {
       if (!open) return;
       if (wrapRef.current?.contains(event.target)) return;
       if (event.target.closest("[data-global-search-panel]")) return;
-      setOpen(false);
+      close();
     };
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [open]);
+  }, [open, close]);
 
   return (
     <div ref={wrapRef} className="relative min-w-0 max-w-md flex-1">
@@ -385,7 +403,7 @@ export default function HeaderGlobalSearch() {
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        className="h-8 w-full rounded-lg border border-slate-200/80 bg-slate-50/90 pl-9 pr-[3.25rem] text-sm text-slate-700 placeholder:text-slate-400 transition-all focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+        className="h-8 w-full rounded-lg border border-slate-200/80 bg-white pl-9 pr-[3.25rem] text-sm text-slate-700 placeholder:text-slate-400 shadow-sm transition-all focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
       />
       <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-1 py-px text-[10px] font-medium text-slate-400 xl:inline-block">
         Ctrl+/
@@ -394,6 +412,25 @@ export default function HeaderGlobalSearch() {
       {typeof document !== "undefined" &&
         createPortal(
           <AnimatePresence>
+            {open ? (
+              <motion.button
+                key="gs-backdrop"
+                type="button"
+                aria-label="Close search"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="fixed z-[99998] bg-slate-900/45 backdrop-blur-md"
+                style={{
+                  top: backdropStyle.top,
+                  left: backdropStyle.left,
+                  right: 0,
+                  bottom: 0,
+                }}
+                onClick={close}
+              />
+            ) : null}
             {open ? (
               <motion.div
                 key="gs-panel"

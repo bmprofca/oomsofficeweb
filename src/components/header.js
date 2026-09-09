@@ -1046,6 +1046,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
 
       <motion.div
         className="hidden md:flex md:flex-col md:fixed md:inset-y-0 bg-white border-r border-indigo-100 z-40 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)]"
+        data-app-sidebar
         initial={false}
         animate={{ width: (isMinimized && !isHovered) ? 80 : 260 }}
         style={{ top: '64px', height: 'calc(100vh - 64px)' }}

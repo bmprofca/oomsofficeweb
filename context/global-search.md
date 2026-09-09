@@ -28,6 +28,7 @@ Click row → navigate(path) and close
 
 - Two columns from `md`: **Records** (left) · **Modules** (right). Stacked on small screens.
 - Portal + `z-[99999]`. Panel is **~76% of the viewport width**, centered horizontally (not aligned to the header input).
+- While focused/open, a **dim + blur backdrop** covers the **page content only** (`z-[99998]`, `backdrop-blur-md`). It starts below the header (`h-16`) and to the right of the desktop sidebar (`[data-app-sidebar]`), so the navbar and sidebar stay sharp. Click the backdrop or press `Esc` to close.
 - Empty query: left shows a hint; right shows a short module list.
 - `Esc` closes. **Ctrl+/** (or Cmd+/) focuses the field from anywhere.
 
