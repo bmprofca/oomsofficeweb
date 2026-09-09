@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   FiMenu, FiBriefcase, FiChevronDown, FiCreditCard,
-  FiPlus, FiBell, FiUser, FiSettings, FiHelpCircle,
+  FiPlus, FiUser, FiSettings, FiHelpCircle,
   FiLogOut, FiPieChart, FiMessageSquare, FiUsers, FiRepeat,
   FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiPhone,
   FiClock,
@@ -26,6 +26,7 @@ import { performBranchSwitch } from '../utils/branchSwitch';
 import { clearKeepAliveCache } from '../app/KeepAlive';
 import BranchSwitchOverlay from './BranchSwitchOverlay';
 import HeaderGlobalSearch from './HeaderGlobalSearch';
+import HeaderNotifications from './HeaderNotifications';
 
 function isStoredBranchAdmin() {
   try {
@@ -377,7 +378,6 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
 // ==========================================
 export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [switchProjectModalOpen, setSwitchProjectModalOpen] = useState(false);
   const [branchSetupOpen, setBranchSetupOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -385,8 +385,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const [userProfile, setUserProfile] = useState({ name: 'User', mobile: '', roleLabel: 'Member' });
   const profileTriggerRef = useRef(null);
   const profilePanelRef = useRef(null);
-  const notificationsTriggerRef = useRef(null);
-  const notificationsPanelRef = useRef(null);
   const [profilePanelStyle, setProfilePanelStyle] = useState({ top: 0, right: 0 });
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
 
@@ -547,21 +545,15 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     const handleClickOutside = (event) => {
       const clickedProfileTrigger = profileTriggerRef.current?.contains(event.target);
       const clickedProfilePanel = profilePanelRef.current?.contains(event.target);
-      const clickedNotificationsTrigger = notificationsTriggerRef.current?.contains(event.target);
-      const clickedNotificationsPanel = notificationsPanelRef.current?.contains(event.target);
 
       if (profileDropdownOpen && !clickedProfileTrigger && !clickedProfilePanel) {
         setProfileDropdownOpen(false);
-      }
-
-      if (notificationsOpen && !clickedNotificationsTrigger && !clickedNotificationsPanel) {
-        setNotificationsOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [profileDropdownOpen, notificationsOpen]);
+  }, [profileDropdownOpen]);
 
   const renderAvatar = (size = 'sm') => {
     const sizeClass = size === 'lg' ? 'h-8 w-8 text-[11px]' : 'h-7 w-7 text-[10px]';
@@ -631,46 +623,12 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
               </span>
             </button>
 
-            <div className="relative">
-              <button
-                ref={notificationsTriggerRef}
-                type="button"
-                className={`${iconButtonClass} relative`}
-                aria-label="Notifications"
-                aria-expanded={notificationsOpen}
-                onClick={() => {
-                  setNotificationsOpen((open) => !open);
-                  setProfileDropdownOpen(false);
-                }}
-              >
-                <FiBell className="h-4 w-4" />
-                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-rose-500 ring-2 ring-white" />
-              </button>
-
-              {notificationsOpen ? (
-                <div
-                  ref={notificationsPanelRef}
-                  className="absolute right-0 top-[calc(100%+10px)] z-50 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)]"
-                >
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Notifications</p>
-                      <p className="text-xs text-slate-500">Important updates and alerts</p>
-                    </div>
-                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
-                      Live
-                    </span>
-                  </div>
-                  <div className="px-4 py-8 text-center">
-                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                      <FiBell className="h-5 w-5" />
-                    </div>
-                    <p className="text-sm font-medium text-slate-700">You&apos;re all caught up</p>
-                    <p className="mt-1 text-xs text-slate-500">No new notifications right now.</p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <HeaderNotifications
+              iconButtonClass={iconButtonClass}
+              onOpenChange={(isOpen) => {
+                if (isOpen) setProfileDropdownOpen(false);
+              }}
+            />
 
             <div className="hidden h-5 w-px bg-slate-200 sm:block" />
 
@@ -686,7 +644,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                 aria-haspopup="true"
                 onClick={() => {
                   setProfileDropdownOpen((open) => !open);
-                  setNotificationsOpen(false);
                 }}
               >
                 {renderAvatar('sm')}

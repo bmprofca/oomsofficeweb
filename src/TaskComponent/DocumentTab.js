@@ -23,6 +23,7 @@ import API_BASE_URL from '../utils/api-controller';
 import { toast } from 'react-hot-toast';
 import { DocumentTableSkeletonRows } from './taskTabSkeletons';
 import TablePagination from '../components/TablePagination';
+import DocumentDeleteOtpModal from '../components/Modals/DocumentDeleteOtpModal';
 
 const TASK_UPLOAD_FORM_ID = 'task-document-upload-modal-form';
 const SKELETON_ROW_COUNT = 8;
@@ -161,6 +162,7 @@ const DocumentsTab = ({
     const [downloadingId, setDownloadingId] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [deleteModal, setDeleteModal] = useState(null);
+    // { ids, docName, otpSent, destinationMasked, sending, confirming, error }
     const [showActionMenu, setShowActionMenu] = useState(null);
     const [actionMenuPosition, setActionMenuPosition] = useState(null);
     const actionAnchorRef = useRef(null);
@@ -283,7 +285,14 @@ const DocumentsTab = ({
     useEffect(() => {
         if (!deleteModal) return undefined;
         const onKey = (e) => {
-            if (e.key === 'Escape' && !deleteLoading) setDeleteModal(null);
+            if (
+                e.key === 'Escape' &&
+                !deleteLoading &&
+                !deleteModal.sending &&
+                !deleteModal.confirming
+            ) {
+                setDeleteModal(null);
+            }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -323,15 +332,34 @@ const DocumentsTab = ({
         }
     };
 
+    const sendTaskDocumentDeleteOtp = useCallback(async (documentIds) => {
+        const ids = (documentIds || []).map((id) => String(id).trim()).filter(Boolean);
+        if (ids.length === 0) throw new Error('No documents selected');
+
+        const { headers, hasToken } = getTaskDocumentAuthHeaders();
+        if (!hasToken) {
+            throw new Error('Not signed in. Please log in again.');
+        }
+
+        const response = await axios.post(
+            `${apiRoot()}/task/details/document/delete/send-otp`,
+            { document_ids: ids },
+            { headers }
+        );
+        if (!response.data?.success) {
+            throw new Error(response.data?.message || 'Failed to send OTP');
+        }
+        return response.data?.data || {};
+    }, []);
+
     const deleteTaskDocuments = useCallback(
-        async (documentIds) => {
+        async (documentIds, otp) => {
             const ids = (documentIds || []).map((id) => String(id).trim()).filter(Boolean);
-            if (ids.length === 0) return false;
+            if (ids.length === 0) return { ok: false, message: 'No documents selected' };
 
             const { headers, hasToken } = getTaskDocumentAuthHeaders();
             if (!hasToken) {
-                toast.error('Not signed in. Please log in again.');
-                return false;
+                return { ok: false, message: 'Not signed in. Please log in again.' };
             }
 
             setDeleteLoading(true);
@@ -339,7 +367,7 @@ const DocumentsTab = ({
                 const url = `${apiRoot()}/task/details/document/delete`;
                 const response = await axios.delete(url, {
                     headers,
-                    data: { document_ids: ids },
+                    data: { document_ids: ids, otp },
                 });
 
                 if (response.data?.success) {
@@ -348,18 +376,19 @@ const DocumentsTab = ({
                     );
                     setSelectedDocs((prev) => prev.filter((id) => !ids.includes(String(id))));
                     bumpListRefresh();
-                    return true;
+                    return { ok: true };
                 }
 
-                toast.error(response.data?.message || 'Could not delete documents.');
-                return false;
+                return {
+                    ok: false,
+                    message: response.data?.message || 'Could not delete documents.',
+                };
             } catch (err) {
                 const msg =
                     err?.response?.data?.message ||
                     err?.message ||
                     'Failed to delete documents.';
-                toast.error(msg);
-                return false;
+                return { ok: false, message: msg };
             } finally {
                 setDeleteLoading(false);
             }
@@ -367,24 +396,97 @@ const DocumentsTab = ({
         [bumpListRefresh]
     );
 
+    const openTaskDeleteModal = useCallback(({ ids, docName = null }) => {
+        const documentIds = (ids || []).map((id) => String(id).trim()).filter(Boolean);
+        if (documentIds.length === 0 || deleteLoading) return;
+
+        setDeleteModal({
+            ids: documentIds,
+            docName,
+            otpSent: false,
+            destinationMasked: null,
+            sending: false,
+            confirming: false,
+            error: null,
+        });
+    }, [deleteLoading]);
+
     const handleBulkDelete = () => {
         if (selectedDocs.length === 0 || deleteLoading) return;
-        setDeleteModal({ ids: [...selectedDocs] });
+        openTaskDeleteModal({ ids: [...selectedDocs] });
     };
 
     const handleDeleteOne = (id) => {
         if (deleteLoading) return;
         const doc = documents.find((d) => docKey(d.document_id) === docKey(id));
-        setDeleteModal({
+        openTaskDeleteModal({
             ids: [String(id)],
             docName: (doc?.name && String(doc.name).trim()) || null,
         });
     };
 
-    const handleConfirmDeleteModal = async () => {
+    const handleSendTaskDeleteOtp = useCallback(async () => {
+        if (!deleteModal?.ids?.length) return;
+        setDeleteModal((prev) =>
+            prev ? { ...prev, sending: true, error: null } : null
+        );
+        try {
+            const data = await sendTaskDocumentDeleteOtp(deleteModal.ids);
+            setDeleteModal((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          otpSent: true,
+                          destinationMasked: data.destination_masked || null,
+                          sending: false,
+                          error: null,
+                      }
+                    : null
+            );
+            toast.success(
+                data.destination_masked
+                    ? `OTP sent to branch admin ${data.destination_masked}`
+                    : 'OTP sent to the branch admin'
+            );
+        } catch (err) {
+            const message =
+                err?.response?.data?.message ||
+                err?.message ||
+                'Failed to send OTP';
+            setDeleteModal((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          sending: false,
+                          error: message,
+                      }
+                    : null
+            );
+            toast.error(message);
+        }
+    }, [deleteModal?.ids, sendTaskDocumentDeleteOtp]);
+
+    const handleConfirmDeleteModal = async ({ otp }) => {
         if (!deleteModal?.ids?.length || deleteLoading) return;
-        const ok = await deleteTaskDocuments(deleteModal.ids);
-        if (ok) setDeleteModal(null);
+        setDeleteModal((prev) =>
+            prev ? { ...prev, confirming: true, error: null } : null
+        );
+        const result = await deleteTaskDocuments(deleteModal.ids, otp);
+        if (result?.ok) {
+            setDeleteModal(null);
+            return;
+        }
+        const message = result?.message || 'Failed to delete documents.';
+        setDeleteModal((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      confirming: false,
+                      error: message,
+                  }
+                : null
+        );
+        toast.error(message);
     };
 
     const handlePageChange = (newPage) => {
@@ -1049,100 +1151,33 @@ const DocumentsTab = ({
                 )}
             </AnimatePresence>
 
-            <AnimatePresence>
-                {deleteModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
-                        role="presentation"
-                        onClick={() => !deleteLoading && setDeleteModal(null)}
-                    >
-                        <motion.div
-                            role="alertdialog"
-                            aria-modal="true"
-                            aria-labelledby="task-doc-delete-title"
-                            aria-describedby="task-doc-delete-desc"
-                            initial={{ scale: 0.96, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.96, opacity: 0 }}
-                            transition={{ type: 'spring', damping: 28, stiffness: 360 }}
-                            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="border-b border-slate-100 bg-gradient-to-r from-rose-50 to-white px-5 py-4">
-                                <div className="flex items-start gap-3">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100">
-                                        <FiTrash2 className="h-5 w-5 text-rose-600" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h3
-                                            id="task-doc-delete-title"
-                                            className="text-lg font-semibold text-slate-900"
-                                        >
-                                            {deleteModal.docName
-                                                ? 'Delete document?'
-                                                : deleteModal.ids.length > 1
-                                                    ? `Delete ${deleteModal.ids.length} documents?`
-                                                    : 'Delete document?'}
-                                        </h3>
-                                        <p
-                                            id="task-doc-delete-desc"
-                                            className="mt-1 text-sm leading-relaxed text-slate-600"
-                                        >
-                                            {deleteModal.docName ? (
-                                                <>
-                                                    <span className="font-medium text-slate-800">
-                                                        “{deleteModal.docName}”
-                                                    </span>{' '}
-                                                    will be removed permanently. This cannot be undone.
-                                                </>
-                                            ) : (
-                                                <>
-                                                    {deleteModal.ids.length > 1
-                                                        ? `These ${deleteModal.ids.length} selected documents will be removed permanently.`
-                                                        : 'This document will be removed permanently.'}{' '}
-                                                    This cannot be undone.
-                                                </>
-                                            )}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex flex-col-reverse gap-2 px-5 py-4 sm:flex-row sm:justify-end">
-                                <button
-                                    type="button"
-                                    disabled={deleteLoading}
-                                    onClick={() => setDeleteModal(null)}
-                                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={deleteLoading}
-                                    onClick={handleConfirmDeleteModal}
-                                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-                                >
-                                    {deleteLoading ? (
-                                        <>
-                                            <FiLoader className="h-4 w-4 animate-spin" />
-                                            Deleting…
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FiTrash2 className="h-4 w-4" />
-                                            Delete
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            <DocumentDeleteOtpModal
+                isOpen={Boolean(deleteModal)}
+                title={
+                    deleteModal?.ids?.length > 1
+                        ? `Delete ${deleteModal.ids.length} Documents`
+                        : 'Delete Document'
+                }
+                summary={
+                    deleteModal?.docName
+                        ? `“${deleteModal.docName}” will be removed permanently.`
+                        : deleteModal?.ids?.length > 1
+                            ? `These ${deleteModal.ids.length} selected documents will be removed permanently.`
+                            : 'This document will be removed permanently.'
+                }
+                description="Enter the OTP sent to the branch admin’s mobile to confirm deletion."
+                destinationMasked={deleteModal?.destinationMasked || null}
+                otpSent={Boolean(deleteModal?.otpSent)}
+                sending={Boolean(deleteModal?.sending) || deleteLoading}
+                confirming={Boolean(deleteModal?.confirming)}
+                error={deleteModal?.error || null}
+                onConfirm={handleConfirmDeleteModal}
+                onCancel={() => {
+                    if (deleteModal?.sending || deleteModal?.confirming || deleteLoading) return;
+                    setDeleteModal(null);
+                }}
+                onSendOtp={handleSendTaskDeleteOtp}
+            />
         </div>
     );
 };

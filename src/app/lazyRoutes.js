@@ -100,6 +100,7 @@ export const OneChattingTemplates = lazyWithRetry(() => import('../pages/broadca
 export const OneChattingCampaigns = lazyWithRetry(() => import('../pages/broadcast/whatsapp/OneChattingCampaigns'));
 export const OneChattingCampaignCreate = lazyWithRetry(() => import('../pages/broadcast/whatsapp/OneChattingCampaignCreate'));
 export const OneChattingCampaignDetails = lazyWithRetry(() => import('../pages/broadcast/whatsapp/OneChattingCampaignDetails'));
+export const OneChattingCampaignSchedules = lazyWithRetry(() => import('../pages/broadcast/whatsapp/OneChattingCampaignSchedules'));
 export const WhatsAppWebSession = lazyWithRetry(() => import('../pages/broadcast/whatsapp/WhatsAppWebSession'));
 export const WhatsAppWebTemplates = lazyWithRetry(() => import('../pages/broadcast/whatsapp/WhatsAppWebTemplates'));
 export const OomsSystemTemplates = lazyWithRetry(() => import('../pages/broadcast/whatsapp/OomsSystemTemplates'));
@@ -108,11 +109,13 @@ export const Fast2SmsTemplates = lazyWithRetry(() => import('../pages/broadcast/
 export const Fast2SmsCampaigns = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsCampaigns'));
 export const Fast2SmsCampaignCreate = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsCampaignCreate'));
 export const Fast2SmsCampaignDetails = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsCampaignDetails'));
+export const Fast2SmsCampaignSchedules = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsCampaignSchedules'));
 export const EmailConfigList = lazyWithRetry(() => import('../pages/broadcast/email/EmailConfigList'));
 export const EmailTemplateList = lazyWithRetry(() => import('../pages/broadcast/email/EmailTemplateList'));
 export const EmailBroadcastList = lazyWithRetry(() => import('../pages/broadcast/email/EmailBroadcastList'));
 export const EmailBroadcastCreate = lazyWithRetry(() => import('../pages/broadcast/email/EmailBroadcastCreate'));
 export const EmailBroadcastDetails = lazyWithRetry(() => import('../pages/broadcast/email/EmailBroadcastDetails'));
+export const EmailBroadcastSchedules = lazyWithRetry(() => import('../pages/broadcast/email/EmailBroadcastSchedules'));
 export const Settings = lazyWithRetry(() => import('../pages/settings'));
 export const StaffList = lazyWithRetry(() => import('../pages/settings/staff-list'));
 export const PermissionList = lazyWithRetry(() => import('../pages/settings/permission'));

@@ -11,7 +11,14 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
 import CustomSelect from "../../../components/CustomSelect";
+import DateTimePicker from "../../../components/DateTimePicker";
 import useDebounce from "../../../components/useDebounce";
+import RecurringScheduleFields, {
+  buildRecurringConfig,
+  emptyRecurringForm,
+  formatRecurringSummary,
+  handleRecurringFormChange,
+} from "../../../components/RecurringScheduleFields";
 import { useUserPermissions } from "../../../utils/permission-helper";
 import {
   CLIENT_LIST_QUERY_PARAMS,
@@ -28,6 +35,20 @@ const FIELD_LABEL = "block text-xs font-semibold text-gray-600 mb-1";
 const FIELD_ERROR = "mt-1 text-xs font-medium text-red-600 m-0";
 const SECTION_LABEL =
   "text-[11px] font-bold text-gray-700 uppercase tracking-wide";
+
+const SEND_MODE_OPTIONS = [
+  { id: "now", label: "Send now" },
+  { id: "once", label: "Schedule once" },
+  { id: "recurring", label: "Recurring" },
+];
+
+const formatScheduleAt = (localDatetime) => {
+  if (!localDatetime) return "";
+  const [date, time] = String(localDatetime).split("T");
+  if (!date || !time) return "";
+  const hhmmss = time.length === 5 ? `${time}:00` : time.slice(0, 8);
+  return `${date} ${hhmmss}`;
+};
 
 const AUDIENCE_TABS = [
   { id: "client", label: "Client" },
@@ -414,6 +435,9 @@ const Fast2SmsCampaignCreate = () => {
   );
 
   const [name, setName] = useState("");
+  const [sendMode, setSendMode] = useState("now");
+  const [scheduleLocal, setScheduleLocal] = useState("");
+  const [recurringForm, setRecurringForm] = useState(emptyRecurringForm);
   const [templates, setTemplates] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -871,6 +895,10 @@ const Fast2SmsCampaignCreate = () => {
       toast.error("Please complete the audience selection");
       return;
     }
+    if (sendMode === "once" && !formatScheduleAt(scheduleLocal)) {
+      toast.error("Pick a date and time for the one-time schedule");
+      return;
+    }
 
     const variables_values = variableKeys
       .map((key) => String(variableInputs[key] || "").trim())
@@ -878,12 +906,33 @@ const Fast2SmsCampaignCreate = () => {
 
     setSaving(true);
     try {
-      const res = await smsApi.createCampaign({
+      if (sendMode === "recurring") {
+        const res = await smsApi.createCampaignSchedule({
+          name: name.trim(),
+          template_id: selectedTemplate.value,
+          template_name: selectedTemplate.label || null,
+          variables_values,
+          audience: audiencePayload,
+          schedule_type: recurringForm.type,
+          schedule_config: buildRecurringConfig(recurringForm),
+          timezone: "Asia/Kolkata",
+        });
+        toast.success(res?.message || "Recurring SMS schedule created");
+        navigate("/broadcast/sms/fast2sms/campaigns/schedules");
+        return;
+      }
+
+      const payload = {
         name: name.trim(),
         template_id: selectedTemplate.value,
         variables_values,
         audience: audiencePayload,
-      });
+      };
+      if (sendMode === "once") {
+        payload.schedule_at = formatScheduleAt(scheduleLocal);
+      }
+
+      const res = await smsApi.createCampaign(payload);
       toast.success(res?.message || "Campaign created");
       const id = res?.data?.campaign_id;
       navigate(
@@ -979,6 +1028,60 @@ const Fast2SmsCampaignCreate = () => {
                   required
                   disabled={saving || duplicateLoading}
                 />
+              </div>
+
+              <div>
+                <label className={FIELD_LABEL}>When to send</label>
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {SEND_MODE_OPTIONS.map((opt) => {
+                    const active = sendMode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={saving || duplicateLoading}
+                        onClick={() => setSendMode(opt.id)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          active
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-gray-300 bg-white text-gray-700 hover:border-blue-400"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {sendMode === "now" ? (
+                  <p className="m-0 text-xs text-gray-500">
+                    Campaign is created and sent as soon as Fast2SMS is ready.
+                  </p>
+                ) : null}
+                {sendMode === "once" ? (
+                  <DateTimePicker
+                    label="Schedule date & time (IST)"
+                    value={scheduleLocal}
+                    onChange={setScheduleLocal}
+                    disabled={saving || duplicateLoading}
+                    placeholder="Pick date and time"
+                  />
+                ) : null}
+                {sendMode === "recurring" ? (
+                  <div className="space-y-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                    <p className="m-0 text-xs text-blue-800">
+                      OOMS will create a fresh campaign on this cycle (audience
+                      re-resolved each run). {formatRecurringSummary(recurringForm)}
+                    </p>
+                    <RecurringScheduleFields
+                      form={recurringForm}
+                      onChange={(field, value) =>
+                        handleRecurringFormChange(setRecurringForm, field, value)
+                      }
+                      disabled={saving || duplicateLoading}
+                      inputClassName={FIELD_INPUT}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div>

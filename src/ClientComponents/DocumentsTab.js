@@ -22,6 +22,7 @@ import {
   DocumentUploadModal,
 } from '../components/Modals/DocumentManagement';
 import DocumentShareModal from '../components/Modals/DocumentShareModal';
+import DocumentDeleteOtpModal from '../components/Modals/DocumentDeleteOtpModal';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import { toast, Toaster } from 'react-hot-toast';
@@ -248,6 +249,8 @@ const DocumentsTab = ({
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(null);
+  // { ids, summary, otpSent, destinationMasked, sending, confirming, error }
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showGeneralDropdown, setShowGeneralDropdown] = useState(false);
@@ -1336,28 +1339,99 @@ const DocumentsTab = ({
     setActiveActionMenu(null);
   };
 
-  // Soft-delete one or more documents (DB only; B2 files kept)
-  const handleDeleteDocuments = async (documentIds) => {
+  // Soft-delete one or more documents (OTP to branch admin required)
+  const sendDocumentDeleteOtp = useCallback(async (ids) => {
+    const headers = getHeaders();
+    if (!headers) throw new Error('Authentication headers not found');
+    const response = await axios.post(
+      `${API_BASE_URL}/client/details/documents/delete/send-otp`,
+      { username: clientUsername, document_ids: ids },
+      { headers }
+    );
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || 'Failed to send OTP');
+    }
+    return response.data?.data || {};
+  }, [clientUsername]);
+
+  const openDocumentDeleteModal = useCallback((documentIds) => {
     const ids = [...new Set((documentIds || []).map((id) => String(id).trim()).filter(Boolean))];
     if (ids.length === 0) {
-      showToast.error('No documents selected');
+      toast.error('No documents selected');
       return;
     }
     if (!clientUsername) {
-      showToast.error('Client username is required');
+      toast.error('Client username is required');
       return;
     }
 
-    const label = ids.length === 1 ? 'this document' : `${ids.length} documents`;
-    if (!window.confirm(`Delete ${label}? This will hide them from the list (soft delete).`)) {
-      return;
-    }
+    const summary =
+      ids.length === 1
+        ? 'Delete this document?'
+        : `Delete ${ids.length} selected documents?`;
 
+    setDeleteModal({
+      ids,
+      summary,
+      otpSent: false,
+      destinationMasked: null,
+      sending: false,
+      confirming: false,
+      error: null,
+    });
+    closeActionMenu();
+  }, [clientUsername]);
+
+  const handleSendDocumentDeleteOtp = useCallback(async () => {
+    if (!deleteModal?.ids?.length) return;
+    setDeleteModal((prev) =>
+      prev ? { ...prev, sending: true, error: null } : null
+    );
+    try {
+      const data = await sendDocumentDeleteOtp(deleteModal.ids);
+      setDeleteModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              otpSent: true,
+              destinationMasked: data.destination_masked || null,
+              sending: false,
+              error: null,
+            }
+          : null
+      );
+      toast.success(
+        data.destination_masked
+          ? `OTP sent to branch admin ${data.destination_masked}`
+          : 'OTP sent to the branch admin'
+      );
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to send OTP';
+      setDeleteModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              sending: false,
+              error: message,
+            }
+          : null
+      );
+      toast.error(message);
+    }
+  }, [deleteModal?.ids, sendDocumentDeleteOtp]);
+
+  const handleConfirmDocumentDelete = useCallback(async ({ otp }) => {
+    if (!deleteModal?.ids?.length) return;
+    const ids = deleteModal.ids;
+    setDeleteModal((prev) =>
+      prev ? { ...prev, confirming: true, error: null } : null
+    );
     try {
       const headers = getHeaders();
-      if (!headers) {
-        throw new Error('Authentication headers not found');
-      }
+      if (!headers) throw new Error('Authentication headers not found');
 
       const response = await axios.delete(
         `${API_BASE_URL}/client/details/documents/delete`,
@@ -1366,27 +1440,56 @@ const DocumentsTab = ({
           data: {
             username: clientUsername,
             document_ids: ids,
+            otp,
           },
         }
       );
 
       if (response.data?.success) {
-        showToast.success(
-          ids.length === 1 ? 'Document deleted successfully' : `${ids.length} documents deleted successfully`
+        toast.success(
+          response.data?.message ||
+            (ids.length === 1
+              ? 'Document deleted successfully'
+              : `${ids.length} documents deleted successfully`)
         );
         setSelectedDocuments((prev) => prev.filter((id) => !ids.includes(String(id))));
         setSelectAll(false);
-        closeActionMenu();
+        setDeleteModal(null);
         setRefreshTrigger(Date.now());
       } else {
-        showToast.error(response.data?.message || 'Failed to delete documents');
+        const message = response.data?.message || 'Failed to delete documents';
+        setDeleteModal((prev) =>
+          prev
+            ? {
+                ...prev,
+                confirming: false,
+                error: message,
+              }
+            : null
+        );
+        toast.error(message);
       }
     } catch (error) {
       console.error('Error deleting documents:', error);
-      showToast.error(
-        error.response?.data?.message || error.message || 'Failed to delete documents'
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to delete documents';
+      setDeleteModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              confirming: false,
+              error: message,
+            }
+          : null
       );
+      toast.error(message);
     }
+  }, [clientUsername, deleteModal?.ids]);
+
+  const handleDeleteDocuments = (documentIds) => {
+    openDocumentDeleteModal(documentIds);
   };
 
   // Handle select all
@@ -2450,6 +2553,28 @@ const DocumentsTab = ({
         defaultEmail={clientEmail || ''}
         defaultCountryCode={clientCountryCode || '91'}
         onSend={handleShareDocumentsSend}
+      />
+
+      <DocumentDeleteOtpModal
+        isOpen={Boolean(deleteModal)}
+        title={
+          deleteModal?.ids?.length > 1
+            ? `Delete ${deleteModal.ids.length} Documents`
+            : 'Delete Document'
+        }
+        summary={deleteModal?.summary || null}
+        description="Enter the OTP sent to the branch admin’s mobile to confirm deletion."
+        destinationMasked={deleteModal?.destinationMasked || null}
+        otpSent={Boolean(deleteModal?.otpSent)}
+        sending={Boolean(deleteModal?.sending)}
+        confirming={Boolean(deleteModal?.confirming)}
+        error={deleteModal?.error || null}
+        onConfirm={handleConfirmDocumentDelete}
+        onCancel={() => {
+          if (deleteModal?.sending || deleteModal?.confirming) return;
+          setDeleteModal(null);
+        }}
+        onSendOtp={handleSendDocumentDeleteOtp} // send / resend OTP
       />
 
       <DocumentStorageUsageModal

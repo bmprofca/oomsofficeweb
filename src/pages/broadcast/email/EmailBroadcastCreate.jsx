@@ -6,6 +6,12 @@ import { Header, Sidebar } from "../../../components/header";
 import AnimatedCheckbox from "../../../components/AnimatedCheckbox";
 import CustomSelect from "../../../components/CustomSelect";
 import DateTimePicker from "../../../components/DateTimePicker";
+import RecurringScheduleFields, {
+  buildRecurringConfig,
+  emptyRecurringForm,
+  formatRecurringSummary,
+  handleRecurringFormChange,
+} from "../../../components/RecurringScheduleFields";
 import { useUserPermissions } from "../../../utils/permission-helper";
 import API_BASE from "../../../utils/api-controller";
 import getHeaders from "../../../utils/get-headers";
@@ -46,7 +52,8 @@ const TASK_STATUS_OPTIONS = [
 
 const SCHEDULE_OPTIONS = [
   { value: "now", label: "Send now" },
-  { value: "scheduled", label: "Schedule for later" },
+  { value: "scheduled", label: "Schedule once" },
+  { value: "recurring", label: "Recurring" },
 ];
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -199,6 +206,7 @@ const EmailBroadcastCreate = () => {
 
   const [scheduleType, setScheduleType] = useState("now");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [recurringForm, setRecurringForm] = useState(emptyRecurringForm);
 
   const [audienceType, setAudienceType] = useState("client");
   const [selectAllClients, setSelectAllClients] = useState(false);
@@ -402,6 +410,41 @@ const EmailBroadcastCreate = () => {
     return list;
   };
 
+  const audiencePayload = useMemo(() => {
+    if (audienceType === "client") {
+      return {
+        audience_type: "client",
+        select_all_clients: selectAllClients,
+        usernames: selectAllClients
+          ? []
+          : selectedClients
+              .map((c) => c.username || getClientOptionValue(c) || c.value)
+              .filter(Boolean),
+      };
+    }
+    if (audienceType === "group") {
+      return {
+        audience_type: "group",
+        group_ids: selectedGroups
+          .map((g) => g.value ?? g.group_id)
+          .filter(Boolean)
+          .map(String),
+      };
+    }
+    return {
+      audience_type: "task",
+      service_id: String(selectedService?.value || ""),
+      status: selectedStatus?.value || "all",
+    };
+  }, [
+    audienceType,
+    selectAllClients,
+    selectedClients,
+    selectedGroups,
+    selectedService,
+    selectedStatus,
+  ]);
+
   const validate = () => {
     const next = {};
     if (!name.trim()) next.name = "Campaign name is required";
@@ -424,6 +467,24 @@ const EmailBroadcastCreate = () => {
     if (saving || !validate()) return;
     setSaving(true);
     try {
+      if (scheduleType === "recurring") {
+        const selectedTpl = templates.find((t) => t.template_id === templateId);
+        const res = await emailApi.createBroadcastSchedule({
+          name: name.trim(),
+          broadcast_name: name.trim(),
+          config_id: configId,
+          template_id: templateId,
+          template_name: selectedTpl?.template_name || null,
+          audience: audiencePayload,
+          schedule_type: recurringForm.type,
+          schedule_config: buildRecurringConfig(recurringForm),
+          timezone: "Asia/Kolkata",
+        });
+        toast.success(res?.message || "Recurring email schedule created");
+        navigate("/broadcast/email/schedules");
+        return;
+      }
+
       const recipients = await resolveRecipients();
       if (!recipients.length) {
         toast.error("No recipients with a valid email were found for this audience");
@@ -435,7 +496,7 @@ const EmailBroadcastCreate = () => {
         config_id: configId,
         template_id: templateId,
         broadcast_name: name.trim(),
-        schedule_type: scheduleType,
+        schedule_type: scheduleType === "scheduled" ? "scheduled" : "now",
         recipients,
       };
       if (scheduleType === "scheduled") payload.scheduled_at = scheduledAt;
@@ -573,6 +634,27 @@ const EmailBroadcastCreate = () => {
                           inputClassName="h-10"
                         />
                         <FieldError message={fieldErrors.scheduled_at} />
+                      </div>
+                    ) : null}
+                    {scheduleType === "recurring" ? (
+                      <div className="md:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
+                        <p className="text-xs text-indigo-800 m-0">
+                          OOMS will create a fresh campaign on this cycle
+                          (audience re-resolved each run).{" "}
+                          {formatRecurringSummary(recurringForm)}
+                        </p>
+                        <RecurringScheduleFields
+                          form={recurringForm}
+                          onChange={(field, value) =>
+                            handleRecurringFormChange(
+                              setRecurringForm,
+                              field,
+                              value,
+                            )
+                          }
+                          disabled={saving}
+                          inputClassName={FIELD_INPUT}
+                        />
                       </div>
                     ) : null}
                   </div>
@@ -786,7 +868,11 @@ const EmailBroadcastCreate = () => {
                 className="inline-flex items-center justify-center gap-1.5 px-5 py-2 text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
               >
                 {saving ? <FiLoader className="w-3.5 h-3.5 animate-spin" /> : <FiSend className="w-3.5 h-3.5" />}
-                {scheduleType === "now" ? "Send" : "Schedule"}
+                {scheduleType === "now"
+                  ? "Send"
+                  : scheduleType === "recurring"
+                    ? "Create schedule"
+                    : "Schedule"}
               </button>
             </div>
           </form>

@@ -430,6 +430,17 @@ const OneChattingCampaigns = () => {
                   type="button"
                   onClick={() =>
                     navigate(
+                      "/broadcast/whatsapp/onechatting/campaigns/schedules",
+                    )
+                  }
+                  className={`${TOOLBAR_BTN} border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 shrink-0`}
+                >
+                  Recurring
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
                       "/broadcast/whatsapp/onechatting/campaigns/create",
                     )
                   }

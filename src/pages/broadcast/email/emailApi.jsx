@@ -52,6 +52,26 @@ export const emailApi = {
   
   // Broadcast
   createBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/create', payload).then(unwrap),
+  resolveBroadcastRecipients: (payload) =>
+    emailAxios.post('/broadcast/email/broadcast/resolve-recipients', payload).then(unwrap),
+  listBroadcastSchedules: (params) =>
+    emailAxios.get('/broadcast/email/broadcast/schedules', { params }).then(unwrap),
+  createBroadcastSchedule: (payload) =>
+    emailAxios.post('/broadcast/email/broadcast/schedules', payload).then(unwrap),
+  updateBroadcastSchedule: (scheduleId, payload) =>
+    emailAxios
+      .put(`/broadcast/email/broadcast/schedules/${scheduleId}`, payload)
+      .then(unwrap),
+  deleteBroadcastSchedule: (scheduleId) =>
+    emailAxios
+      .delete(`/broadcast/email/broadcast/schedules/${scheduleId}`)
+      .then(unwrap),
+  runBroadcastSchedule: (scheduleId) =>
+    emailAxios
+      .post(`/broadcast/email/broadcast/schedules/${scheduleId}/run`, null, {
+        timeout: 120000,
+      })
+      .then(unwrap),
   listBroadcasts: (params) => emailAxios.get('/broadcast/email/broadcast/list', { params }).then(unwrap),
   broadcastDetails: (id) => emailAxios.get(`/broadcast/email/broadcast/details/${id}`).then(unwrap),
   recipientList: (id, params) => emailAxios.get(`/broadcast/email/broadcast/recipient-list/${id}`, { params }).then(unwrap),

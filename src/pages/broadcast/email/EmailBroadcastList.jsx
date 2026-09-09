@@ -422,9 +422,19 @@ const EmailBroadcastList = () => {
                 </div>
                 <div className="ebl-header-sub">Manage and monitor all your email campaigns</div>
               </div>
-              <button className="ebl-btn-create" onClick={() => navigate('/broadcast/email/create')}>
-                <FiPlus size={15} /> Create Campaign
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="ebl-btn-create"
+                  type="button"
+                  onClick={() => navigate('/broadcast/email/schedules')}
+                  style={{ background: 'rgba(255,255,255,0.12)' }}
+                >
+                  Recurring
+                </button>
+                <button className="ebl-btn-create" onClick={() => navigate('/broadcast/email/create')}>
+                  <FiPlus size={15} /> Create Campaign
+                </button>
+              </div>
             </div>
 
             {/* ── Table Card ── */}

@@ -20,4 +20,5 @@
 - Subtasks: separate status update endpoint
 - Staff: assign/unassign with bulk actions
 - Details: status transitions + billing actions + conditional field locking
+- Details CA approval: badge + `CaApprovalChange` confirm modal (not inline select)
 

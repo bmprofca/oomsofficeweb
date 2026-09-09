@@ -237,7 +237,7 @@ export default function HeaderGlobalSearch() {
   const debouncedQuery = useDebouncedValue(query, 180);
 
   const modules = useMemo(
-    () => filterSoftwareModules(query, query.trim() ? 24 : 14),
+    () => filterSoftwareModules(query, query.trim() ? null : 40),
     [query],
   );
 
@@ -421,7 +421,7 @@ export default function HeaderGlobalSearch() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.18 }}
-                className="fixed z-[99998] bg-slate-900/45 backdrop-blur-md"
+                className="fixed z-[99998] bg-slate-900/20 backdrop-blur-[2px]"
                 style={{
                   top: backdropStyle.top,
                   left: backdropStyle.left,

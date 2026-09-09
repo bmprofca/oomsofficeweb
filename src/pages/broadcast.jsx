@@ -10,6 +10,7 @@ import {
   FiLoader,
   FiMessageCircle,
   FiLock,
+  FiClock,
 } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -213,6 +214,14 @@ const Broadcast = () => {
       permission: ["broadcast_send", "broadcast_config_edit"],
     },
     {
+      title: "Recurring Campaigns",
+      description: "Automatic broadcasts on a cycle",
+      icon: <FiClock className="w-5 h-5" />,
+      link: "/broadcast/whatsapp/onechatting/campaigns/schedules",
+      color: "bg-green-100 text-green-600",
+      permission: ["broadcast_send", "broadcast_config_edit"],
+    },
+    {
       title: "Configure",
       description: "OneChatting settings",
       icon: <FiSettings className="w-5 h-5" />,
@@ -236,6 +245,14 @@ const Broadcast = () => {
       description: "View campaign delivery reports",
       icon: <FiBarChart2 className="w-5 h-5" />,
       link: "/broadcast/sms/fast2sms/campaigns",
+      color: "bg-blue-100 text-blue-600",
+      permission: ["broadcast_send", "broadcast_config_edit"],
+    },
+    {
+      title: "Recurring Campaigns",
+      description: "Automatic SMS on a cycle",
+      icon: <FiClock className="w-5 h-5" />,
+      link: "/broadcast/sms/fast2sms/campaigns/schedules",
       color: "bg-blue-100 text-blue-600",
       permission: ["broadcast_send", "broadcast_config_edit"],
     },
@@ -291,6 +308,14 @@ const Broadcast = () => {
       description: "View campaigns and create a new one",
       icon: <FiMail className="w-5 h-5" />,
       link: "/broadcast/email/campaigns",
+      color: "bg-indigo-100 text-indigo-600",
+      permission: ["broadcast_send", "broadcast_config_edit"],
+    },
+    {
+      title: "Recurring Campaigns",
+      description: "Automatic emails on a cycle",
+      icon: <FiClock className="w-5 h-5" />,
+      link: "/broadcast/email/schedules",
       color: "bg-indigo-100 text-indigo-600",
       permission: ["broadcast_send", "broadcast_config_edit"],
     },

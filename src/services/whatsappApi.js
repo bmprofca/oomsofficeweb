@@ -116,6 +116,28 @@ export const whatsappApi = {
     whatsappAxios
       .post('/broadcast/whatsapp/onechatting/campaign/create', payload, { timeout: 120000 })
       .then(unwrap),
+  listCampaignSchedules: (params) =>
+    whatsappAxios
+      .get('/broadcast/whatsapp/onechatting/campaign/schedules', { params })
+      .then(unwrap),
+  createCampaignSchedule: (payload) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/onechatting/campaign/schedules', payload)
+      .then(unwrap),
+  updateCampaignSchedule: (scheduleId, payload) =>
+    whatsappAxios
+      .put(`/broadcast/whatsapp/onechatting/campaign/schedules/${scheduleId}`, payload)
+      .then(unwrap),
+  deleteCampaignSchedule: (scheduleId) =>
+    whatsappAxios
+      .delete(`/broadcast/whatsapp/onechatting/campaign/schedules/${scheduleId}`)
+      .then(unwrap),
+  runCampaignSchedule: (scheduleId) =>
+    whatsappAxios
+      .post(`/broadcast/whatsapp/onechatting/campaign/schedules/${scheduleId}/run`, null, {
+        timeout: 120000,
+      })
+      .then(unwrap),
   resolveCampaignRecipients: (payload) =>
     whatsappAxios
       .post('/broadcast/whatsapp/onechatting/campaign/resolve-recipients', payload, {

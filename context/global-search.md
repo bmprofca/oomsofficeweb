@@ -28,8 +28,9 @@ Click row → navigate(path) and close
 
 - Two columns from `md`: **Records** (left) · **Modules** (right). Stacked on small screens.
 - Portal + `z-[99999]`. Panel is **~76% of the viewport width**, centered horizontally (not aligned to the header input).
-- While focused/open, a **dim + blur backdrop** covers the **page content only** (`z-[99998]`, `backdrop-blur-md`). It starts below the header (`h-16`) and to the right of the desktop sidebar (`[data-app-sidebar]`), so the navbar and sidebar stay sharp. Click the backdrop or press `Esc` to close.
-- Empty query: left shows a hint; right shows a short module list.
+- While focused/open, a **light dim + soft blur backdrop** covers the **page content only** (`z-[99998]`, `bg-slate-900/20 backdrop-blur-[2px]`). It starts below the header (`h-16`) and to the right of the desktop sidebar (`[data-app-sidebar]`), so the navbar and sidebar stay sharp. Click the backdrop or press `Esc` to close.
+- Empty query: left shows a hint; right shows up to **40** modules.
+- Typed query: right shows **all** matching modules (no hard cap). Multi-word queries require every token to appear in title/group/keywords/path.
 - `Esc` closes. **Ctrl+/** (or Cmd+/) focuses the field from anywhere.
 
 ---
@@ -55,7 +56,7 @@ Type chips appear only for groups that have hits. **All** shows every group; pic
 
 ## Modules (right)
 
-Filter `SOFTWARE_MODULES` by title / group / keywords / path. Prefer prefix matches. Keep this list aligned with `DocumentTitle.js` routes.
+Filter `SOFTWARE_MODULES` by title / group / keywords / path (tokenized). Prefer title matches. Keep this list aligned with `DocumentTitle.js` routes. Finance hub is titled **Voucher Entries** (`/finance/voucher`).
 
 ---
 

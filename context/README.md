@@ -28,6 +28,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`password-groups.md`](./password-groups.md) | Password groups list + firm credentials, add modal, select-all delete |
 | [`global-search.md`](./global-search.md) | Header global search: records + software modules |
 | [`staff.md`](./staff.md) | Staff list (`/settings/staff-list`), `/staff/view`, invite by email/mobile, status OTP |
+| [`header-notifications.md`](./header-notifications.md) | Navbar bell: CA-approved open tasks |
 
 ## Other files
 
@@ -69,6 +70,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | `password-groups.md` | `SERVER/context/password-groups.md` |
 | `global-search.md` | `SERVER/context/utils.md` |
 | `staff.md` | `SERVER/context/staff.md` |
+| `header-notifications.md` | `SERVER/context/task-list.md` (`GET /task/notifications`) |
 | `layout.md` | — (client-only) |
 
 See also [`SERVER/context/README.md`](../../SERVER/context/README.md).

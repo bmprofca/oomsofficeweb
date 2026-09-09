@@ -14,12 +14,17 @@ import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { toast } from 'react-hot-toast';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
+import CaApprovalChange from '../components/Modals/CaApprovalChange';
 import TaskEditModal from '../components/Modals/TaskEditModal';
 import { checkPermissionSync } from '../utils/permission-helper';
 import {
     FirmModalShell,
     FirmViewDetails,
 } from '../components/Modals/FirmModalParts';
+import {
+    formatCaApprovalLabel,
+    getCaApprovalStyle,
+} from './StaffColumnCell';
 import { DetailsTabSkeleton } from './taskTabSkeletons';
 
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
@@ -170,6 +175,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
     const [isChangingStatus, setIsChangingStatus] = useState(false);
     const [statusModalOpen, setStatusModalOpen] = useState(false);
     const [savingCaApproval, setSavingCaApproval] = useState(false);
+    const [caApprovalModalOpen, setCaApprovalModalOpen] = useState(false);
     const [savingUdin, setSavingUdin] = useState(false);
     const [udinDraft, setUdinDraft] = useState('');
 
@@ -224,7 +230,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
     const handleCaApprovalChange = async (nextApproval) => {
         if (!taskData?.has_ca) return;
         const next = String(nextApproval || '').toLowerCase();
-        if (!next || next === taskData.ca_approval) return;
+        if (!next || next === String(taskData.ca_approval || '').toLowerCase()) return;
         setSavingCaApproval(true);
         try {
             const headers = getHeaders();
@@ -242,6 +248,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
             if (onTaskUpdated) onTaskUpdated();
         } catch (err) {
             toast.error(err.message || 'Failed to update CA approval');
+            throw err;
         } finally {
             setSavingCaApproval(false);
         }
@@ -675,20 +682,29 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                         <SectionBlock icon={FiShield} title="CA Approval & UDIN">
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <MetaField label="CA Approval">
-                                    <select
-                                        value={taskData.ca_approval || 'pending'}
-                                        onChange={(e) => handleCaApprovalChange(e.target.value)}
-                                        disabled={savingCaApproval}
-                                        className="w-full rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2 text-sm font-semibold text-violet-800 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 disabled:opacity-60"
-                                    >
-                                        {CA_APPROVAL_OPTIONS.map((opt) => (
-                                            <option key={opt.value} value={opt.value}>
-                                                {opt.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="mt-1.5 text-[11px] text-gray-500">
-                                        Set to <span className="font-semibold">Sent</span> when waiting for CA UDIN.
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span
+                                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${getCaApprovalStyle(taskData.ca_approval)}`}
+                                        >
+                                            {formatCaApprovalLabel(taskData.ca_approval)}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCaApprovalModalOpen(true)}
+                                            disabled={savingCaApproval}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {savingCaApproval ? (
+                                                <FiLoader className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                                <FiShield className="h-3.5 w-3.5" />
+                                            )}
+                                            Change
+                                        </button>
+                                    </div>
+                                    <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500">
+                                        Set to <span className="font-semibold text-slate-600">Sent</span> when waiting for CA UDIN.
+                                        Changes require confirmation.
                                     </p>
                                 </MetaField>
                                 <MetaField label="UDIN Number">
@@ -926,6 +942,15 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                     value: statusOption.value,
                     name: statusOption.label,
                 }))}
+            />
+
+            <CaApprovalChange
+                isOpen={caApprovalModalOpen}
+                onClose={() => setCaApprovalModalOpen(false)}
+                taskName={taskData.service?.name || ''}
+                currentApproval={taskData.ca_approval || 'pending'}
+                options={CA_APPROVAL_OPTIONS}
+                onConfirm={handleCaApprovalChange}
             />
 
             <FirmModalShell

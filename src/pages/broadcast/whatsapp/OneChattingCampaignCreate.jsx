@@ -157,6 +157,140 @@ const formatScheduleDate = (localDatetime) => {
   return `${date} ${hhmmss}`;
 };
 
+const SEND_MODE_OPTIONS = [
+  { id: "now", label: "Send now" },
+  { id: "once", label: "Schedule once" },
+  { id: "recurring", label: "Recurring" },
+];
+
+const DAY_OPTIONS = [
+  { value: "0", label: "Sunday" },
+  { value: "1", label: "Monday" },
+  { value: "2", label: "Tuesday" },
+  { value: "3", label: "Wednesday" },
+  { value: "4", label: "Thursday" },
+  { value: "5", label: "Friday" },
+  { value: "6", label: "Saturday" },
+];
+
+const FREQUENCY_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const MONTH_DAY_OPTIONS = [
+  ...Array.from({ length: 28 }, (_, i) => ({
+    value: String(i + 1),
+    label: String(i + 1),
+  })),
+  { value: "last", label: "Last day of month" },
+];
+
+const pad2 = (value) => String(value ?? "0").padStart(2, "0");
+
+const emptyRecurringForm = () => ({
+  type: "daily",
+  day: "1",
+  date: "1",
+  hour: "09",
+  minute: "00",
+});
+
+const optionByValue = (options, value) =>
+  options.find((o) => String(o.value) === String(value)) || null;
+
+const buildRecurringConfig = (form) => {
+  const time = `${pad2(form.hour)}:${pad2(form.minute)}`;
+  if (form.type === "daily") return { time };
+  if (form.type === "weekly") {
+    return { time, day_of_week: Number(form.day) };
+  }
+  if (form.date === "last") {
+    return { time, last_day_of_month: true };
+  }
+  return { time, day_of_month: Number(form.date) || 1 };
+};
+
+const formatRecurringSummary = (form) => {
+  const config = buildRecurringConfig(form);
+  const time = config.time || "—";
+  if (form.type === "daily") return `Every day at ${time} (IST)`;
+  if (form.type === "weekly") {
+    const day =
+      DAY_OPTIONS.find((d) => String(d.value) === String(form.day))?.label ||
+      "—";
+    return `Every ${day} at ${time} (IST)`;
+  }
+  if (form.date === "last") return `Last day of month at ${time} (IST)`;
+  const dayNum = Number(form.date) || 1;
+  const suffix =
+    dayNum % 100 >= 11 && dayNum % 100 <= 13
+      ? "th"
+      : ["th", "st", "nd", "rd"][dayNum % 10] || "th";
+  return `Every ${dayNum}${suffix} of month at ${time} (IST)`;
+};
+
+const RecurringScheduleFields = ({ form, onChange, disabled = false }) => {
+  const timeValue = `${pad2(form.hour)}:${pad2(form.minute)}`;
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label className={FIELD_LABEL}>Frequency</label>
+        <CustomSelect
+          options={FREQUENCY_OPTIONS}
+          value={optionByValue(FREQUENCY_OPTIONS, form.type)}
+          onChange={(opt) => onChange("type", opt?.value || "daily")}
+          placeholder="Select frequency"
+          isClearable={false}
+          isDisabled={disabled}
+        />
+      </div>
+      <div>
+        <label className={FIELD_LABEL}>Send at (IST)</label>
+        <input
+          type="time"
+          step={60}
+          value={timeValue}
+          disabled={disabled}
+          onChange={(e) => {
+            const raw = String(e.target.value || "09:00");
+            const [h = "09", m = "00"] = raw.split(":");
+            onChange("time", { hour: pad2(h), minute: pad2(m) });
+          }}
+          className={`${FIELD_INPUT}`}
+        />
+      </div>
+      {form.type === "weekly" ? (
+        <div className="sm:col-span-2">
+          <label className={FIELD_LABEL}>Day of week</label>
+          <CustomSelect
+            options={DAY_OPTIONS}
+            value={optionByValue(DAY_OPTIONS, form.day)}
+            onChange={(opt) => onChange("day", opt?.value ?? "1")}
+            placeholder="Select day"
+            isClearable={false}
+            isDisabled={disabled}
+          />
+        </div>
+      ) : null}
+      {form.type === "monthly" ? (
+        <div className="sm:col-span-2">
+          <label className={FIELD_LABEL}>Day of month</label>
+          <CustomSelect
+            options={MONTH_DAY_OPTIONS}
+            value={optionByValue(MONTH_DAY_OPTIONS, form.date)}
+            onChange={(opt) => onChange("date", opt?.value || "1")}
+            placeholder="Select date"
+            isClearable={false}
+            isDisabled={disabled}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const formatClientDisplayNumber = (item) => {
   const cc = String(item?.country_code || "")
     .replace(/\D/g, "")
@@ -437,6 +571,8 @@ const CampaignConfirmModal = ({
   onConfirm,
   loading,
   summary,
+  confirmLabel = "Create campaign",
+  title = "Ready to create?",
 }) => {
   if (typeof document === "undefined") return null;
 
@@ -478,7 +614,7 @@ const CampaignConfirmModal = ({
                       Confirm campaign
                     </p>
                     <h2 className="text-lg font-bold m-0 truncate leading-tight">
-                      Ready to create?
+                      {title}
                     </h2>
                   </div>
                 </div>
@@ -546,7 +682,7 @@ const CampaignConfirmModal = ({
                 ) : (
                   <FiCheckCircle className="w-4 h-4" />
                 )}
-                {loading ? "Creating…" : "Create campaign"}
+                {loading ? "Saving…" : confirmLabel}
               </button>
             </div>
           </motion.div>
@@ -566,7 +702,9 @@ const OneChattingCampaignCreate = () => {
   );
 
   const [name, setName] = useState("");
+  const [sendMode, setSendMode] = useState("now");
   const [scheduleLocal, setScheduleLocal] = useState("");
+  const [recurringForm, setRecurringForm] = useState(emptyRecurringForm);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -849,18 +987,35 @@ const OneChattingCampaignCreate = () => {
     selectedStatus,
   ]);
 
+  const handleRecurringChange = useCallback((field, value) => {
+    if (field === "time" && value && typeof value === "object") {
+      setRecurringForm((prev) => ({
+        ...prev,
+        hour: pad2(value.hour),
+        minute: pad2(value.minute),
+      }));
+      return;
+    }
+    setRecurringForm((prev) => ({ ...prev, [field]: value }));
+    clearFieldError("schedule");
+  }, [clearFieldError]);
+
   const confirmSummary = useMemo(() => {
     const mediaField = mediaPlaceholders[0];
     const mediaUrl = mediaField
       ? String(variableValues[mediaField.key] || "").trim()
       : "";
+    let scheduleLabel = "Send as soon as ready";
+    if (sendMode === "once" && scheduleLocal) {
+      scheduleLabel = formatDateTimeDisplay(scheduleLocal);
+    } else if (sendMode === "recurring") {
+      scheduleLabel = formatRecurringSummary(recurringForm);
+    }
     return {
       name: name.trim() || "—",
       template: selectedTemplate?.template_name || "—",
       audience: audienceSummaryLabel,
-      schedule: scheduleLocal
-        ? formatDateTimeDisplay(scheduleLocal)
-        : "Send as soon as ready",
+      schedule: scheduleLabel,
       media: mediaUrl
         ? `${String(mediaField.format || "").toLowerCase()} attached`
         : null,
@@ -869,7 +1024,9 @@ const OneChattingCampaignCreate = () => {
     name,
     selectedTemplate,
     audienceSummaryLabel,
+    sendMode,
     scheduleLocal,
+    recurringForm,
     mediaPlaceholders,
     variableValues,
   ]);
@@ -911,6 +1068,16 @@ const OneChattingCampaignCreate = () => {
       }
     });
 
+    if (sendMode === "once" && !formatScheduleDate(scheduleLocal)) {
+      nextErrors.schedule = "Pick a date and time for the one-time schedule";
+    }
+    if (sendMode === "recurring") {
+      const config = buildRecurringConfig(recurringForm);
+      if (!config.time) {
+        nextErrors.schedule = "Recurring schedule requires a send time";
+      }
+    }
+
     setFieldErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -929,17 +1096,39 @@ const OneChattingCampaignCreate = () => {
       selectedTemplate.template,
       variableValues,
     );
-    const schedule_date = formatScheduleDate(scheduleLocal);
 
     setSaving(true);
     try {
+      if (sendMode === "recurring") {
+        const payload = {
+          name: name.trim(),
+          template_id: String(selectedTemplate.template_id),
+          template_name: selectedTemplate.template_name || null,
+          component,
+          audience: audiencePayload,
+          schedule_type: recurringForm.type,
+          schedule_config: buildRecurringConfig(recurringForm),
+          timezone: "Asia/Kolkata",
+        };
+        const res = await whatsappApi.createCampaignSchedule(payload);
+        toast.success(
+          res?.message || "Recurring campaign schedule created",
+        );
+        setConfirmOpen(false);
+        navigate("/broadcast/whatsapp/onechatting/campaigns/schedules");
+        return;
+      }
+
       const payload = {
         name: name.trim(),
         template_id: String(selectedTemplate.template_id),
         component,
         audience: audiencePayload,
       };
-      if (schedule_date) payload.schedule_date = schedule_date;
+      if (sendMode === "once") {
+        const schedule_date = formatScheduleDate(scheduleLocal);
+        if (schedule_date) payload.schedule_date = schedule_date;
+      }
 
       const res = await whatsappApi.createCampaign(payload);
       const campaignId = res?.campaign_id;
@@ -1078,14 +1267,63 @@ const OneChattingCampaignCreate = () => {
                       />
                       <FieldError message={fieldErrors.name} />
                     </div>
-                    <div>
-                      <DateTimePicker
-                        label="Schedule (optional, IST)"
-                        value={scheduleLocal}
-                        onChange={setScheduleLocal}
-                        disabled={saving}
-                        placeholder="Send as soon as ready"
-                      />
+                    <div className="md:col-span-2">
+                      <label className={FIELD_LABEL}>When to send</label>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {SEND_MODE_OPTIONS.map((opt) => {
+                          const active = sendMode === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              disabled={saving}
+                              onClick={() => {
+                                setSendMode(opt.id);
+                                clearFieldError("schedule");
+                              }}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                                active
+                                  ? "bg-emerald-600 border-emerald-600 text-white"
+                                  : "bg-white border-gray-300 text-gray-700 hover:border-emerald-400"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {sendMode === "now" ? (
+                        <p className="text-xs text-gray-500 m-0">
+                          Campaign is created and sent as soon as OneChatting is
+                          ready.
+                        </p>
+                      ) : null}
+                      {sendMode === "once" ? (
+                        <DateTimePicker
+                          label="Schedule date & time (IST)"
+                          value={scheduleLocal}
+                          onChange={(v) => {
+                            setScheduleLocal(v);
+                            clearFieldError("schedule");
+                          }}
+                          disabled={saving}
+                          placeholder="Pick date and time"
+                        />
+                      ) : null}
+                      {sendMode === "recurring" ? (
+                        <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3 space-y-2">
+                          <p className="text-xs text-emerald-800 m-0">
+                            OOMS will create a fresh campaign on this cycle
+                            (audience re-resolved each run). Times are IST.
+                          </p>
+                          <RecurringScheduleFields
+                            form={recurringForm}
+                            onChange={handleRecurringChange}
+                            disabled={saving}
+                          />
+                        </div>
+                      ) : null}
+                      <FieldError message={fieldErrors.schedule} />
                     </div>
                     <div className="md:col-span-2">
                       <label className={FIELD_LABEL}>
@@ -1485,6 +1723,16 @@ const OneChattingCampaignCreate = () => {
         onConfirm={handleConfirmCreate}
         loading={saving}
         summary={confirmSummary}
+        confirmLabel={
+          sendMode === "recurring"
+            ? "Create recurring schedule"
+            : "Create campaign"
+        }
+        title={
+          sendMode === "recurring"
+            ? "Ready to schedule?"
+            : "Ready to create?"
+        }
       />
     </div>
   );

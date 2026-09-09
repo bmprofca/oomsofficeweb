@@ -426,16 +426,27 @@ const Fast2SmsCampaigns = () => {
                   />
                 </button>
                 {canCreate ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate("/broadcast/sms/fast2sms/campaigns/create")
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    <FiPlus className="h-4 w-4" />
-                    Create
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate("/broadcast/sms/fast2sms/campaigns/schedules")
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                    >
+                      Recurring
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate("/broadcast/sms/fast2sms/campaigns/create")
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      <FiPlus className="h-4 w-4" />
+                      Create
+                    </button>
+                  </>
                 ) : null}
               </div>
             </div>

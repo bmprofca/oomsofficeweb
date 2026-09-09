@@ -73,6 +73,7 @@ import {
   OneChattingCampaigns,
   OneChattingCampaignCreate,
   OneChattingCampaignDetails,
+  OneChattingCampaignSchedules,
   WhatsAppWebSession,
   WhatsAppWebTemplates,
   OomsSystemTemplates,
@@ -81,11 +82,13 @@ import {
   Fast2SmsCampaigns,
   Fast2SmsCampaignCreate,
   Fast2SmsCampaignDetails,
+  Fast2SmsCampaignSchedules,
   EmailConfigList,
   EmailTemplateList,
   EmailBroadcastList,
   EmailBroadcastCreate,
   EmailBroadcastDetails,
+  EmailBroadcastSchedules,
   Settings,
   StaffList,
   PermissionList,
@@ -739,6 +742,12 @@ root.render(
               </ProtectedRoute>
             } />
 
+            <Route path="/broadcast/sms/fast2sms/campaigns/schedules" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaignSchedules />
+              </ProtectedRoute>
+            } />
+
             <Route path="/broadcast/sms/fast2sms/campaigns/:campaignId" element={
               <ProtectedRoute>
                 <Fast2SmsCampaignDetails />
@@ -760,6 +769,12 @@ root.render(
             <Route path="/broadcast/whatsapp/onechatting/campaigns" element={
               <ProtectedRoute>
                 <OneChattingCampaigns />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/whatsapp/onechatting/campaigns/schedules" element={
+              <ProtectedRoute>
+                <OneChattingCampaignSchedules />
               </ProtectedRoute>
             } />
 
@@ -807,6 +822,11 @@ root.render(
             <Route path="/broadcast/email/campaigns" element={
               <ProtectedRoute>
                 <EmailBroadcastList />
+              </ProtectedRoute>
+            } />
+            <Route path="/broadcast/email/schedules" element={
+              <ProtectedRoute>
+                <EmailBroadcastSchedules />
               </ProtectedRoute>
             } />
             <Route path="/broadcast/email-channel" element={

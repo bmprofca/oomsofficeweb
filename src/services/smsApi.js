@@ -60,6 +60,24 @@ export const smsApi = {
       .then(unwrap),
   createCampaign: (payload) =>
     smsAxios.post('/broadcast/sms/fast2sms/campaign/create', payload).then(unwrap),
+  listCampaignSchedules: (params) =>
+    smsAxios.get('/broadcast/sms/fast2sms/campaign/schedules', { params }).then(unwrap),
+  createCampaignSchedule: (payload) =>
+    smsAxios.post('/broadcast/sms/fast2sms/campaign/schedules', payload).then(unwrap),
+  updateCampaignSchedule: (scheduleId, payload) =>
+    smsAxios
+      .put(`/broadcast/sms/fast2sms/campaign/schedules/${scheduleId}`, payload)
+      .then(unwrap),
+  deleteCampaignSchedule: (scheduleId) =>
+    smsAxios
+      .delete(`/broadcast/sms/fast2sms/campaign/schedules/${scheduleId}`)
+      .then(unwrap),
+  runCampaignSchedule: (scheduleId) =>
+    smsAxios
+      .post(`/broadcast/sms/fast2sms/campaign/schedules/${scheduleId}/run`, null, {
+        timeout: 120000,
+      })
+      .then(unwrap),
   listCampaigns: (params) =>
     smsAxios.get('/broadcast/sms/fast2sms/campaign/list', { params }).then(unwrap),
   getCampaignDetails: (params) =>
