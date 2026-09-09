@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
     FiUsers,
@@ -9,101 +8,94 @@ import {
     FiSearch,
     FiUser,
     FiPhone,
-    FiMenu
+    FiMail,
+    FiPower,
 } from 'react-icons/fi';
-import { PiExportBold } from "react-icons/pi";
-import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
-import { AiOutlineMail } from "react-icons/ai";
-import { FaWhatsapp } from "react-icons/fa6";
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
 import Modal from '../../components/common/Modal';
 import TablePagination from '../../components/TablePagination';
+import AnimatedCheckbox from '../../components/AnimatedCheckbox';
+import CustomSelect from '../../components/CustomSelect';
+import EmailActionMenu from '../broadcast/email/EmailActionMenu';
+import AddStaffModal from '../../components/Modals/AddStaffModal';
+import StaffStatusOtpModal from '../../components/Modals/StaffStatusOtpModal';
+import ConfirmActionModal from '../../components/ConfirmActionModal';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
 import { clearUserPermissionCache, fetchUserPermissions } from '../../utils/permission-helper';
 
-const ACTIONS_MENU_WIDTH = 192;
-const ACTIONS_MENU_HEIGHT = 120;
+const optionByValue = (options, value) => {
+    if (value == null || value === '') return null;
+    return (options || []).find((opt) => String(opt.value) === String(value)) || null;
+};
 
-function useDebouncedValue(value, delay = 300) {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(timer);
-    }, [value, delay]);
-    return debounced;
-}
+const StaffAvatar = ({ name, image }) => {
+    const [failed, setFailed] = useState(false);
+    const initials = String(name || '')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
 
-const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel, disabled = false }) => {
-    const inputRef = useRef(null);
-
-    useEffect(() => {
-        if (inputRef.current) {
-            inputRef.current.indeterminate = indeterminate;
-        }
-    }, [indeterminate, checked]);
-
-    const isActive = checked || indeterminate;
+    if (image && !failed) {
+        return (
+            <img
+                src={image}
+                alt=""
+                className="h-9 w-9 shrink-0 rounded-lg object-cover bg-slate-100"
+                onError={() => setFailed(true)}
+            />
+        );
+    }
 
     return (
-        <label className={`relative inline-flex items-center group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-            <input
-                ref={inputRef}
-                type="checkbox"
-                className="sr-only"
-                checked={checked}
-                onChange={onChange}
-                aria-label={ariaLabel}
-                disabled={disabled}
-            />
-            <motion.span
-                className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${
-                    isActive
-                        ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200'
-                        : 'bg-white border-gray-300 group-hover:border-indigo-400'
-                }`}
-                animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
-                transition={{ duration: 0.18 }}
-                whileTap={disabled ? {} : { scale: 0.92 }}
-            >
-                <AnimatePresence initial={false} mode="wait">
-                    {indeterminate ? (
-                        <motion.span
-                            key="dash"
-                            className="block w-2 h-0.5 bg-white rounded-full"
-                            initial={{ opacity: 0, scaleX: 0.4 }}
-                            animate={{ opacity: 1, scaleX: 1 }}
-                            exit={{ opacity: 0, scaleX: 0.4 }}
-                            transition={{ duration: 0.12 }}
-                        />
-                    ) : checked ? (
-                        <motion.svg
-                            key="check"
-                            viewBox="0 0 12 12"
-                            className="w-3 h-3 text-white"
-                            initial={{ opacity: 0, scale: 0.5 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.5 }}
-                            transition={{ duration: 0.15 }}
-                        >
-                            <path
-                                d="M2.5 6l2.2 2.2 4.8-4.8"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                        </motion.svg>
-                    ) : null}
-                </AnimatePresence>
-            </motion.span>
-        </label>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-[11px] font-semibold text-white shadow-sm">
+            {initials || <FiUser className="h-4 w-4" />}
+        </div>
     );
 };
+
+const PermissionModalSkeleton = () => (
+    <div className="space-y-6 animate-pulse">
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+            <div className="mb-2 h-4 w-24 rounded bg-indigo-200/80" />
+            <div className="h-10 w-full rounded-lg border border-indigo-100 bg-white/80 md:w-1/2" />
+            <div className="mt-2 h-3 w-full rounded bg-indigo-100" />
+            <div className="mt-1.5 h-3 w-4/5 rounded bg-indigo-100/80" />
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+            <div className="space-y-1.5">
+                <div className="h-4 w-44 rounded bg-gray-200" />
+                <div className="h-3 w-64 max-w-full rounded bg-gray-100" />
+            </div>
+            <div className="h-6 w-11 shrink-0 rounded-full bg-gray-200" />
+        </div>
+        <div>
+            <div className="mb-4 border-b border-gray-200 pb-2">
+                <div className="h-6 w-48 rounded bg-gray-200" />
+            </div>
+            <div className="space-y-3">
+                {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <div className="flex items-center justify-between bg-gray-50 px-5 py-3.5">
+                            <div className="flex items-center gap-2">
+                                <div className="h-4 w-28 rounded bg-gray-200" />
+                                <div className="h-5 w-24 rounded-full bg-indigo-100" />
+                            </div>
+                            <div className="h-3 w-14 rounded bg-gray-200" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
 
 const StaffList = () => {
     const navigate = useNavigate();
@@ -120,11 +112,25 @@ const StaffList = () => {
     const [selectedStaff, setSelectedStaff] = useState(new Set());
     const [bulkPermissionRole, setBulkPermissionRole] = useState('');
     const [bulkAssigning, setBulkAssigning] = useState(false);
-    const [showExportDropdown, setShowExportDropdown] = useState(false);
-    const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showPermissionModal, setShowPermissionModal] = useState(false);
-    const [selectedStaffMember, setSelectedStaffMember] = useState(null);    
+    const [selectedStaffMember, setSelectedStaffMember] = useState(null);
+    const [permissionsView, setPermissionsView] = useState({ open: false, staff: null, perms: [] });
+    const [statusOtp, setStatusOtp] = useState({
+        open: false,
+        staff: null,
+        newStatus: true,
+        sending: false,
+        confirming: false,
+        otpSent: false,
+        destinationMasked: null,
+        error: null,
+    });
+    const [statusConfirm, setStatusConfirm] = useState({
+        open: false,
+        staff: null,
+        newStatus: true,
+    });
     // Dynamic permissions & staff
     const [staffData, setStaffData] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -134,9 +140,6 @@ const StaffList = () => {
     const [modalLoading, setModalLoading] = useState(false);
     const [selectedRole, setSelectedRole] = useState('');
     const [customPermissions, setCustomPermissions] = useState([]);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: undefined, right: 0, bottom: undefined });
-    const actionAnchorRef = useRef(null);
     const [expandedCategories, setExpandedCategories] = useState({});
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -144,41 +147,6 @@ const StaffList = () => {
     const [totalItems, setTotalItems] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [tableLoading, setTableLoading] = useState(false);
-    const [newStaff, setNewStaff] = useState({
-        name: '',
-        guardian_name: '',
-        mobile: '',
-        email: '',
-        dob: '',
-        gender: '',
-        designation: '',
-        permission_id: '',
-        state: '',
-        dist: '',
-        town: '',
-        pincode: '',
-        address_line_1: '',
-        address_line_2: ''
-    });
-
-    const designations = [
-        { value: 'manager', name: 'Manager' },
-        { value: 'supervisor', name: 'Supervisor' },
-        { value: 'accountant', name: 'Accountant' },
-        { value: 'assistant', name: 'Assistant' },
-        { value: 'administrator', name: 'Administrator' }
-    ];
-
-    const genders = [
-        { value: 'male', name: 'Male' },
-        { value: 'female', name: 'Female' },
-        { value: 'other', name: 'Other' }
-    ];
-
-    const statusOptions = [
-        { value: 'active', name: 'Active' },
-        { value: 'inactive', name: 'Inactive' }
-    ];
 
     const getCategoryName = (pOptionId) => {
         const id = pOptionId.toLowerCase();
@@ -322,6 +290,7 @@ const StaffList = () => {
                 is_accepted: isAccepted,
                 status: isAccepted ? 1 : 0,
                 is_active: staffMember.status === true,
+                image: profile.image || '',
                 created_date: staffMember.modify_date || new Date().toISOString().split('T')[0]
             };
         });
@@ -404,93 +373,6 @@ const StaffList = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Close export dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
-                setShowExportDropdown(false);
-            }
-            if (
-                !event.target.closest('[data-staff-actions-menu]') &&
-                !event.target.closest('[data-staff-actions-trigger]')
-            ) {
-                setActiveRowDropdown(null);
-                actionAnchorRef.current = null;
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
-
-    const updateDropdownPosition = useCallback((anchorEl) => {
-        if (!anchorEl) return;
-        const rect = anchorEl.getBoundingClientRect();
-        const margin = 8;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const spaceAbove = rect.top;
-        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + margin && spaceAbove > spaceBelow;
-
-        let top;
-        let bottom;
-        if (openUpward) {
-            top = undefined;
-            bottom = Math.max(margin, window.innerHeight - rect.top + 4);
-        } else {
-            top = Math.min(rect.bottom + 4, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
-            bottom = undefined;
-        }
-
-        const right = Math.max(
-            margin,
-            Math.min(window.innerWidth - rect.right, window.innerWidth - ACTIONS_MENU_WIDTH - margin)
-        );
-
-        setDropdownPos({
-            top,
-            bottom,
-            right,
-            left: undefined,
-        });
-    }, []);
-
-    const openActionsFromButton = useCallback((e, username) => {
-        e.stopPropagation();
-        if (activeRowDropdown === username) {
-            setActiveRowDropdown(null);
-            actionAnchorRef.current = null;
-            return;
-        }
-        actionAnchorRef.current = e.currentTarget;
-        updateDropdownPosition(e.currentTarget);
-        setActiveRowDropdown(username);
-    }, [activeRowDropdown, updateDropdownPosition]);
-
-    // Staff list is server-filtered via API
-    const activeStaffForMenu = useMemo(
-        () => staffData.find((staff) => staff.username === activeRowDropdown) || null,
-        [staffData, activeRowDropdown]
-    );
-
-    useEffect(() => {
-        if (!activeRowDropdown) return undefined;
-
-        const handleScrollOrResize = () => {
-            if (actionAnchorRef.current) {
-                updateDropdownPosition(actionAnchorRef.current);
-            }
-        };
-
-        window.addEventListener('scroll', handleScrollOrResize, true);
-        window.addEventListener('resize', handleScrollOrResize);
-        return () => {
-            window.removeEventListener('scroll', handleScrollOrResize, true);
-            window.removeEventListener('resize', handleScrollOrResize);
-        };
-    }, [activeRowDropdown, updateDropdownPosition]);
-
     const pageUsernames = useMemo(() => staffData.map((s) => s.username), [staffData]);
     const isAllPageSelected = pageUsernames.length > 0 && pageUsernames.every((u) => selectedStaff.has(u));
     const isSomePageSelected = pageUsernames.some((u) => selectedStaff.has(u)) && !isAllPageSelected;
@@ -532,36 +414,157 @@ const StaffList = () => {
         setItemsPerPage(newLimit);
         setCurrentPage(1);
     };
-    // Handle status change
-    const handleStatusChange = async (username, currentStatus) => {
-        setTableLoading(true);
+    const roleFilterOptions = useMemo(
+        () => roles.map((role) => ({
+            value: role.permission_role_id,
+            label: role.is_global ? `${role.name} (Global)` : role.name,
+        })),
+        [roles],
+    );
+
+    const statusFilterOptions = [
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+    ];
+
+    const closeStatusOtp = () => {
+        setStatusOtp({
+            open: false,
+            staff: null,
+            newStatus: true,
+            sending: false,
+            confirming: false,
+            otpSent: false,
+            destinationMasked: null,
+            error: null,
+        });
+    };
+
+    const closeStatusConfirm = () => {
+        setStatusConfirm({
+            open: false,
+            staff: null,
+            newStatus: true,
+        });
+    };
+
+    const openStatusConfirm = (staffMember, newStatus) => {
+        setStatusConfirm({
+            open: true,
+            staff: staffMember,
+            newStatus,
+        });
+    };
+
+    const handleStatusConfirm = () => {
+        const staffMember = statusConfirm.staff;
+        const newStatus = statusConfirm.newStatus;
+        closeStatusConfirm();
+        if (staffMember) sendStatusOtp(staffMember, newStatus);
+    };
+
+    const sendStatusOtp = async (staffMember, newStatus) => {
         const headers = getHeaders();
         if (!headers) {
             toast.error('Authentication required');
-            setTableLoading(false);
             return;
         }
+        setStatusOtp((prev) => ({
+            ...prev,
+            open: true,
+            staff: staffMember,
+            newStatus,
+            sending: true,
+            confirming: false,
+            otpSent: false,
+            destinationMasked: null,
+            error: null,
+        }));
         try {
-            const newStatusString = currentStatus ? 'active' : 'deactive';
-            const res = await axios.put(`${API_BASE_URL}/settings/staff/change-status`, {
-                username,
-                status: newStatusString
-            }, { headers });
-            
+            const res = await axios.post(
+                `${API_BASE_URL}/settings/staff/change-status/send-otp`,
+                {
+                    username: staffMember.username,
+                    status: newStatus ? 'active' : 'deactive',
+                },
+                { headers },
+            );
             if (res.data?.success) {
-                toast.success(res.data.message || `Staff status updated successfully`);
-                setStaffData(prev => prev.map(m => 
-                    m.username === username ? { ...m, is_active: currentStatus } : m
-                ));
+                setStatusOtp((prev) => ({
+                    ...prev,
+                    sending: false,
+                    otpSent: true,
+                    destinationMasked: res.data.destination_masked || res.data.mobile_masked || null,
+                    error: null,
+                }));
+                toast.success(res.data.message || 'OTP sent to your registered mobile number');
             } else {
-                toast.error(res.data?.message || 'Failed to update status');
+                setStatusOtp((prev) => ({
+                    ...prev,
+                    sending: false,
+                    otpSent: false,
+                    error: res.data?.message || 'Failed to send OTP',
+                }));
             }
         } catch (err) {
-            console.error('Error updating status:', err);
-            toast.error(err.response?.data?.message || 'Failed to update status');
-        } finally {
-            setTableLoading(false);
+            setStatusOtp((prev) => ({
+                ...prev,
+                sending: false,
+                otpSent: false,
+                error: err.response?.data?.message || 'Failed to send OTP',
+            }));
         }
+    };
+
+    const confirmStatusChange = async ({ otp }) => {
+        const target = statusOtp.staff;
+        if (!target) return;
+        const headers = getHeaders();
+        if (!headers) {
+            setStatusOtp((prev) => ({ ...prev, confirming: false, error: 'Authentication required' }));
+            return;
+        }
+        setStatusOtp((prev) => ({ ...prev, confirming: true, error: null }));
+        try {
+            const res = await axios.put(
+                `${API_BASE_URL}/settings/staff/change-status`,
+                {
+                    username: target.username,
+                    status: statusOtp.newStatus ? 'active' : 'deactive',
+                    otp,
+                },
+                { headers },
+            );
+            if (res.data?.success) {
+                const updatedIsActive = res.data.data?.status === 'active';
+                setStaffData((prev) =>
+                    prev.map((m) => (m.username === target.username ? { ...m, is_active: updatedIsActive } : m)),
+                );
+                toast.success(res.data.message || 'Staff status updated successfully');
+                closeStatusOtp();
+            } else {
+                setStatusOtp((prev) => ({
+                    ...prev,
+                    confirming: false,
+                    error: res.data?.message || 'Failed to update status',
+                }));
+            }
+        } catch (err) {
+            setStatusOtp((prev) => ({
+                ...prev,
+                confirming: false,
+                error: err.response?.data?.message || 'Failed to update status',
+            }));
+        }
+    };
+
+    const openStaffProfile = (staffMember) => {
+        if (!staffMember?.username) return;
+        navigate(`/staff/view/profile/${encodeURIComponent(staffMember.username)}/profile`);
+    };
+
+    const openPermissionsView = (staffMember, perms) => {
+        setPermissionsView({ open: true, staff: staffMember, perms });
     };
 
     // Handle permission override modal and assignment
@@ -701,62 +704,13 @@ const StaffList = () => {
         });
     };
 
-    // Handle create staff (locally mocked since no API available)
-    const handleCreateStaff = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setTimeout(() => {
-            const newStaffMember = {
-                id: `${staffData.length + 1}`,
-                username: `staff${Date.now()}`,
-                ...newStaff,
-                password: '******',
-                permission_role_id: newStaff.permission_id,
-                is_accepted: true,
-                status: 1,
-                is_active: true,
-                created_date: new Date().toISOString().split('T')[0]
-            };
-            setStaffData(prev => [newStaffMember, ...prev]);
-            setNewStaff({
-                name: '',
-                guardian_name: '',
-                mobile: '',
-                email: '',
-                dob: '',
-                gender: '',
-                designation: '',
-                permission_id: '',
-                state: '',
-                dist: '',
-                town: '',
-                pincode: '',
-                address_line_1: '',
-                address_line_2: ''
-            });
-            setShowCreateModal(false);
-            setLoading(false);
-            toast.success('Staff member created successfully');
-        }, 1000);
-    };
-
-    // Handle export
-    const handleExport = (type, data = null) => {
-        setExportModal({ open: true, type, data });
-        setTimeout(() => {
-            setExportModal({ open: false, type: '', data: null });
-            toast.success(`${type.toUpperCase()} export completed successfully!`);
-        }, 1500);
-    };
-
-    // Skeleton loader component
     const tableCellPad = isMinimized ? 'p-4' : 'px-2 py-3 sm:px-3 sm:py-3.5';
 
     const SkeletonRow = () => (
         <tr className="animate-pulse">
-            <td className={tableCellPad}>
-                <div className="w-[18px] h-[18px] bg-gray-200 rounded" />
-            </td>
+                                            <td className={tableCellPad}>
+                                                <div className="w-8 h-8 bg-gray-200 rounded" />
+                                            </td>
             <td className={tableCellPad}>
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-gray-200 rounded-lg" />
@@ -774,6 +728,9 @@ const StaffList = () => {
             </td>
             <td className={tableCellPad}>
                 <div className="h-8 bg-gray-200 rounded w-28" />
+            </td>
+            <td className={tableCellPad}>
+                <div className="h-7 bg-gray-200 rounded-lg w-20" />
             </td>
             <td className={tableCellPad}>
                 <div className="h-6 bg-gray-200 rounded w-11" />
@@ -829,98 +786,44 @@ const StaffList = () => {
                                         </motion.button>
                                     </div>
 
-                                    <div className="relative w-full min-w-0">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            placeholder={isMinimized ? 'Search by name, mobile, email...' : 'Search staff...'}
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full min-w-0 pl-9 pr-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <select
-                                            value={selectedPermission}
-                                            onChange={(e) => {
-                                                setCurrentPage(1);
-                                                setSelectedPermission(e.target.value);
-                                            }}
-                                            className="min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:basis-auto sm:flex-none sm:min-w-[8.5rem] max-w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-xs sm:text-sm truncate"
-                                        >
-                                            <option value="">All Permissions</option>
-                                            {roles.map(role => (
-                                                <option key={role.permission_role_id} value={role.permission_role_id}>
-                                                    {role.name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <select
-                                            value={selectedStatus}
-                                            onChange={(e) => {
-                                                setCurrentPage(1);
-                                                setSelectedStatus(e.target.value);
-                                            }}
-                                            className="min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:basis-auto sm:flex-none sm:min-w-[7rem] max-w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-xs sm:text-sm"
-                                        >
-                                            <option value="">All Status</option>
-                                            {statusOptions.map(status => (
-                                                <option key={status.value} value={status.value}>
-                                                    {status.name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <div className="dropdown-container relative shrink-0">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowExportDropdown(!showExportDropdown)}
-                                                className="px-2.5 sm:px-3 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm whitespace-nowrap"
-                                            >
-                                                <PiExportBold className="w-4 h-4 shrink-0" />
-                                                <span className="hidden sm:inline">Export</span>
-                                            </button>
-
-                                            {showExportDropdown && (
-                                                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
-                                                    <div className="py-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleExport('pdf')}
-                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                        >
-                                                            <PiFilePdfDuotone className="w-4 h-4 mr-2 sm:mr-3 text-red-500 shrink-0" />
-                                                            Export as PDF
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleExport('excel')}
-                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                        >
-                                                            <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 sm:mr-3 text-green-500 shrink-0" />
-                                                            Export as Excel
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleExport('whatsapp')}
-                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                        >
-                                                            <FaWhatsapp className="w-4 h-4 mr-2 sm:mr-3 text-green-500 shrink-0" />
-                                                            Share via WhatsApp
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleExport('email')}
-                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                        >
-                                                            <AiOutlineMail className="w-4 h-4 mr-2 sm:mr-3 text-blue-500 shrink-0" />
-                                                            Share via Email
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <div className="relative min-w-0 flex-1">
+                                            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder={isMinimized ? 'Search by name, mobile, email...' : 'Search staff...'}
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="w-full min-w-0 rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                        <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+                                            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
+                                                <CustomSelect
+                                                    options={roleFilterOptions}
+                                                    value={optionByValue(roleFilterOptions, selectedPermission)}
+                                                    onChange={(opt) => {
+                                                        setCurrentPage(1);
+                                                        setSelectedPermission(opt?.value || '');
+                                                    }}
+                                                    placeholder="All Permissions"
+                                                    searchPlaceholder="Search roles..."
+                                                    isClearable
+                                                />
+                                            </div>
+                                            <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
+                                                <CustomSelect
+                                                    options={statusFilterOptions}
+                                                    value={optionByValue(statusFilterOptions, selectedStatus)}
+                                                    onChange={(opt) => {
+                                                        setCurrentPage(1);
+                                                        setSelectedStatus(opt?.value || '');
+                                                    }}
+                                                    placeholder="All Status"
+                                                    isClearable
+                                                    isSearchable={false}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -931,18 +834,21 @@ const StaffList = () => {
                                 <table className="w-full">
                                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                                         <tr>
-                                            <th className={`w-10 sm:w-12 text-left ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>
-                                                <AnimatedCheckbox
-                                                    checked={isAllPageSelected}
-                                                    indeterminate={isSomePageSelected}
-                                                    onChange={handleSelectAll}
-                                                    ariaLabel="Select all staff on this page"
-                                                    disabled={tableLoading || staffData.length === 0}
-                                                />
+                                            <th className={`w-12 text-center ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>
+                                                <div className="flex items-center justify-center">
+                                                    <AnimatedCheckbox
+                                                        checked={isAllPageSelected}
+                                                        indeterminate={isSomePageSelected}
+                                                        onChange={handleSelectAll}
+                                                        ariaLabel="Select all staff on this page"
+                                                        disabled={tableLoading || staffData.length === 0}
+                                                    />
+                                                </div>
                                             </th>
                                             <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Staff</th>
                                             <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Contact</th>
                                             <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap min-w-[7rem] ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Permission</th>
+                                            <th className={`text-center text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Invitation</th>
                                             <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Status</th>
                                             <th className={`text-center text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Actions</th>
                                         </tr>
@@ -954,7 +860,7 @@ const StaffList = () => {
                                             ))
                                         ) : staffData.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="p-8 text-center">
+                                                <td colSpan="7" className="p-8 text-center">
                                                     <div className="flex flex-col items-center justify-center py-8">
                                                         <FiUsers className="w-16 h-16 text-gray-300 mb-4" />
                                                         <p className="text-gray-500 text-lg font-medium mb-2">No staff members found</p>
@@ -972,24 +878,28 @@ const StaffList = () => {
                                         ) : (
                                             staffData.map((staff) => (
                                                 <tr key={staff.username || staff.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className={tableCellPad}>
-                                                        <AnimatedCheckbox
-                                                            checked={selectedStaff.has(staff.username)}
-                                                            onChange={() => handleStaffSelect(staff.username)}
-                                                            ariaLabel={`Select ${staff.name}`}
-                                                        />
+                                                    <td className={`${tableCellPad} w-12`}>
+                                                        <div className="flex items-center justify-center">
+                                                            <AnimatedCheckbox
+                                                                checked={selectedStaff.has(staff.username)}
+                                                                onChange={() => handleStaffSelect(staff.username)}
+                                                                ariaLabel={`Select ${staff.name}`}
+                                                            />
+                                                        </div>
                                                     </td>
                                                     <td className={tableCellPad}>
                                                         <div className="flex items-center gap-2 sm:gap-3 min-w-[10rem]">
-                                                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-                                                                <FiUser className="w-4 h-4 text-white" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-semibold text-gray-800 text-sm">
+                                                            <StaffAvatar name={staff.name} image={staff.image} />
+                                                            <div className="min-w-0">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => openStaffProfile(staff)}
+                                                                    className="block truncate text-left text-sm font-semibold text-indigo-700 no-underline hover:text-indigo-900 hover:no-underline"
+                                                                >
                                                                     {staff.name}
-                                                                </div>
+                                                                </button>
                                                                 <div className="text-xs text-gray-500 font-medium">
-                                                                    C/O: {staff.guardian_name}
+                                                                    C/O: {staff.guardian_name || '—'}
                                                                 </div>
                                                                 <div className="text-xs text-gray-400 mt-1">
                                                                     {staff.designation}
@@ -1000,11 +910,12 @@ const StaffList = () => {
                                                     <td className={tableCellPad}>
                                                         <div className="space-y-1 min-w-[8rem]">
                                                             <div className="flex items-center gap-2 text-gray-800 text-sm font-medium">
-                                                                <FiPhone className="w-3 h-3 text-gray-400" />
+                                                                <FiPhone className="w-3 h-3 shrink-0 text-gray-400" />
                                                                 {staff.mobile}
                                                             </div>
-                                                            <div className="text-sm text-gray-600">
-                                                                {staff.email}
+                                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                                <FiMail className="w-3 h-3 shrink-0 text-gray-400" />
+                                                                <span className="truncate">{staff.email}</span>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -1051,12 +962,13 @@ const StaffList = () => {
                                                                                 );
                                                                             })}
                                                                             {remaining > 0 && (
-                                                                                <span
-                                                                                    title={allPerms.slice(MAX_CHIPS).map(getPermLabel).join(', ')}
-                                                                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 cursor-default"
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => openPermissionsView(staff, allPerms)}
+                                                                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200"
                                                                                 >
                                                                                     +{remaining} more
-                                                                                </span>
+                                                                                </button>
                                                                             )}
                                                                         </div>
                                                                     )}
@@ -1067,14 +979,25 @@ const StaffList = () => {
                                                             );
                                                         })()}
                                                     </td>
+                                                    <td className={`${tableCellPad} text-center`}>
+                                                        <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg min-w-[80px] border shadow-xs text-xs font-bold ${
+                                                            staff.is_accepted
+                                                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200'
+                                                                : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200'
+                                                        }`}>
+                                                            {staff.is_accepted ? 'Accepted' : 'Pending'}
+                                                        </span>
+                                                    </td>
                                                     <td className={tableCellPad}>
                                                         <button
-                                                            onClick={() => handleStatusChange(staff.username, !staff.is_active)}
+                                                            type="button"
+                                                            onClick={() => openStatusConfirm(staff, !staff.is_active)}
                                                             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
                                                                 staff.is_active 
                                                                     ? 'bg-green-500' 
                                                                     : 'bg-gray-300'
                                                             }`}
+                                                            aria-label={staff.is_active ? 'Deactivate staff' : 'Activate staff'}
                                                         >
                                                             <span
                                                                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -1087,16 +1010,20 @@ const StaffList = () => {
                                                     </td>
                                                     <td className={tableCellPad}>
                                                         <div className="flex justify-center items-center">
-                                                            <button
-                                                                type="button"
-                                                                data-staff-actions-trigger
-                                                                onClick={(e) => openActionsFromButton(e, staff.username)}
-                                                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                                title="Actions"
-                                                                aria-label="Staff actions"
-                                                            >
-                                                                <FiMenu className="w-4 h-4" />
-                                                            </button>
+                                                            <EmailActionMenu
+                                                                items={[
+                                                                    {
+                                                                        label: 'View Profile',
+                                                                        icon: FiEye,
+                                                                        onClick: () => openStaffProfile(staff),
+                                                                    },
+                                                                    {
+                                                                        label: 'Change Permission',
+                                                                        icon: FiShield,
+                                                                        onClick: () => openPermissionModal(staff),
+                                                                    },
+                                                                ]}
+                                                            />
                                                         </div>
                                                     </td>                                                </tr>
                                             ))
@@ -1120,129 +1047,11 @@ const StaffList = () => {
                 </div>
             </div>
 
-            <Modal
+            <AddStaffModal
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
-                title="Create New Staff"
-                subtitle="Add a new staff member to the system"
-                size="xl"
-                bodyClassName="p-6"
-                footer={
-                    <div className="flex justify-end gap-3">
-                        <motion.button
-                            type="button"
-                            onClick={() => setShowCreateModal(false)}
-                            className="px-6 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            Cancel
-                        </motion.button>
-                        <motion.button
-                            type="submit"
-                            form="create-staff-form"
-                            disabled={loading}
-                            className="px-6 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 shadow-sm disabled:opacity-50"
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            {loading ? 'Creating...' : 'Create Staff'}
-                        </motion.button>
-                    </div>
-                }
-            >
-                <form id="create-staff-form" onSubmit={handleCreateStaff}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Full Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={newStaff.name}
-                                            onChange={(e) => setNewStaff({...newStaff, name: e.target.value})}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
-                                            placeholder="Enter full name"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Guardian's Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={newStaff.guardian_name}
-                                            onChange={(e) => setNewStaff({...newStaff, guardian_name: e.target.value})}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
-                                            placeholder="Enter guardian's name"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Mobile Number
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            value={newStaff.mobile}
-                                            onChange={(e) => setNewStaff({...newStaff, mobile: e.target.value})}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
-                                            placeholder="Enter mobile number"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Email Address
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={newStaff.email}
-                                            onChange={(e) => setNewStaff({...newStaff, email: e.target.value})}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
-                                            placeholder="Enter email address"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Designation
-                                        </label>
-                                        <select
-                                            value={newStaff.designation}
-                                            onChange={(e) => setNewStaff({...newStaff, designation: e.target.value})}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
-                                            required
-                                        >
-                                            <option value="">Select Designation</option>
-                                            {designations.map(designation => (
-                                                <option key={designation.value} value={designation.value}>
-                                                    {designation.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Permission Level
-                                        </label>
-                                        <select
-                                            value={newStaff.permission_id}
-                                            onChange={(e) => setNewStaff({...newStaff, permission_id: e.target.value})}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
-                                            required
-                                        >
-                                            <option value="">Select Permission</option>
-                                            {roles.map(role => (
-                                                <option key={role.permission_role_id} value={role.permission_role_id}>
-                                                    {role.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                    </div>
-                </form>
-            </Modal>
+                onSuccess={fetchStaffData}
+            />
             <Modal
                 isOpen={showPermissionModal && !!selectedStaffMember}
                 onClose={() => setShowPermissionModal(false)}
@@ -1251,7 +1060,12 @@ const StaffList = () => {
                 size="2xl"
                 bodyClassName="px-5 py-4"
                 footer={
-                    !modalLoading ? (
+                    modalLoading ? (
+                        <div className="flex animate-pulse justify-end gap-3">
+                            <div className="h-10 w-24 rounded-lg bg-gray-200" />
+                            <div className="h-10 w-36 rounded-lg bg-gray-200" />
+                        </div>
+                    ) : (
                         <div className="flex justify-end gap-3">
                             <motion.button
                                 type="button"
@@ -1273,32 +1087,27 @@ const StaffList = () => {
                                 {loading ? 'Saving...' : 'Save Permissions'}
                             </motion.button>
                         </div>
-                    ) : null
+                    )
                 }
             >
                 {modalLoading ? (
-                    <div className="flex flex-col items-center justify-center space-y-4 py-12">
-                        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                        <p className="text-gray-500 font-medium">Loading user permissions...</p>
-                    </div>
+                    <PermissionModalSkeleton />
                 ) : (
                     <form id="staff-permission-form" onSubmit={handleAssignPermissions} className="space-y-6">                                    {/* Role Dropdown */}
                                     <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                                         <label className="block text-sm font-bold text-indigo-900 mb-2">
                                             Assign Role
                                         </label>
-                                        <select
-                                            value={selectedRole}
-                                            onChange={(e) => setSelectedRole(e.target.value)}
-                                            className="w-full md:w-1/2 px-3 py-2.5 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200 bg-white text-gray-700 font-medium"
-                                        >
-                                            <option value="">No Role (Custom Overrides Only)</option>
-                                            {roles.map(role => (
-                                                <option key={role.permission_role_id} value={role.permission_role_id}>
-                                                    {role.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="w-full md:w-1/2">
+                                            <CustomSelect
+                                                options={roleFilterOptions}
+                                                value={optionByValue(roleFilterOptions, selectedRole)}
+                                                onChange={(opt) => setSelectedRole(opt?.value || '')}
+                                                placeholder="No Role (Custom Overrides Only)"
+                                                searchPlaceholder="Search roles..."
+                                                isClearable
+                                            />
+                                        </div>
                                         <p className="text-xs text-indigo-600 mt-2">
                                             Selecting a role automatically grants its associated permissions (shown below). Additional permissions can be checked as custom overrides.
                                         </p>
@@ -1476,24 +1285,71 @@ const StaffList = () => {
             </Modal>
 
             <Modal
-                isOpen={exportModal.open}
-                onClose={() => setExportModal({ open: false, type: '', data: null })}
-                title={`Exporting ${exportModal.type ? exportModal.type.toUpperCase() : ''}`}
-                subtitle={`Your ${exportModal.type || 'file'} export is being processed...`}
-                size="sm"
-                bodyClassName="p-6"
+                isOpen={permissionsView.open}
+                onClose={() => setPermissionsView({ open: false, staff: null, perms: [] })}
+                title={`Permissions: ${permissionsView.staff?.name || ''}`}
+                subtitle="All permissions granted to this staff member"
+                size="md"
+                bodyClassName="px-5 py-4"
+                footer={
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setPermissionsView({ open: false, staff: null, perms: [] })}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                        >
+                            Close
+                        </button>
+                    </div>
+                }
             >
-                <div className="text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <PiExportBold className="w-8 h-8 text-green-600" />
+                {permissionsView.perms.length === 0 ? (
+                    <p className="text-sm text-gray-500">No permissions assigned</p>
+                ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                        {permissionsView.perms.map((perm) => (
+                            <span
+                                key={perm}
+                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100"
+                            >
+                                {getPermLabel(perm)}
+                            </span>
+                        ))}
                     </div>
-                    <div className="flex justify-center space-x-3">
-                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    </div>
-                </div>
+                )}
             </Modal>
+
+            <ConfirmActionModal
+                isOpen={statusConfirm.open}
+                title={statusConfirm.newStatus ? 'Activate Staff' : 'Deactivate Staff'}
+                heading={
+                    statusConfirm.newStatus
+                        ? `Activate ${statusConfirm.staff?.name || 'this staff'}?`
+                        : `Deactivate ${statusConfirm.staff?.name || 'this staff'}?`
+                }
+                message="An OTP will be sent to your registered mobile number to confirm this change."
+                confirmLabel="Confirm"
+                cancelLabel="Cancel"
+                tone={statusConfirm.newStatus ? 'primary' : 'warning'}
+                icon={FiPower}
+                onCancel={closeStatusConfirm}
+                onConfirm={handleStatusConfirm}
+            />
+            <StaffStatusOtpModal
+                isOpen={statusOtp.open}
+                staffName={statusOtp.staff?.name || ''}
+                newStatus={statusOtp.newStatus}
+                destinationMasked={statusOtp.destinationMasked}
+                otpSent={statusOtp.otpSent}
+                sending={statusOtp.sending}
+                confirming={statusOtp.confirming}
+                error={statusOtp.error}
+                onConfirm={confirmStatusChange}
+                onCancel={closeStatusOtp}
+                onResend={() => {
+                    if (statusOtp.staff) sendStatusOtp(statusOtp.staff, statusOtp.newStatus);
+                }}
+            />
 
             <AnimatePresence>
                 {selectedStaff.size > 0 && (
@@ -1524,18 +1380,16 @@ const StaffList = () => {
                                 Clear
                             </button>
                         </div>
-                        <select
-                            value={bulkPermissionRole}
-                            onChange={(e) => setBulkPermissionRole(e.target.value)}
-                            className="w-full mb-3 px-3 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="">Select permission role</option>
-                            {roles.map((role) => (
-                                <option key={role.permission_role_id} value={role.permission_role_id}>
-                                    {role.name}{role.is_global ? ' (Global)' : ''}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="mb-3">
+                            <CustomSelect
+                                options={roleFilterOptions}
+                                value={optionByValue(roleFilterOptions, bulkPermissionRole)}
+                                onChange={(opt) => setBulkPermissionRole(opt?.value || '')}
+                                placeholder="Select permission role"
+                                searchPlaceholder="Search roles..."
+                                isClearable
+                            />
+                        </div>
                         <motion.button
                             type="button"
                             onClick={handleBulkAssignPermissions}
@@ -1549,52 +1403,6 @@ const StaffList = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {activeRowDropdown && activeStaffForMenu && createPortal(
-                <AnimatePresence>
-                    <motion.div
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 4 }}
-                        data-staff-actions-menu
-                        className="fixed z-[99999] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
-                        style={{
-                            top: dropdownPos.top,
-                            bottom: dropdownPos.bottom,
-                            right: dropdownPos.right,
-                            left: dropdownPos.left,
-                            minWidth: ACTIONS_MENU_WIDTH,
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                    >
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setActiveRowDropdown(null);
-                                actionAnchorRef.current = null;
-                                navigate(`/staff/view/profile/${encodeURIComponent(activeStaffForMenu.username)}/profile`);
-                            }}
-                            className="flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
-                        >
-                            <FiEye className="w-4 h-4 mr-2 text-indigo-600" />
-                            View Profile
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setActiveRowDropdown(null);
-                                actionAnchorRef.current = null;
-                                openPermissionModal(activeStaffForMenu);
-                            }}
-                            className="flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
-                        >
-                            <FiShield className="w-4 h-4 mr-2 text-green-600" />
-                            Change Permission
-                        </button>
-                    </motion.div>
-                </AnimatePresence>,
-                document.body
-            )}
         </div>
     );
 };

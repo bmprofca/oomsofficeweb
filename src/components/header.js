@@ -6,7 +6,7 @@ import {
   FiMenu, FiBriefcase, FiChevronDown, FiCreditCard,
   FiPlus, FiBell, FiUser, FiSettings, FiHelpCircle,
   FiLogOut, FiPieChart, FiMessageSquare, FiUsers, FiRepeat,
-  FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiSearch, FiPhone,
+  FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiPhone,
   FiClock,
 } from 'react-icons/fi';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -25,6 +25,7 @@ import { getStoredBranchRoleLabel, resolveBranchRole } from '../services/branchS
 import { performBranchSwitch } from '../utils/branchSwitch';
 import { clearKeepAliveCache } from '../app/KeepAlive';
 import BranchSwitchOverlay from './BranchSwitchOverlay';
+import HeaderGlobalSearch from './HeaderGlobalSearch';
 
 function isStoredBranchAdmin() {
   try {
@@ -600,18 +601,8 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
             </button>
           </div>
 
-          {/* Center: search (desktop) */}
-          <div className="relative hidden max-w-md flex-1 lg:block">
-            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search clients, tasks, modules..."
-              className="h-8 w-full rounded-lg border border-slate-200/80 bg-slate-50/90 pl-9 pr-12 text-sm text-slate-700 placeholder:text-slate-400 transition-all focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-            />
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-1 py-px text-[10px] font-medium text-slate-400 xl:inline-block">
-              /
-            </kbd>
-          </div>
+          {/* Center: global search */}
+          <HeaderGlobalSearch />
 
           {/* Right: branch, wallet, actions */}
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -638,10 +629,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white">
                 <FiPlus className="h-3 w-3" />
               </span>
-            </button>
-
-            <button type="button" className={`${iconButtonClass} lg:hidden`} aria-label="Search">
-              <FiSearch className="h-4 w-4" />
             </button>
 
             <div className="relative">

@@ -41,3 +41,10 @@ Canonical: `sale-display.jsx`, `purchase-display.jsx`, `received-display.jsx` (a
 - Row ⋮: portal menu per [`action-button.md`](./action-button.md) (`z-[99999]`); do not rely on in-cell dropdowns clipped by `overflow-x-auto`.
 
 Full register patterns: [`finance-registers.md`](./finance-registers.md).
+
+## Staff lists
+
+- `/staff/view` (`staff-display.jsx`): `TablePagination`, **default 20** rows, avatars, invitation column, `EmailActionMenu`.
+- `/settings/staff-list`: `TablePagination` (currently default **10**), invitation column, permission chips, status toggle + OTP.
+
+See [`staff.md`](./staff.md).

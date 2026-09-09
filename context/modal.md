@@ -118,6 +118,21 @@ See [`finance-registers.md`](./finance-registers.md) for shell, actions, and `pa
 - Backdrop click + ESC close (blocked while generating/saving).
 - Files: [`PayslipPreviewModal.jsx`](../src/components/Modals/PayslipPreviewModal.jsx), [`BonusFineModal.jsx`](../src/components/Modals/BonusFineModal.jsx). See [`salary.md`](./salary.md).
 
+## Staff list / view modals
+
+| Modal | File | Opens from |
+|-------|------|------------|
+| `AddStaffModal` | [`Modals/AddStaffModal.jsx`](../src/components/Modals/AddStaffModal.jsx) | `/settings/staff-list`, `/staff/view` |
+| `StaffStatusOtpModal` | [`Modals/StaffStatusOtpModal.jsx`](../src/components/Modals/StaffStatusOtpModal.jsx) | Status change after confirm |
+| `ConfirmActionModal` | [`ConfirmActionModal.jsx`](../src/components/ConfirmActionModal.jsx) | Activate / deactivate confirm (before OTP) |
+| Change permission / all permissions | shared [`Modal.jsx`](../src/components/common/Modal.jsx) | Staff list row ⋮ / +N more |
+
+- Fade-only (`duration: 0.18`). Shared `Modal` always portals; `isOpen` gates `AnimatePresence` so the **exit fade** runs (do not `return null` before the portal).
+- Add-staff: Email **and** Mobile find tabs. Body skeletons while check-user / create run.
+- Status: confirm first, then send OTP, then OTP submit. OTP body skeleton while sending.
+- Permission modal: layout-matching skeleton while user-permissions API loads (not a spinner).
+- See [`staff.md`](./staff.md).
+
 Implementation checklist
 - Root overlay uses `overflow-hidden` (not `overflow-y-auto`) unless you intentionally scroll the full-screen layer.
 - Avoid setting `document.body.style.overflow` from every modal unless centralized: multiple modals + sidebar each toggling `overflow` often leaves the page stuck (`hidden` or conflicting `auto`). Prefer a fixed `overflow-hidden` overlay and inner scroll only; if you must lock the body, use a single shared lock (ref counter) or always restore with `removeProperty('overflow')` in one place.

@@ -1,28 +1,27 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import {
     FiSearch,
-    FiSettings,
-    FiUserCheck,
     FiCreditCard,
     FiUser,
     FiPlus,
     FiMail,
     FiPhone,
     FiUsers,
-    FiChevronRight,
-    FiChevronLeft,
-    FiChevronRight as FiChevronRightIcon,
     FiRefreshCw,
-    FiPower
+    FiPower,
+    FiEye,
 } from 'react-icons/fi';
-import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Header, Sidebar } from '../components/header';
 import getHeaders from "../utils/get-headers";
 import BASE_URL from "../utils/api-controller";
 import toast from 'react-hot-toast';
+import AddStaffModal from '../components/Modals/AddStaffModal';
+import StaffStatusOtpModal from '../components/Modals/StaffStatusOtpModal';
+import ConfirmActionModal from '../components/ConfirmActionModal';
+import TablePagination from '../components/TablePagination';
+import EmailActionMenu from './broadcast/email/EmailActionMenu';
 
 
 
@@ -65,208 +64,6 @@ const ModalWrapper = memo(({ isOpen, onClose, title, children, size = 'max-w-md'
     );
 });
 
-ModalWrapper.displayName = 'ModalWrapper';
-
-// Memoized AddStaffModal component with API integration
-const AddStaffModal = memo(({
-    isOpen,
-    onClose,
-    onSubmit,
-    formData,
-    onFormChange,
-    isSubmitting,
-    mode = 'add',
-    userDetails,
-    onFindUser,
-    isFindingUser,
-    isUserFound,
-    resetUserDetails
-}) => {
-    const [step, setStep] = useState(1); // 1: Find User, 2: Add Details
-    const [email, setEmail] = useState('');
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (step === 1) {
-            onFindUser(email);
-        } else {
-            onSubmit(e);
-        }
-    };
-
-    const handleInputChange = (field, value) => {
-        onFormChange({ ...formData, [field]: value });
-    };
-
-    const handleBack = () => {
-        setStep(1);
-        setEmail('');
-        resetUserDetails();
-    };
-
-    // Reset step when modal closes
-    useEffect(() => {
-        if (!isOpen) {
-            setStep(1);
-            setEmail('');
-        }
-    }, [isOpen]);
-
-    // Auto advance to step 2 when user is found
-    useEffect(() => {
-        if (isUserFound && userDetails) {
-            setStep(2);
-        }
-    }, [isUserFound, userDetails]);
-
-    return (
-        <ModalWrapper
-            isOpen={isOpen}
-            onClose={onClose}
-            title={step === 1 ? "Find Staff Member" : "Add Staff Details"}
-            size="max-w-md"
-        >
-            <div className="flex-1 overflow-y-auto p-6">
-                {step === 1 ? (
-                    <form onSubmit={handleSubmit}>
-                        <div className="space-y-6">
-                            <div className="text-center mb-4">
-                                <div className="w-16 h-16 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-200">
-                                    <FiMail className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h3 className="text-lg font-semibold text-slate-800 mb-2">Find Staff by Email</h3>
-                                <p className="text-slate-600 text-sm">
-                                    Enter the email address to check if the user exists in our system.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Email Address <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
-                                    placeholder="email@company.com"
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </form>
-                ) : (
-                    <form onSubmit={handleSubmit}>
-                        <div className="space-y-6">
-                            <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-4 mb-4">
-                                <div className="flex items-start">
-                                    <div className="p-1.5 bg-emerald-100 rounded-lg mr-3">
-                                        <FiUserCheck className="w-5 h-5 text-emerald-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h4 className="text-sm font-semibold text-emerald-800 mb-1">User Found</h4>
-                                        <p className="text-emerald-600 text-xs mb-3">
-                                            User details fetched successfully. Please add designation below.
-                                        </p>
-                                        {userDetails && (
-                                            <div className="grid grid-cols-1 gap-2 text-xs">
-                                                <div>
-                                                    <span className="text-slate-500">Name:</span>
-                                                    <span className="ml-2 font-medium text-slate-800">{userDetails.name || 'N/A'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500">Email:</span>
-                                                    <span className="ml-2 font-medium text-slate-800">{userDetails.email || 'N/A'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500">Mobile:</span>
-                                                    <span className="ml-2 font-medium text-slate-800">+{userDetails.country_code || '91'} {userDetails.mobile || 'N/A'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500">Username:</span>
-                                                    <span className="ml-2 font-medium text-slate-800">{userDetails.username || 'N/A'}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    Designation <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={formData.designation}
-                                    onChange={(e) => handleInputChange('designation', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
-                                    required
-                                >
-                                    <option value="">Select Designation</option>
-                                    <option value="Developer">Developer</option>
-                                    <option value="Senior Developer">Senior Developer</option>
-                                    <option value="Project Manager">Project Manager</option>
-                                    <option value="UI/UX Designer">UI/UX Designer</option>
-                                    <option value="Quality Assurance">Quality Assurance</option>
-                                    <option value="DevOps Engineer">DevOps Engineer</option>
-                                    <option value="Frontend Developer">Frontend Developer</option>
-                                    <option value="Backend Developer">Backend Developer</option>
-                                    <option value="HR Manager">HR Manager</option>
-                                    <option value="Sales Executive">Sales Executive</option>
-                                    <option value="Accountant">Accountant</option>
-                                </select>
-                            </div>
-                        </div>
-                    </form>
-                )}
-            </div>
-
-            <div className="flex-shrink-0 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 p-6 rounded-b-xl">
-                <div className="flex justify-between gap-3">
-                    {step === 2 ? (
-                        <button
-                            type="button"
-                            onClick={handleBack}
-                            disabled={isSubmitting}
-                            className="px-6 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors disabled:opacity-50 shadow-sm"
-                        >
-                            Back
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={isSubmitting || isFindingUser}
-                            className="px-6 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors disabled:opacity-50 shadow-sm"
-                        >
-                            Cancel
-                        </button>
-                    )}
-                    <button
-                        type="submit"
-                        onClick={handleSubmit}
-                        disabled={isSubmitting || isFindingUser}
-                        className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 border border-emerald-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[120px] justify-center shadow-sm"
-                    >
-                        {(isSubmitting || isFindingUser) ? (
-                            <>
-                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                {step === 1 ? 'Finding...' : 'Adding...'}
-                            </>
-                        ) : (
-                            step === 1 ? 'Find User' : 'Add Staff Member'
-                        )}
-                    </button>
-                </div>
-            </div>
-        </ModalWrapper>
-    );
-});
-
-AddStaffModal.displayName = 'AddStaffModal';
 
 // Memoized StaffFormModal component for editing
 const StaffFormModal = memo(({
@@ -525,8 +322,37 @@ const StaffFormModal = memo(({
 
 StaffFormModal.displayName = 'StaffFormModal';
 
+const StaffAvatar = ({ name, image }) => {
+    const [failed, setFailed] = useState(false);
+    const initials = String(name || '')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
+
+    if (image && !failed) {
+        return (
+            <img
+                src={image}
+                alt=""
+                className="h-9 w-9 shrink-0 rounded-lg object-cover bg-slate-100"
+                onError={() => setFailed(true)}
+            />
+        );
+    }
+
+    return (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-[11px] font-semibold text-white shadow-sm">
+            {initials || <FiUser className="h-4 w-4" />}
+        </div>
+    );
+};
+
 // Main ViewStaff Component
 const ViewStaff = () => {
+    const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -543,14 +369,22 @@ const ViewStaff = () => {
     const [isDeleteStaffModalOpen, setIsDeleteStaffModalOpen] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState(null);
 
-    // Status change modal
-    const [isStatusChangeModalOpen, setIsStatusChangeModalOpen] = useState(false);
-    const [statusChangeTarget, setStatusChangeTarget] = useState(null); // { staff, newStatus }
-
-    // Add staff modal states
-    const [userDetails, setUserDetails] = useState(null);
-    const [isUserFound, setIsUserFound] = useState(false);
-    const [isFindingUser, setIsFindingUser] = useState(false);
+    // Status change OTP
+    const [statusOtp, setStatusOtp] = useState({
+        open: false,
+        staff: null,
+        newStatus: true,
+        sending: false,
+        confirming: false,
+        otpSent: false,
+        destinationMasked: null,
+        error: null,
+    });
+    const [statusConfirm, setStatusConfirm] = useState({
+        open: false,
+        staff: null,
+        newStatus: true,
+    });
 
     // Resend link state
     const [resendingLink, setResendingLink] = useState(null);
@@ -562,18 +396,10 @@ const ViewStaff = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // State for dropdown menus
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    // { top, bottom, right, openUpward } — coordinates for the portal dropdown
-    const [dropdownPos, setDropdownPos] = useState(null);
-
-    // Pagination state
-    const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
     const [totalItems, setTotalItems] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
-    const [pageJumpInput, setPageJumpInput] = useState('');
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -592,33 +418,9 @@ const ViewStaff = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Track initial mount to prevent double API call from the search effect
-    const isInitialMount = useRef(true);
-
     // Initial data load
     useEffect(() => {
         fetchStaffData('', 1, itemsPerPage, true);
-    }, []);
-
-    // Close dropdown on outside click or scroll
-    useEffect(() => {
-        const closeDropdown = (event) => {
-            if (!event.target.closest('.dropdown-container') && !event.target.closest('.staff-portal-dropdown')) {
-                setActiveRowDropdown(null);
-                setDropdownPos(null);
-            }
-        };
-        const closeOnScroll = () => {
-            setActiveRowDropdown(null);
-            setDropdownPos(null);
-        };
-
-        document.addEventListener('mousedown', closeDropdown);
-        window.addEventListener('scroll', closeOnScroll, true);
-        return () => {
-            document.removeEventListener('mousedown', closeDropdown);
-            window.removeEventListener('scroll', closeOnScroll, true);
-        };
     }, []);
 
     // Format currency
@@ -627,13 +429,6 @@ const ViewStaff = () => {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount);
-    };
-
-    // Format date
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB');
     };
 
     // Function to transform API data to frontend format based on is_accepted status
@@ -666,6 +461,7 @@ const ViewStaff = () => {
                     is_accepted: isAccepted,
                     status: isAccepted ? 'Accepted' : 'Pending',
                     is_active: staffMember.status === true,
+                    image: profile.image || '',
                 };
             }
             // For non-accepted staff: Use basic info only
@@ -690,13 +486,14 @@ const ViewStaff = () => {
                     is_accepted: isAccepted,
                     status: isAccepted ? 'Accepted' : 'Pending',
                     is_active: staffMember.status === true,
+                    image: profile.image || '',
                 };
             }
         });
     };
 
     // API call to fetch staff data with search, page, limit
-    const fetchStaffData = async (search = '', page = 1, limit = 10, isInitial = false) => {
+    const fetchStaffData = async (search = '', page = 1, limit = 20, isInitial = false) => {
         if (isInitial) {
             setLoading(true);
         } else {
@@ -769,17 +566,12 @@ const ViewStaff = () => {
     // Page-change handler (clamped, clears jump input)
     const handlePageChange = (newPage) => {
         const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-            setPageJumpInput('');
-        }
+        if (page !== currentPage) setCurrentPage(page);
     };
 
-    // Go-to-page submit
-    const handlePageJump = (e) => {
-        e.preventDefault();
-        const page = parseInt(pageJumpInput, 10);
-        if (!isNaN(page)) handlePageChange(page);
+    const handleLimitChange = (newLimit) => {
+        setItemsPerPage(newLimit);
+        setCurrentPage(1);
     };
 
     // Enter key on search → immediate fetch without waiting for debounce
@@ -790,105 +582,136 @@ const ViewStaff = () => {
         }
     };
 
-    // Toggle row dropdown — renders via portal at fixed viewport coordinates
-    const toggleRowDropdown = (username, event) => {
-        if (activeRowDropdown === username) {
-            setActiveRowDropdown(null);
-            setDropdownPos(null);
-            return;
-        }
-        const rect = event.currentTarget.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const openUpward = spaceBelow < 320;
-        setDropdownPos({
-            // right edge aligned to button's right edge
-            right: window.innerWidth - rect.right,
-            top: rect.bottom + 4,        // 4px gap below button (downward)
-            bottom: window.innerHeight - rect.top + 4, // 4px gap above button (upward)
-            openUpward,
+    const closeStatusOtp = () => {
+        setStatusOtp({
+            open: false,
+            staff: null,
+            newStatus: true,
+            sending: false,
+            confirming: false,
+            otpSent: false,
+            destinationMasked: null,
+            error: null,
         });
-        setActiveRowDropdown(username);
     };
 
-    // Find user by email
-    const findUserByEmail = async (email) => {
-        setIsFindingUser(true);
-        setIsUserFound(false);
-        setUserDetails(null);
+    const closeStatusConfirm = () => {
+        setStatusConfirm({
+            open: false,
+            staff: null,
+            newStatus: true,
+        });
+    };
 
+    const openStatusConfirm = (staffMember, newStatus) => {
+        setStatusConfirm({
+            open: true,
+            staff: staffMember,
+            newStatus,
+        });
+    };
+
+    const handleStatusConfirm = () => {
+        const staffMember = statusConfirm.staff;
+        const newStatus = statusConfirm.newStatus;
+        closeStatusConfirm();
+        if (staffMember) sendStatusOtp(staffMember, newStatus);
+    };
+
+    const sendStatusOtp = async (staffMember, newStatus) => {
         const headers = getHeaders();
         if (!headers) {
             toast.error('Authentication required. Please login again.');
-            setIsFindingUser(false);
             return;
         }
-
+        setStatusOtp({
+            open: true,
+            staff: staffMember,
+            newStatus,
+            sending: true,
+            confirming: false,
+            otpSent: false,
+            destinationMasked: null,
+            error: null,
+        });
         try {
-            const response = await fetch(`${BASE_URL}/settings/staff/check-user`, {
+            const response = await fetch(`${BASE_URL}/settings/staff/change-status/send-otp`, {
                 method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ email })
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.data) {
-                setUserDetails(data.data);
-                setIsUserFound(true);
-            } else {
-                setIsUserFound(false);
-                setUserDetails(null);
-                toast.error(data.message || 'User not found. Please check the email address.');
-            }
-        } catch (error) {
-            console.error('Error finding user:', error);
-            setIsUserFound(false);
-            setUserDetails(null);
-            toast.error('Network error. Please try again.');
-        } finally {
-            setIsFindingUser(false);
-        }
-    };
-
-    // Handle add staff
-    const handleAddStaff = async (e) => {
-        e.preventDefault();
-        if (isSubmitting || !userDetails || !userDetails.username) return;
-
-        setIsSubmitting(true);
-
-        const headers = getHeaders();
-        if (!headers) {
-            toast.error('Authentication required. Please login again.');
-            setIsSubmitting(false);
-            return;
-        }
-
-        try {
-            const response = await fetch(`${BASE_URL}/settings/staff/create`, {
-                method: 'POST',
-                headers: headers,
+                headers,
                 body: JSON.stringify({
-                    username: userDetails.username,
-                    designation: staffForm.designation
-                })
+                    username: staffMember.username,
+                    status: newStatus ? 'active' : 'deactive',
+                }),
             });
-
             const data = await response.json();
-
             if (data.success) {
-                fetchStaffData();
-                toast.success('Invitation sent to staff successfully!');
-                setIsAddStaffModalOpen(false);
-                resetForm();
+                setStatusOtp((prev) => ({
+                    ...prev,
+                    sending: false,
+                    otpSent: true,
+                    destinationMasked: data.destination_masked || data.mobile_masked || null,
+                    error: null,
+                }));
+                toast.success(data.message || 'OTP sent to your registered mobile number');
             } else {
-                toast.error(data.message || 'Failed to add staff member');
+                setStatusOtp((prev) => ({
+                    ...prev,
+                    sending: false,
+                    otpSent: false,
+                    error: data.message || 'Failed to send OTP',
+                }));
             }
         } catch (error) {
-            console.error('Error adding staff:', error);
-            toast.error('An error occurred while adding staff member');
-        } finally {
-            setIsSubmitting(false);
+            setStatusOtp((prev) => ({
+                ...prev,
+                sending: false,
+                otpSent: false,
+                error: 'Failed to send OTP',
+            }));
+        }
+    };
+
+    const confirmStatusChange = async ({ otp }) => {
+        const targetStaff = statusOtp.staff;
+        if (!targetStaff) return;
+        const headers = getHeaders();
+        if (!headers) {
+            setStatusOtp((prev) => ({ ...prev, confirming: false, error: 'Authentication required' }));
+            return;
+        }
+        setStatusOtp((prev) => ({ ...prev, confirming: true, error: null }));
+        try {
+            const statusString = statusOtp.newStatus ? 'active' : 'deactive';
+            const response = await fetch(`${BASE_URL}/settings/staff/change-status`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                    username: targetStaff.username,
+                    status: statusString,
+                    otp,
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                const updatedIsActive = data.data?.status === 'active';
+                setStaff((prev) =>
+                    prev.map((m) => (m.username === targetStaff.username ? { ...m, is_active: updatedIsActive } : m)),
+                );
+                toast.success(data.message || `Staff status updated to ${statusString} successfully`);
+                closeStatusOtp();
+            } else {
+                setStatusOtp((prev) => ({
+                    ...prev,
+                    confirming: false,
+                    error: data.message || 'Failed to update staff status',
+                }));
+            }
+        } catch (error) {
+            setStatusOtp((prev) => ({
+                ...prev,
+                confirming: false,
+                error: 'An error occurred while updating status',
+            }));
         }
     };
 
@@ -928,52 +751,6 @@ const ViewStaff = () => {
             setIsDeleteStaffModalOpen(false);
         } catch (error) {
             console.error('Error deleting staff:', error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    // Handle staff active/deactive status change
-    const handleStatusChange = async () => {
-        if (isSubmitting || !statusChangeTarget) return;
-
-        const { staff: targetStaff, newStatus } = statusChangeTarget;
-        setIsSubmitting(true);
-
-        const headers = getHeaders();
-        if (!headers) {
-            toast.error('Authentication required. Please login again.');
-            setIsSubmitting(false);
-            return;
-        }
-
-        try {
-            const statusString = newStatus ? 'active' : 'deactive';
-            const response = await fetch(`${BASE_URL}/settings/staff/change-status`, {
-                method: 'PUT',
-                headers: headers,
-                body: JSON.stringify({
-                    username: targetStaff.username,
-                    status: statusString
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                const updatedIsActive = data.data?.status === 'active';
-                setStaff(prev => prev.map(m =>
-                    m.username === targetStaff.username ? { ...m, is_active: updatedIsActive } : m
-                ));
-                setIsStatusChangeModalOpen(false);
-                setStatusChangeTarget(null);
-                toast.success(data.message || `Staff status updated to ${statusString} successfully`);
-            } else {
-                toast.error(data.message || 'Failed to update staff status');
-            }
-        } catch (error) {
-            console.error('Error updating staff status:', error);
-            toast.error('An error occurred while updating status');
         } finally {
             setIsSubmitting(false);
         }
@@ -1048,126 +825,87 @@ const ViewStaff = () => {
             designation: ''
         });
         setSelectedStaff(null);
-        setUserDetails(null);
-        setIsUserFound(false);
     };
-
-    // Reset user details
-    const resetUserDetails = () => {
-        setUserDetails(null);
-        setIsUserFound(false);
-    };
-
-    // Calculate totals
-    const totalLoan = staff.reduce((acc, member) => acc + parseInt(member.loan || 0), 0);
-    const totalBalance = staff.reduce((acc, member) => acc + parseInt(member.balance || 0), 0);
-    const totalSalary = staff.reduce((acc, member) => acc + parseInt(member.salary || 0), 0);
 
     // Row offset for serial number (server-paginated)
     const rowOffset = (currentPage - 1) * itemsPerPage;
 
-    // Skeleton loader component
-    const SkeletonRow = () => (
-        <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-32 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-40 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div>
-            </td>
-        </tr>
-    );
+    const getStaffActionItems = (staffMember) => {
+        const isAccepted = staffMember.is_accepted === true;
+        const items = [];
+        if (isAccepted) {
+            items.push({
+                label: 'View Profile',
+                icon: FiEye,
+                onClick: () => navigate(`/staff/view/profile/${encodeURIComponent(staffMember.username)}/profile`),
+            });
+            items.push({
+                label: 'Ledger',
+                icon: FiCreditCard,
+                onClick: () => navigate(`/staff/view/profile/${encodeURIComponent(staffMember.username)}/ledger`),
+            });
+        } else {
+            items.push({
+                label: resendingLink === staffMember.username ? 'Resending...' : 'Resend Invitation',
+                icon: FiRefreshCw,
+                disabled: resendingLink === staffMember.username,
+                onClick: () => handleResendInvitation(staffMember),
+            });
+        }
+        items.push({
+            label: staffMember.is_active ? 'Set Deactive' : 'Set Active',
+            icon: FiPower,
+            warning: Boolean(staffMember.is_active),
+            onClick: () => openStatusConfirm(staffMember, !staffMember.is_active),
+        });
+        return items;
+    };
 
-    // Skeleton Loading Component for full page
-    const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
+    const tableHeadClass = 'p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide whitespace-nowrap';
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        <div className="border-b border-slate-200 px-6 py-4">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-32"></div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <div className="h-10 bg-gray-200 rounded w-40"></div>
-                                    <div className="h-10 bg-gray-200 rounded w-32"></div>
-                                </div>
+    // Show skeleton while loading
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <Header
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <Sidebar
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="border-b border-gray-200 px-4 py-4">
+                                <div className="h-5 w-40 rounded bg-gray-200 animate-pulse mb-2" />
+                                <div className="h-3 w-56 rounded bg-gray-100 animate-pulse" />
                             </div>
-                        </div>
-
-                        <div className="overflow-hidden">
-                            <div className="border-b border-slate-200">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>
-                                            {[...Array(7)].map((_, i) => (
-                                                <th key={i} className="p-3">
-                                                    <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                </table>
-                            </div>
-
-                            <div className="p-4">
-                                {[...Array(6)].map((_, index) => (
-                                    <div key={index} className="mb-4">
-                                        <div className="h-12 bg-gray-100 rounded"></div>
-                                    </div>
+                            <div className="p-4 space-y-3">
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="h-12 rounded-lg bg-gray-100 animate-pulse" />
                                 ))}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    );
-
-    // Show skeleton while loading
-    if (loading) {
-        return <SkeletonLoader />;
+        );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="min-h-screen bg-gray-50">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
                 isMinimized={isMinimized}
                 setIsMinimized={setIsMinimized}
             />
-
             <Sidebar
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1176,390 +914,214 @@ const ViewStaff = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-blue-100 text-xs font-medium">Total Staff</p>
-                                    <h3 className="text-lg font-bold mt-1">{staff.length} Members</h3>
-                                </div>
-                                <FiUsers className="w-5 h-5 opacity-80" />
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2, delay: 0.1 }}
-                            className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg p-4 text-white shadow-md"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-emerald-100 text-xs font-medium">Total Loan</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalLoan)}</h3>
-                                </div>
-                                <FiCreditCard className="w-5 h-5 opacity-80" />
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2, delay: 0.2 }}
-                            className="bg-gradient-to-r from-violet-500 to-violet-600 rounded-lg p-4 text-white shadow-md"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-violet-100 text-xs font-medium">Monthly Salary</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalSalary)}</h3>
-                                </div>
-                                <TbCurrencyRupee className="w-5 h-5 opacity-80" />
-                            </div>
-                        </motion.div>
-                    </div>
-
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
-                    >
-                        <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                                            <FiUsers className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h5 className="text-lg font-bold text-slate-800">
+                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                        <div className="border-b border-gray-200 px-4 py-4 sm:px-5">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <h5 className="text-lg sm:text-xl font-bold text-gray-800 mb-0.5">
                                             Staff Members
                                         </h5>
+                                        <p className="text-gray-500 text-xs">
+                                            {totalItems} staff member{totalItems === 1 ? '' : 's'} total
+                                        </p>
                                     </div>
-                                    <p className="text-slate-500 text-xs font-medium">
-                                        Manage all staff members (Accepted and Pending)
-                                    </p>
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => setIsAddStaffModalOpen(true)}
+                                        className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <FiPlus className="w-4 h-4" />
+                                        Add Staff
+                                    </motion.button>
                                 </div>
-
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                                    <div className="flex gap-2">
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                onKeyPress={handleKeyPress}
-                                                placeholder="Search staff..."
-                                                className="pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white outline-none transition-colors w-full lg:w-64 shadow-sm"
-                                            />
-                                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        </div>
-
-                                        <motion.button
-                                            onClick={() => setIsAddStaffModalOpen(true)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <FiPlus className="w-4 h-4" />
-                                            Add Staff
-                                        </motion.button>
-                                    </div>
+                                <div className="relative min-w-0">
+                                    <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyDown={handleKeyPress}
+                                        placeholder="Search by name, mobile, email..."
+                                        className="w-full min-w-0 rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                    />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Table Container */}
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">
-                                            #
-                                        </th>
-                                        <th className="text-left p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">
-                                            STAFF DETAILS
-                                        </th>
-                                        <th className="text-left p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[150px]">
-                                            CONTACT INFO
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
-                                            INVITATION
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
-                                            STATUS
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
-                                            BALANCE
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">
-                                            ACTIONS
-                                        </th>
+                        <div className="flex-1 overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                    <tr>
+                                        <th className={`${tableHeadClass} text-center w-14`}>#</th>
+                                        <th className={`${tableHeadClass} text-left`}>Staff</th>
+                                        <th className={`${tableHeadClass} text-left`}>Contact</th>
+                                        <th className={`${tableHeadClass} text-center`}>Invitation</th>
+                                        <th className={`${tableHeadClass} text-center`}>Status</th>
+                                        <th className={`${tableHeadClass} text-center`}>Balance</th>
+                                        <th className={`${tableHeadClass} text-center`}>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-slate-100">
+                                <tbody className="divide-y divide-gray-100">
                                     {tableLoading ? (
-                                        [...Array(5)].map((_, i) => (
-                                            <tr key={i} className="animate-pulse border-b border-slate-100">
-                                                <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div></td>
-                                                <td className="p-3"><div className="h-4 bg-slate-200 rounded w-36 mb-1"></div><div className="h-3 bg-slate-100 rounded w-24"></div></td>
-                                                <td className="p-3"><div className="h-3 bg-slate-200 rounded w-32 mb-1"></div><div className="h-3 bg-slate-100 rounded w-40"></div></td>
-                                                <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded-lg w-20 mx-auto"></div></td>
-                                                <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded-lg w-16 mx-auto"></div></td>
-                                                <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded-lg w-16 mx-auto"></div></td>
-                                                <td className="p-3 text-center"><div className="h-7 bg-slate-200 rounded-lg w-7 mx-auto"></div></td>
+                                        Array.from({ length: Math.min(itemsPerPage, 8) }).map((_, i) => (
+                                            <tr key={i} className="animate-pulse">
+                                                <td className="p-3"><div className="mx-auto h-4 w-6 rounded bg-gray-200" /></td>
+                                                <td className="p-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-9 w-9 shrink-0 rounded-lg bg-gray-200" />
+                                                        <div className="space-y-2">
+                                                            <div className="h-3 w-32 rounded bg-gray-200" />
+                                                            <div className="h-2 w-24 rounded bg-gray-100" />
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-3">
+                                                    <div className="space-y-2">
+                                                        <div className="h-3 w-28 rounded bg-gray-200" />
+                                                        <div className="h-3 w-36 rounded bg-gray-100" />
+                                                    </div>
+                                                </td>
+                                                <td className="p-3"><div className="mx-auto h-7 w-20 rounded-lg bg-gray-200" /></td>
+                                                <td className="p-3"><div className="mx-auto h-7 w-20 rounded-lg bg-gray-200" /></td>
+                                                <td className="p-3"><div className="mx-auto h-7 w-16 rounded-lg bg-gray-200" /></td>
+                                                <td className="p-3"><div className="mx-auto h-8 w-8 rounded bg-gray-200" /></td>
                                             </tr>
                                         ))
                                     ) : staff.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="text-center py-8 text-slate-500">
-                                                <div className="flex flex-col items-center justify-center">
-                                                    <div className="p-3 bg-slate-100 rounded-full mb-3">
-                                                        <FiUsers className="w-8 h-8 text-slate-400" />
-                                                    </div>
-                                                    <p className="text-slate-600 text-sm font-medium mb-1">No staff records found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">Try adding a new staff member or adjust your search</p>
-                                                    <motion.button
+                                            <td colSpan="7" className="p-8 text-center">
+                                                <div className="flex flex-col items-center justify-center py-8">
+                                                    <FiUsers className="w-16 h-16 text-gray-300 mb-4" />
+                                                    <p className="text-gray-500 text-sm font-medium mb-1">No staff members found</p>
+                                                    <p className="text-gray-400 text-xs mb-6">Try adding a new staff member or adjust your search</p>
+                                                    <button
+                                                        type="button"
                                                         onClick={() => setIsAddStaffModalOpen(true)}
-                                                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
+                                                        className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-all duration-200 shadow-sm"
                                                     >
-                                                        Add Your First Staff Member
-                                                    </motion.button>
+                                                        <FiPlus className="w-4 h-4 inline mr-2" />
+                                                        Add New Staff
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ) : (
                                         staff.map((staffMember, index) => {
-                                            const isDropdownOpen = activeRowDropdown === staffMember.username;
                                             const actualIndex = rowOffset + index;
                                             const isAccepted = staffMember.is_accepted === true;
-
                                             return (
-                                                <motion.tr
-                                                    key={staffMember.id}
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    transition={{ duration: 0.15 }}
-                                                    className="hover:bg-blue-50/20 transition-colors duration-150"
-                                                >
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="text-slate-700 font-medium text-xs">
-                                                            {actualIndex + 1}
-                                                        </div>
+                                                <tr key={staffMember.id || staffMember.username} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="p-3 text-center align-middle">
+                                                        <span className="text-[11px] font-bold text-gray-800">{actualIndex + 1}</span>
                                                     </td>
-                                                    <td className="text-left p-3 align-middle">
-                                                        <div className="flex flex-col items-start">
-                                                            {isAccepted ? (
-                                                                <Link
-                                                                    to={`/staff/view/profile/${staffMember.username}/profile`}
-                                                                    className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-sm no-underline"
-                                                                    style={{ textDecoration: 'none' }}
-                                                                >
-                                                                    {staffMember.name}
-                                                                </Link>
-                                                            ) : (
-                                                                <span className="text-slate-800 font-medium text-sm">
-                                                                    {staffMember.name}
-                                                                </span>
-                                                            )}
-                                                            <div className="text-slate-500 text-[10px] mt-0.5">
-                                                                {staffMember.designation}
+                                                    <td className="p-3 align-middle">
+                                                        <div className="flex items-center gap-2 sm:gap-3 min-w-[10rem]">
+                                                            <StaffAvatar name={staffMember.name} image={staffMember.image} />
+                                                            <div className="min-w-0">
+                                                                {isAccepted ? (
+                                                                    <Link
+                                                                        to={`/staff/view/profile/${encodeURIComponent(staffMember.username)}/profile`}
+                                                                        className="block truncate text-sm font-semibold text-indigo-700 no-underline hover:text-indigo-900 hover:no-underline"
+                                                                    >
+                                                                        {staffMember.name}
+                                                                    </Link>
+                                                                ) : (
+                                                                    <span className="block truncate text-sm font-semibold text-gray-800">
+                                                                        {staffMember.name}
+                                                                    </span>
+                                                                )}
+                                                                <div className="text-xs text-gray-400 mt-0.5">{staffMember.designation || '—'}</div>
+                                                                {isAccepted && staffMember.guardian_name ? (
+                                                                    <div className="text-xs text-gray-500 font-medium">C/O: {staffMember.guardian_name}</div>
+                                                                ) : null}
                                                             </div>
-                                                            {isAccepted && staffMember.guardian_name && (
-                                                                <div className="text-slate-400 text-[10px] mt-0.5">
-                                                                    C/O: {staffMember.guardian_name}
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </td>
-                                                    <td className="text-left p-3 align-middle">
-                                                        <div className="flex flex-col items-start">
+                                                    <td className="p-3 align-middle">
+                                                        <div className="space-y-1 min-w-[8rem]">
                                                             {isAccepted ? (
-                                                                <>
-                                                                    <div className="flex items-center gap-2 text-slate-800 font-medium text-xs">
-                                                                        <FiPhone className="w-3 h-3 text-blue-500" />
-                                                                        {staffMember.mobile}
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2 text-slate-500 text-xs mt-1">
-                                                                        <FiMail className="w-3 h-3 text-blue-400" />
-                                                                        {staffMember.email}
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                <div className="flex items-center gap-2 text-slate-500 text-xs">
-                                                                    <FiMail className="w-3 h-3 text-blue-400" />
-                                                                    {staffMember.email}
+                                                                <div className="flex items-center gap-2 text-gray-800 text-sm font-medium">
+                                                                    <FiPhone className="w-3 h-3 shrink-0 text-gray-400" />
+                                                                    {staffMember.mobile || '—'}
                                                                 </div>
-                                                            )}
+                                                            ) : null}
+                                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                                <FiMail className="w-3 h-3 shrink-0 text-gray-400" />
+                                                                <span className="truncate">{staffMember.email || '—'}</span>
+                                                            </div>
                                                         </div>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg min-w-[80px] border shadow-xs text-xs font-bold ${isAccepted
-                                                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200'
-                                                            : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200'
-                                                            }`}>
+                                                    <td className="p-3 text-center align-middle">
+                                                        <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg min-w-[80px] border text-xs font-bold ${
+                                                            isAccepted
+                                                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200'
+                                                                : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200'
+                                                        }`}>
                                                             {isAccepted ? 'Accepted' : 'Pending'}
                                                         </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg min-w-[80px] border shadow-xs text-xs font-bold ${staffMember.is_active
-                                                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200'
-                                                            : 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200'
-                                                            }`}>
-                                                            <span className={`w-1.5 h-1.5 rounded-full ${staffMember.is_active ? 'bg-blue-500' : 'bg-red-500'}`}></span>
+                                                    <td className="p-3 text-center align-middle">
+                                                        <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg min-w-[80px] border text-xs font-bold ${
+                                                            staffMember.is_active
+                                                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200'
+                                                                : 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200'
+                                                        }`}>
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${staffMember.is_active ? 'bg-blue-500' : 'bg-red-500'}`} />
                                                             {staffMember.is_active ? 'Active' : 'Deactive'}
                                                         </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
+                                                    <td className="p-3 text-center align-middle">
                                                         {isAccepted ? (
                                                             <Link
-                                                                to={`/staff/view/profile/${staffMember.username}/ledger`}
-                                                                style={{ textDecoration: 'none' }}
-                                                                className="inline-block"
+                                                                to={`/staff/view/profile/${encodeURIComponent(staffMember.username)}/ledger`}
+                                                                className="inline-block no-underline hover:no-underline"
                                                             >
-                                                                <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 text-xs font-bold px-3 py-1.5 rounded-lg min-w-[80px] border border-green-200 shadow-xs">
-                                                                    ₹{formatCurrency(parseInt(staffMember.balance))}
+                                                                <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 text-xs font-bold px-3 py-1.5 rounded-lg min-w-[80px] border border-green-200">
+                                                                    ₹{formatCurrency(parseInt(staffMember.balance, 10) || 0)}
                                                                 </span>
                                                             </Link>
                                                         ) : (
-                                                            <span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-500 text-xs font-medium px-3 py-1.5 rounded-lg min-w-[80px] border border-slate-300 shadow-xs">
+                                                            <span className="inline-flex items-center justify-center bg-gray-100 text-gray-500 text-xs font-medium px-3 py-1.5 rounded-lg min-w-[80px] border border-gray-200">
                                                                 N/A
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="dropdown-container flex justify-center">
-                                                            <motion.button
-                                                                className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                                onClick={(e) => toggleRowDropdown(staffMember.username, e)}
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
-                                                            >
-                                                                <FiSettings className="w-3.5 h-3.5" />
-                                                            </motion.button>
+                                                    <td className="p-3 text-center align-middle">
+                                                        <div className="flex justify-center items-center">
+                                                            <EmailActionMenu items={getStaffActionItems(staffMember)} />
                                                         </div>
                                                     </td>
-                                                </motion.tr>
+                                                </tr>
                                             );
                                         })
                                     )}
                                 </tbody>
                             </table>
-
-                            {/* Pagination Footer */}
-                            {!tableLoading && totalPages > 0 && (
-                                <div className="border-t border-slate-200 px-6 py-4 bg-white">
-                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                        {/* Left: range + per-page selector */}
-                                        <div className="flex items-center gap-2 text-sm text-slate-600 flex-wrap justify-center sm:justify-start">
-                                            <span>
-                                                Showing{' '}
-                                                <span className="font-medium text-slate-800">
-                                                    {totalItems === 0 ? 0 : rowOffset + 1}
-                                                </span>
-                                                {' '}to{' '}
-                                                <span className="font-medium text-slate-800">
-                                                    {Math.min(rowOffset + itemsPerPage, totalItems)}
-                                                </span>
-                                                {' '}of{' '}
-                                                <span className="font-medium text-slate-800">{totalItems}</span>
-                                                {' '}entries
-                                            </span>
-                                            <span className="text-slate-300">|</span>
-                                            <span className="flex items-center gap-1.5 text-sm">
-                                                Show
-                                                <select
-                                                    value={itemsPerPage}
-                                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                                    className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                                                >
-                                                    {LIMIT_OPTIONS.map(opt => (
-                                                        <option key={opt} value={opt}>{opt}</option>
-                                                    ))}
-                                                </select>
-                                                per page
-                                            </span>
-                                        </div>
-
-                                        {/* Right: prev / page pill / next + go-to */}
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handlePageChange(currentPage - 1); }}
-                                                disabled={currentPage === 1}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1 shadow-sm"
-                                            >
-                                                <FiChevronLeft className="w-3 h-3" />
-                                                Prev
-                                            </button>
-
-                                            <div className="flex items-center gap-1 text-sm text-slate-600">
-                                                <span className="inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-sm">
-                                                    {currentPage}
-                                                </span>
-                                                <span className="text-slate-400">/</span>
-                                                <span className="text-xs font-medium text-slate-600">{totalPages}</span>
-                                            </div>
-
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handlePageChange(currentPage + 1); }}
-                                                disabled={currentPage === totalPages}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1 shadow-sm"
-                                            >
-                                                Next
-                                                <FiChevronRightIcon className="w-3 h-3" />
-                                            </button>
-
-                                            {/* Go-to page */}
-                                            <form onSubmit={handlePageJump} className="flex items-center gap-1 ml-1">
-                                                <input
-                                                    type="number"
-                                                    min={1}
-                                                    max={totalPages}
-                                                    value={pageJumpInput}
-                                                    onChange={(e) => setPageJumpInput(e.target.value)}
-                                                    placeholder="Go"
-                                                    className="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                                                />
-                                                <button
-                                                    type="submit"
-                                                    className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-                                                >
-                                                    Go
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
-                    </motion.div>
+
+                        <TablePagination
+                            page={currentPage}
+                            limit={itemsPerPage}
+                            total={totalItems}
+                            totalPages={totalPages}
+                            rowOptions={[5, 10, 20, 50, 100]}
+                            defaultRows={20}
+                            onPageChange={handlePageChange}
+                            onLimitChange={handleLimitChange}
+                        />
+                    </div>
                 </div>
             </div>
 
             {/* Add Staff Modal */}
             <AddStaffModal
                 isOpen={isAddStaffModalOpen}
-                onClose={() => {
-                    setIsAddStaffModalOpen(false);
-                    resetForm();
-                }}
-                onSubmit={handleAddStaff}
-                formData={staffForm}
-                onFormChange={setStaffForm}
-                isSubmitting={isSubmitting}
-                mode="add"
-                userDetails={userDetails}
-                onFindUser={findUserByEmail}
-                isFindingUser={isFindingUser}
-                isUserFound={isUserFound}
-                resetUserDetails={resetUserDetails}
+                onClose={() => setIsAddStaffModalOpen(false)}
+                onSuccess={() => fetchStaffData(searchQuery, currentPage, itemsPerPage)}
             />
 
             {/* Edit Staff Modal */}
@@ -1576,158 +1138,38 @@ const ViewStaff = () => {
                 mode="edit"
             />
 
-            {/* Status Change Confirmation Modal */}
-            <ModalWrapper
-                isOpen={isStatusChangeModalOpen}
-                onClose={() => {
-                    if (!isSubmitting) {
-                        setIsStatusChangeModalOpen(false);
-                        setStatusChangeTarget(null);
-                    }
+            <ConfirmActionModal
+                isOpen={statusConfirm.open}
+                title={statusConfirm.newStatus ? 'Activate Staff' : 'Deactivate Staff'}
+                heading={
+                    statusConfirm.newStatus
+                        ? `Activate ${statusConfirm.staff?.name || 'this staff'}?`
+                        : `Deactivate ${statusConfirm.staff?.name || 'this staff'}?`
+                }
+                message="An OTP will be sent to your registered mobile number to confirm this change."
+                confirmLabel="Confirm"
+                cancelLabel="Cancel"
+                tone={statusConfirm.newStatus ? 'primary' : 'warning'}
+                icon={FiPower}
+                onCancel={closeStatusConfirm}
+                onConfirm={handleStatusConfirm}
+            />
+            <StaffStatusOtpModal
+                isOpen={statusOtp.open}
+                staffName={statusOtp.staff?.name || ''}
+                newStatus={statusOtp.newStatus}
+                destinationMasked={statusOtp.destinationMasked}
+                otpSent={statusOtp.otpSent}
+                sending={statusOtp.sending}
+                confirming={statusOtp.confirming}
+                error={statusOtp.error}
+                onConfirm={confirmStatusChange}
+                onCancel={closeStatusOtp}
+                onResend={() => {
+                    if (statusOtp.staff) sendStatusOtp(statusOtp.staff, statusOtp.newStatus);
                 }}
-                title="Change Staff Status"
-                size="max-w-sm"
-            >
-                <div className="flex-1 overflow-y-auto p-6">
-                    <div className="text-center">
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border ${statusChangeTarget?.newStatus ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-200' : 'bg-gradient-to-r from-amber-100 to-yellow-100 border-amber-200'}`}>
-                            <FiPower className={`w-8 h-8 ${statusChangeTarget?.newStatus ? 'text-green-600' : 'text-amber-600'}`} />
-                        </div>
-                        <h3 className="text-lg font-semibold text-slate-800 mb-2">
-                            {statusChangeTarget?.newStatus ? 'Activate Staff' : 'Deactivate Staff'}
-                        </h3>
-                        <p className="text-slate-600 mb-2 text-sm">
-                            Are you sure you want to set <strong>{statusChangeTarget?.staff?.name}</strong> as{' '}
-                            <strong className={statusChangeTarget?.newStatus ? 'text-green-700' : 'text-amber-700'}>
-                                {statusChangeTarget?.newStatus ? 'Active' : 'Deactive'}
-                            </strong>?
-                        </p>
-                        {!statusChangeTarget?.newStatus && (
-                            <p className="text-amber-600 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                Deactivating this staff member will restrict their access.
-                            </p>
-                        )}
-                    </div>
-                </div>
+            />
 
-                <div className="flex-shrink-0 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 p-6 rounded-b-xl">
-                    <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsStatusChangeModalOpen(false);
-                                setStatusChangeTarget(null);
-                            }}
-                            disabled={isSubmitting}
-                            className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors disabled:opacity-50 shadow-sm"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleStatusChange}
-                            disabled={isSubmitting}
-                            className={`flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center shadow-sm border ${statusChangeTarget?.newStatus ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 border-green-500 focus:ring-green-500' : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 border-amber-500 focus:ring-amber-500'}`}
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Updating...
-                                </>
-                            ) : (
-                                statusChangeTarget?.newStatus ? 'Set Active' : 'Set Deactive'
-                            )}
-                        </button>
-                    </div>
-                </div>
-            </ModalWrapper>
-
-            {/* ── Row action dropdown — rendered via portal to escape overflow clipping ── */}
-            {(() => {
-                const activeMember = activeRowDropdown
-                    ? staff.find(m => m.username === activeRowDropdown)
-                    : null;
-                const isActiveMemberAccepted = activeMember?.is_accepted === true;
-
-                return createPortal(
-                    <AnimatePresence>
-                        {activeMember && dropdownPos && (
-                            <motion.div
-                                key="staff-row-dropdown"
-                                className="staff-portal-dropdown"
-                                style={{
-                                    position: 'fixed',
-                                    right: dropdownPos.right,
-                                    ...(dropdownPos.openUpward
-                                        ? { bottom: dropdownPos.bottom }
-                                        : { top: dropdownPos.top }),
-                                    width: '224px',
-                                    zIndex: 9999,
-                                }}
-                                initial={{ opacity: 0, y: dropdownPos.openUpward ? 6 : -6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: dropdownPos.openUpward ? 6 : -6 }}
-                                transition={{ duration: 0.15 }}
-                            >
-                                <div className="bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
-                                    <div className="py-1">
-                                        {isActiveMemberAccepted ? (
-                                            <>
-                                                <Link to={`/staff/view/profile/${activeMember.username}/profile`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
-                                                    <div className="p-1 bg-indigo-50 rounded mr-2"><FiUser className="w-3 h-3 text-indigo-500" /></div>
-                                                    <div className="font-medium text-left">Profile</div>
-                                                </Link>
-                                                <Link to={`/staff/view/profile/${activeMember.username}/ledger`} style={{ textDecoration: 'none' }} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
-                                                    <div className="p-1 bg-blue-50 rounded mr-2"><FiCreditCard className="w-3 h-3 text-blue-600" /></div>
-                                                    <div className="font-medium text-left">Ledger</div>
-                                                </Link>
-                                            </>
-                                        ) : (
-                                            <div className="text-center py-2 px-3">
-                                                <div className="text-xs text-amber-600 font-medium mb-1">Invitation Pending</div>
-                                                <div className="text-[10px] text-slate-500 mb-2">Staff hasn't accepted yet</div>
-                                                <button
-                                                    onClick={() => { setActiveRowDropdown(null); handleResendInvitation(activeMember); }}
-                                                    disabled={resendingLink === activeMember.username}
-                                                    className="flex items-center justify-center w-full px-3 py-2 text-xs bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 hover:from-blue-100 hover:to-indigo-100 transition-colors duration-150 rounded border border-blue-200"
-                                                >
-                                                    {resendingLink === activeMember.username ? (
-                                                        <><svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Resending...</>
-                                                    ) : (
-                                                        <><FiRefreshCw className="w-3 h-3 mr-2" />Resend Invitation</>
-                                                    )}
-                                                </button>
-                                            </div>
-                                        )}
-                                        <div className="border-t border-slate-100 mt-1 pt-1">
-                                            {activeMember.is_active ? (
-                                                <button
-                                                    onClick={() => { setActiveRowDropdown(null); setStatusChangeTarget({ staff: activeMember, newStatus: false }); setIsStatusChangeModalOpen(true); }}
-                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-amber-50 transition-colors duration-150"
-                                                >
-                                                    <div className="p-1 bg-amber-50 rounded mr-2"><FiPower className="w-3 h-3 text-amber-600" /></div>
-                                                    <div className="font-medium text-left">Set Deactive</div>
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => { setActiveRowDropdown(null); setStatusChangeTarget({ staff: activeMember, newStatus: true }); setIsStatusChangeModalOpen(true); }}
-                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-green-50 transition-colors duration-150"
-                                                >
-                                                    <div className="p-1 bg-green-50 rounded mr-2"><FiPower className="w-3 h-3 text-green-600" /></div>
-                                                    <div className="font-medium text-left">Set Active</div>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>,
-                    document.body
-                );
-            })()}
         </div>
     );
 };

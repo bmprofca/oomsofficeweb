@@ -1,5 +1,7 @@
 # Staff salary & payslip (client)
 
+Staff **list / invite / status OTP** (not this tab): [`staff.md`](./staff.md).
+
 ## Salary tab
 
 - UI: `CLIENT/src/staff/SalaryTab.js`
