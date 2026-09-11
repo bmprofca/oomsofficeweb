@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FiSearch,
-  FiPlus,
+    FiSearch,
+    FiPlus,
   FiEdit2,
-  FiUser,
-  FiClock,
-  FiCreditCard,
-  FiEye,
+    FiUser,
+    FiClock,
+    FiCreditCard,
+    FiEye,
   FiTrash2,
   FiCheck,
 } from "react-icons/fi";
@@ -81,25 +81,25 @@ const GRID_COLS =
 
 const ViewDSCRegister = () => {
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(() => {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(() => {
     const saved = localStorage.getItem("sidebarMinimized");
-    return saved ? JSON.parse(saved) : false;
-  });
+        return saved ? JSON.parse(saved) : false;
+    });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [dscData, setDscData] = useState([]);
+    const [dscData, setDscData] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [meta, setMeta] = useState({ total_pages: 1, current_page: 1, total: 0 });
 
-  const [types, setTypes] = useState([]);
-  const [companies, setCompanies] = useState([]);
-  const [typeLoading, setTypeLoading] = useState(false);
-  const [companyLoading, setCompanyLoading] = useState(false);
+    const [types, setTypes] = useState([]);
+    const [companies, setCompanies] = useState([]);
+    const [typeLoading, setTypeLoading] = useState(false);
+    const [companyLoading, setCompanyLoading] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -107,11 +107,11 @@ const ViewDSCRegister = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [dscToDelete, setDscToDelete] = useState(null);
+    const [dscToDelete, setDscToDelete] = useState(null);
 
-  useEffect(() => {
+    useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
-  }, [isMinimized]);
+    }, [isMinimized]);
 
   const fetchDscType = useCallback(async () => {
     setTypeLoading(true);
@@ -119,11 +119,11 @@ const ViewDSCRegister = () => {
       const response = await fetch(`${API_BASE_URL}/assistance/dsc/types`, {
         headers: getHeaders(),
       });
-      const data = await response.json();
+            const data = await response.json();
       setTypes(data.success && Array.isArray(data.data) ? data.data : []);
     } catch {
-      setTypes([]);
-    } finally {
+                setTypes([]);
+        } finally {
       setTypeLoading(false);
     }
   }, []);
@@ -134,21 +134,21 @@ const ViewDSCRegister = () => {
       const response = await fetch(`${API_BASE_URL}/assistance/dsc/companies`, {
         headers: getHeaders(),
       });
-      const data = await response.json();
+            const data = await response.json();
       setCompanies(data.success && Array.isArray(data.data) ? data.data : []);
     } catch {
-      setCompanies([]);
-    } finally {
+                setCompanies([]);
+        } finally {
       setCompanyLoading(false);
-    }
+        }
   }, []);
 
   const fetchDscData = useCallback(
     async (nextPage = page, nextSearch = searchQuery, nextLimit = limit, range = dateRange) => {
-      setLoading(true);
-      try {
-        const username = localStorage.getItem("user_username");
-        const params = new URLSearchParams({
+        setLoading(true);
+        try {
+            const username = localStorage.getItem("user_username");
+            const params = new URLSearchParams({
           search: nextSearch || "",
           page: String(nextPage),
           limit: String(nextLimit),
@@ -159,52 +159,52 @@ const ViewDSCRegister = () => {
         const response = await fetch(`${API_BASE_URL}/assistance/dsc/list?${params.toString()}`, {
           headers: getHeaders(),
         });
-        const result = await response.json();
-        if (result.success) {
+            const result = await response.json();
+            if (result.success) {
           setDscData(
             (result.data || []).map((item) => ({
-              dsc_id: item.dsc_id,
-              username: item.client?.username,
-              name: item.client?.name || item.client?.guardian_name,
-              guardian_name: item.client?.guardian_name,
-              mobile: item.client?.mobile,
-              email: item.client?.email,
-              user_type: item.client?.user_type,
-              company: item.company,
-              validity_start: item.validity_start,
-              validity_end: item.validity_end,
+                    dsc_id: item.dsc_id,
+                    username: item.client?.username,
+                    name: item.client?.name || item.client?.guardian_name,
+                    guardian_name: item.client?.guardian_name,
+                    mobile: item.client?.mobile,
+                    email: item.client?.email,
+                    user_type: item.client?.user_type,
+                    company: item.company,
+                    validity_start: item.validity_start,
+                    validity_end: item.validity_end,
               status: item.status ?? 1,
-              duration: item.year || 1,
-              password: item.password,
-              modify_by: username,
+                    duration: item.year || 1,
+                    password: item.password,
+                    modify_by: username,
               type: item.type,
             })),
           );
           setMeta(result.meta || { total_pages: 1, current_page: nextPage, total: 0 });
           setPage(result.meta?.current_page || result.meta?.page || nextPage);
-        } else {
-          setDscData([]);
-        }
+            } else {
+                setDscData([]);
+            }
       } catch {
-        setDscData([]);
+            setDscData([]);
         toast.error("Failed to load DSC records");
-      } finally {
-        setLoading(false);
-      }
+        } finally {
+            setLoading(false);
+        }
     },
     [dateRange, limit, page, searchQuery],
   );
 
-  useEffect(() => {
-    fetchDscType();
-    fetchCompanies();
+    useEffect(() => {
+        fetchDscType();
+        fetchCompanies();
   }, [fetchCompanies, fetchDscType]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+    useEffect(() => {
+        const timer = setTimeout(() => {
       fetchDscData(1, searchQuery, limit, dateRange);
     }, 400);
-    return () => clearTimeout(timer);
+        return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, dateRange.start, dateRange.end]);
 
@@ -250,21 +250,21 @@ const ViewDSCRegister = () => {
         {
           method: isEdit ? "PUT" : "POST",
           headers: getHeaders(),
-          body: JSON.stringify(payload),
+                body: JSON.stringify(payload),
         },
       );
-      const data = await response.json();
-      if (response.ok && data.success) {
+            const data = await response.json();
+            if (response.ok && data.success) {
         toast.success(isEdit ? "DSC updated" : "DSC created");
         setFormOpen(false);
         setFormInitial(null);
         fetchDscData(isEdit ? page : 1, searchQuery, limit, dateRange);
-      } else {
+            } else {
         toast.error(data.message || `Failed to ${isEdit ? "update" : "create"} DSC`);
-      }
+            }
     } catch {
       toast.error("Network error");
-    } finally {
+        } finally {
       setSaving(false);
     }
   };
@@ -278,51 +278,51 @@ const ViewDSCRegister = () => {
         headers: getHeaders(),
         body: JSON.stringify({ dsc_id: dscToDelete }),
       });
-      const data = await response.json();
-      if (response.ok && data.success) {
+            const data = await response.json();
+            if (response.ok && data.success) {
         toast.success("DSC deleted");
         setDeleteOpen(false);
         setDscToDelete(null);
         fetchDscData(1, searchQuery, limit, dateRange);
-      } else {
+            } else {
         toast.error(data.message || "Failed to delete DSC");
       }
     } catch {
       toast.error("Failed to delete DSC");
-    } finally {
+        } finally {
       setSaving(false);
     }
-  };
+    };
 
-  const SkeletonRow = () => (
+    const SkeletonRow = () => (
     <div className={`grid ${GRID_COLS} items-center border-b border-gray-100 animate-pulse`}>
       {COLUMNS.map((col) => (
         <div key={col} className="p-3">
           <div className="h-3 bg-gray-200 rounded w-3/4" />
-        </div>
+                </div>
       ))}
-    </div>
-  );
+        </div>
+    );
 
   const openClientProfile = (username) => {
     const path = getClientProfilePath(username);
     if (path) navigate(path);
   };
 
-  return (
+    return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
-      <Sidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${contentInset(isMinimized)}`}>
         <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
@@ -335,43 +335,43 @@ const ViewDSCRegister = () => {
               const Icon = card.icon;
               return (
                 <div key={card.label} className="bg-white rounded-lg border border-gray-200 px-3 py-2.5">
-                  <div className="flex items-center justify-between">
-                    <div>
+                            <div className="flex items-center justify-between">
+                                <div>
                       <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide m-0">{card.label}</p>
                       <p className="text-base font-bold text-gray-800 mt-0.5 mb-0">{card.value}</p>
-                    </div>
+                                </div>
                     <div className={`p-1.5 rounded-lg ${card.wrap}`}>
                       <Icon className={`w-4 h-4 ${card.iconColor}`} />
-                    </div>
-                  </div>
-                </div>
+                                </div>
+                            </div>
+                                </div>
               );
             })}
-          </div>
-
+                            </div>
+                            
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="p-1.5 bg-indigo-50 rounded-lg shrink-0">
                     <FiCreditCard className="w-4 h-4 text-indigo-600" />
-                  </div>
+                                </div>
                   <div className="min-w-0">
                     <h1 className="text-base md:text-lg font-bold text-gray-800 m-0">DSC Register</h1>
                     <p className="text-xs text-gray-500 m-0">Digital signature certificates and expiry</p>
-                  </div>
-                </div>
+                                </div>
+                            </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
                   <div className="relative min-w-0 sm:w-56">
                     <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                                            <input
+                                                type="text"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search name, mobile, email…"
                       className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                    />
-                  </div>
+                                            />
+                                        </div>
                   <div className="flex items-center gap-1.5 w-full sm:w-auto">
                     <DateRangePickerField
                       value={{ start: dateRange.start, end: dateRange.end }}
@@ -393,7 +393,7 @@ const ViewDSCRegister = () => {
                       wrapperClassName="w-full sm:w-56 min-w-0"
                     />
                     {dateRange.start || dateRange.end ? (
-                      <button
+                                                                    <button
                         type="button"
                         onClick={() => {
                           setDateRange({ start: "", end: "" });
@@ -402,20 +402,20 @@ const ViewDSCRegister = () => {
                         className="px-2 py-2 text-xs font-medium text-gray-500 hover:text-gray-800 shrink-0"
                       >
                         Clear
-                      </button>
+                                                                    </button>
                     ) : null}
-                  </div>
-                  <button
+                                                                        </div>
+                                                                    <button
                     type="button"
                     onClick={openCreate}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shrink-0"
                   >
                     <FiPlus className="w-4 h-4" />
                     Add
-                  </button>
-                </div>
-              </div>
-            </div>
+                                                                    </button>
+                                                                        </div>
+                                                                        </div>
+                                                </div>
 
             <div className="overflow-x-auto">
               <div className="min-w-[1080px]">
@@ -428,9 +428,9 @@ const ViewDSCRegister = () => {
                       } ${i === COLUMNS.length - 1 ? "text-right" : "text-left"}`}
                     >
                       {col}
-                    </div>
+                                            </div>
                   ))}
-                </div>
+                        </div>
 
                 {loading ? (
                   Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
@@ -438,7 +438,7 @@ const ViewDSCRegister = () => {
                   <div className="flex flex-col items-center justify-center py-12 text-gray-500 px-4">
                     <div className="w-14 h-14 bg-gray-100 rounded-full mb-3 flex items-center justify-center">
                       <FiCreditCard className="w-6 h-6 text-gray-400" />
-                    </div>
+                                                    </div>
                     <p className="text-sm font-medium text-gray-500 m-0">No DSC records found</p>
                     <p className="text-xs text-gray-400 mt-1 mb-3">Create a DSC entry to get started</p>
                     <button
@@ -448,28 +448,28 @@ const ViewDSCRegister = () => {
                     >
                       Create DSC
                     </button>
-                  </div>
-                ) : (
+                                                </div>
+                                    ) : (
                   dscData.map((dsc, index) => {
-                    const daysLeft = getDaysLeft(dsc.validity_end);
+                                            const daysLeft = getDaysLeft(dsc.validity_end);
                     const row = enrichDsc(dsc);
-                    return (
+                                            return (
                       <div
-                        key={dsc.dsc_id}
+                                                    key={dsc.dsc_id}
                         className={`grid ${GRID_COLS} items-center border-b border-gray-100 bg-white hover:bg-gray-50`}
-                      >
+                                                >
                         <div className="p-3 text-[11px] font-bold text-gray-800">
                           {(page - 1) * limit + index + 1}
-                        </div>
+                                                        </div>
                         <div className="p-3 min-w-0 border-l border-gray-100">
-                          <button
+                                                                                <button
                             type="button"
                             onClick={() => openClientProfile(dsc.username)}
                             className="flex items-center gap-2 text-left group"
                           >
                             <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-sm flex items-center justify-center shrink-0">
                               <FiUser className="w-3.5 h-3.5 text-white" />
-                            </div>
+                                                                                    </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-gray-800 text-sm group-hover:text-indigo-600 m-0 truncate">
                                 {dsc.name || "—"}
@@ -477,20 +477,20 @@ const ViewDSCRegister = () => {
                               <p className="text-xs text-gray-500 m-0 truncate">
                                 {dsc.guardian_name ? `C/O ${dsc.guardian_name}` : dsc.mobile || "—"}
                               </p>
-                            </div>
-                          </button>
-                        </div>
+                                                                                    </div>
+                                                                                </button>
+                                                                                    </div>
                         <div className="p-3 min-w-0 border-l border-gray-100">
                           <p className="text-sm font-medium text-gray-700 m-0 truncate">{row.companyName || "—"}</p>
-                        </div>
+                                                                                    </div>
                         <div className="p-3 min-w-0 border-l border-gray-100">
                           <p className="text-sm font-medium text-gray-700 m-0 truncate">{row.typeName || "—"}</p>
-                        </div>
+                                                                                    </div>
                         <div className="p-3 min-w-0 border-l border-gray-100">
                           <p className="text-sm font-medium text-gray-700 font-mono m-0 truncate">
                             {dsc.password || "—"}
                           </p>
-                        </div>
+                                                                                    </div>
                         <div className="p-3 min-w-0 border-l border-gray-100">
                           <p className="text-sm font-medium text-gray-700 m-0">
                             {formatDate(dsc.validity_start)} – {formatDate(dsc.validity_end)}
@@ -498,12 +498,12 @@ const ViewDSCRegister = () => {
                           <p className="text-xs text-gray-500 m-0 mt-0.5">
                             {dsc.duration} year{Number(dsc.duration) === 1 ? "" : "s"}
                           </p>
-                        </div>
+                                                                                        </div>
                         <div className="p-3 min-w-0 border-l border-gray-100">
                           <p className={`text-sm font-semibold m-0 ${daysLeftClass(daysLeft)}`}>
                             {daysLeftLabel(daysLeft)}
                           </p>
-                        </div>
+                                                                                        </div>
                         <div className="p-3 border-l border-gray-100">
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
@@ -512,7 +512,7 @@ const ViewDSCRegister = () => {
                           >
                             {Number(dsc.status) === 1 ? "Active" : "Inactive"}
                           </span>
-                        </div>
+                                                                                        </div>
                         <div className="p-3 border-l border-gray-100 flex justify-end">
                           <EmailActionMenu
                             items={[
@@ -522,13 +522,13 @@ const ViewDSCRegister = () => {
                               { label: "Delete", icon: FiTrash2, danger: true, onClick: () => { setDscToDelete(dsc.dsc_id); setDeleteOpen(true); } },
                             ]}
                           />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+                                                                                        </div>
+                                                                                        </div>
+                                            );
+                                        })
+                                    )}
+                                                </div>
+                                            </div>
 
             <TablePagination
               page={page}
@@ -547,9 +547,9 @@ const ViewDSCRegister = () => {
                 fetchDscData(1, searchQuery, next, dateRange);
               }}
             />
-          </div>
-        </div>
-      </div>
+                                                        </div>
+                                                            </div>
+                                    </div>
 
       <DscFormModal
         open={formOpen}
@@ -594,8 +594,8 @@ const ViewDSCRegister = () => {
         }}
         onConfirm={handleDelete}
       />
-    </div>
-  );
+        </div>
+    );
 };
 
 export default ViewDSCRegister;

@@ -43,15 +43,15 @@ const GRID_COLS =
   "grid-cols-[40px_minmax(180px,1.6fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,1fr)_minmax(110px,0.9fr)_72px]";
 
 const ViewFileIndex = () => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(() => {
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(() => {
     const saved = localStorage.getItem("sidebarMinimized");
-    return saved ? JSON.parse(saved) : false;
-  });
+        return saved ? JSON.parse(saved) : false;
+    });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [fileData, setFileData] = useState([]);
+    const [fileData, setFileData] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -63,16 +63,16 @@ const ViewFileIndex = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState(null);
+    const [fileToDelete, setFileToDelete] = useState(null);
 
-  useEffect(() => {
+    useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
-  }, [isMinimized]);
+    }, [isMinimized]);
 
   const fetchFileData = useCallback(async (nextPage = page, nextSearch = searchQuery, nextLimit = limit) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
+        setLoading(true);
+        try {
+            const params = new URLSearchParams({
         search: nextSearch || "",
         page: String(nextPage),
         limit: String(nextLimit),
@@ -86,15 +86,15 @@ const ViewFileIndex = () => {
         setMeta(result.meta || { total_pages: 1, current_page: nextPage, total: 0 });
         setPage(result.meta?.current_page || result.meta?.page || nextPage);
       } else {
-        setFileData([]);
+                setFileData([]);
         toast.error(result.message || "Failed to load file index");
-      }
+            }
     } catch {
-      setFileData([]);
+            setFileData([]);
       toast.error("Failed to load file index");
-    } finally {
-      setLoading(false);
-    }
+        } finally {
+            setLoading(false);
+        }
   }, [limit, page, searchQuery]);
 
   useEffect(() => {
@@ -137,18 +137,18 @@ const ViewFileIndex = () => {
           body: JSON.stringify(payload),
         },
       );
-      const data = await response.json();
-      if (response.ok && data.success) {
+            const data = await response.json();
+            if (response.ok && data.success) {
         toast.success(isEdit ? "File index updated" : "File index created");
         setFormOpen(false);
         setFormInitial(null);
         fetchFileData(isEdit ? page : 1, searchQuery, limit);
-      } else {
+            } else {
         toast.error(data.message || `Failed to ${isEdit ? "update" : "create"} file index`);
-      }
+            }
     } catch {
       toast.error("Network error");
-    } finally {
+        } finally {
       setSaving(false);
     }
   };
@@ -165,46 +165,46 @@ const ViewFileIndex = () => {
           firm_id: fileToDelete.firmid,
         }),
       });
-      const data = await response.json();
-      if (response.ok && data.success) {
+            const data = await response.json();
+            if (response.ok && data.success) {
         toast.success("File index deleted");
         setDeleteOpen(false);
         setFileToDelete(null);
         fetchFileData(1, searchQuery, limit);
-      } else {
+            } else {
         toast.error(data.message || "Failed to delete file index");
-      }
+            }
     } catch {
       toast.error("Failed to delete file index");
-    } finally {
+        } finally {
       setSaving(false);
     }
   };
 
-  const SkeletonRow = () => (
+    const SkeletonRow = () => (
     <div className={`grid ${GRID_COLS} items-center border-b border-gray-100 animate-pulse`}>
       {COLUMNS.map((col) => (
         <div key={col} className="p-3">
           <div className="h-3 bg-gray-200 rounded w-3/4" />
-        </div>
+                </div>
       ))}
-    </div>
-  );
+        </div>
+    );
 
-  return (
+    return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
-      <Sidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${contentInset(isMinimized)}`}>
         <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
@@ -215,55 +215,55 @@ const ViewFileIndex = () => {
               { label: "Audit files", value: stats.audit, wrap: "bg-amber-50", iconColor: "text-amber-600" },
             ].map((card) => (
               <div key={card.label} className="bg-white rounded-lg border border-gray-200 px-3 py-2.5">
-                <div className="flex items-center justify-between">
-                  <div>
+                            <div className="flex items-center justify-between">
+                                <div>
                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide m-0">{card.label}</p>
                     <p className="text-base font-bold text-gray-800 mt-0.5 mb-0">{card.value}</p>
-                  </div>
+                                </div>
                   <div className={`p-1.5 rounded-lg ${card.wrap}`}>
                     <FiFileText className={`w-4 h-4 ${card.iconColor}`} />
-                  </div>
-                </div>
-              </div>
+                                </div>
+                            </div>
+                                </div>
             ))}
-          </div>
-
+                            </div>
+                            
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="p-1.5 bg-indigo-50 rounded-lg shrink-0">
                     <FiFileText className="w-4 h-4 text-indigo-600" />
-                  </div>
+                                </div>
                   <div className="min-w-0">
                     <h1 className="text-base md:text-lg font-bold text-gray-800 m-0">File Index</h1>
                     <p className="text-xs text-gray-500 m-0">GST, audit, ITR and other file numbers</p>
-                  </div>
-                </div>
+                                </div>
+                            </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
                   <div className="relative min-w-0 sm:w-56">
                     <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search firm or file number…"
                       className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                    />
-                  </div>
-                  <button
+                                        />
+                                    </div>
+                                                            <button
                     type="button"
                     onClick={openCreate}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shrink-0"
                   >
                     <FiPlus className="w-4 h-4" />
                     Add
-                  </button>
-                </div>
-              </div>
-            </div>
+                                                            </button>
+                                                                </div>
+                                                                </div>
+                                        </div>
 
-            <div className="overflow-x-auto">
+                        <div className="overflow-x-auto">
               <div className="min-w-[980px]">
                 <div className={`grid ${GRID_COLS} items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10`}>
                   {COLUMNS.map((col, i) => (
@@ -274,9 +274,9 @@ const ViewFileIndex = () => {
                       } ${i === COLUMNS.length - 1 ? "text-right" : "text-left"}`}
                     >
                       {col}
-                    </div>
+                                                </div>
                   ))}
-                </div>
+                                                        </div>
 
                 {loading ? (
                   Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
@@ -284,17 +284,17 @@ const ViewFileIndex = () => {
                   <div className="flex flex-col items-center justify-center py-12 text-gray-500 px-4">
                     <div className="w-14 h-14 bg-gray-100 rounded-full mb-3 flex items-center justify-center">
                       <FiFileText className="w-6 h-6 text-gray-400" />
-                    </div>
+                                                                </div>
                     <p className="text-sm font-medium text-gray-500 m-0">No file index records found</p>
                     <p className="text-xs text-gray-400 mt-1 mb-3">Create a file index entry to get started</p>
-                    <button
+                                            <button
                       type="button"
                       onClick={openCreate}
                       className="px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                     >
                       Create file index
-                    </button>
-                  </div>
+                                            </button>
+                                            </div>
                 ) : (
                   fileData.map((file, index) => (
                     <div
@@ -303,12 +303,12 @@ const ViewFileIndex = () => {
                     >
                       <div className="p-3 text-[11px] font-bold text-gray-800">
                         {(page - 1) * limit + index + 1}
-                      </div>
+                                        </div>
                       <div className="p-3 min-w-0 border-l border-gray-100">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-sm flex items-center justify-center shrink-0">
                             <FiUser className="w-3.5 h-3.5 text-white" />
-                          </div>
+                                    </div>
                           <div className="min-w-0">
                             <p className="font-semibold text-gray-800 text-sm m-0 truncate">
                               {file.firmname || "—"}
@@ -316,19 +316,19 @@ const ViewFileIndex = () => {
                             <p className="text-xs text-gray-500 m-0 truncate">
                               {file.name ? `By ${file.name}` : file.mobile || "—"}
                             </p>
-                          </div>
-                        </div>
-                      </div>
+                                </div>
+                                    </div>
+                                </div>
                       {["gst", "audit", "income_tax", "other"].map((key) => (
                         <div key={key} className="p-3 min-w-0 border-l border-gray-100">
                           <p className="text-sm font-medium text-gray-700 font-mono m-0 truncate">
                             {file[key] || "—"}
                           </p>
-                        </div>
+                                        </div>
                       ))}
                       <div className="p-3 min-w-0 border-l border-gray-100">
                         <p className="text-sm font-medium text-gray-700 m-0">{formatDate(file.createddate)}</p>
-                      </div>
+                                        </div>
                       <div className="p-3 border-l border-gray-100 flex justify-end">
                         <EmailActionMenu
                           items={[
@@ -337,12 +337,12 @@ const ViewFileIndex = () => {
                             { label: "Delete", icon: FiTrash2, danger: true, onClick: () => { setFileToDelete(file); setDeleteOpen(true); } },
                           ]}
                         />
-                      </div>
-                    </div>
+                                                        </div>
+                                                            </div>
                   ))
-                )}
-              </div>
-            </div>
+                                        )}
+                                    </div>
+                                        </div>
 
             <TablePagination
               page={page}
@@ -360,10 +360,10 @@ const ViewFileIndex = () => {
                 setPage(1);
                 fetchFileData(1, searchQuery, next);
               }}
-            />
-          </div>
-        </div>
-      </div>
+                                            />
+                                        </div>
+                                        </div>
+                                        </div>
 
       <FileIndexFormModal
         open={formOpen}
@@ -404,8 +404,8 @@ const ViewFileIndex = () => {
         }}
         onConfirm={handleDelete}
       />
-    </div>
-  );
+        </div>
+    );
 };
 
 export default ViewFileIndex;

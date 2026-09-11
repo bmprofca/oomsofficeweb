@@ -37,9 +37,9 @@ export const buildOomsSystemPreviewContent = (template) => {
     templateName: template.template_name,
     header: headerUrl
       ? {
-          format: 'IMAGE',
-          mediaUrl: headerUrl,
-        }
+        format: 'IMAGE',
+        mediaUrl: headerUrl,
+      }
       : null,
     bodyText: getExampleBodyText(template.example),
     footerText: '',

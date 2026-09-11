@@ -2,168 +2,28 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import {
   FiEdit2,
   FiFileText,
   FiInfo,
-  FiLoader,
   FiLock,
-  FiMoreVertical,
   FiRefreshCw,
   FiSearch,
   FiX,
 } from "react-icons/fi";
 import { Header, Sidebar } from "../../../components/header";
-import { useUserPermissions } from "../../../utils/permission-helper";
+import TablePagination from "../../../components/TablePagination";
 import OomsSystemTemplatePickerModal from "../../../components/Modals/OomsSystemTemplatePickerModal";
+import EmailActionMenu from "../email/EmailActionMenu";
+import { useUserPermissions } from "../../../utils/permission-helper";
 import { extractApiError } from "../../../utils/oneChattingSendUtils";
 import { formatActivityType } from "../../../utils/oomsSystemTemplateUtils";
 import { normalizeList, whatsappApi } from "../../../services/whatsappApi";
 import { useWhatsappChannel } from "../../../hooks/useWhatsappChannel";
-
-const MENU_Z = 99999;
-const MENU_GAP = 8;
-const MENU_PAD = 8;
-
-/** 3-dot action menu — portal + viewport flip (CLIENT/context/action-button.md) */
-const ActionMenu = ({ items }) => {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const btnRef = useRef(null);
-  const menuRef = useRef(null);
-
-  const calcPos = useCallback(() => {
-    const btn = btnRef.current;
-    const menu = menuRef.current;
-    if (!btn) return;
-    const r = btn.getBoundingClientRect();
-    const mH = menu?.offsetHeight || 120;
-    const mW = menu?.offsetWidth || 168;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    const candidates = [
-      { top: r.top - mH - MENU_GAP, left: r.right - mW },
-      { top: r.bottom + MENU_GAP, left: r.right - mW },
-      { top: r.top, left: r.right + MENU_GAP },
-      { top: r.top, left: r.left - mW - MENU_GAP },
-    ];
-
-    const fits = (p) =>
-      p.top >= MENU_PAD &&
-      p.left >= MENU_PAD &&
-      p.top + mH <= vh - MENU_PAD &&
-      p.left + mW <= vw - MENU_PAD;
-
-    const chosen = candidates.find(fits) || candidates[1];
-    setPos({
-      top: Math.min(Math.max(MENU_PAD, chosen.top), vh - MENU_PAD - mH),
-      left: Math.min(Math.max(MENU_PAD, chosen.left), vw - MENU_PAD - mW),
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const raf = requestAnimationFrame(() => calcPos());
-    return () => cancelAnimationFrame(raf);
-  }, [open, calcPos]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e) => {
-      if (
-        !btnRef.current?.contains(e.target) &&
-        !menuRef.current?.contains(e.target)
-      ) {
-        setOpen(false);
-      }
-    };
-    const onClose = () => setOpen(false);
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    window.addEventListener("scroll", onClose, true);
-    window.addEventListener("resize", calcPos);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      window.removeEventListener("scroll", onClose, true);
-      window.removeEventListener("resize", calcPos);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, calcPos]);
-
-  return (
-    <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-        aria-label="Actions"
-      >
-        <FiMoreVertical className="w-4 h-4" />
-      </button>
-
-      {typeof document !== "undefined" &&
-        createPortal(
-          <AnimatePresence>
-            {open ? (
-              <motion.div
-                ref={menuRef}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.12 }}
-                style={{
-                  position: "fixed",
-                  top: pos.top,
-                  left: pos.left,
-                  zIndex: MENU_Z,
-                }}
-                className="w-44 bg-white border border-gray-200 rounded-xl shadow-xl py-1 overflow-hidden"
-              >
-                {items.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    disabled={item.disabled}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (item.disabled) return;
-                      setOpen(false);
-                      item.onClick?.();
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
-                      item.danger
-                        ? "text-red-600 hover:bg-red-50"
-                        : "text-gray-700 hover:bg-gray-50"
-                    } disabled:opacity-40 disabled:cursor-not-allowed`}
-                  >
-                    {item.icon ? (
-                      <item.icon className="w-3.5 h-3.5 shrink-0" />
-                    ) : null}
-                    {item.label}
-                  </button>
-                ))}
-              </motion.div>
-            ) : null}
-          </AnimatePresence>,
-          document.body,
-        )}
-    </>
-  );
-};
 
 const MappingStatusBadge = ({ isSet }) =>
   isSet ? (
@@ -187,10 +47,11 @@ const OomsSystemTemplates = () => {
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
-  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [actionType, setActionType] = useState(null);
   const [pickerType, setPickerType] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
 
   const fetchMappings = useCallback(async () => {
     setLoading(true);
@@ -220,6 +81,8 @@ const OomsSystemTemplates = () => {
     return rows.filter((item) =>
       [
         item.type,
+        item.name,
+        item.description,
         item.template_name,
         item.category,
         item.content_preview,
@@ -230,10 +93,18 @@ const OomsSystemTemplates = () => {
     );
   }, [rows, search]);
 
-  const handleSearch = (event) => {
-    event.preventDefault();
-    setSearch(searchInput.trim());
-  };
+  const total = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit) || 1);
+  const safePage = Math.min(page, totalPages);
+
+  const pagedRows = useMemo(() => {
+    const start = (safePage - 1) * limit;
+    return filteredRows.slice(start, start + limit);
+  }, [filteredRows, safePage, limit]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, limit]);
 
   const handleUnset = async (type) => {
     if (!type) return;
@@ -308,7 +179,7 @@ const OomsSystemTemplates = () => {
     if (item.is_set) {
       items.push({
         label: actionType === item.type ? "Removing…" : "Remove",
-        icon: actionType === item.type ? FiLoader : FiX,
+        icon: FiX,
         danger: true,
         disabled: busy,
         onClick: () => handleUnset(item.type),
@@ -378,10 +249,6 @@ const OomsSystemTemplates = () => {
             <h1 className="text-2xl font-bold text-gray-800">
               OOMS System WhatsApp Templates
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Choose a template for each notification type. Messages are sent
-              automatically when events occur.
-            </p>
           </div>
 
           {whatsappChannel !== "ooms system" ? (
@@ -409,26 +276,17 @@ const OomsSystemTemplates = () => {
                 </h2>
               </div>
 
-              <form
-                onSubmit={handleSearch}
-                className="flex items-center gap-2 w-full lg:w-auto"
-              >
+              <div className="flex items-center gap-2 w-full lg:w-auto">
                 <div className="relative flex-1 sm:w-64">
                   <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
-                    type="text"
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
                     placeholder="Search types..."
                     className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg"
-                >
-                  Search
-                </button>
                 <button
                   type="button"
                   onClick={fetchMappings}
@@ -440,7 +298,7 @@ const OomsSystemTemplates = () => {
                     className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
                   />
                 </button>
-              </form>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -475,7 +333,7 @@ const OomsSystemTemplates = () => {
                         ))}
                       </tr>
                     ))
-                  ) : filteredRows.length === 0 ? (
+                  ) : pagedRows.length === 0 ? (
                     <tr>
                       <td
                         colSpan={5}
@@ -485,30 +343,36 @@ const OomsSystemTemplates = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((item, index) => (
+                    pagedRows.map((item, index) => (
                       <tr key={item.type} className="hover:bg-gray-50">
                         <td className="px-4 sm:px-6 py-4 text-sm text-gray-500 tabular-nums">
-                          {index + 1}
+                          {(safePage - 1) * limit + index + 1}
                         </td>
                         <td className="px-4 sm:px-6 py-4">
                           <p className="text-sm font-medium text-gray-900 m-0">
-                            {formatActivityType(item.type)}
+                            {formatActivityType(item.type || item.name)}
                           </p>
-                          {item.available_templates?.length ? (
-                            <p className="text-xs text-gray-500 m-0 mt-0.5">
-                              {item.available_templates.length} template
-                              {item.available_templates.length === 1
-                                ? ""
-                                : "s"}{" "}
-                              available
-                            </p>
-                          ) : null}
+                          <p className="text-xs text-gray-500 m-0 mt-0.5">
+                            {item.description ||
+                              (item.available_templates?.length
+                                ? `${item.available_templates.length} template${
+                                    item.available_templates.length === 1
+                                      ? ""
+                                      : "s"
+                                  } available`
+                                : "No templates configured yet")}
+                          </p>
                         </td>
                         <td className="px-4 sm:px-6 py-4">
                           <MappingStatusBadge isSet={Boolean(item.is_set)} />
                           {item.is_set && item.category ? (
                             <p className="text-xs text-gray-500 m-0 mt-1">
                               {item.category}
+                            </p>
+                          ) : null}
+                          {item.is_set && item.template_name ? (
+                            <p className="text-xs text-gray-400 m-0 mt-0.5 font-mono">
+                              {item.template_name}
                             </p>
                           ) : null}
                         </td>
@@ -526,7 +390,7 @@ const OomsSystemTemplates = () => {
                         </td>
                         <td className="px-4 sm:px-6 py-4">
                           <div className="flex items-center justify-end">
-                            <ActionMenu items={getRowActionItems(item)} />
+                            <EmailActionMenu items={getRowActionItems(item)} />
                           </div>
                         </td>
                       </tr>
@@ -535,17 +399,34 @@ const OomsSystemTemplates = () => {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              page={safePage}
+              limit={limit}
+              total={total}
+              totalPages={totalPages}
+              rowOptions={[5, 10, 20, 50]}
+              defaultRows={20}
+              onPageChange={setPage}
+              onLimitChange={(next) => {
+                setLimit(next);
+                setPage(1);
+              }}
+            />
           </div>
         </div>
       </div>
 
-      {pickerType ? (
-        <OomsSystemTemplatePickerModal
-          activityType={pickerType}
-          onClose={() => setPickerType(null)}
-          onSaved={handlePickerSaved}
-        />
-      ) : null}
+      <AnimatePresence>
+        {pickerType ? (
+          <OomsSystemTemplatePickerModal
+            key={pickerType}
+            activityType={pickerType}
+            onClose={() => setPickerType(null)}
+            onSaved={handlePickerSaved}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 };
