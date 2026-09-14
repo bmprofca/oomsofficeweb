@@ -8,7 +8,7 @@ import {
   FiSend,
   FiUsers,
 } from "react-icons/fi";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
 import CustomSelect from "../../../components/CustomSelect";
 import DateTimePicker from "../../../components/DateTimePicker";
@@ -28,6 +28,11 @@ import {
   getClientOptionValue,
 } from "../../../utils/customSelectHelpers";
 import { smsApi, normalizeList } from "../../../services/smsApi";
+import {
+  getSmsModeFromPath,
+  smsModeBasePath,
+  smsModeLabel,
+} from "../../../utils/smsMode";
 
 const FIELD_INPUT =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
@@ -426,6 +431,10 @@ const fetchClientsByUsernames = async (usernames = []) => {
 
 const Fast2SmsCampaignCreate = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const mode = getSmsModeFromPath(location.pathname);
+  const basePath = smsModeBasePath(mode);
+  const campaignApi = smsApi.forMode(mode);
   const [searchParams, setSearchParams] = useSearchParams();
   const duplicateCampaignId = String(searchParams.get("duplicate") || "").trim();
   const { check } = useUserPermissions();
@@ -483,11 +492,19 @@ const Fast2SmsCampaignCreate = () => {
   const loadTemplates = useCallback(async () => {
     setTemplatesLoading(true);
     try {
-      const res = await smsApi.listTemplates({
-        page_no: 1,
-        limit: 100,
-        status: "active",
-      });
+      const res =
+        mode === "ooms_system"
+          ? await smsApi.listOomsSystemTemplates({
+              type: "campaign",
+              page_no: 1,
+              limit: 100,
+              status: "active",
+            })
+          : await smsApi.listTemplates({
+              page_no: 1,
+              limit: 100,
+              status: "active",
+            });
       setTemplates(normalizeList(res?.data));
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to load templates");
@@ -495,7 +512,7 @@ const Fast2SmsCampaignCreate = () => {
     } finally {
       setTemplatesLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     loadTemplates();
@@ -722,7 +739,7 @@ const Fast2SmsCampaignCreate = () => {
     const loadDuplicate = async () => {
       setDuplicateLoading(true);
       try {
-        const res = await smsApi.getCampaignDetails({
+        const res = await campaignApi.getCampaignDetails({
           campaign_id: duplicateCampaignId,
         });
         if (cancelled) return;
@@ -823,7 +840,7 @@ const Fast2SmsCampaignCreate = () => {
       setResolveLoading(true);
       setResolveError("");
       try {
-        const res = await smsApi.resolveCampaignRecipients(
+        const res = await campaignApi.resolveCampaignRecipients(
           JSON.parse(debouncedAudienceKey),
         );
         if (cancelled) return;
@@ -907,7 +924,7 @@ const Fast2SmsCampaignCreate = () => {
     setSaving(true);
     try {
       if (sendMode === "recurring") {
-        const res = await smsApi.createCampaignSchedule({
+        const res = await campaignApi.createCampaignSchedule({
           name: name.trim(),
           template_id: selectedTemplate.value,
           template_name: selectedTemplate.label || null,
@@ -918,7 +935,7 @@ const Fast2SmsCampaignCreate = () => {
           timezone: "Asia/Kolkata",
         });
         toast.success(res?.message || "Recurring SMS schedule created");
-        navigate("/broadcast/sms/fast2sms/campaigns/schedules");
+        navigate(`${basePath}/campaigns/schedules`);
         return;
       }
 
@@ -932,13 +949,13 @@ const Fast2SmsCampaignCreate = () => {
         payload.schedule_at = formatScheduleAt(scheduleLocal);
       }
 
-      const res = await smsApi.createCampaign(payload);
+      const res = await campaignApi.createCampaign(payload);
       toast.success(res?.message || "Campaign created");
       const id = res?.data?.campaign_id;
       navigate(
         id
-          ? `/broadcast/sms/fast2sms/campaigns/${id}`
-          : "/broadcast/sms/fast2sms/campaigns",
+          ? `${basePath}/campaigns/${id}`
+          : `${basePath}/campaigns`,
       );
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to create campaign");
@@ -1391,7 +1408,7 @@ const Fast2SmsCampaignCreate = () => {
               <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
                 <button
                   type="button"
-                  onClick={() => navigate("/broadcast/sms/fast2sms/campaigns")}
+                  onClick={() => navigate(`${basePath}/campaigns`)}
                   className="rounded-lg border px-4 py-2 text-sm"
                   disabled={saving || duplicateLoading}
                 >

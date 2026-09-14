@@ -67,6 +67,7 @@ export const SOFTWARE_MODULES = [
   { title: "Groups", path: "/staff/office-assistance/groups", group: "Assistance", keywords: "firm groups" },
   { title: "Group Firms", path: "/staff/office-assistance/group-firms", group: "Assistance", keywords: "group firms" },
   { title: "CA List", path: "/staff/office-assistance/ca-list", group: "Assistance", keywords: "chartered accountant" },
+  { title: "Client Follow-up", path: "/staff/office-assistance/follow-up", group: "Assistance", keywords: "followup assign reminder debtors" },
   { title: "Auto Reminder", path: "/staff/office-assistance/auto-reminder", group: "Assistance", keywords: "reminder" },
   { title: "Service Requests", path: "/staff/office-assistance/service-requests", group: "Assistance", keywords: "requests" },
 
@@ -87,6 +88,7 @@ export const SOFTWARE_MODULES = [
   { title: "Email Reports", path: "/broadcast/email/reports", group: "Broadcast", keywords: "email report" },
   { title: "WhatsApp OOMS", path: "/broadcast/whatsapp/ooms", group: "Broadcast", keywords: "whatsapp" },
   { title: "System Templates", path: "/broadcast/whatsapp/system/template", group: "Broadcast", keywords: "system template" },
+  { title: "OOMS System SMS Templates", path: "/broadcast/sms/system/template", group: "Broadcast", keywords: "sms system template" },
   { title: "OneChatting Configure", path: "/broadcast/whatsapp/onechatting/configure", group: "Broadcast", keywords: "onechatting" },
   { title: "OneChatting Templates", path: "/broadcast/whatsapp/onechatting/templates", group: "Broadcast", keywords: "onechatting template" },
   { title: "OneChatting Campaigns", path: "/broadcast/whatsapp/onechatting/campaigns", group: "Broadcast", keywords: "campaign" },
@@ -96,6 +98,7 @@ export const SOFTWARE_MODULES = [
   { title: "Fast2SMS Configure", path: "/broadcast/sms/fast2sms/configure", group: "Broadcast", keywords: "sms configure" },
   { title: "Fast2SMS Templates", path: "/broadcast/sms/fast2sms/templates", group: "Broadcast", keywords: "sms template" },
   { title: "Fast2SMS Campaigns", path: "/broadcast/sms/fast2sms/campaigns", group: "Broadcast", keywords: "sms" },
+  { title: "OOMS System SMS Campaigns", path: "/broadcast/sms/ooms-system/campaigns", group: "Broadcast", keywords: "ooms system sms" },
   { title: "Broadcast Report", path: "/broadcast/report", group: "Broadcast", keywords: "report" },
 
   // Settings

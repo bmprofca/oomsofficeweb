@@ -89,6 +89,7 @@ export const ViewDeletedClients = lazyWithRetry(() => import('../pages/office-as
 export const CAList = lazyWithRetry(() => import('../pages/office-assistance/ca-list'));
 export const CAProfile = lazyWithRetry(() => import('../pages/office-assistance/ca-profile'));
 export const AutoReminder = lazyWithRetry(() => import('../pages/office-assistance/auto-reminder'));
+export const ClientFollowUp = lazyWithRetry(() => import('../pages/office-assistance/follow-up'));
 export const ServiceRequestList = lazyWithRetry(() => import('../pages/office-assistance/service-request-list'));
 export const Broadcast = lazyWithRetry(() => import('../pages/broadcast'));
 export const EmailBroadcastReport = lazyWithRetry(() => import('../pages/broadcast/email/EmailBordcastReport'));
@@ -104,6 +105,7 @@ export const OneChattingCampaignSchedules = lazyWithRetry(() => import('../pages
 export const WhatsAppWebSession = lazyWithRetry(() => import('../pages/broadcast/whatsapp/WhatsAppWebSession'));
 export const WhatsAppWebTemplates = lazyWithRetry(() => import('../pages/broadcast/whatsapp/WhatsAppWebTemplates'));
 export const OomsSystemTemplates = lazyWithRetry(() => import('../pages/broadcast/whatsapp/OomsSystemTemplates'));
+export const OomsSystemSmsTemplates = lazyWithRetry(() => import('../pages/broadcast/sms/OomsSystemSmsTemplates'));
 export const Fast2SmsConfigure = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsConfigure'));
 export const Fast2SmsTemplates = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsTemplates'));
 export const Fast2SmsCampaigns = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsCampaigns'));

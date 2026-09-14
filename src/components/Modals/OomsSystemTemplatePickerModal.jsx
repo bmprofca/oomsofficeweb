@@ -148,28 +148,20 @@ const OomsSystemTemplatePickerModal = forwardRef(
         className="relative flex h-[min(92vh,900px)] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div className="min-w-0">
-            <div className="mb-1 flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                <FiMessageSquare className="h-4 w-4" />
-              </span>
-              <h3
-                id="ooms-template-picker-title"
-                className="m-0 truncate text-lg font-semibold text-slate-900"
-              >
-                {typeLabel}
-              </h3>
-            </div>
-            <p className="m-0 pl-10 text-sm text-slate-500">
-              Select the WhatsApp template used for this notification.
-            </p>
-          </div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-5 py-3">
+          <h3
+            id="ooms-template-picker-title"
+            className="m-0 min-w-0 truncate text-sm font-bold text-gray-800"
+          >
+            Map template
+            <span className="mx-1.5 font-medium text-gray-400">·</span>
+            <span className="font-semibold text-gray-700">{typeLabel}</span>
+          </h3>
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
             aria-label="Close"
           >
             <FiX className="h-5 w-5" />

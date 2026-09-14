@@ -20,6 +20,7 @@ const unwrap = (res) => res?.data;
 
 export const SMS_CHANNEL_OPTIONS = [
   { value: 'disabled', label: 'Disable' },
+  { value: 'ooms system', label: 'OOMS System' },
   { value: 'fast2sms', label: 'Fast2SMS' },
 ];
 
@@ -33,6 +34,48 @@ export const FAST2SMS_ROUTE_OPTIONS = [
   { value: 'otp', label: 'OTP' },
   { value: 'q', label: 'Quick SMS' },
 ];
+
+function campaignApi(prefix) {
+  return {
+    resolveCampaignRecipients: (payload) =>
+      smsAxios.post(`${prefix}/campaign/resolve-recipients`, payload).then(unwrap),
+    createCampaign: (payload) =>
+      smsAxios.post(`${prefix}/campaign/create`, payload).then(unwrap),
+    listCampaignSchedules: (params) =>
+      smsAxios.get(`${prefix}/campaign/schedules`, { params }).then(unwrap),
+    createCampaignSchedule: (payload) =>
+      smsAxios.post(`${prefix}/campaign/schedules`, payload).then(unwrap),
+    updateCampaignSchedule: (scheduleId, payload) =>
+      smsAxios
+        .put(`${prefix}/campaign/schedules/${scheduleId}`, payload)
+        .then(unwrap),
+    deleteCampaignSchedule: (scheduleId) =>
+      smsAxios.delete(`${prefix}/campaign/schedules/${scheduleId}`).then(unwrap),
+    runCampaignSchedule: (scheduleId) =>
+      smsAxios
+        .post(`${prefix}/campaign/schedules/${scheduleId}/run`, null, {
+          timeout: 120000,
+        })
+        .then(unwrap),
+    listCampaigns: (params) =>
+      smsAxios.get(`${prefix}/campaign/list`, { params }).then(unwrap),
+    getCampaignDetails: (params) =>
+      smsAxios.get(`${prefix}/campaign/details`, { params }).then(unwrap),
+    listCampaignMessages: (params) =>
+      smsAxios.get(`${prefix}/campaign/messages`, { params }).then(unwrap),
+    getCampaignMessageDetail: (params) =>
+      smsAxios.get(`${prefix}/campaign/message-detail`, { params }).then(unwrap),
+    retryCampaignMessage: (payload) =>
+      smsAxios.post(`${prefix}/campaign/message-retry`, payload).then(unwrap),
+    deleteCampaign: (payload) =>
+      smsAxios.post(`${prefix}/campaign/delete`, payload).then(unwrap),
+    processCampaign: (payload) =>
+      smsAxios.post(`${prefix}/campaign/process`, payload).then(unwrap),
+  };
+}
+
+const fast2smsCampaigns = campaignApi('/broadcast/sms/fast2sms');
+const oomsSystemCampaigns = campaignApi('/broadcast/sms/ooms-system');
 
 export const smsApi = {
   getChannel: () => smsAxios.get('/broadcast/sms/channel').then(unwrap),
@@ -54,48 +97,22 @@ export const smsApi = {
   unsetTemplateMap: (payload) =>
     smsAxios.put('/broadcast/sms/fast2sms/template-map/unset', payload).then(unwrap),
 
-  resolveCampaignRecipients: (payload) =>
-    smsAxios
-      .post('/broadcast/sms/fast2sms/campaign/resolve-recipients', payload)
-      .then(unwrap),
-  createCampaign: (payload) =>
-    smsAxios.post('/broadcast/sms/fast2sms/campaign/create', payload).then(unwrap),
-  listCampaignSchedules: (params) =>
-    smsAxios.get('/broadcast/sms/fast2sms/campaign/schedules', { params }).then(unwrap),
-  createCampaignSchedule: (payload) =>
-    smsAxios.post('/broadcast/sms/fast2sms/campaign/schedules', payload).then(unwrap),
-  updateCampaignSchedule: (scheduleId, payload) =>
-    smsAxios
-      .put(`/broadcast/sms/fast2sms/campaign/schedules/${scheduleId}`, payload)
-      .then(unwrap),
-  deleteCampaignSchedule: (scheduleId) =>
-    smsAxios
-      .delete(`/broadcast/sms/fast2sms/campaign/schedules/${scheduleId}`)
-      .then(unwrap),
-  runCampaignSchedule: (scheduleId) =>
-    smsAxios
-      .post(`/broadcast/sms/fast2sms/campaign/schedules/${scheduleId}/run`, null, {
-        timeout: 120000,
-      })
-      .then(unwrap),
-  listCampaigns: (params) =>
-    smsAxios.get('/broadcast/sms/fast2sms/campaign/list', { params }).then(unwrap),
-  getCampaignDetails: (params) =>
-    smsAxios.get('/broadcast/sms/fast2sms/campaign/details', { params }).then(unwrap),
-  listCampaignMessages: (params) =>
-    smsAxios.get('/broadcast/sms/fast2sms/campaign/messages', { params }).then(unwrap),
-  getCampaignMessageDetail: (params) =>
-    smsAxios
-      .get('/broadcast/sms/fast2sms/campaign/message-detail', { params })
-      .then(unwrap),
-  retryCampaignMessage: (payload) =>
-    smsAxios
-      .post('/broadcast/sms/fast2sms/campaign/message-retry', payload)
-      .then(unwrap),
-  deleteCampaign: (payload) =>
-    smsAxios.post('/broadcast/sms/fast2sms/campaign/delete', payload).then(unwrap),
-  processCampaign: (payload) =>
-    smsAxios.post('/broadcast/sms/fast2sms/campaign/process', payload).then(unwrap),
+  // OOMS System notification mapping + templates
+  listOomsSystemTemplates: (params) =>
+    smsAxios.get('/broadcast/sms/ooms-system/templates', { params }).then(unwrap),
+  getOomsSystemTemplateMapList: () =>
+    smsAxios.get('/broadcast/sms/ooms-system/template-map-list').then(unwrap),
+  setOomsSystemTemplateMap: (payload) =>
+    smsAxios.put('/broadcast/sms/ooms-system/template-map/set', payload).then(unwrap),
+  unsetOomsSystemTemplateMap: (payload) =>
+    smsAxios.put('/broadcast/sms/ooms-system/template-map/unset', payload).then(unwrap),
+
+  ...fast2smsCampaigns,
+
+  /** Campaign APIs scoped by mode (`fast2sms` | `ooms_system`). */
+  forMode(mode) {
+    return mode === 'ooms_system' ? oomsSystemCampaigns : fast2smsCampaigns;
+  },
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);

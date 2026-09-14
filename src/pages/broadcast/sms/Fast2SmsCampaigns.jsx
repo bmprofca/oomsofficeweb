@@ -11,7 +11,7 @@ import {
   FiRefreshCw,
   FiTrash2,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
 import TablePagination from "../../../components/TablePagination";
 import ConfirmActionModal from "../../../components/ConfirmActionModal";
@@ -22,6 +22,11 @@ import {
   normalizeList,
   normalizePagination,
 } from "../../../services/smsApi";
+import {
+  getSmsModeFromPath,
+  smsModeBasePath,
+  smsModeLabel,
+} from "../../../utils/smsMode";
 
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
@@ -259,6 +264,10 @@ const formatCreated = (value) => {
 
 const Fast2SmsCampaigns = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const mode = getSmsModeFromPath(location.pathname);
+  const basePath = smsModeBasePath(mode);
+  const campaignApi = smsApi.forMode(mode);
   const { check } = useUserPermissions();
   const canView = check("broadcast_send") || check("broadcast_config_edit");
   const canCreate = check("broadcast_send");
@@ -287,7 +296,7 @@ const Fast2SmsCampaigns = () => {
     async (page = 1, limit = pagination.limit, status = statusFilter?.value) => {
       setLoading(true);
       try {
-        const res = await smsApi.listCampaigns({
+        const res = await campaignApi.listCampaigns({
           page_no: page,
           limit,
           status: status || "all",
@@ -304,7 +313,7 @@ const Fast2SmsCampaigns = () => {
         setLoading(false);
       }
     },
-    [pagination.limit, statusFilter?.value],
+    [pagination.limit, statusFilter?.value, campaignApi],
   );
 
   useEffect(() => {
@@ -315,7 +324,7 @@ const Fast2SmsCampaigns = () => {
     if (!confirmRow?.campaign_id) return;
     setDeleting(true);
     try {
-      await smsApi.deleteCampaign({ campaign_id: confirmRow.campaign_id });
+      await campaignApi.deleteCampaign({ campaign_id: confirmRow.campaign_id });
       toast.success("Campaign deleted");
       setConfirmRow(null);
       fetchCampaigns(pagination.page_no);
@@ -331,7 +340,7 @@ const Fast2SmsCampaigns = () => {
       label: "View",
       icon: FiEye,
       onClick: () =>
-        navigate(`/broadcast/sms/fast2sms/campaigns/${row.campaign_id}`),
+        navigate(`${basePath}/campaigns/${row.campaign_id}`),
     },
     {
       label: "Delete",
@@ -392,7 +401,7 @@ const Fast2SmsCampaigns = () => {
         <div className="mx-2 my-3 flex h-full flex-col sm:mx-4 md:mx-8 md:my-4">
           <div className="mb-4">
             <h1 className="text-2xl font-bold text-gray-800">
-              Fast2SMS Campaigns
+              {smsModeLabel(mode)} Campaigns
             </h1>
           </div>
 
@@ -430,7 +439,7 @@ const Fast2SmsCampaigns = () => {
                     <button
                       type="button"
                       onClick={() =>
-                        navigate("/broadcast/sms/fast2sms/campaigns/schedules")
+                        navigate(`${basePath}/campaigns/schedules`)
                       }
                       className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
                     >
@@ -439,7 +448,7 @@ const Fast2SmsCampaigns = () => {
                     <button
                       type="button"
                       onClick={() =>
-                        navigate("/broadcast/sms/fast2sms/campaigns/create")
+                        navigate(`${basePath}/campaigns/create`)
                       }
                       className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                     >

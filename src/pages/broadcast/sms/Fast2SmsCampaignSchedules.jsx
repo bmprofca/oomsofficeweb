@@ -11,11 +11,16 @@ import {
   FiPause,
   FiPlay,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
 import ConfirmActionModal from "../../../components/ConfirmActionModal";
 import { useUserPermissions } from "../../../utils/permission-helper";
 import { normalizeList, smsApi } from "../../../services/smsApi";
+import {
+  getSmsModeFromPath,
+  smsModeBasePath,
+  smsModeLabel,
+} from "../../../utils/smsMode";
 
 const TOOLBAR_ROW =
   "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
@@ -66,6 +71,10 @@ const audienceLabel = (audience) => {
 
 const Fast2SmsCampaignSchedules = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const mode = getSmsModeFromPath(location.pathname);
+  const basePath = smsModeBasePath(mode);
+  const campaignApi = smsApi.forMode(mode);
   const { check } = useUserPermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() =>
@@ -82,7 +91,7 @@ const Fast2SmsCampaignSchedules = () => {
   const fetchSchedules = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await smsApi.listCampaignSchedules();
+      const res = await campaignApi.listCampaignSchedules();
       setRows(normalizeList(res?.data ?? res));
     } catch (error) {
       toast.error(
@@ -107,7 +116,7 @@ const Fast2SmsCampaignSchedules = () => {
     setBusyId(row.schedule_id);
     try {
       const next = Number(row.is_active) === 1 ? 0 : 1;
-      await smsApi.updateCampaignSchedule(row.schedule_id, {
+      await campaignApi.updateCampaignSchedule(row.schedule_id, {
         is_active: next,
       });
       toast.success(next ? "Schedule activated" : "Schedule paused");
@@ -125,11 +134,11 @@ const Fast2SmsCampaignSchedules = () => {
     if (!canSend || !row?.schedule_id) return;
     setBusyId(row.schedule_id);
     try {
-      const res = await smsApi.runCampaignSchedule(row.schedule_id);
+      const res = await campaignApi.runCampaignSchedule(row.schedule_id);
       const campaignId = res?.data?.campaign_id || res?.campaign_id;
       toast.success(res?.message || "Campaign created from schedule");
       if (campaignId) {
-        navigate(`/broadcast/sms/fast2sms/campaigns/${campaignId}`);
+        navigate(`${basePath}/campaigns/${campaignId}`);
       } else {
         await fetchSchedules();
       }
@@ -146,7 +155,7 @@ const Fast2SmsCampaignSchedules = () => {
     if (!confirmRow?.schedule_id) return;
     setBusyId(confirmRow.schedule_id);
     try {
-      await smsApi.deleteCampaignSchedule(confirmRow.schedule_id);
+      await campaignApi.deleteCampaignSchedule(confirmRow.schedule_id);
       toast.success("Schedule deleted");
       setConfirmRow(null);
       await fetchSchedules();
@@ -232,7 +241,7 @@ const Fast2SmsCampaignSchedules = () => {
                 <button
                   type="button"
                   onClick={() =>
-                    navigate("/broadcast/sms/fast2sms/campaigns")
+                    navigate(`${basePath}/campaigns`)
                   }
                   className={`${TOOLBAR_BTN} border border-gray-300 text-gray-700 hover:bg-gray-100 shrink-0`}
                 >
@@ -253,7 +262,7 @@ const Fast2SmsCampaignSchedules = () => {
                   <button
                     type="button"
                     onClick={() =>
-                      navigate("/broadcast/sms/fast2sms/campaigns/create")
+                      navigate(`${basePath}/campaigns/create`)
                     }
                     className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 text-white bg-emerald-600 hover:bg-emerald-700 shrink-0`}
                   >
@@ -356,7 +365,7 @@ const Fast2SmsCampaignSchedules = () => {
                                   className="text-[11px] text-emerald-700 hover:underline m-0"
                                   onClick={() =>
                                     navigate(
-                                      `/broadcast/sms/fast2sms/campaigns/${row.last_campaign_id}`,
+                                      `${basePath}/campaigns/${row.last_campaign_id}`,
                                     )
                                   }
                                 >

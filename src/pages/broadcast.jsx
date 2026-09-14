@@ -125,7 +125,7 @@ const Broadcast = () => {
   const whatsappChannel = useWhatsappChannel();
   const smsChannel = useSmsChannel();
   const [whatsappSubTab, setWhatsappSubTab] = useState("ooms system");
-  const [smsSubTab, setSmsSubTab] = useState("fast2sms");
+  const [smsSubTab, setSmsSubTab] = useState("ooms system");
   const [whatsappChannelSaving, setWhatsappChannelSaving] = useState(false);
   const [smsChannelSaving, setSmsChannelSaving] = useState(false);
 
@@ -269,6 +269,41 @@ const Broadcast = () => {
       description: "Fast2SMS API key, sender ID, and route",
       icon: <FiSettings className="w-5 h-5" />,
       link: "/broadcast/sms/fast2sms/configure",
+      color: "bg-blue-100 text-blue-600",
+      permission: "broadcast_config_edit",
+    },
+  ];
+
+  const smsOomsSystemCards = [
+    {
+      title: "Create Campaign",
+      description: "Send via OOMS System SMS",
+      icon: <FiSend className="w-5 h-5" />,
+      link: "/broadcast/sms/ooms-system/campaigns/create",
+      color: "bg-blue-100 text-blue-600",
+      permission: "broadcast_send",
+    },
+    {
+      title: "Campaign List",
+      description: "OOMS System campaign reports",
+      icon: <FiBarChart2 className="w-5 h-5" />,
+      link: "/broadcast/sms/ooms-system/campaigns",
+      color: "bg-blue-100 text-blue-600",
+      permission: ["broadcast_send", "broadcast_config_edit"],
+    },
+    {
+      title: "Recurring Campaigns",
+      description: "Scheduled OOMS System SMS",
+      icon: <FiClock className="w-5 h-5" />,
+      link: "/broadcast/sms/ooms-system/campaigns/schedules",
+      color: "bg-blue-100 text-blue-600",
+      permission: ["broadcast_send", "broadcast_config_edit"],
+    },
+    {
+      title: "System Templates",
+      description: "Map notification types to OOMS templates",
+      icon: <FiFileText className="w-5 h-5" />,
+      link: "/broadcast/sms/system/template",
       color: "bg-blue-100 text-blue-600",
       permission: "broadcast_config_edit",
     },
@@ -424,7 +459,7 @@ const Broadcast = () => {
     if (smsSubTab === "fast2sms") {
       return renderCardGrid(smsFast2SmsCards, "blue");
     }
-    return renderCardGrid(smsFast2SmsCards, "blue");
+    return renderCardGrid(smsOomsSystemCards, "blue");
   };
 
   // Render card grid
@@ -614,7 +649,7 @@ const Broadcast = () => {
         {smsChannel === "disabled"
           ? renderEmptyChannelState(
               "SMS is currently disabled",
-              "Select Fast2SMS to configure API credentials for this branch.",
+              "Select OOMS System or Fast2SMS to enable SMS for this branch.",
               "blue",
             )
           : renderSmsSubTabContent()}

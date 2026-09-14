@@ -28,7 +28,7 @@ import {
   FiXCircle,
   FiAlertCircle,
 } from "react-icons/fi";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
 import TablePagination from "../../../components/TablePagination";
 import ConfirmActionModal from "../../../components/ConfirmActionModal";
@@ -39,6 +39,11 @@ import {
   normalizeList,
   normalizePagination,
 } from "../../../services/smsApi";
+import {
+  getSmsModeFromPath,
+  smsModeBasePath,
+  smsModeLabel,
+} from "../../../utils/smsMode";
 
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
@@ -474,6 +479,10 @@ const MessageDetailModal = ({ open, loading, data, onClose }) => {
 const Fast2SmsCampaignDetails = () => {
   const { campaignId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const mode = getSmsModeFromPath(location.pathname);
+  const basePath = smsModeBasePath(mode);
+  const campaignApi = smsApi.forMode(mode);
   const { check } = useUserPermissions();
   const canView = check("broadcast_send") || check("broadcast_config_edit");
   const canSend = check("broadcast_send");
@@ -510,7 +519,7 @@ const Fast2SmsCampaignDetails = () => {
     if (!campaignId) return;
     setDetailLoading(true);
     try {
-      const res = await smsApi.getCampaignDetails({ campaign_id: campaignId });
+      const res = await campaignApi.getCampaignDetails({ campaign_id: campaignId });
       setCampaign(res?.data || null);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to load campaign");
@@ -525,7 +534,7 @@ const Fast2SmsCampaignDetails = () => {
       if (!campaignId) return;
       setMessagesLoading(true);
       try {
-        const res = await smsApi.listCampaignMessages({
+        const res = await campaignApi.listCampaignMessages({
           campaign_id: campaignId,
           page_no: page,
           limit,
@@ -556,9 +565,9 @@ const Fast2SmsCampaignDetails = () => {
   const runDelete = async () => {
     setDeleting(true);
     try {
-      await smsApi.deleteCampaign({ campaign_id: campaignId });
+      await campaignApi.deleteCampaign({ campaign_id: campaignId });
       toast.success("Campaign deleted");
-      navigate("/broadcast/sms/fast2sms/campaigns");
+      navigate(`${basePath}/campaigns`);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to delete");
     } finally {
@@ -569,7 +578,7 @@ const Fast2SmsCampaignDetails = () => {
   const openMessageDetails = async (row) => {
     setDetailModal({ open: true, loading: true, data: null });
     try {
-      const res = await smsApi.getCampaignMessageDetail({
+      const res = await campaignApi.getCampaignMessageDetail({
         campaign_id: campaignId,
         message_id: row.message_id,
       });
@@ -584,7 +593,7 @@ const Fast2SmsCampaignDetails = () => {
     if (!canSend) return;
     setRetryingId(row.message_id);
     try {
-      await smsApi.retryCampaignMessage({
+      await campaignApi.retryCampaignMessage({
         campaign_id: campaignId,
         message_id: row.message_id,
       });
@@ -682,7 +691,7 @@ const Fast2SmsCampaignDetails = () => {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => navigate("/broadcast/sms/fast2sms/campaigns")}
+              onClick={() => navigate(`${basePath}/campaigns`)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900"
             >
               <FiArrowLeft className="h-4 w-4" />
@@ -707,7 +716,7 @@ const Fast2SmsCampaignDetails = () => {
                   type="button"
                   onClick={() =>
                     navigate(
-                      `/broadcast/sms/fast2sms/campaigns/create?duplicate=${encodeURIComponent(campaignId)}`,
+                      `${basePath}/campaigns/create?duplicate=${encodeURIComponent(campaignId)}`,
                     )
                   }
                   className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"

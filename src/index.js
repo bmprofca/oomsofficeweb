@@ -62,6 +62,7 @@ import {
   CAList,
   CAProfile,
   AutoReminder,
+  ClientFollowUp,
   ServiceRequestList,
   Broadcast,
   EmailBroadcastReport,
@@ -77,6 +78,7 @@ import {
   WhatsAppWebSession,
   WhatsAppWebTemplates,
   OomsSystemTemplates,
+  OomsSystemSmsTemplates,
   Fast2SmsConfigure,
   Fast2SmsTemplates,
   Fast2SmsCampaigns,
@@ -683,6 +685,12 @@ root.render(
               </ProtectedRoute>
             } />
 
+            <Route path="/staff/office-assistance/follow-up" element={
+              <ProtectedRoute>
+                <ClientFollowUp />
+              </ProtectedRoute>
+            } />
+
             <Route path="/staff/office-assistance/service-requests" element={
               <ProtectedRoute>
                 <ServiceRequestList />
@@ -749,6 +757,36 @@ root.render(
             } />
 
             <Route path="/broadcast/sms/fast2sms/campaigns/:campaignId" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaignDetails />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/system/template" element={
+              <ProtectedRoute>
+                <OomsSystemSmsTemplates />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/ooms-system/campaigns" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaigns />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/ooms-system/campaigns/create" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaignCreate />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/ooms-system/campaigns/schedules" element={
+              <ProtectedRoute>
+                <Fast2SmsCampaignSchedules />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/broadcast/sms/ooms-system/campaigns/:campaignId" element={
               <ProtectedRoute>
                 <Fast2SmsCampaignDetails />
               </ProtectedRoute>
