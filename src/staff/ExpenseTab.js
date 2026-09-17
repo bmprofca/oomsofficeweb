@@ -309,18 +309,21 @@ function formatExpenseRow(exp) {
   };
 }
 
-const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
+const AddExpenseModal = ({ isOpen, onClose, onAdd, requireStaffSelect = false }) => {
   const [formData, setFormData] = useState({
     item_id: '',
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
+    staff_username: '',
     attachment: null,
     attachmentPreview: null,
     attachmentUrl: null,
   });
   const [itemOptions, setItemOptions] = useState([]);
   const [itemLoading, setItemLoading] = useState(false);
+  const [staffOptions, setStaffOptions] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -336,6 +339,7 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
       description: '',
       amount: '',
       date: new Date().toISOString().split('T')[0],
+      staff_username: '',
       attachment: null,
       attachmentPreview: null,
       attachmentUrl: null,
@@ -374,6 +378,45 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
       cancelled = true;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !requireStaffSelect) return undefined;
+    let cancelled = false;
+    const loadStaff = async () => {
+      setStaffLoading(true);
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/settings/staff/list?search=&page=1&limit=100&status=active`,
+          { headers: getHeaders() }
+        );
+        const result = await response.json();
+        if (cancelled) return;
+        const rows = result?.data || result?.staff || [];
+        setStaffOptions(
+          (Array.isArray(rows) ? rows : [])
+            .filter((row) => row?.username)
+            .map((row) => {
+              const name = row.profile?.name || row.name || '';
+              const mobile = row.profile?.mobile || row.mobile || '';
+              const label = [name, mobile].filter(Boolean).join(' · ') || 'Staff';
+              return {
+                value: row.username,
+                label,
+              };
+            })
+        );
+      } catch (err) {
+        console.error(err);
+        toast.error('Failed to load staff list');
+      } finally {
+        if (!cancelled) setStaffLoading(false);
+      }
+    };
+    loadStaff();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, requireStaffSelect]);
 
   const clearAttachment = () => {
     uploadRequestIdRef.current += 1;
@@ -474,6 +517,10 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (requireStaffSelect && !formData.staff_username) {
+      toast.error('Select a staff member');
+      return;
+    }
     if (!formData.item_id || !formData.date) {
       toast.error('Select item and date');
       return;
@@ -508,6 +555,7 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
   };
 
   const selectedItem = itemOptions.find((o) => o.value === formData.item_id) || null;
+  const selectedStaff = staffOptions.find((o) => o.value === formData.staff_username) || null;
   const isImageAttachment = Boolean(formData.attachment?.type?.startsWith('image/'));
   const hasFile = Boolean(formData.attachment);
 
@@ -523,8 +571,12 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
   return (
     <ExpenseModalFrame
       isOpen={isOpen}
-      title="Submit expense"
-      subtitle="Indirect expense item with optional receipt"
+      title={requireStaffSelect ? 'Create expense' : 'Submit expense'}
+      subtitle={
+        requireStaffSelect
+          ? 'Create an expense against any staff member'
+          : 'Indirect expense item with optional receipt'
+      }
       onClose={onClose}
       disableClose={isSubmitting || isUploadingAttachment}
       titleId="add-expense-title"
@@ -544,12 +596,27 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
             disabled={isSubmitting || isUploadingAttachment}
             className="flex-1 h-9 rounded-lg bg-teal-600 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
           >
-            {isSubmitting ? 'Submitting…' : 'Submit'}
+            {isSubmitting ? (requireStaffSelect ? 'Creating…' : 'Submitting…') : requireStaffSelect ? 'Create' : 'Submit'}
           </button>
         </div>
       }
     >
       <form id="add-expense-form" onSubmit={handleSubmit} className="space-y-3">
+        {requireStaffSelect ? (
+          <div>
+            <span className={LABEL_CLASS}>Staff *</span>
+            <CustomSelect
+              options={staffOptions}
+              value={selectedStaff}
+              onChange={(opt) =>
+                setFormData((prev) => ({ ...prev, staff_username: opt?.value || '' }))
+              }
+              placeholder={staffLoading ? 'Loading staff…' : 'Select staff'}
+              isClearable
+              isDisabled={staffLoading}
+            />
+          </div>
+        ) : null}
         <div>
           <span className={LABEL_CLASS}>Expense item (indirect) *</span>
           <CustomSelect
@@ -573,24 +640,19 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd }) => {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <span className={LABEL_CLASS}>Amount (₹) *</span>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                ₹
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={formData.amount}
-                onChange={handleAmountChange}
-                className={`${INPUT_CLASS} pl-7 tabular-nums ${
-                  amountError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : ''
-                }`}
-                placeholder="0.00"
-                aria-invalid={Boolean(amountError)}
-              />
-            </div>
+            <span className={LABEL_CLASS}>Amount *</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={formData.amount}
+              onChange={handleAmountChange}
+              className={`${INPUT_CLASS} tabular-nums ${
+                amountError ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : ''
+              }`}
+              placeholder="0.00"
+              aria-invalid={Boolean(amountError)}
+            />
             {amountError ? <p className="mt-1 text-[11px] text-rose-600">{amountError}</p> : null}
           </div>
           <div>
@@ -1511,4 +1573,5 @@ const ExpenseTab = ({
   );
 };
 
+export { AddExpenseModal };
 export default ExpenseTab;

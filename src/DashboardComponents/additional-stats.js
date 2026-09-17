@@ -13,6 +13,7 @@ import {
   FiBriefcase,
   FiHome,
   FiLayers,
+  FiClock,
 } from "react-icons/fi";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
@@ -30,6 +31,7 @@ const CARD_ICONS = {
   "total-agent": FiUserPlus,
   "total-firms": FiHome,
   "total-services": FiLayers,
+  "pending-staff-expense": FiClock,
 };
 
 const CARD_META = {
@@ -66,6 +68,9 @@ const CARD_META = {
   },
   "total-services": {
     gradient: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+  },
+  "pending-staff-expense": {
+    gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
   },
 };
 
@@ -136,6 +141,13 @@ const DEFAULT_CARDS = [
     title: "Total Services",
     value: "total_services",
     link: "/staff/office-assistance/services",
+  },
+  {
+    id: "pending-staff-expense",
+    title: "Pending Staff Expenses",
+    value: "pending_staff_expense",
+    secondaryValue: "pending_staff_expense_amount",
+    link: "/finance/voucher/staff-expenses",
   },
 ];
 
@@ -402,13 +414,20 @@ const AdditionalStatsComponent = ({
                         <div className="animate-pulse h-5 bg-white/20 rounded w-16" />
                       ) : (
                         <div
-                          className={`text-lg font-bold text-white leading-tight ${
+                          className={`flex items-baseline gap-1.5 flex-wrap text-lg font-bold text-white leading-tight ${
                             blurEnabled ? "blur-sm" : ""
                           }`}
                         >
-                          {meta.isCurrency
-                            ? formatCurrency(value)
-                            : formatNumber(value)}
+                          <span>
+                            {meta.isCurrency
+                              ? formatCurrency(value)
+                              : formatNumber(value)}
+                          </span>
+                          {card.secondaryValue ? (
+                            <span className="text-sm font-semibold text-white/90">
+                              · {formatCurrency(getStatValue(stats, card.secondaryValue))}
+                            </span>
+                          ) : null}
                         </div>
                       )}
                     </div>

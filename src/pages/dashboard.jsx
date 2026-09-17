@@ -51,7 +51,7 @@ import DashboardCustomizeDrawer from "../DashboardComponents/DashboardCustomizeD
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = "7";
 const QUICK_STATS_VERSION = "4";
-const ADDITIONAL_STATS_VERSION = "3";
+const ADDITIONAL_STATS_VERSION = "4";
 
 const hasValidBranchInStorage = () => {
   const branchId = localStorage.getItem("branch_id");
@@ -333,6 +333,17 @@ const getDefaultAdditionalStatsCards = () => [
     color: "bg-gradient-to-br from-purple-500 to-violet-600 text-white",
     gradient: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
     link: "/staff/office-assistance/services",
+    isCurrency: false,
+  },
+  {
+    id: "pending-staff-expense",
+    title: "Pending Staff Expenses",
+    value: "pending_staff_expense",
+    secondaryValue: "pending_staff_expense_amount",
+    icon: FiClock,
+    color: "bg-gradient-to-br from-amber-500 to-orange-600 text-white",
+    gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+    link: "/finance/voucher/staff-expenses",
     isCurrency: false,
   },
 ];

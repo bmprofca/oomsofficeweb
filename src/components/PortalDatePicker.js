@@ -710,6 +710,15 @@ export default function DatePicker({
         setViewDate(new Date());
         setFeedback('');
         if (isLoanPresets) setTab('quick');
+        if (mode === 'range' || isRangePickerTab) {
+            onApply?.({ type: 'range', start: null, end: null, cleared: true });
+            onRequestClose?.();
+            return;
+        }
+        if (mode === 'single') {
+            onApply?.({ type: 'single', date: null, cleared: true });
+            onRequestClose?.();
+        }
     }
 
     useEffect(() => {
@@ -937,12 +946,14 @@ export function DatePickerField({
                     maxSelectableDate={maxSelectableDate}
                     onRequestClose={() => setOpen(false)}
                     onApply={(result) => {
-                        if (result?.type === 'single') {
+                        if (result?.cleared || (result?.type === 'single' && !result?.date)) {
+                            onChange?.('');
+                        } else if (result?.type === 'single') {
                             onChange?.(toIsoDate(result.date));
                         } else if (result?.type === 'range') {
                             onChange?.({
-                                start: toIsoDate(result.start),
-                                end: toIsoDate(result.end),
+                                start: result.start ? toIsoDate(result.start) : '',
+                                end: result.end ? toIsoDate(result.end) : '',
                             });
                         }
                         setOpen(false);
@@ -1041,13 +1052,16 @@ export function DateRangePickerField({
                         if (result?.sourceTab === 'quick' && result?.quickKey) {
                             setLastQuickKey(result.quickKey);
                         }
-                        if (result?.type === 'range') {
+                        if (result?.cleared || (!result?.start && !result?.end && result?.type === 'range')) {
+                            onChange?.({ start: '', end: '' });
+                            setLastQuickKey('');
+                        } else if (result?.type === 'range') {
                             onChange?.({
                                 start: toIsoDate(result.start),
                                 end: toIsoDate(result.end),
                             });
                         } else if (result?.type === 'single') {
-                            const iso = toIsoDate(result.date);
+                            const iso = result.date ? toIsoDate(result.date) : '';
                             onChange?.({
                                 start: iso,
                                 end: iso,
