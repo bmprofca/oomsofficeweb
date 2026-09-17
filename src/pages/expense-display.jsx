@@ -268,7 +268,11 @@ const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency, on
                             type="button"
                             onClick={() => {
                                 if (!canEdit) {
-                                    toast.error('Need Access Permission');
+                                    toast.error(
+                                        expense?.from_staff_expense
+                                            ? 'Staff-submitted expenses cannot be edited. Manage them from Staff Expenses.'
+                                            : 'Need Access Permission'
+                                    );
                                     return;
                                 }
                                 onEdit(expense);
@@ -585,6 +589,13 @@ const ViewExpenses = () => {
     };
 
     const openEditModal = (record) => {
+        if (record?.from_staff_expense) {
+            toast.error('Staff-submitted expenses cannot be edited. Manage them from Staff Expenses.');
+            setShowActionMenu(null);
+            actionAnchorRef.current = null;
+            setActionMenuPosition(null);
+            return;
+        }
         setEditRecord(record);
         setEditModalOpen(true);
         setShowActionMenu(null);
@@ -824,6 +835,17 @@ const ViewExpenses = () => {
                                     />
                                 </div>
                                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                    <Link to="/finance/voucher/staff-expenses" className="shrink-0">
+                                        <motion.span
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 text-xs font-semibold text-amber-800 shadow-sm transition-all hover:bg-amber-50 sm:h-10 sm:px-3"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            <FiFileText className="h-4 w-4 shrink-0" />
+                                            <span className="whitespace-nowrap">Staff Expenses</span>
+                                        </motion.span>
+                                    </Link>
+
                                     <Link to="/finance/voucher/expense-items" className="shrink-0">
                                         <motion.span
                                             className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 text-xs font-semibold text-emerald-700 shadow-sm transition-all hover:bg-emerald-50 sm:h-10 sm:px-3"
@@ -1085,9 +1107,15 @@ const ViewExpenses = () => {
                     <button
                         type="button"
                         className={`w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors ${
-                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                            !check('finance_entry_edit') || activeExpense?.from_staff_expense
+                                ? 'cursor-not-allowed opacity-60 hover:bg-transparent'
+                                : ''
                         }`}
                         onClick={() => {
+                            if (activeExpense?.from_staff_expense) {
+                                toast.error('Staff-submitted expenses cannot be edited. Manage them from Staff Expenses.');
+                                return;
+                            }
                             if (!check('finance_entry_edit')) {
                                 toast.error('Need Access Permission');
                                 return;
@@ -1095,7 +1123,7 @@ const ViewExpenses = () => {
                             openEditModal(activeExpense);
                         }}
                     >
-                        {!check('finance_entry_edit') ? (
+                        {!check('finance_entry_edit') || activeExpense?.from_staff_expense ? (
                             <FiLock className="w-4 h-4 text-slate-400" />
                         ) : (
                             <FiEdit className="w-4 h-4 text-blue-600" />
@@ -1131,7 +1159,7 @@ const ViewExpenses = () => {
                 expense={detailsExpense}
                 onClose={closeExpenseDetails}
                 formatCurrency={formatCurrency}
-                canEdit={check('finance_entry_edit')}
+                canEdit={check('finance_entry_edit') && !detailsExpense?.from_staff_expense}
                 onEdit={openEditModal}
             />
         </div>

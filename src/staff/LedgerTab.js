@@ -461,6 +461,7 @@ export default function LedgerTab({
     const handleCreateTransaction = async () => {
         if (readOnly) return;
         setShowTransactionModal(false);
+        setTransactionType('');
         setSelectedBank(null);
         fetchTransactions();
         onProfileRefresh?.();
@@ -491,6 +492,11 @@ export default function LedgerTab({
 
         if (!checkPermissionSync('finance_entry_edit')) {
             toast.error('Need Access Permission');
+            return;
+        }
+
+        if (transaction?.from_staff_expense) {
+            toast.error('Staff-submitted expenses cannot be edited. Manage them from Staff Expenses.');
             return;
         }
 
@@ -846,11 +852,14 @@ export default function LedgerTab({
                 )}
             </AnimatePresence>
 
-            {!readOnly ? (
+            {!readOnly && (showTransactionModal || Boolean(transactionType)) ? (
             <TransactionModalManager
                 modalType={transactionType}
                 isOpen={showTransactionModal}
-                onClose={() => setShowTransactionModal(false)}
+                onClose={() => {
+                    setShowTransactionModal(false);
+                    setTransactionType('');
+                }}
                 clientId={username}
                 clientName={displayName}
                 bankDetails={selectedBank}
@@ -968,10 +977,17 @@ export default function LedgerTab({
                             type="button"
                             onClick={() => handleEdit(selectedActionTransaction)}
                             className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-blue-50 ${
-                                !checkPermissionSync('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                                !checkPermissionSync('finance_entry_edit') ||
+                                selectedActionTransaction?.from_staff_expense
+                                    ? 'cursor-not-allowed opacity-60 hover:bg-transparent'
+                                    : ''
                             }`}
                         >
-                            <FiEdit2 className="h-4 w-4 text-blue-600" />
+                            {selectedActionTransaction?.from_staff_expense ? (
+                                <FiEdit2 className="h-4 w-4 text-slate-400" />
+                            ) : (
+                                <FiEdit2 className="h-4 w-4 text-blue-600" />
+                            )}
                             {isTaskOriginSale(selectedActionTransaction) ? 'Edit (Task)' : 'Edit'}
                         </button>
                         ) : null}

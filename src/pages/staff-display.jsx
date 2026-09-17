@@ -867,35 +867,35 @@ const ViewStaff = () => {
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50">
-                <Header
-                    mobileMenuOpen={mobileMenuOpen}
-                    setMobileMenuOpen={setMobileMenuOpen}
-                    isMinimized={isMinimized}
-                    setIsMinimized={setIsMinimized}
-                />
-                <Sidebar
-                    mobileMenuOpen={mobileMenuOpen}
-                    setMobileMenuOpen={setMobileMenuOpen}
-                    isMinimized={isMinimized}
-                    setIsMinimized={setIsMinimized}
-                />
-                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                     <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <div className="border-b border-gray-200 px-4 py-4">
                                 <div className="h-5 w-40 rounded bg-gray-200 animate-pulse mb-2" />
                                 <div className="h-3 w-56 rounded bg-gray-100 animate-pulse" />
-                            </div>
+                                </div>
                             <div className="p-4 space-y-3">
                                 {[...Array(6)].map((_, i) => (
                                     <div key={i} className="h-12 rounded-lg bg-gray-100 animate-pulse" />
                                 ))}
                             </div>
-                        </div>
                     </div>
                 </div>
             </div>
-        );
+        </div>
+    );
     }
 
     return (
@@ -925,19 +925,19 @@ const ViewStaff = () => {
                                         </h5>
                                         <p className="text-gray-500 text-xs">
                                             {totalItems} staff member{totalItems === 1 ? '' : 's'} total
-                                        </p>
-                                    </div>
-                                    <motion.button
-                                        type="button"
-                                        onClick={() => setIsAddStaffModalOpen(true)}
-                                        className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                    >
-                                        <FiPlus className="w-4 h-4" />
-                                        Add Staff
-                                    </motion.button>
+                                    </p>
                                 </div>
+                                        <motion.button
+                                        type="button"
+                                            onClick={() => setIsAddStaffModalOpen(true)}
+                                        className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            <FiPlus className="w-4 h-4" />
+                                            Add Staff
+                                        </motion.button>
+                                    </div>
                                 <div className="relative min-w-0">
                                     <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                     <input
@@ -1022,18 +1022,18 @@ const ViewStaff = () => {
                                                         <div className="flex items-center gap-2 sm:gap-3 min-w-[10rem]">
                                                             <StaffAvatar name={staffMember.name} image={staffMember.image} />
                                                             <div className="min-w-0">
-                                                                {isAccepted ? (
-                                                                    <Link
+                                                            {isAccepted ? (
+                                                                <Link
                                                                         to={`/staff/view/profile/${encodeURIComponent(staffMember.username)}/profile`}
                                                                         className="block truncate text-sm font-semibold text-indigo-700 no-underline hover:text-indigo-900 hover:no-underline"
-                                                                    >
-                                                                        {staffMember.name}
-                                                                    </Link>
-                                                                ) : (
+                                                                >
+                                                                    {staffMember.name}
+                                                                </Link>
+                                                            ) : (
                                                                     <span className="block truncate text-sm font-semibold text-gray-800">
-                                                                        {staffMember.name}
-                                                                    </span>
-                                                                )}
+                                                                    {staffMember.name}
+                                                                </span>
+                                                            )}
                                                                 <div className="text-xs text-gray-400 mt-0.5">{staffMember.designation || '—'}</div>
                                                                 {isAccepted && staffMember.guardian_name ? (
                                                                     <div className="text-xs text-gray-500 font-medium">C/O: {staffMember.guardian_name}</div>
@@ -1047,29 +1047,29 @@ const ViewStaff = () => {
                                                                 <div className="flex items-center gap-2 text-gray-800 text-sm font-medium">
                                                                     <FiPhone className="w-3 h-3 shrink-0 text-gray-400" />
                                                                     {staffMember.mobile || '—'}
-                                                                </div>
+                                                                    </div>
                                                             ) : null}
                                                             <div className="flex items-center gap-2 text-sm text-gray-600">
                                                                 <FiMail className="w-3 h-3 shrink-0 text-gray-400" />
                                                                 <span className="truncate">{staffMember.email || '—'}</span>
-                                                            </div>
+                                                                    </div>
                                                         </div>
                                                     </td>
                                                     <td className="p-3 text-center align-middle">
                                                         <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg min-w-[80px] border text-xs font-bold ${
                                                             isAccepted
-                                                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200'
-                                                                : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200'
-                                                        }`}>
+                                                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200'
+                                                            : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200'
+                                                            }`}>
                                                             {isAccepted ? 'Accepted' : 'Pending'}
                                                         </span>
                                                     </td>
                                                     <td className="p-3 text-center align-middle">
                                                         <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg min-w-[80px] border text-xs font-bold ${
                                                             staffMember.is_active
-                                                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200'
-                                                                : 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200'
-                                                        }`}>
+                                                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200'
+                                                            : 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200'
+                                                            }`}>
                                                             <span className={`w-1.5 h-1.5 rounded-full ${staffMember.is_active ? 'bg-blue-500' : 'bg-red-500'}`} />
                                                             {staffMember.is_active ? 'Active' : 'Deactive'}
                                                         </span>
@@ -1101,7 +1101,7 @@ const ViewStaff = () => {
                                     )}
                                 </tbody>
                             </table>
-                        </div>
+                                        </div>
 
                         <TablePagination
                             page={currentPage}
@@ -1113,7 +1113,7 @@ const ViewStaff = () => {
                             onPageChange={handlePageChange}
                             onLimitChange={handleLimitChange}
                         />
-                    </div>
+                                        </div>
                 </div>
             </div>
 

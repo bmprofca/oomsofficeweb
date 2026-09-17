@@ -114,7 +114,7 @@ const StaffList = () => {
     const [bulkAssigning, setBulkAssigning] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showPermissionModal, setShowPermissionModal] = useState(false);
-    const [selectedStaffMember, setSelectedStaffMember] = useState(null);
+    const [selectedStaffMember, setSelectedStaffMember] = useState(null);    
     const [permissionsView, setPermissionsView] = useState({ open: false, staff: null, perms: [] });
     const [statusOtp, setStatusOtp] = useState({
         open: false,
@@ -708,9 +708,9 @@ const StaffList = () => {
 
     const SkeletonRow = () => (
         <tr className="animate-pulse">
-                                            <td className={tableCellPad}>
+            <td className={tableCellPad}>
                                                 <div className="w-8 h-8 bg-gray-200 rounded" />
-                                            </td>
+            </td>
             <td className={tableCellPad}>
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-gray-200 rounded-lg" />
@@ -789,21 +789,21 @@ const StaffList = () => {
                                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                         <div className="relative min-w-0 flex-1">
                                             <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                            <input
-                                                type="text"
-                                                placeholder={isMinimized ? 'Search by name, mobile, email...' : 'Search staff...'}
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                        <input
+                                            type="text"
+                                            placeholder={isMinimized ? 'Search by name, mobile, email...' : 'Search staff...'}
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
                                                 className="w-full min-w-0 rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                            />
-                                        </div>
+                                        />
+                                    </div>
                                         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
                                             <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
                                                 <CustomSelect
                                                     options={roleFilterOptions}
                                                     value={optionByValue(roleFilterOptions, selectedPermission)}
                                                     onChange={(opt) => {
-                                                        setCurrentPage(1);
+                                                setCurrentPage(1);
                                                         setSelectedPermission(opt?.value || '');
                                                     }}
                                                     placeholder="All Permissions"
@@ -816,14 +816,14 @@ const StaffList = () => {
                                                     options={statusFilterOptions}
                                                     value={optionByValue(statusFilterOptions, selectedStatus)}
                                                     onChange={(opt) => {
-                                                        setCurrentPage(1);
+                                                setCurrentPage(1);
                                                         setSelectedStatus(opt?.value || '');
                                                     }}
                                                     placeholder="All Status"
                                                     isClearable
                                                     isSearchable={false}
                                                 />
-                                            </div>
+                                                    </div>
                                         </div>
                                     </div>
                                 </div>
@@ -836,13 +836,13 @@ const StaffList = () => {
                                         <tr>
                                             <th className={`w-12 text-center ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>
                                                 <div className="flex items-center justify-center">
-                                                    <AnimatedCheckbox
-                                                        checked={isAllPageSelected}
-                                                        indeterminate={isSomePageSelected}
-                                                        onChange={handleSelectAll}
-                                                        ariaLabel="Select all staff on this page"
-                                                        disabled={tableLoading || staffData.length === 0}
-                                                    />
+                                                <AnimatedCheckbox
+                                                    checked={isAllPageSelected}
+                                                    indeterminate={isSomePageSelected}
+                                                    onChange={handleSelectAll}
+                                                    ariaLabel="Select all staff on this page"
+                                                    disabled={tableLoading || staffData.length === 0}
+                                                />
                                                 </div>
                                             </th>
                                             <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Staff</th>
@@ -880,11 +880,11 @@ const StaffList = () => {
                                                 <tr key={staff.username || staff.id} className="hover:bg-gray-50 transition-colors">
                                                     <td className={`${tableCellPad} w-12`}>
                                                         <div className="flex items-center justify-center">
-                                                            <AnimatedCheckbox
-                                                                checked={selectedStaff.has(staff.username)}
-                                                                onChange={() => handleStaffSelect(staff.username)}
-                                                                ariaLabel={`Select ${staff.name}`}
-                                                            />
+                                                        <AnimatedCheckbox
+                                                            checked={selectedStaff.has(staff.username)}
+                                                            onChange={() => handleStaffSelect(staff.username)}
+                                                            ariaLabel={`Select ${staff.name}`}
+                                                        />
                                                         </div>
                                                     </td>
                                                     <td className={tableCellPad}>

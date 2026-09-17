@@ -22,8 +22,13 @@ const InrIcon = ({ className = 'w-5 h-5' }) => (
 
 /** Debit/credit/balance from API row (type-specific key e.g. payment, sale). */
 export function getTransactionAmounts(transaction) {
-    const key = transaction.transaction_type;
-    const amounts = key && transaction[key] ? transaction[key] : transaction.payment || {};
+    const key = String(transaction?.transaction_type || '').trim();
+    const typed = key ? transaction?.[key] : null;
+    const typedHasAmounts =
+        typed &&
+        typeof typed === 'object' &&
+        (typed.debit != null || typed.credit != null || typed.balance != null);
+    const amounts = typedHasAmounts ? typed : (transaction?.payment || {});
     return {
         debit: amounts.debit ?? 0,
         credit: amounts.credit ?? 0,

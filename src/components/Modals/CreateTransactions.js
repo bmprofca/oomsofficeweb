@@ -524,6 +524,25 @@ const BaseModal = ({
 }) => {
     const [overlayBounce, setOverlayBounce] = useState(false);
     const bounceTimerRef = useRef(null);
+    /* Keep portal mounted only while open or exiting. Leaving an empty AnimatePresence
+       under profile tab content (AnimatePresence mode="wait") blocks subsequent tab switches
+       after Journal / other transaction modals close — same pattern as PortalDatePicker. */
+    const [portalMounted, setPortalMounted] = useState(Boolean(isOpen));
+    const isOpenRef = useRef(isOpen);
+    isOpenRef.current = isOpen;
+
+    useEffect(() => {
+        if (isOpen) {
+            setPortalMounted(true);
+            return undefined;
+        }
+        /* Fallback: nested under client-profile AnimatePresence mode="wait", exit
+           can stall and leave an empty portal that blocks subsequent tab switches. */
+        const t = window.setTimeout(() => {
+            if (!isOpenRef.current) setPortalMounted(false);
+        }, 320);
+        return () => window.clearTimeout(t);
+    }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen || !closeOnEsc) return;
@@ -564,11 +583,19 @@ const BaseModal = ({
     const overlayTransition = { duration: 0.2, ease: 'easeOut' };
     const panelTransition = { duration: 0.22, ease: [0.16, 1, 0.3, 1] };
 
+    if (!portalMounted || typeof document === 'undefined') {
+        return null;
+    }
+
     /* Portal to document.body so fixed positioning is viewport-based. Nested layouts
        (e.g. Framer Motion with transform) otherwise create a containing block and distort
        size, fonts, and hit targets — common on client-profile → LedgerTab. */
     return createPortal(
-        <AnimatePresence>
+        <AnimatePresence
+            onExitComplete={() => {
+                if (!isOpenRef.current) setPortalMounted(false);
+            }}
+        >
             {isOpen ? (
                 <motion.div
                     key="base-modal"
@@ -7249,6 +7276,7 @@ export const TransactionModalManager = ({
     partyType = 'client',
     partyLabel = 'client',
 }) => {
+    /* Keep last type while closing so the correct modal can finish its exit animation. */
     const typeRef = useRef(modalType);
     if (modalType) typeRef.current = modalType;
     const resolvedType = modalType || typeRef.current;

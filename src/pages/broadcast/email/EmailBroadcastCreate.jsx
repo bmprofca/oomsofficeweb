@@ -133,7 +133,7 @@ const renderGroupOption = (option) => {
       <span className="font-medium text-gray-900 truncate">{name}</span>
       <span className={`shrink-0 text-xs tabular-nums ${count === 0 ? "text-gray-400" : "text-gray-500"}`}>
         {count} firm{count === 1 ? "" : "s"}
-      </span>
+    </span>
     </div>
   );
 };
@@ -228,7 +228,7 @@ const EmailBroadcastCreate = () => {
       setLoadingMeta(true);
       try {
         const [cfgRes, tplRes] = await Promise.all([
-          emailApi.listConfigs({ page_no: 1, limit: 100 }),
+        emailApi.listConfigs({ page_no: 1, limit: 100 }),
           emailApi.listTemplates({ page_no: 1, limit: 100, status: "active" }),
         ]);
         const nextConfigs = normalizeList(cfgRes?.data);
@@ -372,7 +372,7 @@ const EmailBroadcastCreate = () => {
 
     if (audienceType === "group") {
       const headers = getHeaders();
-      for (const group of selectedGroups) {
+    for (const group of selectedGroups) {
         const groupId = group?.value ?? group?.group_id;
         const res = await fetch(`${API_BASE}/group/groups/all?group_id=${encodeURIComponent(groupId)}`, { headers });
         const json = await res.json();
@@ -482,8 +482,8 @@ const EmailBroadcastCreate = () => {
         });
         toast.success(res?.message || "Recurring email schedule created");
         navigate("/broadcast/email/schedules");
-        return;
-      }
+      return;
+    }
 
       const recipients = await resolveRecipients();
       if (!recipients.length) {
@@ -530,8 +530,8 @@ const EmailBroadcastCreate = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-      <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+        <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
       <div className={`pt-16 transition-all duration-300 ${contentInset(isMinimized)}`}>
         <div className="mx-2 sm:mx-4 md:mx-6 my-3 md:my-4">
@@ -549,9 +549,9 @@ const EmailBroadcastCreate = () => {
                 <div className="min-w-0">
                   <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight m-0">Create email campaign</h1>
                   <p className="text-xs text-gray-500 m-0">Pick SMTP, template, audience, and send</p>
-                </div>
               </div>
             </div>
+                    </div>
 
             <div className="p-4 md:p-5 grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <div className="space-y-4 min-w-0">
@@ -574,7 +574,7 @@ const EmailBroadcastCreate = () => {
                         className={FIELD_INPUT}
                       />
                       <FieldError message={fieldErrors.name} />
-                    </div>
+                        </div>
                     <div>
                       <label className={FIELD_LABEL}>
                         SMTP config <span className="text-red-500">*</span>
@@ -591,7 +591,7 @@ const EmailBroadcastCreate = () => {
                         isDisabled={saving || loadingMeta}
                       />
                       <FieldError message={fieldErrors.config_id} />
-                    </div>
+                            </div>
                     <div className="md:col-span-2">
                       <label className={FIELD_LABEL}>
                         Email template <span className="text-red-500">*</span>
@@ -608,7 +608,7 @@ const EmailBroadcastCreate = () => {
                         isDisabled={saving || loadingMeta}
                       />
                       <FieldError message={fieldErrors.template_id} />
-                    </div>
+                      </div>
                     <div>
                       <label className={FIELD_LABEL}>When to send</label>
                       <CustomSelect
@@ -619,7 +619,7 @@ const EmailBroadcastCreate = () => {
                         isSearchable={false}
                         isDisabled={saving}
                       />
-                    </div>
+                        </div>
                     {scheduleType === "scheduled" ? (
                       <div>
                         <label className={FIELD_LABEL}>Schedule date & time</label>
@@ -634,7 +634,7 @@ const EmailBroadcastCreate = () => {
                           inputClassName="h-10"
                         />
                         <FieldError message={fieldErrors.scheduled_at} />
-                      </div>
+                    </div>
                     ) : null}
                     {scheduleType === "recurring" ? (
                       <div className="md:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
@@ -655,7 +655,7 @@ const EmailBroadcastCreate = () => {
                           disabled={saving}
                           inputClassName={FIELD_INPUT}
                         />
-                      </div>
+              </div>
                     ) : null}
                   </div>
                 </section>
@@ -665,10 +665,10 @@ const EmailBroadcastCreate = () => {
                     <div className="flex items-center gap-2">
                       <FiUsers className="w-3.5 h-3.5 text-indigo-600" />
                       <p className={`${SECTION_LABEL} m-0`}>Audience</p>
-                    </div>
+                </div>
                     <nav className="flex items-center gap-1 p-0.5 rounded-lg bg-gray-100">
                       {AUDIENCE_TABS.map((tab) => (
-                        <button
+                  <button
                           key={tab.id}
                           type="button"
                           disabled={saving}
@@ -680,10 +680,10 @@ const EmailBroadcastCreate = () => {
                           }`}
                         >
                           {tab.label}
-                        </button>
+                  </button>
                       ))}
                     </nav>
-                  </div>
+                    </div>
 
                   {audienceType === "client" ? (
                     <div className="grid grid-cols-1 gap-3">
@@ -724,15 +724,15 @@ const EmailBroadcastCreate = () => {
                             isDisabled={saving}
                           />
                           <FieldError message={fieldErrors.clients} />
-                        </div>
+                      </div>
                       ) : (
                         <>
                           <p className="text-xs text-gray-500 m-0">
                             All branch clients with a valid email will be included.
                           </p>
                           <FieldError message={fieldErrors.clients} />
-                        </>
-                      )}
+                </>
+              )}
                     </div>
                   ) : null}
 
@@ -758,7 +758,7 @@ const EmailBroadcastCreate = () => {
                       />
                       {groupsLoading ? <p className="text-xs text-gray-400 mt-1 m-0">Loading groups…</p> : null}
                       <FieldError message={fieldErrors.groups} />
-                    </div>
+                  </div>
                   ) : null}
 
                   {audienceType === "task" ? (
@@ -781,7 +781,7 @@ const EmailBroadcastCreate = () => {
                           isDisabled={saving}
                         />
                         <FieldError message={fieldErrors.service} />
-                      </div>
+                            </div>
                       <div>
                         <label className={FIELD_LABEL}>Status</label>
                         <CustomSelect
@@ -792,8 +792,8 @@ const EmailBroadcastCreate = () => {
                           isSearchable={false}
                           isDisabled={saving}
                         />
-                      </div>
-                    </div>
+                          </div>
+                        </div>
                   ) : null}
 
                   {audienceType === "client" && !selectAllClients && selectedClients.length > 0 ? (
@@ -812,10 +812,10 @@ const EmailBroadcastCreate = () => {
                           <li className="text-xs text-gray-400">+{selectedClients.length - 40} more</li>
                         ) : null}
                       </ul>
-                    </div>
+                      </div>
                   ) : null}
                 </section>
-              </div>
+                    </div>
 
               <aside className="min-w-0">
                 <div className="lg:sticky lg:top-20 space-y-3">
@@ -824,13 +824,13 @@ const EmailBroadcastCreate = () => {
                     {previewLoading ? (
                       <div className="flex items-center justify-center py-16 text-gray-400">
                         <FiLoader className="w-5 h-5 animate-spin" />
-                      </div>
+                    </div>
                     ) : templatePreview ? (
                       <div>
                         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                           <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide m-0">Subject</p>
                           <p className="text-sm font-medium text-gray-800 m-0 mt-0.5">{templatePreview.subject || "—"}</p>
-                        </div>
+                          </div>
                         <div className="p-4 bg-[#f3f4f6] max-h-[640px] overflow-auto">
                           <div
                             className="bg-white rounded-lg border border-gray-200 p-4 text-sm text-gray-700 [&_a]:pointer-events-none [&_a]:cursor-default [&_button]:pointer-events-none [&_area]:pointer-events-none"
@@ -848,21 +848,21 @@ const EmailBroadcastCreate = () => {
                             }}
                             dangerouslySetInnerHTML={{ __html: templatePreview.html || "<p>No body</p>" }}
                           />
-                        </div>
-                      </div>
+                          </div>
+                  </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center py-24 px-4 text-center min-h-[420px] lg:min-h-[560px]">
                         <FiMail className="w-6 h-6 text-gray-300 mb-2" />
                         <p className="text-sm font-medium text-gray-500 m-0">Select a template to preview</p>
+                    </div>
+                  )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
               </aside>
-            </div>
+                      </div>
 
             <div className="flex items-center justify-end gap-2 px-4 md:px-5 py-3 border-t border-gray-200 bg-gray-50">
-              <button
+                <button
                 type="submit"
                 disabled={saving || loadingMeta}
                 className="inline-flex items-center justify-center gap-1.5 px-5 py-2 text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
@@ -873,12 +873,12 @@ const EmailBroadcastCreate = () => {
                   : scheduleType === "recurring"
                     ? "Create schedule"
                     : "Schedule"}
-              </button>
-            </div>
+                </button>
+              </div>
           </form>
-        </div>
-      </div>
-    </div>
+              </div>
+            </div>
+          </div>
   );
 };
 

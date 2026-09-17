@@ -1352,7 +1352,8 @@ export default function MyProfile() {
                     {activeTab === "expense" ? (
                       <ExpenseTab
                         staffUsername={selfUsername}
-                        readOnly
+                        canSubmit
+                        canVerify={false}
                       />
                     ) : null}
                     {activeTab === "payslip" ? (

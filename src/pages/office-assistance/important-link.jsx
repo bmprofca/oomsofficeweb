@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   FiSearch,
-  FiPlus,
+    FiPlus,
   FiEdit2,
   FiTrash2,
-  FiCopy,
-  FiExternalLink,
-  FiEye,
-  FiEyeOff,
-  FiLink,
+    FiCopy,
+    FiExternalLink,
+    FiEye,
+    FiEyeOff,
+    FiLink,
 } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { Header, Sidebar } from "../../components/header";
@@ -77,7 +77,7 @@ const ImportantLinks = () => {
   }, [isMinimized]);
 
   const fetchLinks = useCallback(async (nextPage = page, nextSearch = searchQuery, nextLimit = limit) => {
-    setLoading(true);
+        setLoading(true);
     try {
       const params = new URLSearchParams({
         search: nextSearch || "",
@@ -92,19 +92,19 @@ const ImportantLinks = () => {
         setLinks(result.data || []);
         setMeta(result.meta || { total_pages: 1, page: nextPage, total: 0 });
         setPage(result.meta?.current_page || result.meta?.page || nextPage);
-      } else {
+            } else {
         setLinks([]);
         toast.error(result.message || "Failed to load links");
       }
     } catch {
       setLinks([]);
       toast.error("Failed to load links");
-    } finally {
-      setLoading(false);
-    }
+        } finally {
+            setLoading(false);
+        }
   }, [limit, page, searchQuery]);
 
-  useEffect(() => {
+    useEffect(() => {
     const timer = setTimeout(() => {
       fetchLinks(1, searchQuery, limit);
     }, 400);
@@ -143,12 +143,12 @@ const ImportantLinks = () => {
         setFormOpen(false);
         setFormInitial(null);
         fetchLinks(isEdit ? page : 1, searchQuery, limit);
-      } else {
+            } else {
         toast.error(data.message || `Failed to ${isEdit ? "update" : "create"} link`);
-      }
+            }
     } catch {
       toast.error("Network error");
-    } finally {
+        } finally {
       setSaving(false);
     }
   };
@@ -168,12 +168,12 @@ const ImportantLinks = () => {
         setDeleteOpen(false);
         setLinkToDelete(null);
         fetchLinks(1, searchQuery, limit);
-      } else {
+            } else {
         toast.error(data.message || "Failed to delete link");
-      }
+            }
     } catch {
       toast.error("Failed to delete link");
-    } finally {
+        } finally {
       setSaving(false);
     }
   };
@@ -183,25 +183,25 @@ const ImportantLinks = () => {
       {COLUMNS.map((col) => (
         <div key={col} className="p-3">
           <div className="h-3 bg-gray-200 rounded w-3/4" />
-        </div>
-      ))}
-    </div>
+                    </div>
+                            ))}
+                        </div>
   );
 
-  return (
+        return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
-      <Sidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${contentInset(isMinimized)}`}>
         <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
@@ -211,32 +211,32 @@ const ImportantLinks = () => {
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="p-1.5 bg-indigo-50 rounded-lg shrink-0">
                     <FiLink className="w-4 h-4 text-indigo-600" />
-                  </div>
+                            </div>
                   <div className="min-w-0">
                     <h1 className="text-base md:text-lg font-bold text-gray-800 m-0">Important Links</h1>
                     <p className="text-xs text-gray-500 m-0">Portal URLs and credentials</p>
-                  </div>
+                        </div>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
                   <div className="relative min-w-0 sm:w-56">
                     <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
+                                    <input
+                                        type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search name, URL, username…"
                       className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                     />
-                  </div>
+                                </div>
                   <button
                     type="button"
                     onClick={openCreate}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shrink-0"
-                  >
-                    <FiPlus className="w-4 h-4" />
+                            >
+                                <FiPlus className="w-4 h-4" />
                     Add
                   </button>
-                </div>
+                        </div>
               </div>
             </div>
 
@@ -251,17 +251,17 @@ const ImportantLinks = () => {
                       } ${i === COLUMNS.length - 1 ? "text-right" : "text-left"}`}
                     >
                       {col}
-                    </div>
+                            </div>
                   ))}
-                </div>
+                        </div>
 
-                {loading ? (
+                            {loading ? (
                   Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
-                ) : links.length === 0 ? (
+                            ) : links.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-500 px-4">
                     <div className="w-14 h-14 bg-gray-100 rounded-full mb-3 flex items-center justify-center">
                       <FiLink className="w-6 h-6 text-gray-400" />
-                    </div>
+                                    </div>
                     <p className="text-sm font-medium text-gray-500 m-0">No links found</p>
                     <p className="text-xs text-gray-400 mt-1 mb-3">Add your first important link</p>
                     <button
@@ -271,30 +271,30 @@ const ImportantLinks = () => {
                     >
                       Add link
                     </button>
-                  </div>
-                ) : (
+                                </div>
+                            ) : (
                   links.map((link, index) => (
                     <div
-                      key={link.link_id}
+                                            key={link.link_id}
                       className={`grid ${GRID_COLS} items-center border-b border-gray-100 bg-white hover:bg-gray-50`}
                     >
                       <div className="p-3 text-[11px] font-bold text-gray-800">
                         {(page - 1) * limit + index + 1}
-                      </div>
+                                                    </div>
                       <div className="p-3 min-w-0 border-l border-gray-100">
                         <p className="font-semibold text-gray-800 text-sm m-0 truncate">{link.name || "—"}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <p className="text-xs text-gray-500 m-0 truncate">{extractDomain(link.url)}</p>
                           {link.url ? (
                             <>
-                              <button
+                                                                    <button
                                 type="button"
                                 onClick={() => copyText(link.url, "URL")}
                                 className="p-0.5 text-gray-400 hover:text-indigo-600"
-                                title="Copy URL"
-                              >
+                                                                        title="Copy URL"
+                                                                    >
                                 <FiCopy className="w-3 h-3" />
-                              </button>
+                                                                    </button>
                               <a
                                 href={link.url}
                                 target="_blank"
@@ -306,21 +306,21 @@ const ImportantLinks = () => {
                               </a>
                             </>
                           ) : null}
-                        </div>
-                      </div>
+                                                                </div>
+                                                            </div>
                       <div className="p-3 min-w-0 border-l border-gray-100">
                         <div className="flex items-center gap-1.5">
                           <p className="text-sm font-medium text-gray-700 m-0 truncate">{link.username || "—"}</p>
                           {link.username ? (
-                            <button
+                                                                <button
                               type="button"
                               onClick={() => copyText(link.username, "Username")}
                               className="p-0.5 text-gray-400 hover:text-indigo-600 shrink-0"
-                            >
-                              <FiCopy className="w-3 h-3" />
-                            </button>
+                                                                >
+                                                                    <FiCopy className="w-3 h-3" />
+                                                                </button>
                           ) : null}
-                        </div>
+                                                        </div>
                       </div>
                       <div className="p-3 min-w-0 border-l border-gray-100">
                         <div className="flex items-center gap-1.5">
@@ -332,8 +332,8 @@ const ImportantLinks = () => {
                               : "—"}
                           </p>
                           {link.password ? (
-                            <>
-                              <button
+                                                                    <>
+                                                                        <button
                                 type="button"
                                 onClick={() =>
                                   setShowPassword((prev) => ({
@@ -342,27 +342,27 @@ const ImportantLinks = () => {
                                   }))
                                 }
                                 className="p-0.5 text-gray-400 hover:text-indigo-600 shrink-0"
-                              >
-                                {showPassword[link.link_id] ? (
-                                  <FiEyeOff className="w-3 h-3" />
-                                ) : (
-                                  <FiEye className="w-3 h-3" />
-                                )}
-                              </button>
-                              <button
+                                                                        >
+                                                                            {showPassword[link.link_id] ? (
+                                                                                <FiEyeOff className="w-3 h-3" />
+                                                                            ) : (
+                                                                                <FiEye className="w-3 h-3" />
+                                                                            )}
+                                                                        </button>
+                                                                            <button
                                 type="button"
                                 onClick={() => copyText(link.password, "Password")}
                                 className="p-0.5 text-gray-400 hover:text-indigo-600 shrink-0"
-                              >
-                                <FiCopy className="w-3 h-3" />
-                              </button>
-                            </>
+                                                                            >
+                                                                                <FiCopy className="w-3 h-3" />
+                                                                            </button>
+                                                                    </>
                           ) : null}
-                        </div>
-                      </div>
+                                                            </div>
+                                                        </div>
                       <div className="p-3 min-w-0 border-l border-gray-100">
                         <p className="text-sm font-medium text-gray-700 m-0 truncate">{link.remark || "—"}</p>
-                      </div>
+                                                    </div>
                       <div className="p-3 border-l border-gray-100 flex justify-end">
                         <EmailActionMenu
                           items={[
@@ -374,12 +374,12 @@ const ImportantLinks = () => {
                             { label: "Delete", icon: FiTrash2, danger: true, onClick: () => { setLinkToDelete(link); setDeleteOpen(true); } },
                           ]}
                         />
-                      </div>
-                    </div>
+                                                </div>
+                                                </div>
                   ))
-                )}
-              </div>
-            </div>
+                                                        )}
+                                                    </div>
+                        </div>
 
             <TablePagination
               page={page}
@@ -397,10 +397,10 @@ const ImportantLinks = () => {
                 setPage(1);
                 fetchLinks(1, searchQuery, next);
               }}
-            />
-          </div>
-        </div>
-      </div>
+                                />
+                            </div>
+                </div>
+            </div>
 
       <ImportantLinkFormModal
         open={formOpen}
@@ -441,8 +441,8 @@ const ImportantLinks = () => {
         }}
         onConfirm={handleDelete}
       />
-    </div>
-  );
+        </div>
+    );
 };
 
 export default ImportantLinks;

@@ -46,6 +46,7 @@ export const SOFTWARE_MODULES = [
   { title: "Contra", path: "/finance/voucher/contra", group: "Finance", keywords: "transfer contra voucher" },
   { title: "Journal", path: "/finance/voucher/journal", group: "Finance", keywords: "journal entry voucher" },
   { title: "Expenses", path: "/finance/voucher/expense", group: "Finance", keywords: "cost expense voucher" },
+  { title: "Staff Expenses", path: "/finance/voucher/staff-expenses", group: "Finance", keywords: "staff expense approve reimbursement" },
   { title: "Expense Items", path: "/finance/voucher/expense-items", group: "Finance", keywords: "expense items" },
   { title: "Ledger Groups", path: "/finance/voucher/ledger-group", group: "Finance", keywords: "ledger group" },
   { title: "Discount", path: "/finance/voucher/discount", group: "Finance", keywords: "discount voucher" },
@@ -67,7 +68,7 @@ export const SOFTWARE_MODULES = [
   { title: "Groups", path: "/staff/office-assistance/groups", group: "Assistance", keywords: "firm groups" },
   { title: "Group Firms", path: "/staff/office-assistance/group-firms", group: "Assistance", keywords: "group firms" },
   { title: "CA List", path: "/staff/office-assistance/ca-list", group: "Assistance", keywords: "chartered accountant" },
-  { title: "Client Follow-up", path: "/staff/office-assistance/follow-up", group: "Assistance", keywords: "followup assign reminder debtors" },
+  { title: "Debtor Follow-up", path: "/staff/office-assistance/follow-up", group: "Assistance", keywords: "followup assign reminder debtors" },
   { title: "Auto Reminder", path: "/staff/office-assistance/auto-reminder", group: "Assistance", keywords: "reminder" },
   { title: "Service Requests", path: "/staff/office-assistance/service-requests", group: "Assistance", keywords: "requests" },
 

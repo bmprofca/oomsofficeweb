@@ -69,6 +69,7 @@ export const ViewContra = lazyWithRetry(() => import('../pages/contra-display'))
 export const ViewJournal = lazyWithRetry(() => import('../pages/journal-display'));
 export const ViewExpenses = lazyWithRetry(() => import('../pages/expense-display'));
 export const ExpenseItemsPage = lazyWithRetry(() => import('../pages/expense-items'));
+export const StaffExpensesReview = lazyWithRetry(() => import('../pages/staff-expenses-review'));
 export const ViewStaff = lazyWithRetry(() => import('../pages/staff-display'));
 export const ViewStaffProfile = lazyWithRetry(() => import('../pages/staff-profile'));
 export const StaffAttendance = lazyWithRetry(() => import('../pages/staff-attendance'));

@@ -172,6 +172,18 @@ function ensureKeepAlive(key, node, navigationType, contexts) {
     pinned = pinned.filter((item) => item !== key);
   }
 
+  // Same-path re-render (e.g. HMR / route table change) with a different page
+  // element — drop the parked tree so we don't keep showing a stale 404.
+  if (!isPop && entries.has(key) && previousKey === key) {
+    const existingType = entries.get(key)?.node?.type;
+    const nextType = node?.type;
+    if (existingType !== nextType) {
+      entries.delete(key);
+      order = order.filter((item) => item !== key);
+      pinned = pinned.filter((item) => item !== key);
+    }
+  }
+
   if (!entries.has(key)) {
     mountSeq += 1;
     entries.set(key, {

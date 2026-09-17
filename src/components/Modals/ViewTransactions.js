@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -128,6 +128,21 @@ const ViewModalShell = ({
     children,
     zIndexClass = 'z-[10050]',
 }) => {
+    const [portalMounted, setPortalMounted] = useState(Boolean(isOpen));
+    const isOpenRef = useRef(isOpen);
+    isOpenRef.current = isOpen;
+
+    useEffect(() => {
+        if (isOpen) {
+            setPortalMounted(true);
+            return undefined;
+        }
+        const t = window.setTimeout(() => {
+            if (!isOpenRef.current) setPortalMounted(false);
+        }, 320);
+        return () => window.clearTimeout(t);
+    }, [isOpen]);
+
     useEffect(() => {
         if (!isOpen) return undefined;
         const onKey = (e) => {
@@ -137,10 +152,14 @@ const ViewModalShell = ({
         return () => document.removeEventListener('keydown', onKey);
     }, [isOpen, onClose]);
 
-    if (typeof document === 'undefined') return null;
+    if (!portalMounted || typeof document === 'undefined') return null;
 
     return createPortal(
-        <AnimatePresence>
+        <AnimatePresence
+            onExitComplete={() => {
+                if (!isOpenRef.current) setPortalMounted(false);
+            }}
+        >
             {isOpen ? (
                 <motion.div
                     key="view-tx-overlay"

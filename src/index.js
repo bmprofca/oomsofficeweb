@@ -42,6 +42,7 @@ import {
   ViewJournal,
   ViewExpenses,
   ExpenseItemsPage,
+  StaffExpensesReview,
   ViewStaff,
   ViewStaffProfile,
   StaffAttendance,
@@ -203,7 +204,7 @@ const GroupFirmsLegacyRedirect = () => {
 };
 
 // Authentication & Subscription wrapper component
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, keepAlive = true }) => {
   const location = useLocation();
   const pathname = location.pathname;
 
@@ -244,7 +245,7 @@ const ProtectedRoute = ({ children }) => {
     requiredLevel = 'core';
   }
 
-  const page = <KeepAlivePage>{children}</KeepAlivePage>;
+  const page = keepAlive ? <KeepAlivePage>{children}</KeepAlivePage> : children;
 
   if (requiredLevel) {
     return (
@@ -515,6 +516,12 @@ root.render(
             <Route path="/finance/voucher/expense" element={
               <ProtectedRoute>
                 <ViewExpenses />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/finance/voucher/staff-expenses" element={
+              <ProtectedRoute>
+                <StaffExpensesReview />
               </ProtectedRoute>
             } />
 
@@ -1050,9 +1057,9 @@ root.render(
               </ProtectedRoute>
             } />
 
-            {/* Catch-all route for 404 */}
+            {/* Catch-all route for 404 — never keep-alive (avoids sticky 404 after new routes land) */}
             <Route path="*" element={
-              <ProtectedRoute>
+              <ProtectedRoute keepAlive={false}>
                 <PageNotFound />
               </ProtectedRoute>
             } />

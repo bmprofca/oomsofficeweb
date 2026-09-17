@@ -577,6 +577,7 @@ const ClientLedger = ({
     // After a transaction modal succeeds (API already done inside CreateTransactions)
     const handleCreateTransaction = (type) => {
         setShowTransactionModal(false);
+        setTransactionType('');
         setSelectedBank(null);
         fetchTransactions();
         refreshProfileBalance();
@@ -938,12 +939,15 @@ const ClientLedger = ({
                 )}
             </AnimatePresence>
 
-            {/* Same TransactionModalManager wiring as bank transaction-history (modals render via portal in CreateTransactions BaseModal). */}
+            {/* Keep manager mounted only while open/exiting so nested AnimatePresence
+                cannot stall client-profile tab switches after Journal close. */}
+            {(showTransactionModal || Boolean(transactionType)) && (
             <TransactionModalManager
                 modalType={transactionType}
                 isOpen={showTransactionModal}
                 onClose={() => {
                     setShowTransactionModal(false);
+                    setTransactionType('');
                 }}
                 clientId={username}
                 clientName={clientNameProp}
@@ -957,6 +961,7 @@ const ClientLedger = ({
                 formatCurrency={formatCurrencyPlain}
                 summary={summary}
             />
+            )}
 
             <EditTransactionModalManager
                 modalType={editModalType}

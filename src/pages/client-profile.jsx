@@ -2181,13 +2181,13 @@ const ClientProfile = () => {
                 </motion.div>
 
                 {/* Tab content: full width of main column (no inner card — tabs supply their own layout) */}
-                <AnimatePresence mode="wait">
+                <AnimatePresence initial={false}>
                   <motion.div
                     key={tab}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
                     className="w-full min-w-0 text-sm [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_h4]:text-sm [&_p]:text-xs [&_label]:text-xs [&_label]:font-medium [&_input]:text-sm [&_select]:text-sm [&_textarea]:text-sm [&_input]:rounded-md [&_select]:rounded-md [&_textarea]:rounded-md [&_input]:px-3 [&_select]:px-3 [&_textarea]:px-3 [&_input]:py-2 [&_select]:py-2 [&_textarea]:py-2 [&_button]:text-xs [&_button]:rounded-md [&_button]:px-3 [&_button]:py-1.5"
                   >
                     {renderTabContent()}

@@ -730,7 +730,9 @@ const StaffProfile = () => {
             setExpenses={setExpenses}
             username={username}
             staffUsername={username}
-            {...props}
+            variants={tabContentVariants}
+            canSubmit
+            canVerify={false}
           />
         );
       case "bonus-fine":
@@ -1125,13 +1127,13 @@ const StaffProfile = () => {
                   </div>
                 </motion.div>
 
-                <AnimatePresence mode="wait">
+                <AnimatePresence initial={false}>
                   <motion.div
                     key={activeTab}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
                     className="w-full min-w-0 text-sm [&_h2]:text-lg"
                   >
                     {renderTabContent()}

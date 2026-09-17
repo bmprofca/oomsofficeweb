@@ -22,113 +22,102 @@ import { Header, Sidebar } from "../components/header";
 const OFFICE_MODULES = [
   {
     title: "DSC Register",
-    description: "Manage digital signature certificates",
+    description: "Digital signature certificates",
     icon: FiKey,
     link: "/dsc-report",
-    iconBg: "bg-blue-100",
+    iconBg: "bg-blue-50",
     iconColor: "text-blue-600",
-    accent: "from-blue-500/10 to-transparent",
-    hoverBorder: "hover:border-blue-200",
+    hover: "hover:border-blue-200 hover:bg-blue-50/40",
   },
   {
     title: "File Index",
-    description: "Structured index of office documents",
+    description: "Office document index",
     icon: FiFileText,
     link: "/file-index",
-    iconBg: "bg-emerald-100",
+    iconBg: "bg-emerald-50",
     iconColor: "text-emerald-600",
-    accent: "from-emerald-500/10 to-transparent",
-    hoverBorder: "hover:border-emerald-200",
+    hover: "hover:border-emerald-200 hover:bg-emerald-50/40",
   },
   {
     title: "Important Links",
-    description: "Quick-access resources for your team",
+    description: "Quick-access resources",
     icon: FiLink,
     link: "/important-links",
-    iconBg: "bg-amber-100",
+    iconBg: "bg-amber-50",
     iconColor: "text-amber-600",
-    accent: "from-amber-500/10 to-transparent",
-    hoverBorder: "hover:border-amber-200",
+    hover: "hover:border-amber-200 hover:bg-amber-50/40",
   },
   {
     title: "Password Groups",
-    description: "Store and share credentials securely",
+    description: "Shared credentials vault",
     icon: FiLock,
     link: "/password-groups",
-    iconBg: "bg-indigo-100",
+    iconBg: "bg-indigo-50",
     iconColor: "text-indigo-600",
-    accent: "from-indigo-500/10 to-transparent",
-    hoverBorder: "hover:border-indigo-200",
+    hover: "hover:border-indigo-200 hover:bg-indigo-50/40",
   },
   {
     title: "Group Firms",
-    description: "Manage firms linked to client groups",
+    description: "Client group firms",
     icon: FiUsers,
     link: "/groups",
-    iconBg: "bg-teal-100",
+    iconBg: "bg-teal-50",
     iconColor: "text-teal-600",
-    accent: "from-teal-500/10 to-transparent",
-    hoverBorder: "hover:border-teal-200",
+    hover: "hover:border-teal-200 hover:bg-teal-50/40",
   },
   {
     title: "Services",
-    description: "Branch offerings, pricing, and metadata",
+    description: "Offerings and pricing",
     icon: FiGrid,
     link: "/services",
-    iconBg: "bg-rose-100",
+    iconBg: "bg-rose-50",
     iconColor: "text-rose-600",
-    accent: "from-rose-500/10 to-transparent",
-    hoverBorder: "hover:border-rose-200",
+    hover: "hover:border-rose-200 hover:bg-rose-50/40",
   },
   {
     title: "Service Requests",
-    description: "Review and approve client requests",
+    description: "Client request queue",
     icon: FiClipboard,
     link: "/service-requests",
-    iconBg: "bg-cyan-100",
+    iconBg: "bg-cyan-50",
     iconColor: "text-cyan-600",
-    accent: "from-cyan-500/10 to-transparent",
-    hoverBorder: "hover:border-cyan-200",
+    hover: "hover:border-cyan-200 hover:bg-cyan-50/40",
   },
   {
     title: "Deleted Clients",
-    description: "View soft-deleted clients and restore them",
+    description: "Restore soft-deleted clients",
     icon: FiTrash2,
     link: "/deleted-clients",
-    iconBg: "bg-rose-100",
-    iconColor: "text-rose-600",
-    accent: "from-rose-500/10 to-transparent",
-    hoverBorder: "hover:border-rose-200",
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-600",
+    hover: "hover:border-slate-300 hover:bg-slate-50",
   },
   {
-    title: "Client Follow-up",
-    description: "Assign clients to staff for follow-up and reminders",
+    title: "Debtor Follow-up",
+    description: "Assign debtors and reminders",
     icon: FiPhoneCall,
     link: "/follow-up",
-    iconBg: "bg-sky-100",
+    iconBg: "bg-sky-50",
     iconColor: "text-sky-600",
-    accent: "from-sky-500/10 to-transparent",
-    hoverBorder: "hover:border-sky-200",
+    hover: "hover:border-sky-200 hover:bg-sky-50/40",
   },
   {
     title: "CA List",
     description: "Chartered accountant directory",
     icon: FiUserCheck,
     link: "/ca-list",
-    iconBg: "bg-violet-100",
+    iconBg: "bg-violet-50",
     iconColor: "text-violet-600",
-    accent: "from-violet-500/10 to-transparent",
-    hoverBorder: "hover:border-violet-200",
+    hover: "hover:border-violet-200 hover:bg-violet-50/40",
   },
   {
     title: "Auto Payment Reminder",
-    description: "Automated billing and payment alerts",
+    description: "Automated payment alerts",
     icon: FiBell,
     link: "/auto-reminder",
-    iconBg: "bg-orange-100",
+    iconBg: "bg-orange-50",
     iconColor: "text-orange-600",
-    accent: "from-orange-500/10 to-transparent",
-    hoverBorder: "hover:border-orange-200",
+    hover: "hover:border-orange-200 hover:bg-orange-50/40",
   },
 ];
 
@@ -138,39 +127,30 @@ function ModuleCard({ module, index, onNavigate }) {
   return (
     <motion.button
       type="button"
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.25 }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.98 }}
+      transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.2 }}
+      whileHover={{ y: -1 }}
+      whileTap={{ scale: 0.985 }}
       onClick={() => onNavigate(module.link)}
-      className={`group relative w-full text-left overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${module.hoverBorder} hover:shadow-md`}
+      className={`group flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3.5 py-[0.7rem] text-left shadow-sm transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${module.hover}`}
     >
-      <div
-        className={`absolute inset-x-0 top-0 h-16 bg-gradient-to-b ${module.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none`}
-      />
+      <span
+        className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${module.iconBg} ${module.iconColor}`}
+      >
+        <Icon className="h-[1.1rem] w-[1.1rem]" strokeWidth={1.75} />
+      </span>
 
-      <div className="relative flex flex-col gap-3 min-h-[108px]">
-        <div className="flex items-start justify-between gap-2">
-          <div
-            className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${module.iconBg} ${module.iconColor} shadow-sm`}
-          >
-            <Icon className="w-5 h-5" strokeWidth={1.75} />
-          </div>
-          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-50 text-gray-300 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors duration-200">
-            <FiChevronRight className="w-4 h-4" />
-          </span>
-        </div>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[0.9375rem] font-semibold leading-snug text-gray-800 transition-colors group-hover:text-indigo-700">
+          {module.title}
+        </span>
+        <span className="mt-0.5 block truncate text-[0.8125rem] leading-snug text-gray-500">
+          {module.description}
+        </span>
+      </span>
 
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors leading-tight">
-            {module.title}
-          </h3>
-          <p className="text-xs text-gray-500 mt-1 leading-snug line-clamp-2">
-            {module.description}
-          </p>
-        </div>
-      </div>
+      <FiChevronRight className="h-4 w-4 shrink-0 text-gray-300 transition-colors group-hover:text-indigo-500" />
     </motion.button>
   );
 }
@@ -223,41 +203,37 @@ const OfficeAssistance = () => {
       />
 
       <div
-        className={`pt-16 transition-all duration-300 ease-in-out min-h-screen ${
+        className={`min-h-screen pt-16 transition-all duration-300 ease-in-out ${
           isMinimized ? "md:pl-20" : "md:pl-[260px]"
         }`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+        <div className="mx-2 my-3 sm:mx-4 md:mx-8 md:my-4">
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:px-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                    <FiBriefcase className="w-4 h-4 text-indigo-600" />
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
+                    <FiBriefcase className="h-4 w-4 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
+                    <h1 className="text-base font-bold leading-tight text-gray-800 md:text-lg">
                       Office Assistance
                     </h1>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {filteredModules.length} module
-                      {filteredModules.length !== 1 ? "s" : ""} available
-                    </p>
                   </div>
                 </div>
 
-                <div className="relative w-full sm:max-w-xs shrink-0">
+                <div className="relative w-full shrink-0 sm:max-w-xs">
                   <label htmlFor="office-module-search" className="sr-only">
                     Search modules
                   </label>
-                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                   <input
                     id="office-module-search"
                     type="search"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search modules…"
-                    className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white outline-none transition focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
+                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -265,7 +241,7 @@ const OfficeAssistance = () => {
 
             <div className="p-3 md:p-4">
               {filteredModules.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredModules.map((mod, index) => (
                     <ModuleCard
                       key={mod.link}
@@ -276,21 +252,21 @@ const OfficeAssistance = () => {
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                    <FiSearch className="w-5 h-5 text-gray-400" />
+                <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
+                    <FiSearch className="h-5 w-5 text-gray-400" />
                   </div>
                   <p className="text-sm font-medium text-gray-500">
                     No modules found
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="mt-1 text-xs text-gray-400">
                     Try another term or browse all {OFFICE_MODULES.length}{" "}
                     modules.
                   </p>
                   <button
                     type="button"
                     onClick={() => setSearchTerm("")}
-                    className="mt-4 inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                    className="mt-4 inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
                   >
                     Clear search
                   </button>

@@ -942,7 +942,9 @@ const ClientFollowUp = () => {
     assigned: 0,
     mine: 0,
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const defaultFilterApplied = useRef(false);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -1012,7 +1014,10 @@ const ClientFollowUp = () => {
 
   const loadAccess = useCallback(async () => {
     const headers = getHeaders();
-    if (!headers) return;
+    if (!headers) {
+      setAccessLoaded(true);
+      return;
+    }
     try {
       const res = await axios.get(`${API_BASE_URL}/assistance/followup/access`, {
         headers,
@@ -1020,11 +1025,17 @@ const ClientFollowUp = () => {
       const manage = Boolean(res.data?.data?.canManage);
       const isAdmin = Boolean(res.data?.data?.isAdmin);
       setCanManage(manage);
-      // Staff (including manage staff) land on Mine; branch admins keep All.
-      setFilter(isAdmin ? "all" : "mine");
+      // Apply default tab once only — never reset after the user picks a tab.
+      if (!defaultFilterApplied.current) {
+        defaultFilterApplied.current = true;
+        setFilter(isAdmin ? "all" : "mine");
+      }
     } catch (_) {
       setCanManage(check("client_followup_manage"));
-      setFilter("mine");
+      if (!defaultFilterApplied.current) {
+        defaultFilterApplied.current = true;
+        setFilter("mine");
+      }
     } finally {
       setAccessLoaded(true);
     }
@@ -1041,6 +1052,8 @@ const ClientFollowUp = () => {
       const headers = getHeaders();
       if (!headers) {
         toast.error("Please log in again");
+        setLoading(false);
+        setInitialLoading(false);
         return;
       }
       setLoading(true);
@@ -1088,6 +1101,7 @@ const ClientFollowUp = () => {
         setRows([]);
       } finally {
         setLoading(false);
+        setInitialLoading(false);
       }
     },
     [
@@ -1128,7 +1142,9 @@ const ClientFollowUp = () => {
 
   useEffect(() => {
     loadAccess();
-  }, [loadAccess]);
+    // Mount once — do not re-run when `check` identity changes (that was resetting the tab).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!accessLoaded) return;
@@ -1490,49 +1506,66 @@ const ClientFollowUp = () => {
           </div>
 
           <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                <FiUsers className="h-4 w-4" />
-              </span>
-              <div>
-                <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                  {canManage ? "Debtors" : "Assigned to me"}
-                </p>
-                <p className="m-0 mt-0.5 text-base font-bold text-gray-800">
-                  {summary.total_clients}
-                </p>
-              </div>
-            </div>
-            {canManage ? (
+            {initialLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={`sum-sk-${i}`}
+                  className="flex animate-pulse items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm"
+                >
+                  <div className="h-9 w-9 shrink-0 rounded-lg bg-gray-200" />
+                  <div className="min-w-0 flex-1">
+                    <div className="h-2.5 w-16 rounded bg-gray-200" />
+                    <div className="mt-2 h-4 w-10 rounded bg-gray-200" />
+                  </div>
+                </div>
+              ))
+            ) : (
               <>
                 <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                    <FiAlertCircle className="h-4 w-4" />
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                    <FiUsers className="h-4 w-4" />
                   </span>
                   <div>
                     <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                      Unassigned
+                      {canManage ? "Debtors" : "Assigned to me"}
                     </p>
-                    <p className="m-0 mt-0.5 text-base font-bold text-amber-700">
-                      {summary.unassigned}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
-                    <FiUserCheck className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">
-                      Assigned
-                    </p>
-                    <p className="m-0 mt-0.5 text-base font-bold text-green-700">
-                      {summary.assigned}
+                    <p className="m-0 mt-0.5 text-base font-bold text-gray-800">
+                      {summary.total_clients}
                     </p>
                   </div>
                 </div>
+                {canManage ? (
+                  <>
+                    <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                        <FiAlertCircle className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                          Unassigned
+                        </p>
+                        <p className="m-0 mt-0.5 text-base font-bold text-amber-700">
+                          {summary.unassigned}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
+                        <FiUserCheck className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="m-0 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                          Assigned
+                        </p>
+                        <p className="m-0 mt-0.5 text-base font-bold text-green-700">
+                          {summary.assigned}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </>
-            ) : null}
+            )}
           </div>
 
           <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -1683,7 +1716,7 @@ const ClientFollowUp = () => {
             ) : null}
 
             <div className="flex-1 min-h-0 overflow-auto">
-              {loading ? (
+              {!accessLoaded || loading ? (
                 <TableSkeleton
                   canManage={canManage}
                   showAssigned={showAssignedCol}

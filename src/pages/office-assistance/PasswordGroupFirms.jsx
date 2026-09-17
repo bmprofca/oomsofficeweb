@@ -150,19 +150,19 @@ const ViewCredentialModal = ({ credential, onClose }) => {
                     <div className="flex items-center gap-2.5 min-w-0">
                         <div className="p-1.5 rounded-lg bg-indigo-50">
                             <FiEye className="w-4 h-4 text-indigo-600" />
-                        </div>
+                            </div>
                         <div className="min-w-0">
                             <h3 className="text-base font-bold text-gray-800 m-0">Credential details</h3>
                             <p className="text-xs text-gray-500 m-0 truncate">{credential.firm?.firm_name || '—'}</p>
+                            </div>
                         </div>
-                    </div>
-                    <button
+                        <button
                         type="button"
-                        onClick={onClose}
+                            onClick={onClose}
                         className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                    >
+                        >
                         <FiX className="w-4 h-4" />
-                    </button>
+                        </button>
                 </div>
 
                 <div className={MODAL_BODY} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -900,7 +900,7 @@ const PasswordGroupFirms = () => {
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
                                                             <div className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded text-xs font-medium text-gray-700">
-                                                                {((pagination.page - 1) * pagination.limit) + index + 1}
+                                                                    {((pagination.page - 1) * pagination.limit) + index + 1}
                                                             </div>
                                                         </td>
 
@@ -1060,9 +1060,9 @@ const PasswordGroupFirms = () => {
 
             {typeof document !== 'undefined' &&
                 createPortal(
-                    <AnimatePresence>
+            <AnimatePresence>
                         {showEditModal && selectedCredential ? (
-                            <motion.div
+                        <motion.div
                                 key="pwg-edit-overlay"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -1070,8 +1070,8 @@ const PasswordGroupFirms = () => {
                                 transition={{ duration: 0.15 }}
                                 className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
                             >
-                                <button
-                                    type="button"
+                                                    <button
+                                                        type="button"
                                     className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                                     aria-label="Close"
                                     onClick={() => setShowEditModal(false)}
@@ -1090,14 +1090,14 @@ const PasswordGroupFirms = () => {
                                 <div className="min-w-0">
                                     <h3 className="text-base font-bold text-gray-800 m-0">Edit credentials</h3>
                                     <p className="text-xs text-gray-500 m-0 truncate">{selectedCredential.firm?.firm_name || '—'}</p>
-                                </div>
-                                <button
-                                    type="button"
+                                                                </div>
+                                    <button
+                                        type="button"
                                     onClick={() => setShowEditModal(false)}
                                     className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
                                 >
                                     <FiX className="w-4 h-4" />
-                                </button>
+                                    </button>
                             </div>
 
                             <form onSubmit={handleEditCredential} className="flex flex-col flex-1 min-h-0">
@@ -1194,7 +1194,7 @@ const PasswordGroupFirms = () => {
                                     </button>
                                 </div>
                             </form>
-                                </motion.div>
+                        </motion.div>
                             </motion.div>
                         ) : null}
                     </AnimatePresence>,
@@ -1246,8 +1246,8 @@ const PasswordGroupFirms = () => {
                                 transition={{ duration: 0.15 }}
                                 className="fixed w-44 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999] overflow-hidden"
                                 style={{
-                                    top: dropdownCoords.top,
-                                    left: dropdownCoords.left,
+                                              top: dropdownCoords.top,
+                                              left: dropdownCoords.left,
                                     height: 'auto',
                                 }}
                                 onClick={(e) => e.stopPropagation()}
@@ -1279,40 +1279,40 @@ const PasswordGroupFirms = () => {
                                                   : '0',
                                     }}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedCredential(activeActionsItem);
-                                        setShowViewModal(true);
-                                        closeActionsMenu();
-                                    }}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedCredential(activeActionsItem);
+                                            setShowViewModal(true);
+                                            closeActionsMenu();
+                                        }}
                                     className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
                                 >
                                     <FiEye className="w-4 h-4 text-indigo-600" />
                                     View
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleEditClick(activeActionsItem)}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleEditClick(activeActionsItem)}
                                     className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
                                 >
                                     <FiEdit className="w-4 h-4 text-blue-600" />
                                     Edit
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(
-                                            `Username: ${activeActionsItem.credential?.username || ''}\nPassword: ${activeActionsItem.credential?.password || ''}`
-                                        );
-                                        toast.success('Credential details copied to clipboard');
-                                        closeActionsMenu();
-                                    }}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(
+                                                `Username: ${activeActionsItem.credential?.username || ''}\nPassword: ${activeActionsItem.credential?.password || ''}`
+                                            );
+                                            toast.success('Credential details copied to clipboard');
+                                            closeActionsMenu();
+                                        }}
                                     className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-purple-50 flex items-center gap-2 transition-colors"
                                 >
                                     <FiCopy className="w-4 h-4 text-purple-600" />
                                     Copy
-                                </button>
+                                    </button>
                                 <button
                                     type="button"
                                     onClick={() => handleDeleteClick(activeActionsItem)}
