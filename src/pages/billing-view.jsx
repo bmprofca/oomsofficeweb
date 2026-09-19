@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Header, Sidebar } from "../components/header";
 import TablePagination from "../components/TablePagination";
 import CustomSelect from "../components/CustomSelect";
+import { ClickToCallButton } from "../components/Call/ClickToCall";
 import { optionByValue } from "../utils/customSelectHelpers";
 import {
   FiSearch,
@@ -495,7 +496,15 @@ const BillingDetailsModal = ({ item, onClose }) => {
                   <DetailField label="Guardian">{guardianLine}</DetailField>
                 ) : null}
                 <DetailField label="Mobile">
-                  {formatClientMobile(item.mobile)}
+                  <span className="inline-flex items-center gap-1.5">
+                    {formatClientMobile(item.mobile)}
+                    <ClickToCallButton
+                      phoneNumber={item.mobile}
+                      countryCode={item.country_code}
+                      displayName={item.name}
+                      className="h-6 w-6"
+                    />
+                  </span>
                 </DetailField>
                 {item.email ? (
                   <DetailField label="Email">{item.email}</DetailField>
@@ -1884,9 +1893,15 @@ const BillDisplay = () => {
                                     </p>
                                   ) : null}
                                   <p
-                                    className={`m-0 break-words ${TABLE_CELL_TEXT}`}
+                                    className={`m-0 inline-flex items-center gap-1.5 break-words ${TABLE_CELL_TEXT}`}
                                   >
                                     {formatClientMobile(item.mobile)}
+                                    <ClickToCallButton
+                                      phoneNumber={item.mobile}
+                                      countryCode={item.country_code}
+                                      displayName={item.name}
+                                      className="h-6 w-6"
+                                    />
                                   </p>
                                 </div>
                               </div>

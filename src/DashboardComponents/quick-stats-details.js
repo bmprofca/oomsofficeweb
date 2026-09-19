@@ -32,6 +32,7 @@ import {
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { Sidebar, Header } from '../components/header';
 import TablePagination from '../components/TablePagination';
+import { ClickToCallButton } from '../components/Call/ClickToCall';
 import ClientPaymentReminderModal from '../components/Modals/ClientPaymentReminderModal';
 import ClientBirthdayReminderModal from '../components/Modals/ClientBirthdayReminderModal';
 import FirmsDetailsModal from '../components/Modals/FirmsDetailsModal';
@@ -815,6 +816,12 @@ const QuickStatsDetailsPage = () => {
                         <div className="flex items-center gap-2 text-gray-700">
                             <FiPhone className="w-3 h-3 text-gray-400" />
                             <span>{item.mobile || 'N/A'}</span>
+                            <ClickToCallButton
+                                phoneNumber={item.mobile}
+                                countryCode={item.country_code}
+                                displayName={item.name}
+                                className="h-6 w-6"
+                            />
                         </div>
                         <div className="flex items-center gap-2 text-gray-700">
                             <FiBriefcase className="w-3 h-3 text-gray-400" />
@@ -1011,6 +1018,11 @@ const QuickStatsDetailsPage = () => {
                                                 <div className="flex items-center justify-center text-gray-700 font-medium text-sm gap-2">
                                                     <FiPhone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                                                     <span className="truncate">{item.mobile || 'N/A'}</span>
+                                                    <ClickToCallButton
+                                                        phoneNumber={item.mobile}
+                                                        countryCode={item.country_code}
+                                                        displayName={item.name}
+                                                    />
                                                 </div>
                                             </div>
                                             <div className="p-3 min-w-0 border-l border-gray-100 flex-shrink-0" style={{ flex: '1.2', minWidth: '160px' }}>
@@ -1465,6 +1477,12 @@ const QuickStatsDetailsPage = () => {
                                     <div className="flex items-center gap-1.5 text-gray-700 font-medium">
                                         <FiPhone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                         <span className="truncate">{item.contact?.mobile || '—'}</span>
+                                        <ClickToCallButton
+                                            phoneNumber={item.contact?.mobile}
+                                            countryCode={item.contact?.country_code}
+                                            displayName={item.name || item.personal_details?.name}
+                                            className="h-6 w-6"
+                                        />
                                     </div>
                                     {item.contact?.email ? (
                                         <div className="flex items-center gap-1.5 text-gray-700 font-medium">
@@ -1555,6 +1573,11 @@ const QuickStatsDetailsPage = () => {
                                         <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 min-w-0">
                                             <FiPhone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                             <span className="truncate">{item.contact?.mobile || '—'}</span>
+                                            <ClickToCallButton
+                                                phoneNumber={item.contact?.mobile}
+                                                countryCode={item.contact?.country_code}
+                                                displayName={item.name || item.personal_details?.name}
+                                            />
                                         </div>
                                     </div>
                                     <div className="px-3 py-3 min-w-0">
@@ -1700,8 +1723,14 @@ const QuickStatsDetailsPage = () => {
                                         {item.client_name || item.username || 'â€”'}
                                     </button>
                                     {item.client_mobile ? (
-                                        <p className="text-xs text-gray-500 m-0 truncate">
+                                        <p className="text-xs text-gray-500 m-0 truncate inline-flex items-center gap-1">
                                             {item.client_mobile}
+                                            <ClickToCallButton
+                                                phoneNumber={item.client_mobile}
+                                                countryCode={item.client_country_code}
+                                                displayName={item.client_name}
+                                                className="h-5 w-5"
+                                            />
                                         </p>
                                     ) : null}
                                 </div>

@@ -21,6 +21,7 @@ import {
     FirmModalShell,
     FirmViewDetails,
 } from '../components/Modals/FirmModalParts';
+import { ClickToCallButton } from '../components/Call/ClickToCall';
 import {
     formatCaApprovalLabel,
     getCaApprovalStyle,
@@ -158,10 +159,18 @@ const SectionBlock = ({ icon: Icon, title, children, action }) => (
     </section>
 );
 
-const ContactLine = ({ icon: Icon, value }) => (
+const ContactLine = ({ icon: Icon, value, callPhone, callCountryCode, callDisplayName }) => (
     <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-gray-700">
         <Icon className="h-3 w-3 shrink-0 text-gray-400" />
         <span className="truncate">{value || '—'}</span>
+        {callPhone ? (
+            <ClickToCallButton
+                phoneNumber={callPhone}
+                countryCode={callCountryCode}
+                displayName={callDisplayName}
+                className="h-6 w-6"
+            />
+        ) : null}
     </p>
 );
 
@@ -409,7 +418,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
 
     const clientName = taskData.client?.profile?.name || taskData.client?.name || '—';
     const clientUsername = taskData.client?.username || '';
-    const clientMobile = taskData.client?.profile?.mobile || '—';
+    const clientMobileRaw = taskData.client?.profile?.mobile || '';
+    const clientMobile = clientMobileRaw || '—';
+    const clientCountryCode = taskData.client?.profile?.country_code || '';
     const clientEmail = taskData.client?.profile?.email || '—';
 
     if (loading || !taskData?.task_id) {
@@ -626,7 +637,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                                     ) : (
                                         <p className="text-sm font-semibold text-gray-800">{clientName}</p>
                                     )}
-                                    <ContactLine icon={FiPhone} value={clientMobile} />
+                                    <ContactLine
+                                        icon={FiPhone}
+                                        value={clientMobile}
+                                        callPhone={clientMobileRaw}
+                                        callCountryCode={clientCountryCode}
+                                        callDisplayName={clientName !== '—' ? clientName : ''}
+                                    />
                                     <ContactLine icon={FiMail} value={clientEmail} />
                                 </div>
                             </div>

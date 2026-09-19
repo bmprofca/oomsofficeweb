@@ -26,6 +26,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../components/header';
 import TablePagination from '../components/TablePagination';
+import { ClickToCallButton } from '../components/Call/ClickToCall';
 import AssignedStaffList from '../components/Modals/AssignedStaffList';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
 import DeleteConfirmationModal from '../components/delete-confirmation';
@@ -1173,13 +1174,22 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
             </button>
           </div>
         );
-      case 'client_mobile':
+      case 'client_mobile': {
+        const mobileValue = task.client?.profile?.mobile || task.client?.mobile || '';
         return (
           <div className="flex items-center gap-2 text-gray-700 font-medium text-sm">
             <FiPhone className="w-3 h-3 text-gray-400" />
-            {safeGetString(task.client?.profile?.mobile)}
+            {safeGetString(mobileValue)}
+            {mobileValue ? (
+              <ClickToCallButton
+                phoneNumber={mobileValue}
+                countryCode={task.client?.profile?.country_code || task.client?.country_code}
+                displayName={task.client?.profile?.name || task.client?.name}
+              />
+            ) : null}
           </div>
         );
+      }
       case 'client_email': {
         const pan = safeGetString(task.firm?.pan_no, '—');
         const fileNo = safeGetString(task.firm?.file_no, '—');

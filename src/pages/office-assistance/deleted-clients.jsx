@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 import { Header, Sidebar } from "../../components/header";
 import TablePagination from "../../components/TablePagination";
+import { ClickToCallButton } from "../../components/Call/ClickToCall";
 import ConfirmActionModal from "../../components/ConfirmActionModal";
 import API_BASE_URL from "../../utils/api-controller";
 import getHeaders from "../../utils/get-headers";
@@ -302,6 +303,11 @@ const DeletedClients = () => {
                         <p className="flex items-center gap-1.5 text-sm font-medium text-gray-700 m-0">
                           <FiPhone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                           {formatPhone(client)}
+                          <ClickToCallButton
+                            phoneNumber={client.mobile}
+                            countryCode={client.country_code}
+                            displayName={client.name}
+                          />
                         </p>
                         <p className="flex items-center gap-1.5 text-xs text-gray-500 m-0 mt-0.5 truncate">
                           <FiMail className="w-3.5 h-3.5 text-gray-400 shrink-0" />

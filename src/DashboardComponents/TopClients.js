@@ -17,6 +17,7 @@ import {
   toIsoDate,
 } from "../components/PortalDatePicker";
 import { getCurrentComplianceYear } from "../services/complianceService";
+import { ClickToCallButton } from "../components/Call/ClickToCall";
 
 const getCurrentFinancialYearRange = () => {
   const [startYear] = getCurrentComplianceYear().split("-").map(Number);
@@ -274,6 +275,11 @@ const TopClients = () => {
                           <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
                             <FiPhone className="w-3 h-3 text-emerald-500 shrink-0" />
                             <span>{client.client_info.contact.mobile}</span>
+                            <ClickToCallButton
+                              phoneNumber={client.client_info.contact.mobile}
+                              countryCode={client.client_info.contact.country_code}
+                              displayName={client.client_info?.name}
+                            />
                           </div>
                         ) : (
                           <span className="text-sm text-gray-400">—</span>

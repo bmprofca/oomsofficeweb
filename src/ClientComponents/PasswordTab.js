@@ -26,6 +26,7 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import { clientPasswordService } from '../services/clientPasswordService';
 import { passwordGroupService } from '../services/passwordGroupService';
+import { ClickToCallButton } from '../components/Call/ClickToCall';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import TablePagination from '../components/TablePagination';
 import { ViewportTooltip } from '../components/ViewportTooltip';
@@ -226,7 +227,12 @@ const ViewCredentialModal = ({ credential, onClose }) => {
                                         <div className="flex items-center gap-2 mt-1">
                                             <FiPhone className="w-4 h-4 text-slate-400" />
                                             <p className="text-sm font-medium text-slate-800">{credential.client.mobile || 'N/A'}</p>
-                    </div>
+                                            <ClickToCallButton
+                                                phoneNumber={credential.client.mobile}
+                                                countryCode={credential.client.country_code}
+                                                displayName={credential.client.name}
+                                            />
+                                        </div>
                     </div>
                                     <div>
                                         <p className="text-xs text-slate-500">Email Address</p>
@@ -1063,6 +1069,12 @@ const PasswordTab = ({ clientUsername }) => {
                                                         <div className="flex items-center gap-2 text-xs text-slate-600">
                                                             <FiPhone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                                                             <span>{item.client.mobile || 'N/A'}</span>
+                                                            <ClickToCallButton
+                                                                phoneNumber={item.client.mobile}
+                                                                countryCode={item.client.country_code}
+                                                                displayName={item.client.name}
+                                                                className="h-6 w-6"
+                                                            />
                                                         </div>
                                                         {item.client.email ? (
                                                             <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">

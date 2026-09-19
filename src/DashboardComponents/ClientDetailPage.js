@@ -23,6 +23,7 @@ import {
     FiClock
 } from 'react-icons/fi';
 import { Sidebar, Header } from '../components/header';
+import { ClickToCallButton } from '../components/Call/ClickToCall';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 
@@ -572,6 +573,11 @@ const ClientDetailPage = () => {
                                                                     <p className="text-sm flex items-center gap-1 mt-1">
                                                                         <FiPhone className="w-3 h-3 text-gray-400" />
                                                                         {client.country_code ? `+${client.country_code} ` : ''}{client.mobile || 'N/A'}
+                                                                        <ClickToCallButton
+                                                                            phoneNumber={client.mobile}
+                                                                            countryCode={client.country_code}
+                                                                            displayName={client.client_name}
+                                                                        />
                                                                     </p>
                                                                 </div>
                                                             </td>

@@ -7,6 +7,7 @@ import {
     getTaskCompleteDateValue,
     isTaskCompleteStatus,
 } from '../utils/taskCompleteDate';
+import { ClickToCallButton } from '../components/Call/ClickToCall';
 
 const TaskCards = ({ 
     tasks, 
@@ -288,6 +289,12 @@ const TaskCards = ({
                                         <div className="flex items-center gap-1 text-gray-700 text-[11px]">
                                             <FiPhone className="w-3 h-3 text-gray-400" />
                                             <span>{task.client?.profile?.mobile || '-'}</span>
+                                            <ClickToCallButton
+                                                phoneNumber={task.client?.profile?.mobile}
+                                                countryCode={task.client?.profile?.country_code}
+                                                displayName={task.client?.profile?.name || task.client?.name}
+                                                className="h-6 w-6"
+                                            />
                                         </div>
 
                                         {/* PAN / File */}

@@ -30,6 +30,7 @@ import {
 } from "react-icons/fi";
 import { Header, Sidebar } from "../../components/header";
 import TablePagination from "../../components/TablePagination";
+import { ClickToCallButton } from "../../components/Call/ClickToCall";
 import ConfirmActionModal from "../../components/ConfirmActionModal";
 import ClientPaymentReminderModal from "../../components/Modals/ClientPaymentReminderModal";
 import CustomSelect from "../../components/CustomSelect";
@@ -1793,6 +1794,12 @@ const ClientFollowUp = () => {
                             <span className="inline-flex items-center gap-1.5 text-gray-700">
                               <FiPhone className="h-3 w-3 text-gray-400" />
                               {formatPhone(row)}
+                              <ClickToCallButton
+                                phoneNumber={row.mobile}
+                                countryCode={row.country_code}
+                                displayName={row.client_name}
+                                className="h-6 w-6"
+                              />
                             </span>
                             <div className="flex items-center gap-1">
                               <Link
@@ -1934,8 +1941,13 @@ const ClientFollowUp = () => {
                           </div>
                         </div>
                         <div className="min-w-[140px] flex-1 border-l border-gray-100 p-3 text-left">
-                          <p className="m-0 text-sm font-medium text-gray-700">
+                          <p className="m-0 inline-flex items-center gap-1.5 text-sm font-medium text-gray-700">
                             {formatPhone(row)}
+                            <ClickToCallButton
+                              phoneNumber={row.mobile}
+                              countryCode={row.country_code}
+                              displayName={row.client_name}
+                            />
                           </p>
                           {row.email ? (
                             <p className="m-0 mt-0.5 truncate text-xs text-gray-400">

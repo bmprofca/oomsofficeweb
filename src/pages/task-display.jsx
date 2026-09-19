@@ -533,9 +533,14 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
                                         <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                                             <div>
                                                 <p className="text-xs text-gray-500">Mobile</p>
-                                                <p className="font-medium text-gray-800">
+                                                <p className="font-medium text-gray-800 inline-flex items-center gap-1.5">
                                                     {clientData.basic?.country_code ? `+${clientData.basic.country_code} ` : ''}
                                                     {clientData.basic?.mobile || 'N/A'}
+                                                    <ClickToCallButton
+                                                        phoneNumber={clientData.basic?.mobile}
+                                                        countryCode={clientData.basic?.country_code}
+                                                        displayName={clientData.basic?.name}
+                                                    />
                                                 </p>
                                             </div>
                                             <div>
