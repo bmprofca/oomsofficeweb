@@ -69,6 +69,8 @@ const EXACT_TITLES = {
   '/broadcast/sms/system/template': 'OOMS System SMS Templates',
   '/broadcast/whatsapp/ooms': 'WhatsApp OOMS',
   '/broadcast/whatsapp/onechatting/configure': 'OneChatting Configure',
+  '/broadcast/call/ooms-system/configure': 'Call Configure',
+  '/broadcast/call': 'Call Broadcast',
   '/broadcast/sms/fast2sms/configure': 'Fast2SMS Configure',
   '/broadcast/sms/fast2sms/templates': 'Fast2SMS Templates',
   '/broadcast/sms/fast2sms/campaigns': 'Fast2SMS Campaigns',

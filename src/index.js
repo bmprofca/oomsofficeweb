@@ -10,6 +10,8 @@ import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
 import WhatsappChannelBootstrap from './components/WhatsApp/WhatsappChannelBootstrap';
 import SmsChannelBootstrap from './components/Sms/SmsChannelBootstrap';
+import CallChannelBootstrap from './components/Call/CallChannelBootstrap';
+import { ClickToCallProvider } from './components/Call/ClickToCall';
 import axios from 'axios';
 import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
 import BranchRequiredRoute from './components/BranchRequiredRoute';
@@ -81,6 +83,7 @@ import {
   OomsSystemTemplates,
   OomsSystemSmsTemplates,
   Fast2SmsConfigure,
+  CallOomsConfigure,
   Fast2SmsTemplates,
   Fast2SmsCampaigns,
   Fast2SmsCampaignCreate,
@@ -282,6 +285,10 @@ root.render(
     <BrowserRouter>
       <DocumentTitle />
       <TaskCreateProvider>
+        {/* Must wrap KeepAliveProvider: KeepAliveHost parks pages as a sibling of
+            <Routes>, so contexts inside KeepAlive but around Routes only are invisible
+            to kept-alive pages (e.g. /client/view). */}
+        <ClickToCallProvider>
         <KeepAliveProvider>
           <Toaster
             position="top-center"
@@ -290,6 +297,7 @@ root.render(
           />
           <WhatsappChannelBootstrap />
           <SmsChannelBootstrap />
+          <CallChannelBootstrap />
           {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
           <BodyScrollLockObserver />
           <Suspense fallback={<RouteLoadingFallback />}>
@@ -733,6 +741,12 @@ root.render(
               </ProtectedRoute>
             } />
 
+            <Route path="/broadcast/call/ooms-system/configure" element={
+              <ProtectedRoute>
+                <CallOomsConfigure />
+              </ProtectedRoute>
+            } />
+
             <Route path="/broadcast/sms/fast2sms/configure" element={
               <ProtectedRoute>
                 <Fast2SmsConfigure />
@@ -1066,6 +1080,7 @@ root.render(
           </Routes>
           </Suspense>
         </KeepAliveProvider>
+        </ClickToCallProvider>
       </TaskCreateProvider>
     </BrowserRouter>
   </GoogleOAuthProvider>

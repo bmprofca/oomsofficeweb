@@ -11,6 +11,7 @@ import {
   FiMessageCircle,
   FiLock,
   FiClock,
+  FiPhone,
 } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -29,12 +30,20 @@ import {
 } from "../services/smsApi";
 import { setStoredSmsChannel } from "../services/smsChannelStore";
 import { useSmsChannel } from "../hooks/useSmsChannel";
+import {
+  callApi,
+  CALL_CHANNEL_OPTIONS,
+  CALL_SUB_TABS,
+} from "../services/callApi";
+import { setStoredCallChannel } from "../services/callChannelStore";
+import { useCallChannel } from "../hooks/useCallChannel";
 import { useUserPermissions } from "../utils/permission-helper";
 
 const TAB_META = {
   whatsapp: { label: "WhatsApp", accent: "green", icon: FiMessageCircle },
   sms: { label: "SMS", accent: "blue", icon: FiMessageSquare },
   email: { label: "Email", accent: "indigo", icon: FiMail },
+  call: { label: "Call", accent: "teal", icon: FiPhone },
 };
 
 const ACCENT_CLASS = {
@@ -59,6 +68,13 @@ const ACCENT_CLASS = {
     tab: "border-indigo-500 text-indigo-600",
     hover: "hover:border-indigo-300 hover:bg-indigo-50/40",
   },
+  teal: {
+    chip: "bg-teal-100 text-teal-700",
+    border: "border-teal-500",
+    text: "text-teal-700",
+    tab: "border-teal-500 text-teal-600",
+    hover: "hover:border-teal-300 hover:bg-teal-50/40",
+  },
 };
 
 const ChannelSwitchPills = ({
@@ -73,6 +89,7 @@ const ChannelSwitchPills = ({
   const accentStyles = {
     blue: "bg-blue-600 text-white border-blue-600 shadow-blue-100",
     green: "bg-emerald-600 text-white border-emerald-600 shadow-emerald-100",
+    teal: "bg-teal-600 text-white border-teal-600 shadow-teal-100",
   };
 
   return (
@@ -112,7 +129,7 @@ const ChannelSwitchPills = ({
 const Broadcast = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
-  const allowedTabs = ["whatsapp", "sms", "email"];
+  const allowedTabs = ["whatsapp", "sms", "email", "call"];
   const activeTab = allowedTabs.includes(tab) ? tab : "whatsapp";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
@@ -124,10 +141,13 @@ const Broadcast = () => {
 
   const whatsappChannel = useWhatsappChannel();
   const smsChannel = useSmsChannel();
+  const callChannel = useCallChannel();
   const [whatsappSubTab, setWhatsappSubTab] = useState("ooms system");
   const [smsSubTab, setSmsSubTab] = useState("ooms system");
+  const [callSubTab, setCallSubTab] = useState("ooms system");
   const [whatsappChannelSaving, setWhatsappChannelSaving] = useState(false);
   const [smsChannelSaving, setSmsChannelSaving] = useState(false);
+  const [callChannelSaving, setCallChannelSaving] = useState(false);
 
 
   // Persist sidebar minimized state
@@ -158,6 +178,12 @@ const Broadcast = () => {
       setSmsSubTab(smsChannel);
     }
   }, [smsChannel]);
+
+  useEffect(() => {
+    if (callChannel !== "disabled") {
+      setCallSubTab(callChannel);
+    }
+  }, [callChannel]);
 
   // WhatsApp OOMS Cards data
   const whatsappOomsCards = [
@@ -380,6 +406,17 @@ const Broadcast = () => {
     },
   ];
 
+  const callOomsSystemCards = [
+    {
+      title: "Configuration",
+      description: "API token and staff PBX extensions",
+      icon: <FiSettings className="w-5 h-5" />,
+      link: "/broadcast/call/ooms-system/configure",
+      color: "bg-teal-100 text-teal-600",
+      permission: "broadcast_config_edit",
+    },
+  ];
+
 
   const handleWhatsappChannelChange = async (newChannel) => {
     const previousChannel = whatsappChannel;
@@ -433,6 +470,32 @@ const Broadcast = () => {
     setSmsSubTab(subTabId);
   };
 
+  const handleCallChannelChange = async (newChannel) => {
+    const previousChannel = callChannel;
+    setCallChannelSaving(true);
+    try {
+      await callApi.updateChannel({ channel: newChannel });
+      setStoredCallChannel(newChannel);
+      toast.success("Call channel updated successfully");
+      if (newChannel !== "disabled") {
+        setCallSubTab(newChannel);
+      }
+    } catch (error) {
+      setStoredCallChannel(previousChannel);
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to update Call channel",
+      );
+    } finally {
+      setCallChannelSaving(false);
+    }
+  };
+
+  const handleCallSubTabChange = (subTabId) => {
+    setCallSubTab(subTabId);
+  };
+
   const renderEmptyChannelState = (title, description, accent = "green") => (
     <div className="rounded-xl border border-dashed border-slate-300 bg-white p-7 text-center">
       <FiMessageSquare
@@ -461,6 +524,9 @@ const Broadcast = () => {
     }
     return renderCardGrid(smsOomsSystemCards, "blue");
   };
+
+  const renderCallSubTabContent = () =>
+    renderCardGrid(callOomsSystemCards, "teal");
 
   // Render card grid
   const renderCardGrid = (cards, accent = "green") => (
@@ -657,6 +723,67 @@ const Broadcast = () => {
     </div>
   );
 
+  const renderCallSection = () => (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-4 py-3">
+        <h5 className="text-base font-semibold text-slate-800">Call</h5>
+      </div>
+      <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-800">
+              Active Call Channel
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Enable OOMS System PBX click-to-call for this branch
+            </p>
+          </div>
+          <ChannelSwitchPills
+            label="Call Channel"
+            value={callChannel}
+            options={CALL_CHANNEL_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            onChange={handleCallChannelChange}
+            disabled={callChannelSaving}
+            loading={callChannelSaving}
+            accent="teal"
+          />
+        </div>
+      </div>
+      {callChannel !== "disabled" && (
+        <div className="border-b border-slate-200 px-4 pt-2.5">
+          <nav className="-mb-px flex space-x-4 overflow-x-auto">
+            {CALL_SUB_TABS.map((subTab) => (
+              <button
+                key={subTab.value}
+                type="button"
+                onClick={() => handleCallSubTabChange(subTab.value)}
+                className={`border-b-2 px-1 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${
+                  callSubTab === subTab.value
+                    ? "border-teal-500 text-teal-600"
+                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                }`}
+              >
+                {subTab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
+      <div className="p-4">
+        {callChannel === "disabled"
+          ? renderEmptyChannelState(
+              "Calling is currently disabled",
+              "Select OOMS System to enable click-to-call for this branch.",
+              "teal",
+            )
+          : renderCallSubTabContent()}
+      </div>
+    </div>
+  );
+
   if (
     !check("broadcast_livechat") &&
     !check("broadcast_send") &&
@@ -729,10 +856,10 @@ const Broadcast = () => {
                       Broadcast
                     </h5>
                     <p className="text-sm text-slate-500">
-                      Manage WhatsApp, SMS and Email notifications
+                      Manage WhatsApp, SMS, Email and Call channels
                     </p>
                   </div>
-                  <div className="grid w-full grid-cols-1 gap-1.5 sm:w-auto sm:grid-cols-3">
+                  <div className="grid w-full grid-cols-2 gap-1.5 sm:w-auto sm:grid-cols-4">
                     {Object.entries(TAB_META).map(([key, meta]) => {
                       const Icon = meta.icon;
                       const active = activeTab === key;
@@ -759,6 +886,8 @@ const Broadcast = () => {
                 {activeTab === "sms" && renderSmsSection()}
 
                 {activeTab === "email" && renderEmailSection()}
+
+                {activeTab === "call" && renderCallSection()}
               </div>
             </div>
           </motion.div>

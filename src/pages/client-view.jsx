@@ -60,6 +60,8 @@ import ExportModal from "../ClientComponents/ExportModal";
 import toast from "react-hot-toast";
 import { useUserPermissions } from "../utils/permission-helper";
 import ClientPaymentReminderModal from "../components/Modals/ClientPaymentReminderModal";
+import { ClickToCallButton } from "../components/Call/ClickToCall";
+
 import FirmsDetailsModal from "../components/Modals/FirmsDetailsModal";
 
 // Import DnD Kit
@@ -604,6 +606,11 @@ const ClientTable = ({
             <div className="flex items-center gap-2 text-gray-700 text-sm">
               <FiPhone className="w-3 h-3 text-gray-400" />
               <span>{client.mobile || "N/A"}</span>
+              <ClickToCallButton
+                phoneNumber={client.mobile}
+                countryCode={client.country_code}
+                displayName={client.name}
+              />
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -984,6 +991,12 @@ const ClientCards = ({
                       <div className="flex items-center gap-1 text-gray-700 text-xs">
                         <FiPhone className="w-3 h-3 text-gray-400" />
                         <span>{client.mobile || "N/A"}</span>
+                        <ClickToCallButton
+                          phoneNumber={client.mobile}
+                          countryCode={client.country_code}
+                          displayName={client.name}
+                          className="h-6 w-6"
+                        />
                       </div>
                       <div className="flex items-center gap-1">
                         <button
@@ -1928,6 +1941,11 @@ const ViewClients = () => {
           <div className="flex items-center justify-center text-gray-700 font-medium text-sm gap-2">
             <FiPhone className="w-4 h-4 text-gray-400" />
             {client.mobile || "N/A"}
+            <ClickToCallButton
+              phoneNumber={client.mobile}
+              countryCode={client.country_code}
+              displayName={client.name}
+            />
           </div>
         );
       case "balance":

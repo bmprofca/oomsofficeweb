@@ -65,6 +65,7 @@ import DocumentsTab from "../ClientComponents/DocumentsTab";
 import ChattingTab from "../ClientComponents/ChattingTab";
 import AutomationTab from "../ClientComponents/AutomationTab";
 import ClientPaymentReminderModal from "../components/Modals/ClientPaymentReminderModal";
+import { ClickToCallButton } from "../components/Call/ClickToCall";
 
 const InrIcon = ({ className = "w-4 h-4" }) => (
   <span
@@ -2086,6 +2087,11 @@ const ClientProfile = () => {
                             ? `+${clientData.country_code || "91"} ${clientData.mobile}`
                             : "—"}
                         </span>
+                        <ClickToCallButton
+                          phoneNumber={clientData.mobile}
+                          countryCode={clientData.country_code}
+                          displayName={clientData.name}
+                        />
                       </dd>
                     </div>
                     <div

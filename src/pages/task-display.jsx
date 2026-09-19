@@ -54,6 +54,7 @@ import {
     isTaskCompleteStatus,
 } from '../utils/taskCompleteDate';
 import StaffColumnCell, { formatCaApprovalLabel } from '../TaskComponent/StaffColumnCell';
+import { ClickToCallButton } from '../components/Call/ClickToCall';
 
 const getLoggedInUsername = () =>
     localStorage.getItem('user_username') || localStorage.getItem('username') || '';
@@ -1500,10 +1501,23 @@ const TaskDisplay = () => {
                 );
             case 'client_mobile':
                 const mobileValue = task.client?.profile?.mobile || task.client?.mobile || '-';
+                const mobileCountry =
+                    task.client?.profile?.country_code || task.client?.country_code || '';
                 return (
                     <div className="flex items-center gap-2 text-gray-700 font-medium text-sm">
                         <FiPhone className="w-3 h-3 text-gray-400" />
                         {safeGetString(mobileValue)}
+                        {mobileValue && mobileValue !== '-' ? (
+                            <ClickToCallButton
+                                phoneNumber={mobileValue}
+                                countryCode={mobileCountry}
+                                displayName={
+                                    task.client?.profile?.name ||
+                                    task.client?.name ||
+                                    ''
+                                }
+                            />
+                        ) : null}
                     </div>
                 );
             case 'client_email': {

@@ -82,6 +82,8 @@ export const SOFTWARE_MODULES = [
   // Broadcast
   { title: "Broadcast", path: "/broadcast/whatsapp", group: "Broadcast", keywords: "message campaign" },
   { title: "Email Broadcast", path: "/broadcast/email", group: "Broadcast", keywords: "email" },
+  { title: "Call Broadcast", path: "/broadcast/call", group: "Broadcast", keywords: "call pbx phone" },
+  { title: "Call Configure", path: "/broadcast/call/ooms-system/configure", group: "Broadcast", keywords: "call extension token" },
   { title: "Email Campaigns", path: "/broadcast/email/campaigns", group: "Broadcast", keywords: "email list" },
   { title: "Create Email Broadcast", path: "/broadcast/email/create", group: "Broadcast", keywords: "create email" },
   { title: "Email Templates", path: "/broadcast/email/templates", group: "Broadcast", keywords: "template" },

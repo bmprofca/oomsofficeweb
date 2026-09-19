@@ -15,6 +15,7 @@ import {
 import API_BASE_URL from '../utils/api-controller';
 import { fetchWhatsappChannel } from '../services/whatsappChannelStore';
 import { fetchSmsChannel } from '../services/smsChannelStore';
+import { fetchCallChannel } from '../services/callChannelStore';
 import { saveUserSessionToStorage } from '../utils/user-profile-storage';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -205,6 +206,7 @@ const Register = () => {
         setLoginSuccess(true);
         fetchWhatsappChannel().catch(() => { });
         fetchSmsChannel().catch(() => { });
+        fetchCallChannel().catch(() => { });
 
         const welcomeName = result.profile?.name || formData.name.trim() || 'User';
         toast.success(`Welcome ${welcomeName}! Registration successful!`);

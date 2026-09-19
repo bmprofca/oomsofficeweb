@@ -17,6 +17,7 @@ import {
 import { GoogleLogin } from '@react-oauth/google';
 import { fetchWhatsappChannel } from '../services/whatsappChannelStore';
 import { fetchSmsChannel } from '../services/smsChannelStore';
+import { fetchCallChannel } from '../services/callChannelStore';
 import API_BASE_URL from '../utils/api-controller';
 import {
     saveUserSessionToStorage,
@@ -241,6 +242,7 @@ const Login = () => {
         setShowBranchSelection(false);
         fetchWhatsappChannel().catch(() => { });
         fetchSmsChannel().catch(() => { });
+        fetchCallChannel().catch(() => { });
         const welcomeName = result.profile?.name || result.username || 'User';
         toast.success(`Welcome ${welcomeName}! Login successful!`);
         setTimeout(() => {
