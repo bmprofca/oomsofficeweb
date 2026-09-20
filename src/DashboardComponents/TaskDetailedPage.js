@@ -50,10 +50,19 @@ import {
   getScrollTopById,
   enableManualScrollRestoration,
 } from '../utils/listViewCache';
+import { useKeepAliveActive } from '../app/KeepAlive';
 
 const getLoggedInUsername = () =>
   localStorage.getItem('user_username') || localStorage.getItem('username') || '';
 
+const isDocumentReload = () => {
+  try {
+    const entry = performance.getEntriesByType?.('navigation')?.[0];
+    return entry?.type === 'reload';
+  } catch {
+    return false;
+  }
+};
 const isBranchAdmin = () =>
   localStorage.getItem('branch_owned') === 'true' ||
   getLoggedInUsername().toLowerCase() === 'admin';
@@ -511,6 +520,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
     limit: initialPagination.limit,
   });
   const canRestoreList =
+    !isDocumentReload() &&
     isBrowserBackNav(navigationType) &&
     Array.isArray(savedViewRef.current?.tasks) &&
     savedViewRef.current?.fingerprint === initialFingerprint &&
@@ -880,10 +890,10 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
     };
   }, []);
 
-  const fetchDetailedTasks = useCallback(async () => {
+  const fetchDetailedTasks = useCallback(async ({ silent = false } = {}) => {
     if (!TASK_DETAIL_CATEGORIES.includes(category)) return;
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const paramsObj = new URLSearchParams({
         category,
@@ -934,10 +944,12 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       }));
     } catch (error) {
       console.error('Error fetching detailed tasks:', error);
-      toast.error(error.message || 'Failed to load tasks');
-      setTasks([]);
+      if (!silent) {
+        toast.error(error.message || 'Failed to load tasks');
+        setTasks([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [category, serviceId, staffUsername, pagination.page_no, pagination.limit, debouncedSearch, statusFilter, caApprovalFilter]);
 
@@ -945,10 +957,23 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
     if (skipNextFetchRef.current) {
       skipNextFetchRef.current = false;
       setLoading(false);
+      // Instant paint from cache, then refresh so CA/staff edits aren't stale.
+      fetchDetailedTasks({ silent: true });
       return;
     }
     fetchDetailedTasks();
   }, [fetchDetailedTasks]);
+
+  const keepAliveActive = useKeepAliveActive();
+  const keepAliveReadyRef = useRef(false);
+  useEffect(() => {
+    if (!keepAliveActive) return;
+    if (!keepAliveReadyRef.current) {
+      keepAliveReadyRef.current = true;
+      return;
+    }
+    fetchDetailedTasks({ silent: true });
+  }, [keepAliveActive, fetchDetailedTasks]);
 
   useLayoutEffect(() => enableManualScrollRestoration(), []);
 
@@ -1419,7 +1444,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
               </div>
               <button
                 type="button"
-                onClick={fetchDetailedTasks}
+                onClick={() => fetchDetailedTasks()}
                 disabled={loading}
                 className="inline-flex items-center justify-center gap-1.5 self-start sm:self-auto rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 transition-colors"
               >

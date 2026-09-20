@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiFile, FiUpload, FiEye, FiDownload, FiFolder, FiSearch,
@@ -9,7 +10,7 @@ import {
   FiBriefcase, FiUsers, FiHome, FiCheckSquare,
   FiSquare, FiChevronLeft, FiChevronRight, FiMoreVertical,
   FiMail, FiMessageCircle, FiSend, FiPaperclip, FiLoader,
-  FiAlertCircle, FiCheck, FiEdit2, FiExternalLink
+  FiAlertCircle, FiCheck, FiEdit2, FiExternalLink, FiShare2
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import axios from 'axios';
@@ -20,12 +21,13 @@ import {
   DocumentCreateCategoryModal,
   DocumentEditCategoryModal,
   DocumentUploadModal,
+  DocumentEditModal,
 } from '../components/Modals/DocumentManagement';
 import DocumentShareModal from '../components/Modals/DocumentShareModal';
 import DocumentDeleteOtpModal from '../components/Modals/DocumentDeleteOtpModal';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import CustomSelect from '../components/CustomSelect';
 import { optionByValue } from '../utils/customSelectHelpers';
 
@@ -35,112 +37,6 @@ const formatUnderscoreLabel = (value) =>
     .replace(/\s+/g, ' ')
     .trim()
     .toUpperCase();
-
-// Professional Toast Configuration - No Icons
-const toastConfig = {
-    duration: 4000,
-    position: 'top-right',
-    style: {
-        borderRadius: '8px',
-        background: '#fff',
-        fontSize: '14px',
-        fontWeight: '500',
-        padding: '12px 16px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        border: '1px solid #e2e8f0',
-        maxWidth: '380px',
-    },
-    success: {
-        duration: 4000,
-        style: {
-            background: '#f0fdf4',
-            color: '#166534',
-            border: '1px solid #86efac',
-        },
-    },
-    error: {
-        duration: 5000,
-        style: {
-            background: '#fef2f2',
-            color: '#991b1b',
-            border: '1px solid #fca5a5',
-        },
-    },
-    warning: {
-        duration: 4500,
-        style: {
-            background: '#fffbeb',
-            color: '#92400e',
-            border: '1px solid #fcd34d',
-        },
-    },
-    loading: {
-        duration: Infinity,
-        style: {
-            background: '#eff6ff',
-            color: '#1e40af',
-            border: '1px solid #93c5fd',
-        },
-    },
-    info: {
-        duration: 4000,
-        style: {
-            background: '#eff6ff',
-            color: '#1e40af',
-            border: '1px solid #93c5fd',
-        },
-    },
-};
-
-// Custom toast functions - No Icons
-const showToast = {
-    success: (message, options = {}) => {
-        toast.success(message, {
-            ...toastConfig,
-            ...toastConfig.success,
-            ...options,
-            icon: null,
-        });
-    },
-    error: (message, options = {}) => {
-        toast.error(message, {
-            ...toastConfig,
-            ...toastConfig.error,
-            ...options,
-            icon: null,
-        });
-    },
-    warning: (message, options = {}) => {
-        toast(message, {
-            ...toastConfig,
-            ...toastConfig.warning,
-            ...options,
-            icon: null,
-        });
-    },
-    loading: (message, options = {}) => {
-        return toast.loading(message, {
-            ...toastConfig,
-            ...toastConfig.loading,
-            ...options,
-            icon: null,
-        });
-    },
-    info: (message, options = {}) => {
-        toast(message, {
-            ...toastConfig,
-            ...toastConfig.info,
-            ...options,
-            icon: null,
-        });
-    },
-    dismiss: (toastId) => {
-        toast.dismiss(toastId);
-    },
-    dismissAll: () => {
-        toast.dismiss();
-    },
-};
 
 // Animated checkbox (match `CLIENT/context/checkbox.md` AnimatedCheckbox)
 const AnimatedCheckbox = ({
@@ -230,7 +126,11 @@ const DocumentsTab = ({
   clientEmail,
   clientCountryCode = '91',
 }) => {
-  const [activeTab, setActiveTab] = useState('income-tax');
+  const [searchParams] = useSearchParams();
+  const docTabParam = String(searchParams.get('docTab') || '').trim().toLowerCase();
+  const initialDocTab =
+    docTabParam === 'sharable' || docTabParam === 'incoming' ? 'sharable' : 'income-tax';
+  const [activeTab, setActiveTab] = useState(initialDocTab);
   const [selectedFirm, setSelectedFirm] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
@@ -260,10 +160,14 @@ const DocumentsTab = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedDocumentForEdit, setSelectedDocumentForEdit] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   // Action menu portal state (documents + categories)
   const [actionMenuPosition, setActionMenuPosition] = useState(null);
   const [actionMenuKind, setActionMenuKind] = useState('document'); // 'document' | 'category'
+  const [actionMenuItemCount, setActionMenuItemCount] = useState(4);
   const actionAnchorRef = useRef(null);
   const firmsRef = useRef([]);
   const documentTypesRef = useRef({ it: [], gst: [], mca: [] });
@@ -306,7 +210,8 @@ const DocumentsTab = ({
     'gst': [],
     'mca': [],
     'task': [],
-    'general': []
+    'general': [],
+    'sharable': [],
   });
 
   // Pagination state
@@ -335,7 +240,15 @@ const DocumentsTab = ({
     { id: 'mca', label: 'MCA', shortLabel: 'MCA', icon: FiUsers },
     { id: 'task', label: 'Task', shortLabel: 'Task', icon: FiCheckCircle },
     { id: 'general', label: 'General', shortLabel: 'Gen', icon: FiHome },
+    { id: 'sharable', label: 'Incoming', shortLabel: 'In', icon: FiShare2 },
   ], []);
+
+  // Deep-link from header notifications: /documents?docTab=sharable|incoming
+  useEffect(() => {
+    if (docTabParam === 'sharable' || docTabParam === 'incoming') {
+      setActiveTab('sharable');
+    }
+  }, [docTabParam]);
 
   // Compute floating action menu position (mirrors sale-display.jsx pattern)
   const computeActionMenuPosition = useCallback((anchorEl, options = {}) => {
@@ -415,6 +328,7 @@ const DocumentsTab = ({
       return;
     }
     actionAnchorRef.current = e.currentTarget;
+    setActionMenuItemCount(itemCount);
     setActionMenuPosition(computeActionMenuPosition(e.currentTarget, { itemCount }));
     setActionMenuKind(kind);
     setActiveActionMenu(id);
@@ -436,7 +350,7 @@ const DocumentsTab = ({
 
     const updatePosition = () => {
       if (actionAnchorRef.current) {
-        const itemCount = actionMenuKind === 'category' ? 2 : 4;
+        const itemCount = actionMenuKind === 'category' ? 2 : actionMenuItemCount;
         setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current, { itemCount }));
       }
     };
@@ -452,7 +366,7 @@ const DocumentsTab = ({
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', handleOutsideClick, true);
     };
-  }, [activeActionMenu, actionMenuKind, closeActionMenu, computeActionMenuPosition]);
+  }, [activeActionMenu, actionMenuKind, actionMenuItemCount, closeActionMenu, computeActionMenuPosition]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -796,6 +710,8 @@ const DocumentsTab = ({
                 firm_name: firmName,
                 firm_type: firmType,
                 firm,
+                f_year: doc.f_year,
+                name: doc.name || '',
                 year:
                   activeTab === 'income-tax'
                     ? formatYearLabel(doc.f_year, 'AY')
@@ -812,6 +728,7 @@ const DocumentsTab = ({
               if (activeTab === 'gst') {
                 return {
                   ...baseDoc,
+                  month_value: doc.month || '',
                   month: doc.month ? doc.month.charAt(0).toUpperCase() + doc.month.slice(1) + ' ' + doc.f_year?.split('-')[0] : ''
                 };
               }
@@ -890,6 +807,7 @@ const DocumentsTab = ({
               firm,
               name: doc.name,
               category: doc.category_name,
+              category_id: doc.category_id,
               remark: doc.remark,
               file_url: doc.file,
               size: doc.size,
@@ -914,6 +832,75 @@ const DocumentsTab = ({
           if (!isCurrent()) return;
           console.error('Error fetching general documents:', error);
           setDocuments(prev => ({ ...prev, general: [] }));
+        } finally {
+          if (isCurrent()) setLoading(false);
+        }
+      } else if (activeTab === 'sharable') {
+        setLoading(true);
+
+        const headers = getHeaders();
+        if (!headers) {
+          console.error('Authentication headers not found');
+          if (isCurrent()) setLoading(false);
+          return;
+        }
+
+        const params = new URLSearchParams();
+        params.append('username', clientUsername);
+        params.append('page', currentPage);
+        params.append('limit', itemsPerPage);
+
+        if (selectedFirm !== 'all') {
+          params.append('firm_id', selectedFirm);
+        }
+
+        if (searchTerm) {
+          params.append('search', searchTerm);
+        }
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/client/details/documents/list/sharable?${params.toString()}`, {
+            method: 'GET',
+            headers: headers
+          });
+
+          const result = await response.json();
+          if (!isCurrent()) return;
+
+          if (result.success && Array.isArray(result.data)) {
+            const transformedData = result.data.map((doc, index) => {
+              const { firmName, firmType, firm } = resolveFirmFields(doc);
+              return {
+                id: doc.document_id || index + 1,
+                firm_id: doc.firm_id,
+                firm_name: firmName,
+                firm_type: firmType,
+                firm,
+                name: doc.name,
+                remark: doc.remark,
+                file_url: doc.file,
+                size: doc.size,
+                mime_type: doc.mime_type,
+                create_date: doc.create_date,
+              };
+            });
+
+            setDocuments(prev => ({
+              ...prev,
+              sharable: transformedData
+            }));
+
+            if (result.pagination) {
+              setPagination(result.pagination);
+            }
+          } else {
+            console.error('Failed to fetch sharable documents:', result.message);
+            setDocuments(prev => ({ ...prev, sharable: [] }));
+          }
+        } catch (error) {
+          if (!isCurrent()) return;
+          console.error('Error fetching sharable documents:', error);
+          setDocuments(prev => ({ ...prev, sharable: [] }));
         } finally {
           if (isCurrent()) setLoading(false);
         }
@@ -1024,7 +1011,7 @@ const DocumentsTab = ({
   // Handle upload submit (files already uploaded to OneSaaS in the modal)
   const handleUploadSubmit = async (firmId, documents) => {
     if (!clientUsername) {
-      showToast.error('Client username is required');
+      toast.error('Client username is required');
       return;
     }
 
@@ -1079,7 +1066,7 @@ const DocumentsTab = ({
       else if (activeTab === 'mca') endpoint = 'mca';
       else if (activeTab === 'general') endpoint = 'general';
       else {
-        showToast.error('Upload is not available for this tab');
+        toast.error('Upload is not available for this tab');
         setUploadLoading(false);
         return;
       }
@@ -1096,7 +1083,7 @@ const DocumentsTab = ({
       );
 
       if (response.data && response.data.success) {
-        showToast.success(`${documents.length} document(s) uploaded successfully`);
+        toast.success(`${documents.length} document(s) uploaded successfully`);
         setShowUploadModal(false);
 
         // Force a refresh of the documents list
@@ -1104,7 +1091,7 @@ const DocumentsTab = ({
         const refreshTimestamp = Date.now();
         setRefreshTrigger(refreshTimestamp);
       } else {
-        showToast.error('Failed to upload documents: ' + (response.data?.message || 'Unknown error'));
+        toast.error('Failed to upload documents: ' + (response.data?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error in upload flow:', error);
@@ -1112,27 +1099,87 @@ const DocumentsTab = ({
         const { status, data } = error.response;
         if (status === 400) {
           if (data.message === 'Username is required') {
-            showToast.error('Username is required. Please check your login session.');
+            toast.error('Username is required. Please check your login session.');
           } else {
-            showToast.error(`Bad request: ${data?.message || 'Invalid data'}`);
+            toast.error(`Bad request: ${data?.message || 'Invalid data'}`);
           }
         } else if (status === 401) {
-          showToast.error('Authentication failed. Please login again.');
+          toast.error('Authentication failed. Please login again.');
         } else if (status === 404) {
-          showToast.error('API endpoint not found.');
+          toast.error('API endpoint not found.');
         } else if (status === 500) {
-          showToast.error('Server error. Please try again later.');
+          toast.error('Server error. Please try again later.');
         } else {
-          showToast.error(data?.message || `Error ${status}: Failed to upload documents`);
+          toast.error(data?.message || `Error ${status}: Failed to upload documents`);
         }
       } else if (error.request) {
-        showToast.error('No response from server. Check your internet connection.');
+        toast.error('No response from server. Check your internet connection.');
       } else {
-        showToast.error(error.message || 'Error uploading documents. Please try again.');
+        toast.error(error.message || 'Error uploading documents. Please try again.');
       }
     } finally {
       setUploadLoading(false);
       setUploadProgress(0);
+    }
+  };
+
+  const getDocumentActionMenuItemCount = useCallback(
+    (doc) => {
+      let count = doc?.file_url ? 4 : 3;
+      if (activeTab !== 'task') {
+        count += 1;
+      }
+      return count;
+    },
+    [activeTab]
+  );
+
+  const handleEditDocument = (doc) => {
+    setSelectedDocumentForEdit(doc);
+    setShowEditModal(true);
+    closeActionMenu();
+  };
+
+  const handleEditSubmit = async (fields) => {
+    if (!clientUsername || !selectedDocumentForEdit?.id) {
+      toast.error('Document information is missing');
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      const headers = getHeaders();
+      if (!headers) {
+        throw new Error('Authentication headers not found');
+      }
+
+      const body = {
+        username: clientUsername,
+        document_id: selectedDocumentForEdit.id,
+        ...fields,
+      };
+
+      const response = await axios.put(
+        `${API_BASE_URL}/client/details/documents/edit`,
+        body,
+        { headers }
+      );
+
+      if (response.data?.success) {
+        toast.success(response.data.message || 'Document updated successfully');
+        setShowEditModal(false);
+        setSelectedDocumentForEdit(null);
+        setRefreshTrigger(Date.now());
+      } else {
+        toast.error(response.data?.message || 'Failed to update document');
+      }
+    } catch (error) {
+      console.error('Error updating document:', error);
+      toast.error(
+        error.response?.data?.message || error.message || 'Failed to update document'
+      );
+    } finally {
+      setEditLoading(false);
     }
   };
   
@@ -1153,7 +1200,7 @@ const DocumentsTab = ({
       );
 
       if (response.data && response.data.success) {
-        showToast.success('Category created successfully');
+        toast.success('Category created successfully');
         setShowCreateCategoryModal(false);
 
         const fetchResponse = await fetch(`${API_BASE_URL}/client/details/documents/category-list`, {
@@ -1165,14 +1212,14 @@ const DocumentsTab = ({
           setCategories(data.data);
         }
       } else {
-        showToast.error('Failed to create category: ' + (response.data?.message || 'Unknown error'));
+        toast.error('Failed to create category: ' + (response.data?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error creating category:', error);
       if (error.response) {
-        showToast.error(error.response.data?.message || 'Failed to create category');
+        toast.error(error.response.data?.message || 'Failed to create category');
       } else {
-        showToast.error('Failed to create category. Please try again.');
+        toast.error('Failed to create category. Please try again.');
       }
     } finally {
       setCategoryLoading(false);
@@ -1201,7 +1248,7 @@ const DocumentsTab = ({
       );
 
       if (response.data && response.data.success) {
-        showToast.success('Category updated successfully');
+        toast.success('Category updated successfully');
         setShowEditCategoryModal(false);
         setSelectedCategoryForEdit(null);
 
@@ -1214,14 +1261,14 @@ const DocumentsTab = ({
           setCategories(data.data);
         }
       } else {
-        showToast.error('Failed to update category: ' + (response.data?.message || 'Unknown error'));
+        toast.error('Failed to update category: ' + (response.data?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error updating category:', error);
       if (error.response) {
-        showToast.error(error.response.data?.message || 'Failed to update category');
+        toast.error(error.response.data?.message || 'Failed to update category');
       } else {
-        showToast.error('Failed to update category. Please try again.');
+        toast.error('Failed to update category. Please try again.');
       }
     } finally {
       setCategoryLoading(false);
@@ -1250,7 +1297,7 @@ const DocumentsTab = ({
       });
 
       if (response.data && response.data.success) {
-        showToast.success('Category deleted successfully');
+        toast.success('Category deleted successfully');
 
         const fetchResponse = await fetch(`${API_BASE_URL}/client/details/documents/category-list`, {
           method: 'GET',
@@ -1261,21 +1308,21 @@ const DocumentsTab = ({
           setCategories(data.data);
         }
       } else {
-        showToast.error('Failed to delete category: ' + (response.data?.message || 'Unknown error'));
+        toast.error('Failed to delete category: ' + (response.data?.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error deleting category:', error);
       if (error.response) {
-        showToast.error(error.response.data?.message || 'Failed to delete category');
+        toast.error(error.response.data?.message || 'Failed to delete category');
       } else {
-        showToast.error('Failed to delete category. Please try again.');
+        toast.error('Failed to delete category. Please try again.');
       }
     } finally {
       setCategoryLoading(false);
     }
   };
 
-  // Handle document share (single or bulk) — same flow as ledger DocumentShareModal
+  // Handle document share (single or bulk)  same flow as ledger DocumentShareModal
   const handleShareDocumentsSend = useCallback(
     async ({ channels, mobile, email, country_code }) => {
       if (!clientUsername) {
@@ -1554,7 +1601,7 @@ const DocumentsTab = ({
 
   const filteredDocuments = getFilteredDocuments();
 
-  // Server pagination â€” `pagination` state is populated from the API response.
+  // Server pagination â `pagination` state is populated from the API response.
   const currentItems = filteredDocuments;
 
   // Keep "Select All" toggle in sync when user toggles rows manually
@@ -1601,7 +1648,7 @@ const DocumentsTab = ({
       window.URL.revokeObjectURL(objectUrl);
     } catch (error) {
       console.error('Download failed:', error);
-      showToast.error('Download failed');
+      toast.error('Download failed');
     }
   }, []);
 
@@ -1649,28 +1696,6 @@ const DocumentsTab = ({
       exit={{ opacity: 0, y: -12 }}
       className="w-full rounded-xl border border-slate-200 bg-white"
     >
-      {/* Toaster Component */}
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          ...toastConfig,
-          className: '',
-          style: toastConfig.style,
-          success: {
-            ...toastConfig.success,
-            icon: null,
-          },
-          error: {
-            ...toastConfig.error,
-            icon: null,
-          },
-          loading: {
-            ...toastConfig.loading,
-            icon: null,
-          },
-        }}
-      />
-
       {/* Header with Tabs and Storage Info */}
       <div className="border-b border-slate-200 px-3 md:px-4 pt-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-3">
@@ -1678,7 +1703,7 @@ const DocumentsTab = ({
             Documents
           </h2>
           <div className="flex items-center gap-2">
-            {/* Storage Usage Indicator â€” click for breakdown */}
+            {/* Storage Usage Indicator â click for breakdown */}
             <button
               type="button"
               onClick={() => setShowStorageModal(true)}
@@ -1753,7 +1778,7 @@ const DocumentsTab = ({
                 )}
               </div>
             ) : (
-              activeTab !== 'task' && (
+              activeTab !== 'task' && activeTab !== 'sharable' && (
                 <motion.button
                   onClick={() => setShowUploadModal(true)}
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-slate-800"
@@ -2105,6 +2130,17 @@ const DocumentsTab = ({
                           <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
                         </>
                       )}
+
+                      {activeTab === 'sharable' && (
+                        <>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[180px]">Firm</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[160px]">Name</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[160px]">Remark</th>
+                          <th className="text-left p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Uploaded</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">View</th>
+                          <th className="text-center p-3 font-bold text-slate-700 text-[10px] uppercase tracking-wider min-w-[72px]">Actions</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
 
@@ -2238,6 +2274,27 @@ const DocumentsTab = ({
                               </>
                             )}
 
+                            {activeTab === 'sharable' && (
+                              <>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={getDocumentFirmLabel(doc)}>{getDocumentFirmLabel(doc)}</div>
+                                </td>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</div>
+                                </td>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs text-slate-600 truncate max-w-[180px]" title={doc.remark || ''}>
+                                    {doc.remark || '-'}
+                                  </div>
+                                </td>
+                                <td className="p-3 align-middle">
+                                  <div className="text-xs text-slate-600">
+                                    {doc.create_date ? new Date(doc.create_date).toLocaleDateString() : '-'}
+                                  </div>
+                                </td>
+                              </>
+                            )}
+
                             {/* View Column */}
                             <td className="p-3 text-center align-middle">
                               <button
@@ -2253,7 +2310,7 @@ const DocumentsTab = ({
                             <td className="p-3 text-center align-middle">
                               <button
                                 type="button"
-                                onClick={(e) => handleActionMenuToggle(e, doc.id, doc.file_url ? 4 : 3)}
+                                onClick={(e) => handleActionMenuToggle(e, doc.id, getDocumentActionMenuItemCount(doc))}
                                 className="p-1.5 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors"
                                 aria-label="Actions"
                               >
@@ -2429,6 +2486,16 @@ const DocumentsTab = ({
                     Download
                   </button>
                 )}
+                {activeTab !== 'task' && (
+                  <button
+                    type="button"
+                    onClick={() => handleEditDocument(activeActionDoc)}
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <FiEdit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -2503,6 +2570,24 @@ const DocumentsTab = ({
         uploadLoading={uploadLoading}
         uploadProgress={uploadProgress}
       />
+      <DocumentEditModal
+        isOpen={showEditModal && Boolean(selectedDocumentForEdit)}
+        onClose={() => {
+          if (editLoading) return;
+          setShowEditModal(false);
+          setSelectedDocumentForEdit(null);
+        }}
+        tab={activeTab}
+        document={selectedDocumentForEdit}
+        firms={firms}
+        assessmentYears={assessmentYears}
+        financialYears={financialYears}
+        documentTypes={documentTypes}
+        categories={categories}
+        months={months}
+        onSubmit={handleEditSubmit}
+        loading={editLoading}
+      />
       <DocumentCreateCategoryModal
         isOpen={showCreateCategoryModal}
         onClose={() => setShowCreateCategoryModal(false)}
@@ -2563,7 +2648,7 @@ const DocumentsTab = ({
             : 'Delete Document'
         }
         summary={deleteModal?.summary || null}
-        description="Enter the OTP sent to the branch admin’s mobile to confirm deletion."
+        description="Enter the OTP sent to the branch admins mobile to confirm deletion."
         destinationMasked={deleteModal?.destinationMasked || null}
         otpSent={Boolean(deleteModal?.otpSent)}
         sending={Boolean(deleteModal?.sending)}

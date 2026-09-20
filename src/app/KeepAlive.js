@@ -233,6 +233,18 @@ export function clearKeepAliveCache() {
   emit();
 }
 
+/**
+ * True while this route's keep-alive slot is the active (visible) page.
+ * Use to soft-refresh parked list pages when the user navigates Back.
+ */
+export function useKeepAliveActive() {
+  const location = useLocation();
+  const key = getKeepAliveKey(location);
+  const allow = isKeepAlivePath(location.pathname);
+  useSyncExternalStore(subscribeKeepAlive, getKeepAliveVersion, getKeepAliveVersion);
+  return Boolean(allow && activeKey === key);
+}
+
 function captureScroll(root) {
   const elements = [];
   if (root) {

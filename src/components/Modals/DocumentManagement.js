@@ -1085,9 +1085,482 @@ export function DocumentUploadModal({
   );
 }
 
+export function DocumentEditModal({
+  isOpen,
+  onClose,
+  tab,
+  document: doc,
+  firms,
+  assessmentYears,
+  financialYears,
+  documentTypes,
+  categories,
+  months,
+  onSubmit,
+  loading,
+}) {
+  const [firmId, setFirmId] = useState('');
+  const [name, setName] = useState('');
+  const [remark, setRemark] = useState('');
+  const [year, setYear] = useState('');
+  const [month, setMonth] = useState('');
+  const [type, setType] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [newFile, setNewFile] = useState(null);
+  const [newFileUrl, setNewFileUrl] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
+
+  const isSharable = tab === 'sharable';
+
+  useEffect(() => {
+    if (!isOpen || !doc) return;
+    setName(doc.name || '');
+    setRemark(doc.remark || '');
+    setFirmId(doc.firm_id || '');
+    setYear(doc.f_year || '');
+    setMonth(doc.month_value || '');
+    setType(doc.type_value || doc.type || '');
+    setCategoryId(doc.category_id || '');
+    setNewFile(null);
+    setNewFileUrl('');
+    setUploadStatus('idle');
+    setUploadProgress(0);
+    setUploadError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [isOpen, doc, tab]);
+
+  const firmOptions = (firms || []).map((firm) => {
+    const firmName = firm.firm_name || firm.name || '-';
+    const pan =
+      String(firm.pan_no || '')
+        .trim()
+        .toUpperCase() || '—';
+    const firmType =
+      String(firm.firm_type || firm.type || '')
+        .replace(/_/g, ' ')
+        .trim()
+        .toUpperCase() || '—';
+    return {
+      value: firm.firm_id || firm.id,
+      label: `${firmName} | ${pan} | ${firmType}`,
+      searchText: `${firmName} ${pan} ${firmType}`,
+    };
+  });
+
+  const getYearOptions = () => {
+    if (tab === 'income-tax') return assessmentYears || [];
+    if (tab === 'gst' || tab === 'mca') return financialYears || [];
+    return [];
+  };
+
+  const getYearLabel = () => {
+    if (tab === 'income-tax') return 'Assessment Year';
+    if (tab === 'gst' || tab === 'mca') return 'Financial Year';
+    return 'Year';
+  };
+
+  const getCurrentTabTypes = () => {
+    if (tab === 'income-tax') return documentTypes?.it || [];
+    if (tab === 'gst') return documentTypes?.gst || [];
+    if (tab === 'mca') return documentTypes?.mca || [];
+    return [];
+  };
+
+  const typeOptions = getCurrentTabTypes().map((t) => ({
+    value: t.value,
+    label: formatUnderscoreLabel(t.name || t.value),
+  }));
+
+  const yearOptions = getYearOptions().map((y) => ({ value: y, label: y }));
+
+  const monthOptions = (months || []).map((m) => ({
+    value: m.split(' ')[0].toLowerCase(),
+    label: m,
+  }));
+
+  const categoryOptions = (categories || []).map((cat) => ({
+    value: cat.category_id || cat.id,
+    label: cat.name,
+  }));
+
+  const uploadReplacementFile = async (file) => {
+    setNewFile(file);
+    setNewFileUrl('');
+    setUploadStatus('uploading');
+    setUploadProgress(0);
+    setUploadError('');
+    try {
+      const { url } = await uploadOneSaasFile(file, (progress) => {
+        setUploadProgress(progress);
+      });
+      setNewFileUrl(url);
+      setUploadStatus('done');
+      setUploadProgress(100);
+    } catch (error) {
+      console.error('OneSaaS upload failed:', error);
+      const message =
+        error?.response?.data?.message || error?.message || 'Upload failed';
+      setUploadStatus('error');
+      setUploadError(message);
+      toast.error(message);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('File size exceeds 50MB limit');
+      e.target.value = '';
+      return;
+    }
+    uploadReplacementFile(file);
+  };
+
+  const clearNewFile = () => {
+    setNewFile(null);
+    setNewFileUrl('');
+    setUploadStatus('idle');
+    setUploadProgress(0);
+    setUploadError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSubmit = () => {
+    if (isSharable) {
+      if (!name.trim()) {
+        toast.error('Name is required');
+        return;
+      }
+      onSubmit({ name: name.trim(), remark: remark || '' });
+      return;
+    }
+
+    if (uploadStatus === 'uploading') {
+      toast.error('Please wait for file upload to finish');
+      return;
+    }
+    if (uploadStatus === 'error') {
+      toast.error('Fix file upload error or remove the file');
+      return;
+    }
+
+    if (!firmId) {
+      toast.error('Please select a firm');
+      return;
+    }
+
+    const payload = {
+      firm_id: firmId,
+      remark: remark || '',
+    };
+
+    if (tab === 'general') {
+      if (!name.trim()) {
+        toast.error('Name is required');
+        return;
+      }
+      if (!categoryId) {
+        toast.error('Please select a category');
+        return;
+      }
+      payload.name = name.trim();
+      payload.category_id = categoryId;
+    } else {
+      if (!type) {
+        toast.error('Please select document type');
+        return;
+      }
+      if (!year) {
+        toast.error('Please select year');
+        return;
+      }
+      payload.type = type;
+      payload.year = year;
+      payload.name = name.trim() || null;
+      if (tab === 'gst') {
+        if (!month) {
+          toast.error('Please select month');
+          return;
+        }
+        payload.month = month;
+      }
+    }
+
+    if (newFileUrl && uploadStatus === 'done') {
+      payload.url = newFileUrl;
+    }
+
+    onSubmit(payload);
+  };
+
+  const getTitle = () => {
+    if (isSharable) return 'Edit Incoming Document';
+    switch (tab) {
+      case 'income-tax':
+        return 'Edit Income Tax Document';
+      case 'gst':
+        return 'Edit GST Document';
+      case 'mca':
+        return 'Edit MCA Document';
+      case 'general':
+        return 'Edit General Document';
+      default:
+        return 'Edit Document';
+    }
+  };
+
+  const fileUploading = uploadStatus === 'uploading';
+
+  return (
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      shellKey="document-edit-modal"
+      title={getTitle()}
+      maxWidthClass={isSharable ? 'max-w-md' : 'max-w-lg'}
+      disableClose={loading || fileUploading}
+      closeOnBackdrop={!loading && !fileUploading}
+      footer={
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading || fileUploading}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading || fileUploading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <FiLoader className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save changes'
+            )}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {isSharable ? (
+          <>
+            <div>
+              <label className={LABEL_CLASS}>Name *</label>
+              <input
+                type="text"
+                className={INPUT_CLASS}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLASS}>Remark</label>
+              <textarea
+                rows="3"
+                className={INPUT_CLASS}
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className={LABEL_CLASS}>Firm *</label>
+              <CustomSelect
+                options={firmOptions}
+                value={optionByValue(firmOptions, firmId)}
+                onChange={(opt) => setFirmId(opt?.value || '')}
+                placeholder="Select firm"
+                searchPlaceholder="Search firm..."
+                isDisabled={loading}
+                isClearable={false}
+              />
+            </div>
+
+            {tab === 'general' ? (
+              <>
+                <div>
+                  <label className={LABEL_CLASS}>Category *</label>
+                  <CustomSelect
+                    options={categoryOptions}
+                    value={optionByValue(categoryOptions, categoryId)}
+                    onChange={(opt) => setCategoryId(opt?.value || '')}
+                    placeholder="Select category"
+                    searchPlaceholder="Search category..."
+                    isDisabled={loading}
+                    isClearable={false}
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLASS}>Name *</label>
+                  <input
+                    type="text"
+                    className={INPUT_CLASS}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className={LABEL_CLASS}>Type *</label>
+                  <CustomSelect
+                    options={typeOptions}
+                    value={optionByValue(typeOptions, type)}
+                    onChange={(opt) => setType(opt?.value || '')}
+                    placeholder="Select type"
+                    searchPlaceholder="Search type..."
+                    isDisabled={loading}
+                    isClearable={false}
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLASS}>{getYearLabel()} *</label>
+                  <CustomSelect
+                    options={yearOptions}
+                    value={optionByValue(yearOptions, year)}
+                    onChange={(opt) => setYear(opt?.value || '')}
+                    placeholder="Select year"
+                    searchPlaceholder="Search year..."
+                    isDisabled={loading}
+                    isClearable={false}
+                  />
+                </div>
+                {tab === 'gst' ? (
+                  <div>
+                    <label className={LABEL_CLASS}>Month *</label>
+                    <CustomSelect
+                      options={monthOptions}
+                      value={optionByValue(monthOptions, month)}
+                      onChange={(opt) => setMonth(opt?.value || '')}
+                      placeholder="Select month"
+                      searchPlaceholder="Search month..."
+                      isDisabled={loading}
+                      isClearable={false}
+                    />
+                  </div>
+                ) : null}
+                <div>
+                  <label className={LABEL_CLASS}>Name</label>
+                  <input
+                    type="text"
+                    className={INPUT_CLASS}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={loading}
+                    placeholder="Optional"
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className={LABEL_CLASS}>Remark</label>
+              <textarea
+                rows="3"
+                className={INPUT_CLASS}
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className={LABEL_CLASS}>File</label>
+              {doc?.file_url ? (
+                <div className="mb-2 flex items-center gap-2 text-sm">
+                  <FiFileText className="w-4 h-4 text-slate-500 shrink-0" />
+                  <a
+                    href={doc.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline truncate"
+                  >
+                    Current file
+                  </a>
+                  <FiExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </div>
+              ) : (
+                <p className="mb-2 text-xs text-slate-500">No file on record</p>
+              )}
+              {!newFile ? (
+                <div
+                  onClick={() => !loading && fileInputRef.current?.click()}
+                  className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-2.5 hover:border-indigo-400 hover:bg-indigo-50/50 cursor-pointer transition-colors"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    disabled={loading}
+                  />
+                  <FiPaperclip className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span className="text-[11px] font-medium text-slate-600">
+                    Replace file (optional)
+                  </span>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 flex items-center gap-2">
+                  <FiFile className="w-4 h-4 text-slate-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-slate-800 truncate">
+                      {newFile.name}
+                    </p>
+                    {uploadStatus === 'uploading' ? (
+                      <p className="text-[10px] text-indigo-600">
+                        Uploading… {uploadProgress || 0}%
+                      </p>
+                    ) : null}
+                    {uploadStatus === 'done' ? (
+                      <p className="text-[10px] text-emerald-600">Ready to save</p>
+                    ) : null}
+                    {uploadStatus === 'error' ? (
+                      <p className="text-[10px] text-red-600 truncate">
+                        {uploadError || 'Upload failed'}
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearNewFile}
+                    disabled={loading || fileUploading}
+                    className="p-1 text-slate-400 hover:text-red-500 rounded disabled:opacity-50"
+                    aria-label="Remove new file"
+                  >
+                    <FiX className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </ModalShell>
+  );
+}
+
 export default {
   DocumentViewModal,
   DocumentCreateCategoryModal,
   DocumentEditCategoryModal,
   DocumentUploadModal,
+  DocumentEditModal,
 };

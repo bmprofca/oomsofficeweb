@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiBell, FiCheckCircle, FiClipboard, FiLoader } from "react-icons/fi";
+import {
+  FiBell,
+  FiCheck,
+  FiCheckCircle,
+  FiClipboard,
+  FiLoader,
+  FiShare2,
+} from "react-icons/fi";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 
@@ -24,8 +31,12 @@ function formatRelativeTime(value) {
   });
 }
 
+function isIncomingNotification(item) {
+  return item?.type === "incoming_document" || String(item?.id || "").startsWith("incoming-doc-");
+}
+
 /**
- * Header bell: CA approval complete while task status is still open (not complete/cancel).
+ * Header bell: CA approval alerts + Incoming document uploads.
  */
 export default function HeaderNotifications({
   iconButtonClass = "",
@@ -36,6 +47,8 @@ export default function HeaderNotifications({
   const panelRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [markingId, setMarkingId] = useState(null);
+  const [markingAll, setMarkingAll] = useState(false);
   const [count, setCount] = useState(0);
   const [items, setItems] = useState([]);
 
@@ -70,6 +83,27 @@ export default function HeaderNotifications({
     }
   }, []);
 
+  const markAsRead = useCallback(
+    async ({ notificationIds, markAll = false } = {}) => {
+      const headers = await getHeaders();
+      if (!headers) return false;
+      const body = markAll
+        ? { mark_all: true }
+        : { notification_ids: notificationIds || [] };
+      const res = await fetch(`${API_BASE_URL}/task/notifications/read`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      const result = await res.json().catch(() => null);
+      return Boolean(result?.success);
+    },
+    [],
+  );
+
   useEffect(() => {
     fetchNotifications({ silent: true });
     const interval = setInterval(
@@ -95,14 +129,73 @@ export default function HeaderNotifications({
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open, setOpenSafe]);
 
-  const handleItemClick = (item) => {
+  const removeLocalItems = useCallback((ids) => {
+    const idSet = new Set((ids || []).map(String));
+    setItems((prev) => prev.filter((item) => !idSet.has(String(item.id))));
+    setCount((prev) => Math.max(0, prev - idSet.size));
+  }, []);
+
+  const handleMarkOne = async (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const id = item?.id ? String(item.id) : "";
+    if (!id || markingId) return;
+    setMarkingId(id);
+    try {
+      const ok = await markAsRead({ notificationIds: [id] });
+      if (ok) removeLocalItems([id]);
+    } catch (error) {
+      console.error("Failed to mark notification as read", error);
+    } finally {
+      setMarkingId(null);
+    }
+  };
+
+  const handleMarkAll = async () => {
+    if (markingAll || items.length === 0) return;
+    setMarkingAll(true);
+    try {
+      const ok = await markAsRead({ markAll: true });
+      if (ok) {
+        setItems([]);
+        setCount(0);
+      }
+    } catch (error) {
+      console.error("Failed to mark all notifications as read", error);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
+  const handleItemClick = async (item) => {
+    const id = item?.id ? String(item.id) : "";
+    if (id) {
+      try {
+        await markAsRead({ notificationIds: [id] });
+        removeLocalItems([id]);
+      } catch (_) {
+        /* navigation should still proceed */
+      }
+    }
+
     setOpenSafe(false);
+
+    if (item?.path) {
+      navigate(item.path);
+      return;
+    }
+
+    if (isIncomingNotification(item) && item?.username) {
+      navigate(
+        `/client/profile/${encodeURIComponent(String(item.username).trim())}/documents?docTab=sharable`,
+      );
+      return;
+    }
+
     const taskId = item?.task_id ? String(item.task_id).trim() : "";
     if (taskId) {
       navigate(`/task/profile/${encodeURIComponent(taskId)}/details`);
-      return;
     }
-    if (item?.path) navigate(item.path);
   };
 
   const badgeLabel = count > 99 ? "99+" : String(count);
@@ -132,18 +225,29 @@ export default function HeaderNotifications({
           ref={panelRef}
           className="absolute right-0 top-[calc(100%+10px)] z-50 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)]"
         >
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <div>
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-900">Notifications</p>
               <p className="text-xs text-slate-500">
                 {count > 0
-                  ? `${count} task${count === 1 ? "" : "s"} need attention`
+                  ? `${count} unread update${count === 1 ? "" : "s"}`
                   : "Important updates and alerts"}
               </p>
             </div>
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
-              Live
-            </span>
+            {items.length > 0 ? (
+              <button
+                type="button"
+                onClick={handleMarkAll}
+                disabled={markingAll}
+                className="shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-50"
+              >
+                {markingAll ? "Marking…" : "Mark all read"}
+              </button>
+            ) : (
+              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+                Live
+              </span>
+            )}
           </div>
 
           <div className="max-h-[min(24rem,60vh)] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -161,44 +265,92 @@ export default function HeaderNotifications({
                   You&apos;re all caught up
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  No CA-approved open tasks right now.
+                  No unread notifications right now.
                 </p>
               </div>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {items.map((item) => (
-                  <li key={item.id || item.task_id}>
-                    <button
-                      type="button"
-                      onClick={() => handleItemClick(item)}
-                      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-indigo-50/60"
-                    >
-                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                        <FiCheckCircle className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-semibold text-slate-800">
-                            {item.title || "CA approval complete"}
+                {items.map((item) => {
+                  const incoming = isIncomingNotification(item);
+                  return (
+                    <li key={item.id || item.task_id || item.document_id}>
+                      <div className="flex items-start gap-1 px-2 py-2">
+                        <button
+                          type="button"
+                          onClick={() => handleItemClick(item)}
+                          className="flex min-w-0 flex-1 items-start gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-indigo-50/60"
+                        >
+                          <span
+                            className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                              incoming
+                                ? "bg-sky-50 text-sky-600"
+                                : "bg-emerald-50 text-emerald-600"
+                            }`}
+                          >
+                            {incoming ? (
+                              <FiShare2 className="h-4 w-4" />
+                            ) : (
+                              <FiCheckCircle className="h-4 w-4" />
+                            )}
                           </span>
-                          <span className="shrink-0 text-[10px] text-slate-400">
-                            {formatRelativeTime(item.at)}
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-start justify-between gap-2">
+                              <span className="text-xs font-semibold text-slate-800">
+                                {item.title ||
+                                  (incoming
+                                    ? "Incoming document uploaded"
+                                    : "CA approval complete")}
+                              </span>
+                              <span className="shrink-0 text-[10px] text-slate-400">
+                                {formatRelativeTime(item.at)}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-600">
+                              {item.message}
+                            </span>
+                            <span className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                              {incoming ? (
+                                <>
+                                  <FiShare2 className="h-3 w-3" />
+                                  Incoming
+                                  {item.client_name ? (
+                                    <span className="text-sky-600">
+                                      · {item.client_name}
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <>
+                                  <FiClipboard className="h-3 w-3" />
+                                  {item.task_id}
+                                  {item.status ? (
+                                    <span className="text-amber-600">
+                                      · {item.status}
+                                    </span>
+                                  ) : null}
+                                </>
+                              )}
+                            </span>
                           </span>
-                        </span>
-                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-600">
-                          {item.message}
-                        </span>
-                        <span className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                          <FiClipboard className="h-3 w-3" />
-                          {item.task_id}
-                          {item.status ? (
-                            <span className="text-amber-600">· {item.status}</span>
-                          ) : null}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                        </button>
+                        <button
+                          type="button"
+                          title="Mark as read"
+                          aria-label="Mark as read"
+                          onClick={(event) => handleMarkOne(event, item)}
+                          disabled={markingId === item.id}
+                          className="mt-2 shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-emerald-600 disabled:opacity-50"
+                        >
+                          {markingId === item.id ? (
+                            <FiLoader className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <FiCheck className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
