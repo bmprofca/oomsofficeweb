@@ -20,11 +20,8 @@ export default function TeamStep({
     form,
     setForm,
     caList = [],
-    agentList = [],
     selectedCa,
     setSelectedCa,
-    selectedAgent,
-    setSelectedAgent,
     allEmployees,
     selectedEmployees,
     employeeSearchQuery,
@@ -38,16 +35,10 @@ export default function TeamStep({
     lockedFields = {},
 }) {
     const caLocked = Boolean(lockedFields.ca);
-    const agentLocked = Boolean(lockedFields.agent);
 
     const caOptions = useMemo(
         () => caList.map((member) => toMemberOption(member)).filter(Boolean),
         [caList]
-    );
-
-    const agentOptions = useMemo(
-        () => agentList.map((member) => toMemberOption(member)).filter(Boolean),
-        [agentList]
     );
 
     const caValue = useMemo(() => {
@@ -57,14 +48,6 @@ export default function TeamStep({
             toMemberOption(selectedCa)
         );
     }, [caOptions, selectedCa]);
-
-    const agentValue = useMemo(() => {
-        if (!selectedAgent) return null;
-        return (
-            agentOptions.find((option) => option.value === selectedAgent.username) ||
-            toMemberOption(selectedAgent)
-        );
-    }, [agentOptions, selectedAgent]);
 
     return (
         <div className="space-y-6">
@@ -95,33 +78,6 @@ export default function TeamStep({
                     noOptionsMessage="No CA found"
                     isDisabled={caLocked}
                     isClearable={!caLocked}
-                />
-                <CustomSelect
-                    label="Agent"
-                    options={agentOptions}
-                    value={agentValue}
-                    onChange={(option) => {
-                        if (agentLocked) return;
-                        if (!option) {
-                            setSelectedAgent(null);
-                            setForm((prev) => ({ ...prev, agent: '' }));
-                            return;
-                        }
-                        setSelectedAgent({
-                            username: option.username,
-                            name: option.name,
-                            mobile: option.mobile,
-                            balance: option.balance,
-                        });
-                        setForm((prev) => ({ ...prev, agent: option.username }));
-                    }}
-                    getOptionLabel={(option) => option.label}
-                    getOptionValue={(option) => option.value}
-                    placeholder="Search agent by name or mobile..."
-                    searchPlaceholder="Search agent..."
-                    noOptionsMessage="No agent found"
-                    isDisabled={agentLocked}
-                    isClearable={!agentLocked}
                 />
             </div>
 

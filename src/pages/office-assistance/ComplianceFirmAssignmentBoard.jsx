@@ -53,10 +53,9 @@ function toStaffUsers(staffs) {
     .filter(Boolean);
 }
 
-function StaffAvatarsCell({ staffs = [], ca = null, agent = null, title = '', onOpen }) {
+function StaffAvatarsCell({ staffs = [], ca = null, title = '', onOpen }) {
   const users = toStaffUsers(staffs);
   const caName = ca?.name || ca?.username || null;
-  const agentName = agent?.name || agent?.username || null;
 
   const open = () => onOpen?.(users, title);
 
@@ -130,7 +129,7 @@ function StaffAvatarsCell({ staffs = [], ca = null, agent = null, title = '', on
     return null;
   };
 
-  if (users.length === 0 && !caName && !agentName) {
+  if (users.length === 0 && !caName) {
     return <span className="text-gray-400 text-sm">—</span>;
   }
 
@@ -143,14 +142,6 @@ function StaffAvatarsCell({ staffs = [], ca = null, agent = null, title = '', on
           title={`CA: ${caName}`}
         >
           CA: {caName}
-        </span>
-      ) : null}
-      {agentName ? (
-        <span
-          className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded truncate max-w-full"
-          title={`Agent: ${agentName}`}
-        >
-          Agent: {agentName}
         </span>
       ) : null}
     </div>
@@ -445,7 +436,6 @@ export const ComplianceFirmAssignmentBoard = ({
           visibility_offset: form.visibility_offset,
           staffs: form.staffs,
           ca: form.ca,
-          agent: form.agent,
         });
         const summary = res?.data?.summary;
         const parts = [];
@@ -469,7 +459,6 @@ export const ComplianceFirmAssignmentBoard = ({
           visibility_offset: form.visibility_offset,
           staffs: form.staffs,
           ca: form.ca,
-          agent: form.agent,
         });
         toast.success(res?.message || 'Compliance firm added');
       } else {
@@ -485,7 +474,6 @@ export const ComplianceFirmAssignmentBoard = ({
           visibility_offset: form.visibility_offset,
           staffs: form.staffs,
           ca: form.ca,
-          agent: form.agent,
         });
         toast.success(res?.message || 'Compliance firm updated');
       }
@@ -693,11 +681,6 @@ export const ComplianceFirmAssignmentBoard = ({
                       <StaffAvatarsCell
                         staffs={row.staffs}
                         ca={row.ca && typeof row.ca === 'object' && !Array.isArray(row.ca) ? row.ca : null}
-                        agent={
-                          row.agent && typeof row.agent === 'object' && !Array.isArray(row.agent)
-                            ? row.agent
-                            : null
-                        }
                         title={row.service_name || row.service_id || 'Compliance'}
                         onOpen={(users, title) =>
                           setStaffModal({ open: true, users, title })

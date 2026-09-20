@@ -66,24 +66,19 @@ const safeStaffName = (staff) => {
 };
 
 /**
- * Shared Staff column cell: staff avatar badges, assigned CA (+ approval), agent.
+ * Shared Staff column cell: staff avatar badges, assigned CA (+ approval).
  * Used by task list, profile task tabs, and OD/D7 detailed.
  */
 export default function StaffColumnCell({
     task,
     onOpenUsers,
     showCa = true,
-    showAgent = true,
     emptyFallback = <span className="text-gray-400 text-sm">-</span>,
 }) {
     const staffs = Array.isArray(task?.staffs) ? task.staffs : [];
     const caName =
         showCa && task?.has_ca && task?.ca
             ? String(task.ca.name || task.ca.username || '').trim() || null
-            : null;
-    const agentName =
-        showAgent && task?.has_agent && task?.agent
-            ? String(task.agent.name || task.agent.username || '').trim() || null
             : null;
     const serviceName = task?.service?.name || '';
 
@@ -166,7 +161,7 @@ export default function StaffColumnCell({
         return null;
     };
 
-    if (staffs.length === 0 && !caName && !agentName) {
+    if (staffs.length === 0 && !caName) {
         return emptyFallback;
     }
 
@@ -185,14 +180,6 @@ export default function StaffColumnCell({
                         <CaApprovalBadge status={task.ca_approval} />
                     ) : null}
                 </div>
-            ) : null}
-            {agentName ? (
-                <span
-                    className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded truncate max-w-full"
-                    title={`Agent: ${agentName}`}
-                >
-                    Agent: {agentName}
-                </span>
             ) : null}
         </div>
     );

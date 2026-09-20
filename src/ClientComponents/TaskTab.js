@@ -8,7 +8,7 @@ import axios from 'axios';
 import { checkPermissionSync, useUserPermissions } from '../utils/permission-helper';
 import {
     FiPlus, FiCheckCircle, FiClock, FiTarget,
-    FiEdit, FiEye, FiTrash2, FiArrowLeft, FiArrowRight, FiXCircle, FiUser, FiX,
+    FiEye, FiTrash2, FiArrowLeft, FiArrowRight, FiXCircle, FiUser, FiX,
     FiCalendar, FiLoader, FiLock, FiUserCheck,
 } from 'react-icons/fi';
 import TaskTable from '../TaskComponent/TaskTable';
@@ -100,7 +100,7 @@ const TASK_TAB_COLUMN_CONFIG = [
     },
 ];
 
-/** CA / agent profile tab — includes client column */
+/** CA profile tab — includes client column */
 const TASK_TAB_COLUMN_CONFIG_CA = [
     {
         id: '1',
@@ -208,7 +208,6 @@ const SEARCH_DEBOUNCE_MS = 400;
 const TaskTab = ({
     clientUsername: clientUsernameProp,
     caUsername: caUsernameProp,
-    agentUsername: agentUsernameProp,
 } = {}) => {
     const navigate = useNavigate();
     const { check } = useUserPermissions();
@@ -222,13 +221,8 @@ const TaskTab = ({
         caUsernameProp != null && String(caUsernameProp).trim() !== ''
             ? String(caUsernameProp).trim()
             : '';
-    const agentUsernameTrimmed =
-        agentUsernameProp != null && String(agentUsernameProp).trim() !== ''
-            ? String(agentUsernameProp).trim()
-            : '';
     const isCaMode = Boolean(caUsernameTrimmed);
-    const isAgentMode = Boolean(agentUsernameTrimmed);
-    const isProfileScopedMode = isCaMode || isAgentMode;
+    const isProfileScopedMode = isCaMode;
     const columnConfig = isProfileScopedMode ? TASK_TAB_COLUMN_CONFIG_CA : TASK_TAB_COLUMN_CONFIG;
 
     const [tasks, setTasks] = useState([]);
@@ -281,11 +275,6 @@ const TaskTab = ({
 
         if (isCaMode) {
             openTaskCreate({ ...baseOptions, ca: caUsernameTrimmed });
-            return;
-        }
-
-        if (isAgentMode) {
-            openTaskCreate({ ...baseOptions, agent: agentUsernameTrimmed });
             return;
         }
 
@@ -390,46 +379,6 @@ const TaskTab = ({
             return;
         }
 
-        if (isAgentMode) {
-            if (!agentUsernameTrimmed) {
-                setTaskStatistics({ total: 0, complete: 0, cancel: 0, inProcess: 0 });
-                return;
-            }
-
-            const fetchCount = async (statuses = []) => {
-                const queryParams = new URLSearchParams({
-                    agent: agentUsernameTrimmed,
-                    page_no: '1',
-                    limit: '1',
-                });
-                statuses.forEach((status) => queryParams.append('status', status));
-                const response = await fetch(
-                    `${API_BASE_URL}/task/list?${queryParams.toString()}`,
-                    { method: 'GET', headers }
-                );
-                if (!response.ok) return 0;
-                const responseData = await response.json();
-                return (
-                    responseData.pagination?.total ??
-                    responseData.meta?.total ??
-                    (Array.isArray(responseData.data) ? responseData.data.length : 0)
-                );
-            };
-
-            try {
-                const [total, complete, cancel, inProcess] = await Promise.all([
-                    fetchCount(),
-                    fetchCount(['complete']),
-                    fetchCount(['cancel']),
-                    fetchCount(['in process', 'pending from client', 'pending from department']),
-                ]);
-                setTaskStatistics({ total, complete, cancel, inProcess });
-            } catch (error) {
-                console.error('Error fetching agent task statistics:', error);
-            }
-            return;
-        }
-
         if (!clientUsernameTrimmed) {
             setTaskStatistics({ total: 0, complete: 0, cancel: 0, inProcess: 0 });
             return;
@@ -459,14 +408,14 @@ const TaskTab = ({
         } catch (error) {
             console.error('Error fetching task statistics:', error);
         }
-    }, [clientUsernameTrimmed, caUsernameTrimmed, agentUsernameTrimmed, isCaMode, isAgentMode]);
+    }, [clientUsernameTrimmed, caUsernameTrimmed, isCaMode]);
 
     useEffect(() => {
         fetchTaskStatistics();
     }, [fetchTaskStatistics]);
 
     const fetchTasks = useCallback(async () => {
-        if (!clientUsernameTrimmed && !caUsernameTrimmed && !agentUsernameTrimmed) {
+        if (!clientUsernameTrimmed && !caUsernameTrimmed) {
             setTasks([]);
             setPagination((prev) => ({ ...prev, total: 0 }));
             setLoading(false);
@@ -495,8 +444,6 @@ const TaskTab = ({
             queryParams.append('search', debouncedSearch || '');
             if (isCaMode) {
                 queryParams.append('ca', caUsernameTrimmed);
-            } else if (isAgentMode) {
-                queryParams.append('agent', agentUsernameTrimmed);
             } else {
                 queryParams.append('username', clientUsernameTrimmed);
             }
@@ -540,9 +487,7 @@ const TaskTab = ({
     }, [
         clientUsernameTrimmed,
         caUsernameTrimmed,
-        agentUsernameTrimmed,
         isCaMode,
-        isAgentMode,
         pagination.page_no,
         pagination.limit,
         debouncedSearch,
@@ -754,11 +699,6 @@ const TaskTab = ({
     }, []);
 
     const openClientDetailsModal = useCallback(() => {
-        setActiveRowDropdown(null);
-    }, []);
-
-    const handleEditTask = useCallback((task) => {
-        console.log('[TaskTab] Edit', task?.task_id);
         setActiveRowDropdown(null);
     }, []);
 
@@ -1091,14 +1031,12 @@ const TaskTab = ({
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
                 <div className="space-y-2">
                     <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
-                        {isCaMode ? 'CA Task Management' : isAgentMode ? 'Agent Task Management' : 'Task Management'}
+                        {isCaMode ? 'CA Task Management' : 'Task Management'}
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-600">
                         {isCaMode
                             ? 'Tasks assigned to this chartered accountant'
-                            : isAgentMode
-                                ? 'Tasks assigned to this agent'
-                                : 'Track, assign, and manage client tasks efficiently'}
+                            : 'Track, assign, and manage client tasks efficiently'}
                     </p>
                 </div>
                 {checkPermissionSync('task_create') && (
@@ -1253,7 +1191,6 @@ const TaskTab = ({
                     openStatusModal={openStatusModal}
                     openUsersModal={openUsersModal}
                     openClientDetailsModal={openClientDetailsModal}
-                    handleEditTask={handleEditTask}
                     navigate={navigate}
                     formatDate={formatDate}
                     getDaysLeft={getDaysLeft}
@@ -1389,28 +1326,6 @@ const TaskTab = ({
                                 >
                                     <FiLock className="mr-2 text-gray-400 w-4 h-4" />
                                     View Details
-                                </button>
-                            )}
-
-                            {check('task_update') ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setActiveRowDropdown(null);
-                                        handleEditTask(rowActionTask);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
-                                >
-                                    <FiEdit className="mr-2 text-green-600 w-4 h-4" />
-                                    Edit Task
-                                </button>
-                            ) : (
-                                <button
-                                    disabled
-                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
-                                >
-                                    <FiLock className="mr-2 text-green-600 w-4 h-4" />
-                                    Edit Task
                                 </button>
                             )}
 

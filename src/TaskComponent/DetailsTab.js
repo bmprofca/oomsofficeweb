@@ -348,8 +348,6 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
             ...(updates.dates ? { dates: { ...prev.dates, ...updates.dates } } : {}),
             ...(updates.has_ca !== undefined ? { has_ca: updates.has_ca } : {}),
             ...(updates.ca !== undefined ? { ca: updates.ca } : {}),
-            ...(updates.has_agent !== undefined ? { has_agent: updates.has_agent } : {}),
-            ...(updates.agent !== undefined ? { agent: updates.agent } : {}),
         }));
         if (onTaskUpdated) onTaskUpdated();
     };
@@ -655,15 +653,6 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                                     {taskData.has_ca && taskData.ca ? (
                                         <span className="inline-flex items-center rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">
                                             {taskData.ca.name || taskData.ca.username}
-                                        </span>
-                                    ) : (
-                                        <span className="text-gray-400">Not assigned</span>
-                                    )}
-                                </MetaField>
-                                <MetaField label="Agent">
-                                    {taskData.has_agent && taskData.agent ? (
-                                        <span className="inline-flex items-center rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
-                                            {taskData.agent.name || taskData.agent.username}
                                         </span>
                                     ) : (
                                         <span className="text-gray-400">Not assigned</span>

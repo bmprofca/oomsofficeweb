@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Sidebar, Header } from '../components/header';
-import { useNavigate, useNavigationType } from 'react-router-dom';
+import { useNavigate, useNavigationType, useSearchParams } from 'react-router-dom';
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,7 +10,7 @@ import {
     FiUserPlus, FiFileText, FiPlus, FiSearch, FiRefreshCw,
     FiPaperclip, FiX, FiMic, FiStopCircle, FiDownload, FiTrash2,
     FiArrowRight, FiArrowLeft, FiUser, FiLoader, FiCheckCircle,
-    FiXCircle, FiClock, FiMenu, FiEdit, FiEye, FiSettings, FiLock,
+    FiXCircle, FiClock, FiMenu, FiEye, FiSettings, FiLock,
     FiGrid, FiMail, FiPrinter, FiPhone, FiFilter, FiMessageSquare,
     FiMove, FiSave, FiList, FiChevronDown, FiChevronUp, FiMapPin,
     FiCreditCard, FiHome, FiMap, FiGlobe
@@ -41,7 +41,6 @@ import ExportModal from '../TaskComponent/Export';
 
 // Import other modals
 import DeleteConfirmationModal from '../components/delete-confirmation';
-import EditTaskModal from '../TaskComponent/EdittaskModal';
 
 // Import API utilities
 import getHeaders from '../utils/get-headers';
@@ -104,7 +103,7 @@ const buildTaskListFingerprint = (filters = {}, pagination = {}) =>
 
 const loadSavedTaskListState = () => loadListViewCache(TASK_LIST_STATE_KEY);
 
-const STAFF_TABLE_META_FIELD_IDS = new Set(['staff_ca', 'staff_agent']);
+const STAFF_TABLE_META_FIELD_IDS = new Set(['staff_ca']);
 
 const availableFields = [
     { id: 'task_id', label: 'Task ID', type: 'text' },
@@ -161,8 +160,7 @@ const defaultColumnConfig = [
         name: 'Staffs',
         items: [
             { id: 'staffs', label: 'Staffs' },
-            { id: 'staff_ca', label: 'Show CA' },
-            { id: 'staff_agent', label: 'Show Agent' }
+            { id: 'staff_ca', label: 'Show CA' }
         ],
         fixed: false
     },
@@ -198,9 +196,6 @@ const normalizeColumnConfig = (columns) => {
         if (items.some((item) => item.id === 'staffs')) {
             if (!items.some((item) => item.id === 'staff_ca')) {
                 items = [...items, { id: 'staff_ca', label: 'Show CA' }];
-            }
-            if (!items.some((item) => item.id === 'staff_agent')) {
-                items = [...items, { id: 'staff_agent', label: 'Show Agent' }];
             }
         }
 
@@ -584,9 +579,12 @@ const TaskDisplay = () => {
     const { check } = useUserPermissions();
     const navigate = useNavigate();
     const navigationType = useNavigationType();
+    const [searchParams] = useSearchParams();
     const { openTaskCreate } = useTaskCreate();
 
     const savedListStateRef = useRef(loadSavedTaskListState());
+    const urlCaApproval = String(searchParams.get('ca_approval') || '').trim().toLowerCase();
+    const hasUrlCaApproval = ['pending', 'sent', 'complete'].includes(urlCaApproval);
     const initialFilters = {
         search: '',
         username: '',
@@ -595,15 +593,17 @@ const TaskDisplay = () => {
         status: DEFAULT_SELECTED_STATUSES,
         service_ids: [],
         ca_approval: 'all',
-        ...(savedListStateRef.current?.filters || {}),
+        ...(hasUrlCaApproval ? {} : (savedListStateRef.current?.filters || {})),
+        ...(hasUrlCaApproval ? { ca_approval: urlCaApproval } : {}),
     };
     const initialPagination = {
-        page_no: Math.max(1, Number(savedListStateRef.current?.pagination?.page_no) || 1),
+        page_no: Math.max(1, Number(hasUrlCaApproval ? 1 : savedListStateRef.current?.pagination?.page_no) || 1),
         limit: Math.max(1, Number(savedListStateRef.current?.pagination?.limit) || 20),
-        total: Math.max(0, Number(savedListStateRef.current?.pagination?.total) || 0),
+        total: Math.max(0, Number(hasUrlCaApproval ? 0 : savedListStateRef.current?.pagination?.total) || 0),
     };
     const initialFingerprint = buildTaskListFingerprint(initialFilters, initialPagination);
     const canRestoreList =
+        !hasUrlCaApproval &&
         isBrowserBackNav(navigationType) &&
         Array.isArray(savedListStateRef.current?.tasks) &&
         savedListStateRef.current?.fingerprint === initialFingerprint;
@@ -633,7 +633,6 @@ const TaskDisplay = () => {
     );
     const [clientModal, setClientModal] = useState({ open: false, clientData: null, loading: false });
     const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
-    const [editModal, setEditModal] = useState({ open: false, taskData: null });
     const [tasks, setTasks] = useState(() =>
         canRestoreList ? savedListStateRef.current.tasks : []
     );
@@ -1301,14 +1300,6 @@ const TaskDisplay = () => {
         setClientModal({ open: false, clientData: null, loading: false });
     };
 
-    const handleEditTask = (task) => {
-        setEditModal({ open: true, taskData: task });
-    };
-
-    const handleTaskUpdated = () => {
-        fetchTasks();
-    };
-
     const handleSearch = () => {
         setPagination(prev => ({ ...prev, page_no: 1 }));
     };
@@ -1426,7 +1417,6 @@ const TaskDisplay = () => {
                                 const approval = formatCaApprovalLabel(task.ca_approval);
                                 staffNames.push(`CA: ${task.ca.name} (${approval})`);
                             }
-                            if (task.has_agent && task.agent?.name) staffNames.push(`Agent: ${task.agent.name}`);
                             value = staffNames.join(', ');
                             break;
                         }
@@ -1466,7 +1456,7 @@ const TaskDisplay = () => {
     // RENDER HELPER FUNCTIONS
     // ============================================
 
-    const renderCellContent = (task, fieldId, handleGetInOut, navigate, openStatusModal, openUsersModal, openClientDetailsModal, handleEditTask) => {
+    const renderCellContent = (task, fieldId, handleGetInOut, navigate, openStatusModal, openUsersModal, openClientDetailsModal) => {
         const daysLeft = getDaysLeft(task.dates?.due_date);
         const isOverdue = daysLeft < 0;
 
@@ -1636,13 +1626,11 @@ const TaskDisplay = () => {
             case 'staffs': {
                 const staffColId = getStaffColumnId();
                 const showCa = !hiddenFields[`${staffColId}_staff_ca`];
-                const showAgent = !hiddenFields[`${staffColId}_staff_agent`];
                 return (
                     <StaffColumnCell
                         task={task}
                         onOpenUsers={openUsersModal}
                         showCa={showCa}
-                        showAgent={showAgent}
                     />
                 );
             }
@@ -1942,7 +1930,6 @@ const TaskDisplay = () => {
                                     openStatusModal={openStatusModal}
                                     openUsersModal={openUsersModal}
                                     openClientDetailsModal={openClientDetailsModal}
-                                    handleEditTask={handleEditTask}
                                     formatDate={formatDate}
                                     getDaysLeft={getDaysLeft}
                                     getStatusStyle={getStatusStyle}
@@ -1968,7 +1955,6 @@ const TaskDisplay = () => {
                                     navigate={navigate}
                                     openStatusModal={openStatusModal}
                                     openClientDetailsModal={openClientDetailsModal}
-                                    handleEditTask={handleEditTask}
                                     formatDate={formatDate}
                                     getDaysLeft={getDaysLeft}
                                     getStatusColor={getStatusColor}
@@ -2151,28 +2137,6 @@ const TaskDisplay = () => {
                                 </button>
                             )}
 
-                            {check('task_update') ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setActiveRowDropdown(null);
-                                        handleEditTask(rowActionTask);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
-                                >
-                                    <FiEdit className="mr-2 text-green-600 w-4 h-4" />
-                                    Edit Task
-                                </button>
-                            ) : (
-                                <button
-                                    disabled
-                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
-                                >
-                                    <FiLock className="mr-2 text-green-600 w-4 h-4" />
-                                    Edit Task
-                                </button>
-                            )}
-
                             <div className="border-t my-1" />
 
                             {check('task_delete') ? (
@@ -2242,13 +2206,6 @@ const TaskDisplay = () => {
                 onClose={closeClientDetailsModal}
                 clientData={clientModal.clientData}
                 loading={clientModal.loading}
-            />
-
-            <EditTaskModal
-                isOpen={editModal.open}
-                onClose={() => setEditModal({ open: false, taskData: null })}
-                taskData={editModal.taskData}
-                onTaskUpdated={handleTaskUpdated}
             />
 
             {deleteModal && <DeleteConfirmationModal title="Task Delete" onConfirm={(res) => { setDeleteModal(false); console.log("Confirmed:", res); }} />}

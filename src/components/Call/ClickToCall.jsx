@@ -5,16 +5,16 @@ import React, {
   useEffect,
   useMemo,
   useState,
-} from 'react';
-import { FiPhoneCall } from 'react-icons/fi';
-import toast from 'react-hot-toast';
-import ConfirmActionModal from '../ConfirmActionModal';
-import { callApi } from '../../services/callApi';
+} from "react";
+import { FiPhoneCall } from "react-icons/fi";
+import toast from "react-hot-toast";
+import ConfirmActionModal from "../ConfirmActionModal";
+import { callApi } from "../../services/callApi";
 import {
   getStoredCallChannel,
   isAuthenticatedSession,
   CALL_CHANNEL_CHANGE_EVENT,
-} from '../../services/callChannelStore';
+} from "../../services/callChannelStore";
 
 const ClickToCallContext = createContext({
   canCall: false,
@@ -29,25 +29,29 @@ export function useClickToCall() {
 
 function missingSetupMessage(reasons = {}) {
   if (!reasons.channel_enabled) {
-    return 'Enable OOMS System Call channel in Broadcast → Call';
+    return "Enable OOMS System Call channel in Broadcast → Call";
   }
   if (!reasons.system_url_configured) {
-    return 'Admin has not configured the Call API URL yet';
+    return "Admin has not configured the Call API URL yet";
   }
   if (!reasons.branch_token_configured) {
-    return 'Save the branch Call API token in Call → Configuration';
+    return "Save the branch Call API token in Call → Configuration";
   }
   if (reasons.call_enabled === false) {
-    return 'Call access is disabled for your account. Ask an admin to enable it.';
+    return "Call access is disabled for your account. Ask an admin to enable it.";
   }
   if (!reasons.extension_configured) {
-    return 'Set your PBX extension in Call → Configuration';
+    return "Set your PBX extension in Call → Configuration";
   }
-  return 'Calling is not available for your account';
+  return "Calling is not available for your account";
 }
 
 function isOomsCallChannel(value) {
-  return String(value || '').trim().toLowerCase() === 'ooms system';
+  return (
+    String(value || "")
+      .trim()
+      .toLowerCase() === "ooms system"
+  );
 }
 
 /** Compact call action next to a mobile number. */
@@ -55,13 +59,13 @@ export function ClickToCallButton({
   phoneNumber,
   countryCode,
   displayName,
-  className = '',
+  className = "",
   stopPropagation = true,
 }) {
   const { canCall, openCall } = useClickToCall();
-  const mobile = String(phoneNumber || '').trim();
+  const mobile = String(phoneNumber || "").trim();
   // Only show when this logged-in user can place calls (enabled + extension)
-  if (!canCall || !mobile || mobile.toUpperCase() === 'N/A') return null;
+  if (!canCall || !mobile || mobile.toUpperCase() === "N/A") return null;
 
   return (
     <button
@@ -85,7 +89,7 @@ export function ClickToCallButton({
 export function ClickToCallProvider({ children }) {
   const [canCall, setCanCall] = useState(false);
   const [channelEnabled, setChannelEnabled] = useState(() =>
-    isOomsCallChannel(getStoredCallChannel())
+    isOomsCallChannel(getStoredCallChannel()),
   );
   const [reasons, setReasons] = useState({});
   const [confirmState, setConfirmState] = useState(null);
@@ -104,7 +108,9 @@ export function ClickToCallProvider({ children }) {
       const data = res?.data || {};
       setCanCall(Boolean(data.can_call));
       setChannelEnabled(
-        Boolean(data.reasons?.channel_enabled) || isOomsCallChannel(data.channel) || storedEnabled
+        Boolean(data.reasons?.channel_enabled) ||
+          isOomsCallChannel(data.channel) ||
+          storedEnabled,
       );
       setReasons(data.reasons || {});
     } catch {
@@ -118,19 +124,19 @@ export function ClickToCallProvider({ children }) {
     refresh();
     const onFocus = () => refresh();
     const onChannel = () => refresh();
-    window.addEventListener('focus', onFocus);
+    window.addEventListener("focus", onFocus);
     window.addEventListener(CALL_CHANNEL_CHANGE_EVENT, onChannel);
     return () => {
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener("focus", onFocus);
       window.removeEventListener(CALL_CHANNEL_CHANGE_EVENT, onChannel);
     };
   }, [refresh]);
 
   const openCall = useCallback(
     ({ phoneNumber, countryCode, displayName }) => {
-      const phone = String(phoneNumber || '').trim();
-      if (!phone || phone.toUpperCase() === 'N/A') {
-        toast.error('Mobile number is missing');
+      const phone = String(phoneNumber || "").trim();
+      if (!phone || phone.toUpperCase() === "N/A") {
+        toast.error("Mobile number is missing");
         return;
       }
       if (!canCall) {
@@ -139,11 +145,11 @@ export function ClickToCallProvider({ children }) {
       }
       setConfirmState({
         phoneNumber: phone,
-        countryCode: countryCode || '',
-        displayName: displayName || '',
+        countryCode: countryCode || "",
+        displayName: displayName || "",
       });
     },
-    [canCall, reasons]
+    [canCall, reasons],
   );
 
   const closeConfirm = useCallback(() => {
@@ -159,11 +165,13 @@ export function ClickToCallProvider({ children }) {
         phoneNumber: confirmState.phoneNumber,
         country_code: confirmState.countryCode,
       });
-      toast.success(res?.message || 'Call initiated');
+      toast.success(res?.message || "Call initiated");
       setConfirmState(null);
     } catch (err) {
       toast.error(
-        err?.response?.data?.message || err?.message || 'Failed to initiate call'
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to initiate call",
       );
     } finally {
       setLoading(false);
@@ -172,12 +180,12 @@ export function ClickToCallProvider({ children }) {
 
   const value = useMemo(
     () => ({ canCall, channelEnabled, refresh, openCall }),
-    [canCall, channelEnabled, refresh, openCall]
+    [canCall, channelEnabled, refresh, openCall],
   );
 
   const displayPhone = confirmState
-    ? `${confirmState.countryCode ? `+${String(confirmState.countryCode).replace(/^\+/, '')} ` : ''}${confirmState.phoneNumber}`
-    : '';
+    ? `${confirmState.countryCode ? `+${String(confirmState.countryCode).replace(/^\+/, "")} ` : ""}${confirmState.phoneNumber}`
+    : "";
 
   return (
     <ClickToCallContext.Provider value={value}>
@@ -193,8 +201,8 @@ export function ClickToCallProvider({ children }) {
         heading="Place this call now?"
         message={
           confirmState
-            ? `${confirmState.displayName ? `${confirmState.displayName} · ` : ''}${displayPhone}`
-            : ''
+            ? `${confirmState.displayName ? `${confirmState.displayName} · ` : ""}${displayPhone}`
+            : ""
         }
         confirmLabel="Call"
         cancelLabel="Cancel"

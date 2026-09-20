@@ -27,6 +27,7 @@ import {
 import { toast } from "react-hot-toast";
 import { Header, Sidebar } from "../../components/header";
 import TablePagination from "../../components/TablePagination";
+import { ClickToCallButton } from "../../components/Call/ClickToCall";
 import { useUserPermissions } from "../../utils/permission-helper";
 import { taskGetIn, taskGetOut } from "../../services/taskService";
 import {
@@ -425,6 +426,7 @@ const rowClientContact = (row) => {
     name:
       profile.name || client.name || profile.username || client.username || "",
     mobile: profile.mobile || client.mobile || "",
+    country_code: profile.country_code || client.country_code || "",
     email: profile.email || client.email || "",
   };
 };
@@ -453,7 +455,6 @@ const buildFirmEditInitialFromRow = (row, details = null) => {
       source.effective_from ?? row.effective_from ?? firm.effective_from ?? "",
     staffs: source.staffs ?? row.staffs,
     ca: source.ca ?? row.ca,
-    agent: source.agent ?? row.agent,
   };
 };
 
@@ -572,29 +573,17 @@ const StaffAvatarsCell = ({ row, onOpenStaffModal }) => {
 
 const StaffRolesCell = ({ row }) => {
   const caName = row.has_ca && row.ca ? row.ca.name || row.ca.username : null;
-  const agentName =
-    row.has_agent && row.agent ? row.agent.name || row.agent.username : null;
 
-  if (!caName && !agentName) return <CellDash />;
+  if (!caName) return <CellDash />;
 
   return (
     <div className="flex flex-col items-start gap-1 w-full min-w-0">
-      {caName ? (
-        <span
-          className="text-[10px] font-semibold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded max-w-full break-words whitespace-normal"
-          title={`CA: ${caName}`}
-        >
-          CA: {caName}
-        </span>
-      ) : null}
-      {agentName ? (
-        <span
-          className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded max-w-full break-words whitespace-normal"
-          title={`Agent: ${agentName}`}
-        >
-          Agent: {agentName}
-        </span>
-      ) : null}
+      <span
+        className="text-[10px] font-semibold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded max-w-full break-words whitespace-normal"
+        title={`CA: ${caName}`}
+      >
+        CA: {caName}
+      </span>
     </div>
   );
 };
@@ -1185,7 +1174,6 @@ export const ComplianceTaskBoard = ({
           visibility_offset: form.visibility_offset,
           staffs: form.staffs,
           ca: form.ca,
-          agent: form.agent,
         });
         toast.success(res?.message || "Compliance firm assigned");
       } else {
@@ -1206,7 +1194,6 @@ export const ComplianceTaskBoard = ({
           visibility_offset: form.visibility_offset,
           staffs: form.staffs,
           ca: form.ca,
-          agent: form.agent,
         });
         toast.success(res?.message || "Compliance firm updated");
       }
@@ -1663,6 +1650,12 @@ export const ComplianceTaskBoard = ({
                                   <span className={CELL_WRAP}>
                                     {client.mobile || "—"}
                                   </span>
+                                  <ClickToCallButton
+                                    phoneNumber={client.mobile}
+                                    countryCode={client.country_code}
+                                    displayName={client.name}
+                                    className="h-6 w-6"
+                                  />
                                 </div>,
                                 <div className="flex items-start gap-2 text-gray-700 font-medium text-sm min-w-0">
                                   <FiMail className="w-3 h-3 text-gray-400 flex-shrink-0 mt-0.5" />

@@ -12,7 +12,6 @@ import {
     FiStopCircle,
     FiTrash2,
     FiUserCheck,
-    FiUserPlus,
     FiX,
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
@@ -72,7 +71,6 @@ const initialFormState = () => ({
     assisment_years: [],
     staff: [],
     ca_id: '',
-    agent_id: '',
     text_notes: [],
 });
 
@@ -97,11 +95,6 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
     const [caSearchResults, setCaSearchResults] = useState([]);
     const [caSearchLoading, setCaSearchLoading] = useState(false);
     const [selectedCaDisplay, setSelectedCaDisplay] = useState(null);
-
-    const [agentSearchQuery, setAgentSearchQuery] = useState('');
-    const [agentSearchResults, setAgentSearchResults] = useState([]);
-    const [agentSearchLoading, setAgentSearchLoading] = useState(false);
-    const [selectedAgentDisplay, setSelectedAgentDisplay] = useState(null);
 
     const [attachedFiles, setAttachedFiles] = useState([]);
     const fileInputRef = useRef(null);
@@ -131,9 +124,6 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
         setCaSearchQuery('');
         setCaSearchResults([]);
         setSelectedCaDisplay(null);
-        setAgentSearchQuery('');
-        setAgentSearchResults([]);
-        setSelectedAgentDisplay(null);
         setAttachedFiles((prev) => {
             prev.forEach((a) => {
                 if (a?.previewUrl) URL.revokeObjectURL(a.previewUrl);
@@ -236,32 +226,6 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
             controller.abort();
         };
     }, [caSearchQuery]);
-
-    useEffect(() => {
-        const term = agentSearchQuery.trim();
-        if (term.length < 3) {
-            setAgentSearchResults([]);
-            return undefined;
-        }
-        const controller = new AbortController();
-        const timer = setTimeout(async () => {
-            setAgentSearchLoading(true);
-            try {
-                const url = `${API_BASE_URL.replace(/\/$/, '')}/agent/search?search=${encodeURIComponent(term)}`;
-                const res = await fetch(url, { headers: getHeaders(), signal: controller.signal });
-                const json = await res.json();
-                setAgentSearchResults(Array.isArray(json?.data) ? json.data : []);
-            } catch (err) {
-                if (err.name !== 'AbortError') setAgentSearchResults([]);
-            } finally {
-                setAgentSearchLoading(false);
-            }
-        }, 300);
-        return () => {
-            clearTimeout(timer);
-            controller.abort();
-        };
-    }, [agentSearchQuery]);
 
     const filteredAvailableEmployees = useMemo(() => {
         const q = employeeSearchQuery.trim().toLowerCase();
@@ -491,7 +455,6 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
         payload.assignment = {
             staff: form.staff || [],
             ca_id: form.ca_id || null,
-            agent_id: form.agent_id || null,
         };
 
         if (subTasks.length > 0) {
@@ -780,57 +743,6 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                                                                         setSelectedCaDisplay({ username: item.username, name: item.name });
                                                                         setCaSearchQuery('');
                                                                         setCaSearchResults([]);
-                                                                    }}
-                                                                    className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50"
-                                                                >
-                                                                    {item.name}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-slate-700">Agent</label>
-                                        <div className="relative flex items-center w-full bg-white border border-slate-200 rounded-lg min-h-[38px] focus-within:ring-2 focus-within:ring-indigo-500/30">
-                                            <FiUserPlus className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
-                                            {form.agent_id ? (
-                                                <>
-                                                    <span className="flex-1 pl-9 pr-9 py-2 text-sm truncate">{selectedAgentDisplay?.name ?? form.agent_id}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setForm((prev) => ({ ...prev, agent_id: '' }));
-                                                            setSelectedAgentDisplay(null);
-                                                        }}
-                                                        className="absolute right-2 p-1.5 text-slate-400 hover:text-slate-600"
-                                                    >
-                                                        <FiX className="w-4 h-4" />
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <input
-                                                        type="text"
-                                                        value={agentSearchQuery}
-                                                        onChange={(e) => setAgentSearchQuery(e.target.value)}
-                                                        placeholder="Search agent (min 3 characters)"
-                                                        className="flex-1 pl-9 pr-3 py-2 text-sm border-0 bg-transparent focus:outline-none"
-                                                    />
-                                                    {agentSearchQuery.trim().length >= 3 && (
-                                                        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                                                            {agentSearchLoading && <div className="p-3 text-sm text-slate-500">Searching...</div>}
-                                                            {!agentSearchLoading && agentSearchResults.map((item) => (
-                                                                <button
-                                                                    key={item.username}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setForm((prev) => ({ ...prev, agent_id: item.username }));
-                                                                        setSelectedAgentDisplay({ username: item.username, name: item.name });
-                                                                        setAgentSearchQuery('');
-                                                                        setAgentSearchResults([]);
                                                                     }}
                                                                     className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50"
                                                                 >

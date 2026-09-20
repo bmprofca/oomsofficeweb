@@ -32,6 +32,7 @@ import {
   FiHome,
   FiLock,
   FiBriefcase,
+  FiGift,
 } from "react-icons/fi";
 import { TbCurrencyRupee } from "react-icons/tb";
 import { motion } from "framer-motion";
@@ -50,8 +51,8 @@ import SalesOverviewWidget from "../DashboardComponents/SalesOverviewWidget";
 import DashboardCustomizeDrawer from "../DashboardComponents/DashboardCustomizeDrawer";
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = "7";
-const QUICK_STATS_VERSION = "4";
-const ADDITIONAL_STATS_VERSION = "4";
+const QUICK_STATS_VERSION = "6";
+const ADDITIONAL_STATS_VERSION = "5";
 
 const hasValidBranchInStorage = () => {
   const branchId = localStorage.getItem("branch_id");
@@ -211,15 +212,16 @@ const getDefaultQuickStatsCards = () => [
     isCurrency: true,
   },
   {
-    id: "today-birthday",
-    title: "Today Birthday",
-    value: "today_birthday",
-    icon: FiCalendar,
-    color: "bg-gradient-to-br from-purple-500 to-violet-600 text-white",
-    gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-    link: "/quick-stats/today-birthday",
-    showCount: true,
+    id: "ca-report",
+    title: "CA Report",
+    value: "ca_report",
+    icon: FiBriefcase,
+    color: "bg-gradient-to-br from-violet-500 to-indigo-600 text-white",
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)",
+    link: "/task/view?ca_approval=pending",
+    showCount: false,
     showAmount: false,
+    showCaReport: true,
     isCurrency: false,
   },
 ];
@@ -306,16 +308,6 @@ const getDefaultAdditionalStatsCards = () => [
     isCurrency: false,
   },
   {
-    id: "total-agent",
-    title: "Total Agent",
-    value: "total_agent",
-    icon: FiUserPlus,
-    color: "bg-gradient-to-br from-sky-500 to-blue-600 text-white",
-    gradient: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
-    link: "/settings/agent-list",
-    isCurrency: false,
-  },
-  {
     id: "total-firms",
     title: "Total Firms",
     value: "total_firms",
@@ -344,6 +336,16 @@ const getDefaultAdditionalStatsCards = () => [
     color: "bg-gradient-to-br from-amber-500 to-orange-600 text-white",
     gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
     link: "/finance/voucher/staff-expenses",
+    isCurrency: false,
+  },
+  {
+    id: "today-birthday",
+    title: "Today Birthday",
+    value: "today_birthday",
+    icon: FiGift,
+    color: "bg-gradient-to-br from-purple-500 to-violet-600 text-white",
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+    link: "/quick-stats/today-birthday",
     isCurrency: false,
   },
 ];
@@ -453,12 +455,16 @@ const Dashboard = () => {
         card.link === "/view-payments" ||
         card.link === "/view-birthday-today" ||
         card.link === "/quick-stats/today-received" ||
-        card.link === "/quick-stats/today-payment",
+        card.link === "/quick-stats/today-payment" ||
+        card.id === "today-birthday" ||
+        card.id === "pending-for-ca",
     );
 
-    let finalCards = cards;
+    let finalCards = cards.filter(
+      (card) => card.id !== "today-birthday" && card.id !== "pending-for-ca",
+    );
     if (needsMigration) {
-      finalCards = migrateQuickStatsLinks(cards);
+      finalCards = migrateQuickStatsLinks(finalCards);
     }
 
     const defaultCards = getDefaultQuickStatsCards();

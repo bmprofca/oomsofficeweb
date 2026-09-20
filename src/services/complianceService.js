@@ -523,7 +523,6 @@ export const fetchComplianceFirms = async ({
   username = '',
   staff = '',
   ca = '',
-  agent = '',
   effective_from = '',
   search = '',
   page_no = 1,
@@ -536,7 +535,6 @@ export const fetchComplianceFirms = async ({
   if (username) params.username = username;
   if (staff) params.staff = staff;
   if (ca) params.ca = ca;
-  if (agent) params.agent = agent;
   if (effective_from) params.effective_from = effective_from;
   if (search.trim()) params.search = search.trim();
 
@@ -741,26 +739,6 @@ export const fetchCaOptions = async ({ search = '', page = 1, limit = 100, fetch
   const headers = withHeaders();
   const fetchPage = async ({ page: pageNo, limit: pageLimit }) => {
     const response = await axios.get(`${API_BASE_URL}/ca/list`, {
-      headers,
-      params: { search, page: pageNo, limit: pageLimit },
-    });
-    return response.data;
-  };
-
-  const rows = fetchAll
-    ? await fetchAllPaginated(fetchPage, { limit })
-    : (await fetchPage({ page, limit })).data || [];
-
-  return {
-    success: true,
-    data: rows.filter(isAssignableMember).map(mapMemberOption),
-  };
-};
-
-export const fetchAgentOptions = async ({ search = '', page = 1, limit = 100, fetchAll = false } = {}) => {
-  const headers = withHeaders();
-  const fetchPage = async ({ page: pageNo, limit: pageLimit }) => {
-    const response = await axios.get(`${API_BASE_URL}/agent/list`, {
       headers,
       params: { search, page: pageNo, limit: pageLimit },
     });

@@ -50,13 +50,6 @@ const Settings = () => {
             color: "bg-indigo-100",
         },
         {
-            title: "Agents",
-            description: "Invite & manage branch agents",
-            icon: <FiUsers className="w-5 h-5 text-teal-600" />,
-            link: "/settings/agent-list",
-            color: "bg-teal-100",
-        },
-        {
             title: "Staff Permissions",
             description: "Manage staff access rights",
             icon: <FiShield className="w-5 h-5 text-green-600" />,
@@ -131,24 +124,17 @@ const Settings = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col w-full mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
-                        <p className="text-gray-600 mt-1">
-                            Configure application settings and preferences
-                        </p>
-                    </div>
-
+            <div className={`pt-16 transition-all duration-300 ease-in-out overflow-x-hidden ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                <div className="max-w-full mx-auto px-3 sm:px-4 md:px-8 py-3 md:py-4">
                     {/* Compact Settings Cards Grid */}
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                        <div className="border-b border-gray-200 px-6 py-4">
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="border-b border-gray-200 px-4 sm:px-6 py-4">
                             <h5 className="text-lg font-semibold text-gray-800">Application Settings</h5>
                             <p className="text-sm text-gray-500 mt-1">
                                 Manage all application configurations and preferences
                             </p>
                         </div>
-                        <div className="p-6">
+                        <div className="p-4 sm:p-6">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                                 {filteredCards.map((card, index) => {
                                     const isLocked = card.permission ? (Array.isArray(card.permission) ? !card.permission.some(p => check(p)) : !check(card.permission)) : false;
@@ -156,7 +142,7 @@ const Settings = () => {
                                         <div
                                             key={index}
                                             onClick={() => !isLocked && navigate(card.link)}
-                                            className={`block transition-all duration-200 ${isLocked ? 'cursor-not-allowed opacity-60' : 'hover:scale-105 hover:shadow-md cursor-pointer'}`}
+                                            className={`block transition-all duration-200 ${isLocked ? 'cursor-not-allowed opacity-60' : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'}`}
                                         >
                                             <div className={`bg-white rounded-lg border p-3 hover:border-gray-300 transition-all duration-200 h-full relative ${isLocked ? 'border-gray-200 bg-gray-50/50' : 'border-gray-200 bg-white'}`}>
                                                 <div className="flex flex-col items-center text-center">

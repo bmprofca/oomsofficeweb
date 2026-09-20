@@ -31,7 +31,6 @@ const EMPTY_DATA = {
   tasks: [],
   staff: [],
   ca: [],
-  agents: [],
 };
 
 const TYPE_META = {
@@ -40,10 +39,9 @@ const TYPE_META = {
   tasks: { label: "Tasks", icon: FiClipboard },
   staff: { label: "Staff", icon: FiUser },
   ca: { label: "CA", icon: FiUserCheck },
-  agents: { label: "Agents", icon: FiUsers },
 };
 
-const TYPE_ORDER = ["clients", "firms", "tasks", "staff", "ca", "agents"];
+const TYPE_ORDER = ["clients", "firms", "tasks", "staff", "ca"];
 
 const SCROLL_HIDE =
   "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
@@ -142,7 +140,7 @@ function SearchResults({
         </p>
         {!query.trim() ? (
           <p className="px-1 py-8 text-center text-xs text-slate-400">
-            Type to search clients, firms, tasks, staff, CA, and agents
+            Type to search clients, firms, tasks, staff, and CA
           </p>
         ) : loading && recordCount === 0 ? (
           <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-500">
@@ -348,7 +346,6 @@ export default function HeaderGlobalSearch() {
           tasks: payload.tasks || [],
           staff: payload.staff || [],
           ca: payload.ca || [],
-          agents: payload.agents || [],
         });
       } catch {
         if (!cancelled) setData(EMPTY_DATA);

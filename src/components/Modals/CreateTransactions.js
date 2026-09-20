@@ -1078,10 +1078,10 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId, compact =
 
 const USER_SEARCH_LIMIT = 20;
 const TRANSACTION_PARTY_SEARCH_LIMIT = 10;
-const RECEIVE_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital'];
-const PAYMENT_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital', 'expense'];
-const JOURNAL_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital', 'bank', 'expense'];
-const SALE_PARTY_SEARCH_TYPES = ['client', 'ca', 'staff', 'agent', 'bank', 'capital'];
+const RECEIVE_PARTY_SEARCH_TYPES = ['client', 'ca', 'staff', 'capital'];
+const PAYMENT_PARTY_SEARCH_TYPES = ['client', 'ca', 'staff', 'capital', 'expense'];
+const JOURNAL_PARTY_SEARCH_TYPES = ['client', 'ca', 'staff', 'capital', 'bank', 'expense'];
+const SALE_PARTY_SEARCH_TYPES = ['client', 'ca', 'staff', 'bank', 'capital'];
 
 const normalizeLockedPartyType = (lockedPartyType, lockedSaleType) => {
     if (lockedPartyType) return lockedPartyType;
@@ -1420,7 +1420,6 @@ const JOURNAL_PARTY_TYPE_LABELS = PARTY_TYPE_LABELS;
 
 const JOURNAL_PARTY_EMPTY_LABELS = {
     client: 'No clients found',
-    agent: 'No agents found',
     ca: 'No CAs found',
     staff: 'No staff found',
     bank: 'No banks found',
@@ -1453,32 +1452,7 @@ const mapRowToJournalParty = (row, userType) => {
     };
 };
 
-const fetchAgentSearchPage = async ({ search = '', page = 1 } = {}) => {
-    const headers = getHeaders();
-    if (!headers) {
-        throw new Error('Authentication headers missing');
-    }
-    const q = String(search ?? '').trim();
-    const response = await axios.get(`${API_BASE_URL}/agent/list`, {
-        headers,
-        params: {
-            page,
-            limit: USER_SEARCH_LIMIT,
-            ...(q ? { search: q } : {}),
-        },
-    });
-    if (!response.data?.success) {
-        throw new Error(response.data?.message || 'Failed to fetch agent list');
-    }
-    const list = response.data.data || [];
-    const isLast = response.data.pagination?.is_last_page ?? true;
-    return { list, isLast };
-};
-
 const fetchJournalPartySearchPage = async (partyType, { search = '', page = 1 } = {}) => {
-    if (partyType === 'agent') {
-        return fetchAgentSearchPage({ search, page });
-    }
     if (partyType === 'ca') {
         return fetchCaSearchPage({ search, page });
     }
@@ -1488,7 +1462,7 @@ const fetchJournalPartySearchPage = async (partyType, { search = '', page = 1 } 
 const fetchPresetJournalParty = async (username, userType) => {
     const u = String(username || '').trim();
     if (!u) return null;
-    const type = userType === 'agent' || userType === 'ca' ? userType : 'client';
+    const type = userType === 'ca' ? userType : 'client';
     const { list } = await fetchJournalPartySearchPage(type, { search: u, page: 1 });
     const match = (list || []).find((row) => String(row.username) === u) || list[0];
     return mapRowToJournalParty(match, type);
@@ -2218,7 +2192,7 @@ const useJournalPartySearch = (partyType, enabled, excludeParty = null, options 
 
 const JournalPartyTypeToggle = ({ value, onChange, disabled = false }) => (
     <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="User type">
-        {['client', 'agent', 'ca'].map((type) => (
+        {['client', 'ca'].map((type) => (
             <button
                 key={type}
                 type="button"
@@ -2930,8 +2904,8 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                         compact
                         hideSearchHint
                         focusAccent="blue"
-                        searchPlaceholder="Search client, CA, agent, staff, or capital"
-                        searchHint="Search client, CA, agent, staff, or capital."
+                        searchPlaceholder="Search client, CA, staff, or capital"
+                        searchHint="Search client, CA, staff, or capital."
                         emptyMessage="No parties found"
                         showPartyType
                         getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username}`}
@@ -3325,8 +3299,8 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                         compact
                         hideSearchHint
                         focusAccent="red"
-                        searchPlaceholder="Search client, CA, agent, staff, capital, or expense"
-                        searchHint="Search client, CA, agent, staff, capital, or expense."
+                        searchPlaceholder="Search client, CA, staff, capital, or expense"
+                        searchHint="Search client, CA, staff, capital, or expense."
                         emptyMessage="No parties found"
                         showPartyType
                         getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username}`}
@@ -3439,7 +3413,7 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
  * @param {(data: object) => void} [props.onSuccess]
  * @param {string} [props.initialPartyId] — seed party id when selector is shown
  * @param {'modal'|'inline'} [props.mode]
- * @param {'client'|'ca'|'staff'|'agent'|'bank'|'capital'|null} [props.lockedPartyType] — lock party type when selector hidden
+ * @param {'client'|'ca'|'staff'|'bank'|'capital'|null} [props.lockedPartyType] — lock party type when selector hidden
  * @param {'user'|'bank'|null} [props.lockedSaleType] — deprecated alias for lockedPartyType
  * @param {boolean} [props.hidePartySelector] — hide search/dropdown; use `fixedParty` + id for submit
  * @param {SaleFormFixedParty|null} [props.fixedParty] — party row when selector hidden (name, id, username, …)
@@ -4209,8 +4183,8 @@ export const SaleForm = ({
                                 compact={isCompactModal}
                                 hideSearchHint={isCompactModal}
                                 focusAccent={isCompactModal ? 'indigo' : 'blue'}
-                                searchPlaceholder="Search client, CA, staff, agent, bank, or capital"
-                                searchHint="Search client, CA, staff, agent, bank, or capital."
+                                searchPlaceholder="Search client, CA, staff, bank, or capital"
+                                searchHint="Search client, CA, staff, bank, or capital."
                                 emptyMessage="No parties found"
                                 showPartyType
                                 getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username || party.bank_id}`}
@@ -5186,8 +5160,8 @@ export const PurchaseForm = ({
                             compact={isCompactModal}
                             hideSearchHint={isCompactModal}
                             focusAccent={isCompactModal ? 'purple' : 'purple'}
-                            searchPlaceholder="Search client, CA, staff, agent, bank, or capital"
-                            searchHint="Search client, CA, staff, agent, bank, or capital."
+                            searchPlaceholder="Search client, CA, staff, bank, or capital"
+                            searchHint="Search client, CA, staff, bank, or capital."
                             emptyMessage="No parties found"
                             showPartyType
                             getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username || party.bank_id}`}
@@ -6073,7 +6047,7 @@ export const JournalModal = ({
     showClient = true,
     editRecord = null,
 }) => {
-    const presetFromType = partyType === 'agent' || partyType === 'ca' || partyType === 'staff' ? partyType : 'client';
+    const presetFromType = partyType === 'ca' || partyType === 'staff' ? partyType : 'client';
     const showFromSection = showClient && showFromClient;
     const [loading, setLoading] = useState(false);
     const [presetFromParty, setPresetFromParty] = useState(null);
@@ -6104,8 +6078,8 @@ export const JournalModal = ({
     });
 
     const journalPartyRowKey = (party) => `${party.userType || 'client'}:${party.party_id || party.username || party.bank_id || ''}`;
-    const journalSearchPlaceholder = 'Search client, CA, agent, staff, capital, bank, or expense';
-    const journalSearchHint = 'Search client, CA, agent, staff, capital, bank, or expense.';
+    const journalSearchPlaceholder = 'Search client, CA, staff, capital, bank, or expense';
+    const journalSearchHint = 'Search client, CA, staff, capital, bank, or expense.';
 
     useEffect(() => {
         if (!isOpen || !hasPresetFromParam) {
@@ -6915,7 +6889,7 @@ export const DiscountModal = ({
     partyLabel = 'Client',
     editRecord = null,
 }) => {
-    const presetPartyType = partyType === 'agent' || partyType === 'ca' || partyType === 'staff' ? partyType : 'client';
+    const presetPartyType = partyType === 'ca' || partyType === 'staff' ? partyType : 'client';
     const hasPresetClient = Boolean(String(clientUsername || '').trim());
     const shouldShowClientSelector = showClient && !hasPresetClient;
     const [loading, setLoading] = useState(false);
@@ -6963,7 +6937,7 @@ export const DiscountModal = ({
             const party = editRecord.discount_party || editRecord.payment_from;
             const partyTypeVal = party?.type || editRecord.party_type || 'client';
             setSelectedPartyType(
-                partyTypeVal === 'agent' || partyTypeVal === 'ca' || partyTypeVal === 'staff' ? partyTypeVal : 'client'
+                partyTypeVal === 'ca' || partyTypeVal === 'staff' ? partyTypeVal : 'client'
             );
             setTransactionDate(toIsoDateOnly(editRecord.transaction_date || editRecord.discount_date));
             setAmount(String(editRecord.amount ?? ''));

@@ -210,7 +210,6 @@ const normalizeBillingRow = (raw) => {
     recurring_type: raw.recurring_type || "",
     staffs,
     has_ca: raw.has_ca,
-    has_agent: raw.has_agent,
     invoice_id: raw.invoice_id || raw.invoice?.invoice_id || null,
     invoice_no: raw.invoice_no || "",
     invoice_type: raw.invoice_type || raw.invoice?.type || "sale",
@@ -218,7 +217,6 @@ const normalizeBillingRow = (raw) => {
     create_by_name: createBy.name || "",
     create_by_username: createBy.username || "",
     ca: raw.ca || null,
-    agent: raw.agent || null,
     _raw: raw,
   };
 };
@@ -570,17 +568,14 @@ const BillingDetailsModal = ({ item, onClose }) => {
               </section>
             )}
 
-            {(item.has_ca || item.has_agent || item.ca || item.agent) && (
+            {(item.has_ca || item.ca) && (
               <section className="mb-4">
                 <h4 className="mb-1 text-xs font-bold uppercase tracking-wide text-indigo-600">
-                  CA / Agent
+                  CA
                 </h4>
                 <dl>
                   {item.ca?.name ? (
                     <DetailField label="CA">{item.ca.name}</DetailField>
-                  ) : null}
-                  {item.agent?.name ? (
-                    <DetailField label="Agent">{item.agent.name}</DetailField>
                   ) : null}
                 </dl>
               </section>

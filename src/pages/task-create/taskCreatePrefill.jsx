@@ -9,7 +9,6 @@
  *   (firms stay selectable among that client's firms)
  * - service / service_id
  * - ca (+ optional caName)
- * - agent (+ optional agentName)
  */
 export function buildLockedFields(prefill = {}) {
     const unlock = new Set(Array.isArray(prefill.unlock) ? prefill.unlock : []);
@@ -24,7 +23,6 @@ export function buildLockedFields(prefill = {}) {
     lock('groups', Boolean(prefill.groups?.length || prefill.group_ids?.length || prefill.client));
     lock('service', Boolean(prefill.service || prefill.service_id));
     lock('ca', Boolean(prefill.ca));
-    lock('agent', Boolean(prefill.agent));
 
     if (prefill.locked && typeof prefill.locked === 'object') {
         Object.assign(locked, prefill.locked);

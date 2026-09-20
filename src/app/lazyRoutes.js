@@ -130,8 +130,6 @@ export const GoogleAuthentication = lazyWithRetry(() => import('../pages/setting
 export const GatewayConfig = lazyWithRetry(() => import('../pages/settings/gateway-setting'));
 export const ViewBranch = lazyWithRetry(() => import('../pages/settings/branch'));
 export const ViewAdmins = lazyWithRetry(() => import('../pages/settings/admin'));
-export const AgentList = lazyWithRetry(() => import('../pages/settings/agent-list'));
-export const AgentProfile = lazyWithRetry(() => import('../pages/settings/agent-profile'));
 export const Subscription = lazyWithRetry(() => import('../pages/settings/subscription'));
 export const WebsiteSettings = lazyWithRetry(() => import('../pages/settings/website'));
 export const WidgetSettings = lazyWithRetry(() => import('../pages/settings/widget'));

@@ -54,8 +54,6 @@ const getDiscountPartyProfilePath = (row) => {
             return `/client/profile/${encoded}`;
         case 'ca':
             return `/staff/office-assistance/ca-profile/${encoded}/tasks`;
-        case 'agent':
-            return `/settings/agent-profile/${encoded}/profile`;
         case 'staff':
             return `/staff/view/profile/${encoded}/profile`;
         default:

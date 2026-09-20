@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
 import { fetchCaList } from '../../services/caService';
-import { fetchAgentList } from '../../services/agentService';
 import { fetchTaskCreateServiceList } from './taskCreateServiceList';
 
 const mapMember = (row) => ({
@@ -49,7 +48,6 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
     const [groups, setGroups] = useState([]);
     const [staff, setStaff] = useState([]);
     const [caList, setCaList] = useState([]);
-    const [agentList, setAgentList] = useState([]);
     const [assessmentYears, setAssessmentYears] = useState([]);
     const [financialYears, setFinancialYears] = useState([]);
     const [error, setError] = useState('');
@@ -73,7 +71,6 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
                 groupRows,
                 staffRows,
                 caRows,
-                agentRows,
                 ayRes,
                 fyRes,
             ] = await Promise.all([
@@ -98,7 +95,6 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
                     return res.json();
                 }),
                 fetchPaginatedList((p) => fetchCaList(p)),
-                fetchPaginatedList((p) => fetchAgentList(p)),
                 fetch(`${base}/utils/assisment-years`, { headers }).then((r) => r.json()),
                 fetch(`${base}/utils/financial-years`, { headers }).then((r) => r.json()),
             ]);
@@ -116,7 +112,6 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
                 }))
             );
             setCaList(caRows.filter(isAssignable).map(mapMember));
-            setAgentList(agentRows.filter(isAssignable).map(mapMember));
 
             if (ayRes?.success && Array.isArray(ayRes.data)) setAssessmentYears(ayRes.data);
             if (fyRes?.success && Array.isArray(fyRes.data)) setFinancialYears(fyRes.data);
@@ -144,7 +139,6 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
         groups,
         staff,
         caList,
-        agentList,
         assessmentYears,
         financialYears,
     };

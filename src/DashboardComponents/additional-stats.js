@@ -14,6 +14,7 @@ import {
   FiHome,
   FiLayers,
   FiClock,
+  FiGift,
 } from "react-icons/fi";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
@@ -28,10 +29,10 @@ const CARD_ICONS = {
   "task-create-today": FiPlus,
   "task-complete-today": FiCheckCircle,
   "total-ca": FiBriefcase,
-  "total-agent": FiUserPlus,
   "total-firms": FiHome,
   "total-services": FiLayers,
   "pending-staff-expense": FiClock,
+  "today-birthday": FiGift,
 };
 
 const CARD_META = {
@@ -60,9 +61,6 @@ const CARD_META = {
   "total-ca": {
     gradient: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
   },
-  "total-agent": {
-    gradient: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
-  },
   "total-firms": {
     gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
   },
@@ -71,6 +69,9 @@ const CARD_META = {
   },
   "pending-staff-expense": {
     gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+  },
+  "today-birthday": {
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
   },
 };
 
@@ -125,12 +126,6 @@ const DEFAULT_CARDS = [
     link: "/staff/office-assistance/ca-list",
   },
   {
-    id: "total-agent",
-    title: "Total Agent",
-    value: "total_agent",
-    link: "/settings/agent-list",
-  },
-  {
     id: "total-firms",
     title: "Total Firms",
     value: "total_firms",
@@ -148,6 +143,12 @@ const DEFAULT_CARDS = [
     value: "pending_staff_expense",
     secondaryValue: "pending_staff_expense_amount",
     link: "/finance/voucher/staff-expenses",
+  },
+  {
+    id: "today-birthday",
+    title: "Today Birthday",
+    value: "today_birthday",
+    link: "/quick-stats/today-birthday",
   },
 ];
 

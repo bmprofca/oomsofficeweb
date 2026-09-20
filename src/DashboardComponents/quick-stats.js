@@ -5,11 +5,10 @@ import {
   FiUsers,
   FiShoppingCart,
   FiCreditCard,
-  FiCalendar,
   FiMove,
   FiShoppingBag,
   FiRefreshCw,
-  FiGift,
+  FiBriefcase,
 } from "react-icons/fi";
 import { TbCurrencyRupee } from "react-icons/tb";
 import getHeaders from "../utils/get-headers";
@@ -22,7 +21,7 @@ const CARD_ICONS = {
   debtors: FiShoppingCart,
   "today-received": TbCurrencyRupee,
   "today-payment": FiCreditCard,
-  "today-birthday": FiGift,
+  "ca-report": FiBriefcase,
 };
 
 const CARD_META = {
@@ -51,10 +50,11 @@ const CARD_META = {
     showAmount: true,
     gradient: "linear-gradient(135deg, #f97316 0%, #f59e0b 100%)",
   },
-  "today-birthday": {
-    showCount: true,
+  "ca-report": {
+    showCount: false,
     showAmount: false,
-    gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+    showCaReport: true,
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)",
   },
 };
 
@@ -90,12 +90,14 @@ const DEFAULT_CARDS = [
     link: "/finance/voucher/payment?today=true",
   },
   {
-    id: "today-birthday",
-    title: "Today Birthday",
-    value: "today_birthday",
-    link: "/quick-stats/today-birthday",
+    id: "ca-report",
+    title: "CA Report",
+    value: "ca_report",
+    link: "/task/view?ca_approval=pending",
   },
 ];
+
+const QUICK_STATS_EXCLUDED_IDS = new Set(["today-birthday", "pending-for-ca"]);
 
 const BALANCE_CARD_IDS = [
   "creditors",
@@ -114,6 +116,7 @@ const resolveCardMeta = (card) => {
   return {
     showCount: card.showCount ?? meta.showCount ?? true,
     showAmount: card.showAmount ?? meta.showAmount ?? false,
+    showCaReport: card.showCaReport ?? meta.showCaReport ?? false,
     gradient: card.gradient || meta.gradient || CARD_META["pending-billing"].gradient,
   };
 };
@@ -183,8 +186,13 @@ const QuickStats = ({
             count: result.data.today_payment?.count || 0,
             amount: result.data.today_payment?.total_amount || 0,
           },
-          today_birthday: {
-            count: result.data.today_birthday?.count || 0,
+          ca_report: {
+            pending: result.data.ca_report?.pending || 0,
+            completed: result.data.ca_report?.completed || 0,
+            // keep count for older layout fallbacks
+            count:
+              (result.data.ca_report?.pending || 0) +
+              (result.data.ca_report?.completed || 0),
             amount: 0,
           },
         });
@@ -206,7 +214,12 @@ const QuickStats = ({
         debtor: { count: 0, amount: propStats.debtor || 0 },
         today_received: { count: 0, amount: propStats.today_received || 0 },
         today_payment: { count: 0, amount: propStats.today_payment || 0 },
-        today_birthday: { count: propStats.today_birthday || 0, amount: 0 },
+        ca_report: {
+          pending: propStats.ca_report?.pending || 0,
+          completed: propStats.ca_report?.completed || 0,
+          count: 0,
+          amount: 0,
+        },
       });
     } finally {
       setLoading(false);
@@ -278,6 +291,7 @@ const QuickStats = ({
   const cardsToRender = useMemo(() => {
     const source = localCards.length > 0 ? localCards : DEFAULT_CARDS;
     return source.filter((card) => {
+      if (QUICK_STATS_EXCLUDED_IDS.has(card.id)) return false;
       if (BALANCE_CARD_IDS.includes(card.id)) {
         return check("finance_balance_view");
       }
@@ -368,6 +382,27 @@ const QuickStats = ({
                         <div className="space-y-1">
                           <div className="animate-pulse h-4 bg-white/20 rounded w-16" />
                           <div className="animate-pulse h-3 bg-white/20 rounded w-12" />
+                        </div>
+                      ) : meta.showCaReport ? (
+                        <div
+                          className={`space-y-1 ${blurEnabled ? "blur-sm" : ""}`}
+                        >
+                          <div className="flex items-baseline justify-between gap-2 text-white leading-tight">
+                            <span className="text-white/70 text-[10px] font-medium uppercase tracking-wide">
+                              Pending
+                            </span>
+                            <span className="text-base font-bold">
+                              {formatNumber(Number(statData.pending) || 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-2 text-white leading-tight">
+                            <span className="text-white/70 text-[10px] font-medium uppercase tracking-wide">
+                              Completed
+                            </span>
+                            <span className="text-base font-bold">
+                              {formatNumber(Number(statData.completed) || 0)}
+                            </span>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-1">

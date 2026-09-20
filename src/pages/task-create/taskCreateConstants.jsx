@@ -10,7 +10,7 @@ export const STEPS = [
     { n: 1, title: 'Clients', subtitle: 'Firms or groups' },
     { n: 2, title: 'Services', subtitle: 'Fees & due date' },
     { n: 3, title: 'Sub tasks', subtitle: 'Add sub tasks' },
-    { n: 4, title: 'CA & Team', subtitle: 'Agent & employees' },
+    { n: 4, title: 'CA & Team', subtitle: 'CA & employees' },
     { n: 5, title: 'Notes', subtitle: 'Attachments' },
 ];
 
@@ -25,7 +25,6 @@ export const initialForm = {
     fees: '',
     due_date: '',
     ca: '',
-    agent: '',
     employees: [],
     text_notes: [],
 };

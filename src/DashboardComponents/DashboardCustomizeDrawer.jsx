@@ -23,7 +23,7 @@ const WIDGET_META = {
   },
   "quick-stats": {
     description:
-      "At-a-glance counts for billing, creditors, debtors, payments, and today's birthdays.",
+      "At-a-glance counts for billing, creditors, debtors, payments, and CA report.",
     iconBg: "from-sky-500 to-blue-600",
     ring: "ring-sky-100",
     badge: "bg-sky-100 text-sky-700",
@@ -58,7 +58,7 @@ const WIDGET_META = {
   },
   "additional-stats": {
     description:
-      "Client, staff, CA, agent, firm, service, and task KPIs in a compact card grid.",
+      "Client, staff, CA, firm, service, birthday, and task KPIs in a compact card grid.",
     iconBg: "from-cyan-500 to-blue-600",
     ring: "ring-cyan-100",
     badge: "bg-cyan-100 text-cyan-700",

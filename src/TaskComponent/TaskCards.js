@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiBriefcase, FiCalendar, FiPhone, FiEye, FiEdit, FiTrash2, FiCheckCircle, FiArrowLeft, FiArrowRight, FiUser, FiMail, FiClock, FiLoader } from 'react-icons/fi';
+import { FiBriefcase, FiCalendar, FiPhone, FiEye, FiTrash2, FiCheckCircle, FiArrowLeft, FiArrowRight, FiUser, FiMail, FiClock, FiLoader } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import { checkPermissionSync } from '../utils/permission-helper';
 import {
@@ -23,7 +23,6 @@ const TaskCards = ({
     navigate,
     openStatusModal,
     openClientDetailsModal,
-    handleEditTask,
     formatDate,
     getDaysLeft,
     getStatusColor,
@@ -228,13 +227,6 @@ const TaskCards = ({
                                                                 className="flex items-center w-full px-3 py-2.5 text-[11px] text-gray-700 hover:bg-gray-100 font-semibold"
                                                             >
                                                                 <FiEye className="mr-2 w-3.5 h-3.5" /> View Details
-                                                            </button>
-                                                            
-                                                            <button 
-                                                                onClick={() => { setActiveRowDropdown(null); handleEditTask(task); }} 
-                                                                className="flex items-center w-full px-3 py-2.5 text-[11px] text-gray-700 hover:bg-gray-100 font-semibold"
-                                                            >
-                                                                <FiEdit className="mr-2 w-3.5 h-3.5" /> Edit Task
                                                             </button>
                                                             
                                                             <div className="border-t my-1"></div>

@@ -10,7 +10,6 @@ import {
   FiCalendar,
   FiCheckCircle,
   FiClock,
-  FiEdit,
   FiEye,
   FiLoader,
   FiLock,
@@ -32,7 +31,6 @@ import TaskStatusChange from '../components/Modals/TaskStatusChange';
 import DeleteConfirmationModal from '../components/delete-confirmation';
 import TaskTable from '../TaskComponent/TaskTable';
 import StaffColumnCell from '../TaskComponent/StaffColumnCell';
-import EditTaskModal from '../TaskComponent/EdittaskModal';
 import CustomSelect from '../components/CustomSelect';
 import useDebounce from '../components/useDebounce';
 import getHeaders from '../utils/get-headers';
@@ -256,7 +254,6 @@ const COLUMN_CONFIG = [
     items: [
       { id: 'staffs', label: 'Staffs' },
       { id: 'staff_ca', label: 'Show CA' },
-      { id: 'staff_agent', label: 'Show Agent' },
     ],
     fixed: false,
   },
@@ -376,12 +373,10 @@ const mapReportTaskToDisplayTask = (row) => {
     status: details.status || null,
     billing_status: financials.billing_status || null,
     has_ca: Boolean(assignment.ca),
-    has_agent: Boolean(assignment.agent),
     ca: assignment.ca || null,
     ca_approval: assignment.ca
       ? (assignment.ca_approval ?? row.ca_approval ?? null)
       : null,
-    agent: assignment.agent || null,
     in_user: row.in_user || assignment.in_user || null,
     is_recurring: details.task_kind === 'recurring',
     service: {
@@ -560,7 +555,6 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   const [rowDropdownPosition, setRowDropdownPosition] = useState({ top: 8, left: 8 });
   const [getInOutLoadingId, setGetInOutLoadingId] = useState(null);
   const [deleteModal, setDeleteModal] = useState(false);
-  const [editModal, setEditModal] = useState({ open: false, taskData: null });
   const [usersModal, setUsersModal] = useState({ open: false, users: [], taskName: '' });
   const [statusModal, setStatusModal] = useState({
     open: false,
@@ -1130,10 +1124,6 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
     setActiveRowDropdown(taskId);
   };
 
-  const handleEditTask = (task) => {
-    setEditModal({ open: true, taskData: task });
-  };
-
   const safeGetString = (value, fallback = '-') => {
     if (!value) return fallback;
     if (typeof value === 'string') return value;
@@ -1546,7 +1536,6 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                 openStatusModal={openStatusModal}
                 openUsersModal={openUsersModal}
                 openClientDetailsModal={() => { }}
-                handleEditTask={handleEditTask}
                 navigate={navigate}
                 formatDate={formatDate}
                 getDaysLeft={getDaysLeft}
@@ -1593,13 +1582,6 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
         currentStatus={statusModal.currentStatus}
         onStatusChange={handleStatusChange}
         statusOptions={STATUS_OPTIONS}
-      />
-
-      <EditTaskModal
-        isOpen={editModal.open}
-        onClose={() => setEditModal({ open: false, taskData: null })}
-        taskData={editModal.taskData}
-        onTaskUpdated={fetchDetailedTasks}
       />
 
       {deleteModal ? (
@@ -1724,29 +1706,6 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                 >
                   <FiLock className="mr-2 text-gray-400 w-4 h-4" />
                   View Details
-                </button>
-              )}
-
-              {check('task_update') ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveRowDropdown(null);
-                    handleEditTask(rowActionTask);
-                  }}
-                  className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
-                >
-                  <FiEdit className="mr-2 text-green-600 w-4 h-4" />
-                  Edit Task
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
-                >
-                  <FiLock className="mr-2 text-green-600 w-4 h-4" />
-                  Edit Task
                 </button>
               )}
 

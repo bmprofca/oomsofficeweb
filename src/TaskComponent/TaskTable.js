@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    FiMenu, FiArrowLeft, FiArrowRight, FiCheckCircle, FiEye, FiEdit, FiTrash2,
+    FiMenu, FiArrowLeft, FiArrowRight, FiCheckCircle, FiEye, FiTrash2,
     FiCalendar, FiUser, FiPhone, FiMail, FiClock, FiLoader, FiXCircle, FiBriefcase, FiUsers, FiSettings
 } from 'react-icons/fi';
 
@@ -124,7 +124,6 @@ const TaskTable = ({
     openStatusModal,
     openUsersModal,
     openClientDetailsModal,
-    handleEditTask,
     navigate,
     formatDate,
     getDaysLeft,
@@ -342,17 +341,6 @@ const TaskTable = ({
                                         View Details
                                     </button>
 
-                                    <button
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                            handleEditTask(task);
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-xs text-gray-700 hover:bg-gray-100 text-left"
-                                    >
-                                        <FiEdit className="mr-3 w-3.5 h-3.5" />
-                                        Edit Task
-                                    </button>
-
                                     <div className="border-t my-1"></div>
 
                                     <button
@@ -384,7 +372,6 @@ const TaskTable = ({
                                     openStatusModal,
                                     openUsersModal,
                                     openClientDetailsModal,
-                                    handleEditTask,
                                     setActiveRowDropdown,
                                     activeRowDropdown,
                                     toggleRowDropdown
@@ -419,7 +406,6 @@ const TaskTable = ({
                     openStatusModal,
                     openUsersModal,
                     openClientDetailsModal,
-                    handleEditTask,
                     setActiveRowDropdown,
                     activeRowDropdown,
                     toggleRowDropdown

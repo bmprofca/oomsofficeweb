@@ -17,10 +17,7 @@ import getHeaders from '../../utils/get-headers';
 import { checkPermissionSync } from '../../utils/permission-helper';
 import CustomSelect from '../CustomSelect';
 import { DatePickerField } from '../PortalDatePicker';
-import {
-    fetchCaOptions,
-    fetchAgentOptions,
-} from '../../services/complianceService';
+import { fetchCaOptions } from '../../services/complianceService';
 
 const MODAL_BODY_CLASS =
     'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
@@ -51,7 +48,7 @@ const formatDateForAPI = (dateString) => {
 
 const toMemberSelectOption = (member) => {
     if (!member) return null;
-    const username = member.username || member.value || member.ca_id || member.agent_id || '';
+    const username = member.username || member.value || member.ca_id || '';
     if (!username) return null;
     const name = member.name || member.label || username;
     return {
@@ -81,9 +78,6 @@ const buildInitialForm = (taskData) => ({
     has_ca: !!taskData?.has_ca,
     ca_id: taskData?.ca?.username || '',
     caOption: taskData?.has_ca ? toMemberSelectOption(taskData.ca) : null,
-    has_agent: !!taskData?.has_agent,
-    agent_id: taskData?.agent?.username || '',
-    agentOption: taskData?.has_agent ? toMemberSelectOption(taskData.agent) : null,
     due_date: taskData?.dates?.due_date ? formatDateForAPI(taskData.dates.due_date) : '',
     target_date: taskData?.dates?.target_date
         ? formatDateForAPI(taskData.dates.target_date)
@@ -108,11 +102,6 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
 
     const loadCaOptions = useCallback(async (search) => {
         const res = await fetchCaOptions({ search, page: 1, limit: 50 });
-        return (res?.data || []).map(toMemberSelectOption).filter(Boolean);
-    }, []);
-
-    const loadAgentOptions = useCallback(async (search) => {
-        const res = await fetchAgentOptions({ search, page: 1, limit: 50 });
         return (res?.data || []).map(toMemberSelectOption).filter(Boolean);
     }, []);
 
@@ -145,10 +134,6 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
             toast.error('CA is enabled — please select a CA.');
             return;
         }
-        if (form.has_agent && !form.agent_id) {
-            toast.error('Agent is enabled — please select an agent.');
-            return;
-        }
 
         setIsSaving(true);
         const toastId = toast.loading('Saving changes…');
@@ -159,9 +144,6 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
             const payload = {
                 fees: safeFees,
                 ca: form.has_ca ? { has_ca: true, ca_id: form.ca_id } : { has_ca: false },
-                agent: form.has_agent
-                    ? { has_agent: true, agent_id: form.agent_id }
-                    : { has_agent: false },
                 due_date: form.due_date || '',
                 target_date: form.target_date || '',
             };
@@ -199,16 +181,6 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                   name: form.caOption.name,
                                   mobile: form.caOption.mobile,
                                   email: form.caOption.email,
-                              }
-                            : null,
-                    has_agent: form.has_agent,
-                    agent:
-                        form.has_agent && form.agentOption
-                            ? {
-                                  username: form.agentOption.username,
-                                  name: form.agentOption.name,
-                                  mobile: form.agentOption.mobile,
-                                  email: form.agentOption.email,
                               }
                             : null,
                 });
@@ -416,9 +388,9 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                 <section>
                                     <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-gray-800">
                                         <FiUserCheck className="h-4 w-4 text-indigo-500" />
-                                        CA & Agent
+                                        CA
                                     </h3>
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div className="grid grid-cols-1 gap-4">
                                         <div>
                                             <div className="mb-1.5 flex items-center justify-between">
                                                 <label className="text-xs font-semibold text-gray-600">
@@ -478,75 +450,6 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                                                 placeholder="Search CA…"
                                                                 searchPlaceholder="Search by name or mobile…"
                                                                 noOptionsMessage="No CA found"
-                                                                isClearable
-                                                            />
-                                                        )}
-                                                    </motion.div>
-                                                ) : null}
-                                            </AnimatePresence>
-                                        </div>
-
-                                        <div>
-                                            <div className="mb-1.5 flex items-center justify-between">
-                                                <label className="text-xs font-semibold text-gray-600">
-                                                    Agent
-                                                </label>
-                                                <button
-                                                    type="button"
-                                                    role="switch"
-                                                    aria-checked={form.has_agent}
-                                                    disabled={billGenerated}
-                                                    onClick={() => {
-                                                        const next = !form.has_agent;
-                                                        setEF({
-                                                            has_agent: next,
-                                                            agent_id: next ? form.agent_id : '',
-                                                            agentOption: next
-                                                                ? form.agentOption
-                                                                : null,
-                                                        });
-                                                    }}
-                                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${form.has_agent ? 'bg-indigo-600' : 'bg-gray-200'}`}
-                                                >
-                                                    <span
-                                                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${form.has_agent ? 'translate-x-4' : 'translate-x-0'}`}
-                                                    />
-                                                </button>
-                                            </div>
-                                            <AnimatePresence initial={false}>
-                                                {form.has_agent ? (
-                                                    <motion.div
-                                                        initial={{ height: 0, opacity: 0 }}
-                                                        animate={{ height: 'auto', opacity: 1 }}
-                                                        exit={{ height: 0, opacity: 0 }}
-                                                        transition={{ duration: 0.18 }}
-                                                        className="overflow-hidden"
-                                                    >
-                                                        {billGenerated ? (
-                                                            <LockedField
-                                                                label=""
-                                                                value={
-                                                                    form.agentOption?.label ||
-                                                                    form.agentOption?.name
-                                                                }
-                                                            />
-                                                        ) : (
-                                                            <CustomSelect
-                                                                loadOptions={loadAgentOptions}
-                                                                value={form.agentOption || null}
-                                                                onChange={(opt) =>
-                                                                    setEF({
-                                                                        agent_id: opt?.value || '',
-                                                                        agentOption: opt || null,
-                                                                    })
-                                                                }
-                                                                getOptionLabel={(opt) =>
-                                                                    opt?.label || ''
-                                                                }
-                                                                getOptionValue={(opt) => opt?.value}
-                                                                placeholder="Search agent…"
-                                                                searchPlaceholder="Search by name or mobile…"
-                                                                noOptionsMessage="No agent found"
                                                                 isClearable
                                                             />
                                                         )}

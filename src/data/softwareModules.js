@@ -111,7 +111,6 @@ export const SOFTWARE_MODULES = [
   { title: "Branch Settings", path: "/settings/branch-setting", group: "Settings", keywords: "gst logo" },
   { title: "Branches", path: "/settings/branch", group: "Settings", keywords: "offices" },
   { title: "Admins", path: "/settings/admin", group: "Settings", keywords: "admin" },
-  { title: "Agents", path: "/settings/agent-list", group: "Settings", keywords: "agent" },
   { title: "Backup", path: "/settings/backup", group: "Settings", keywords: "export" },
   { title: "Date Range Settings", path: "/settings/daterange-setting", group: "Settings", keywords: "daterange" },
   { title: "Google Authentication", path: "/settings/google-auth", group: "Settings", keywords: "google oauth 2fa" },

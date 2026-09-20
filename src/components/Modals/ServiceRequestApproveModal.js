@@ -27,9 +27,7 @@ export default function ServiceRequestApproveModal({ isOpen, request, onClose, o
     const [dueDate, setDueDate] = useState('');
     const [officeNote, setOfficeNote] = useState('');
     const [selectedCa, setSelectedCa] = useState(null);
-    const [selectedAgent, setSelectedAgent] = useState(null);
     const [caId, setCaId] = useState('');
-    const [agentId, setAgentId] = useState('');
     const [allStaff, setAllStaff] = useState([]);
     const [selectedStaff, setSelectedStaff] = useState([]);
     const [staffFilter, setStaffFilter] = useState('');
@@ -40,9 +38,7 @@ export default function ServiceRequestApproveModal({ isOpen, request, onClose, o
         setDueDate('');
         setOfficeNote('');
         setSelectedCa(null);
-        setSelectedAgent(null);
         setCaId('');
-        setAgentId('');
         setSelectedStaff([]);
         setStaffFilter('');
     }, [isOpen, request?.request_id]);
@@ -107,7 +103,6 @@ export default function ServiceRequestApproveModal({ isOpen, request, onClose, o
             assignment: {
                 staff: selectedStaff.map((s) => s.username),
                 ca_id: caId || null,
-                agent_id: agentId || null,
             },
         };
 
@@ -253,28 +248,6 @@ export default function ServiceRequestApproveModal({ isOpen, request, onClose, o
                                 labelMapping={memberLabelMapping}
                                 dataExtractor={assignableMemberExtractor}
                                 placeholder="Search CA..."
-                                renderSelected={(s) => s.name}
-                            />
-                            <SearchablePickField
-                                label="Agent (optional)"
-                                selected={selectedAgent}
-                                onClear={() => {
-                                    setSelectedAgent(null);
-                                    setAgentId('');
-                                }}
-                                onSelect={(item) => {
-                                    setSelectedAgent({
-                                        username: item.username,
-                                        name: item.profile?.name || item.username,
-                                    });
-                                    setAgentId(item.username);
-                                }}
-                                listEndpoint="agent/list"
-                                endpoint="agent/list"
-                                valueKey="username"
-                                labelMapping={memberLabelMapping}
-                                dataExtractor={assignableMemberExtractor}
-                                placeholder="Search agent..."
                                 renderSelected={(s) => s.name}
                             />
                         </div>

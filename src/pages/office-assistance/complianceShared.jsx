@@ -23,7 +23,6 @@ import {
   buildEffectiveFrom,
   COMPLIANCE_MONTHS,
   extractApiError,
-  fetchAgentOptions,
   fetchCaOptions,
   fetchStaffOptions,
   getDefaultEffectiveFromFields,
@@ -435,14 +434,12 @@ export const FirmFormModal = ({
     visibility_offset: '0',
     staffs: [],
     ca: '',
-    agent: '',
   });
   const [selectionMode, setSelectionMode] = useState('firm'); // 'firm' | 'group'
   const [selectedFirm, setSelectedFirm] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [staffMembers, setStaffMembers] = useState([]);
   const [caMembers, setCaMembers] = useState([]);
-  const [agentMembers, setAgentMembers] = useState([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [effectiveFromFields, setEffectiveFromFields] = useState(() =>
     getDefaultEffectiveFromFields('monthly'),
@@ -474,11 +471,6 @@ export const FirmFormModal = ({
   const caOptions = useMemo(
     () => caMembers.map((member) => toMemberSelectOption(member)),
     [caMembers],
-  );
-
-  const agentOptions = useMemo(
-    () => agentMembers.map((member) => toMemberSelectOption(member)),
-    [agentMembers],
   );
 
   const selectedServiceOption = useMemo(
@@ -575,14 +567,6 @@ export const FirmFormModal = ({
     );
   }, [caOptions, form.ca]);
 
-  const selectedAgentOption = useMemo(() => {
-    if (!form.agent) return null;
-    return (
-      agentOptions.find((option) => option.value === form.agent) ||
-      toMemberSelectOption({ username: form.agent, name: form.agent })
-    );
-  }, [agentOptions, form.agent]);
-
   const resolvedYearOptions = useMemo(() => {
     const frequency = selectedFormService?.frequency;
     const effectiveFrom = mode === 'edit' ? initialFirm?.effective_from : '';
@@ -632,7 +616,6 @@ export const FirmFormModal = ({
         visibility_offset: String(initialFirm.visibility_offset ?? '0'),
         staffs: normalizeAssignees(initialFirm.staffs),
         ca: normalizeAssignees(initialFirm.ca)[0] || '',
-        agent: normalizeAssignees(initialFirm.agent)[0] || '',
       });
       setEffectiveFromFields(
         parseEffectiveFromFields(editService?.frequency, initialFirm.effective_from),
@@ -654,7 +637,6 @@ export const FirmFormModal = ({
         visibility_offset: '0',
         staffs: [],
         ca: '',
-        agent: '',
       });
       setEffectiveFromFields(getDefaultEffectiveFromFields(defaultService?.frequency));
     }
@@ -676,10 +658,9 @@ export const FirmFormModal = ({
     const loadOptions = async () => {
       setOptionsLoading(true);
       try {
-        const [staffRes, caRes, agentRes] = await Promise.allSettled([
+        const [staffRes, caRes] = await Promise.allSettled([
           fetchStaffOptions({ page: 1, limit: 200 }),
           fetchCaOptions({ page: 1, limit: 200 }),
-          fetchAgentOptions({ page: 1, limit: 200 }),
         ]);
 
         if (cancelled) return;
@@ -695,12 +676,6 @@ export const FirmFormModal = ({
           setCaMembers(caRes.value?.data || []);
         } else {
           setCaMembers([]);
-        }
-
-        if (agentRes.status === 'fulfilled') {
-          setAgentMembers(agentRes.value?.data || []);
-        } else {
-          setAgentMembers([]);
         }
       } catch (error) {
         if (!cancelled) {
@@ -774,7 +749,6 @@ export const FirmFormModal = ({
       visibility_offset: Number(form.visibility_offset) || 0,
       effective_from,
       ca: form.ca ? [form.ca] : [],
-      agent: form.agent ? [form.agent] : [],
       selection_mode: isGroupMode ? 'group' : 'firm',
       group_id: isGroupMode ? selectedGroup.value : undefined,
       group_name: isGroupMode ? selectedGroup.label : undefined,
@@ -1028,19 +1002,6 @@ export const FirmFormModal = ({
                   placeholder="Search CA by name or mobile..."
                   searchPlaceholder="Search CA..."
                   noOptionsMessage="No CA found"
-                  isDisabled={saving}
-                  isClearable
-                />
-                <CustomSelect
-                  label="Agent"
-                  options={agentOptions}
-                  value={selectedAgentOption}
-                  onChange={(option) => setForm((prev) => ({ ...prev, agent: option?.value || '' }))}
-                  getOptionLabel={(option) => option.label}
-                  getOptionValue={(option) => option.value}
-                  placeholder="Search agent by name or mobile..."
-                  searchPlaceholder="Search agent..."
-                  noOptionsMessage="No agent found"
                   isDisabled={saving}
                   isClearable
                 />

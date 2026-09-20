@@ -68,7 +68,6 @@ function resetFormState(setters, staff) {
     setSelectedGroupOptions,
     setSelectedService,
     setSelectedCa,
-    setSelectedAgent,
     setSubtasks,
     setAttachedFiles,
     setVoiceNotesList,
@@ -85,7 +84,6 @@ function resetFormState(setters, staff) {
   setSelectedGroupOptions([]);
   setSelectedService(null);
   setSelectedCa(null);
-  setSelectedAgent(null);
   setSubtasks([]);
   setAttachedFiles([]);
   setVoiceNotesList([]);
@@ -126,7 +124,6 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
     groups,
     staff,
     caList,
-    agentList,
     assessmentYears,
     financialYears,
   } = useTaskCreateResources({ enabled: resourcesEnabled });
@@ -157,7 +154,6 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
   const [selectionMode, setSelectionMode] = useState("firm"); // 'firm' | 'group'
   const [selectedService, setSelectedService] = useState(null);
   const [selectedCa, setSelectedCa] = useState(null);
-  const [selectedAgent, setSelectedAgent] = useState(null);
 
   const [subtasks, setSubtasks] = useState([]);
   const [subTaskForm, setSubTaskForm] = useState({
@@ -238,7 +234,6 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
       const svcSelected = serviceToSelected(pf.service || serviceId, services);
 
       const caUsername = pf.ca;
-      const agentUsername = pf.agent;
 
       const locks = buildLockedFields(pf);
       // Prefer group mode only when groups are actually prefilled/selected.
@@ -260,9 +255,6 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
       setSelectedCa(
         memberToSelected(caUsername, pf.caName || pf.caProfile?.name),
       );
-      setSelectedAgent(
-        memberToSelected(agentUsername, pf.agentName || pf.agentProfile?.name),
-      );
 
       setForm((p) => ({
         ...p,
@@ -280,7 +272,6 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
                 : p.fees,
         due_date: pf.due_date || p.due_date,
         ca: caUsername || "",
-        agent: agentUsername || "",
       }));
     },
     [groups, services],
@@ -770,7 +761,6 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
         setSelectedGroupOptions,
         setSelectedService,
         setSelectedCa,
-        setSelectedAgent,
         setSubtasks,
         setAttachedFiles,
         setVoiceNotesList,
@@ -823,7 +813,6 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
       assignment: {
         staff: form.employees,
         ca: form.ca || "",
-        agent: form.agent || "",
       },
       notes: {
         text: (form.text_notes || []).filter((t) => (t || "").trim()),
@@ -980,11 +969,8 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
           form={form}
           setForm={setForm}
           caList={caList}
-          agentList={agentList}
           selectedCa={selectedCa}
           setSelectedCa={setSelectedCa}
-          selectedAgent={selectedAgent}
-          setSelectedAgent={setSelectedAgent}
           allEmployees={allEmployees}
           selectedEmployees={selectedEmployees}
           employeeSearchQuery={employeeSearchQuery}

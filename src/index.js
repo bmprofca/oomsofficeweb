@@ -105,8 +105,6 @@ import {
   GatewayConfig,
   ViewBranch,
   ViewAdmins,
-  AgentList,
-  AgentProfile,
   Subscription,
   WebsiteSettings,
   WidgetSettings,
@@ -972,24 +970,6 @@ root.render(
             <Route path="/settings/admin" element={
               <ProtectedRoute>
                 <ViewAdmins />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/settings/agent-list" element={
-              <ProtectedRoute>
-                <AgentList />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/settings/agent-profile/:username" element={
-              <ProtectedRoute>
-                <AgentProfile />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/settings/agent-profile/:username/:tab" element={
-              <ProtectedRoute>
-                <AgentProfile />
               </ProtectedRoute>
             } />
 
