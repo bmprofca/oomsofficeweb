@@ -93,7 +93,7 @@ const DEFAULT_CARDS = [
     id: "ca-report",
     title: "CA Report",
     value: "ca_report",
-    link: "/task/view?ca_approval=pending",
+    link: null,
   },
 ];
 
@@ -187,12 +187,11 @@ const QuickStats = ({
             amount: result.data.today_payment?.total_amount || 0,
           },
           ca_report: {
-            pending: result.data.ca_report?.pending || 0,
-            completed: result.data.ca_report?.completed || 0,
-            // keep count for older layout fallbacks
+            sent: result.data.ca_report?.sent || 0,
+            complete: result.data.ca_report?.complete || 0,
             count:
-              (result.data.ca_report?.pending || 0) +
-              (result.data.ca_report?.completed || 0),
+              (result.data.ca_report?.sent || 0) +
+              (result.data.ca_report?.complete || 0),
             amount: 0,
           },
         });
@@ -215,8 +214,8 @@ const QuickStats = ({
         today_received: { count: 0, amount: propStats.today_received || 0 },
         today_payment: { count: 0, amount: propStats.today_payment || 0 },
         ca_report: {
-          pending: propStats.ca_report?.pending || 0,
-          completed: propStats.ca_report?.completed || 0,
+          sent: propStats.ca_report?.sent || 0,
+          complete: propStats.ca_report?.complete || 0,
           count: 0,
           amount: 0,
         },
@@ -267,9 +266,23 @@ const QuickStats = ({
   const handleCardClick = useCallback(
     (card, e) => {
       if (isCustomizing) return;
-      if (e.target.closest("button")) return;
+      if (e.target.closest("button") || e.target.closest("a")) return;
+      // CA Report uses row links (Sent / Complete), not full-card navigation
+      if (card.id === "ca-report" || card.showCaReport) return;
       if (onNavigate && card.link) {
         onNavigate(card.link);
+      }
+    },
+    [isCustomizing, onNavigate],
+  );
+
+  const handleCaReportLink = useCallback(
+    (e, approval) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isCustomizing) return;
+      if (onNavigate) {
+        onNavigate(`/task/view?ca_approval=${encodeURIComponent(approval)}`);
       }
     },
     [isCustomizing, onNavigate],
@@ -336,6 +349,8 @@ const QuickStats = ({
           const isDragOver = dragOverCard === card.id;
           const displayAmount = Math.abs(amount);
 
+          const isCaReport = meta.showCaReport || card.id === "ca-report";
+
           return (
             <div
               key={card.id}
@@ -350,7 +365,11 @@ const QuickStats = ({
               onDragEnd={onCardDragEnd}
               onClick={(e) => handleCardClick(card, e)}
               className={`relative ${
-                isCustomizing ? "cursor-move select-none" : "cursor-pointer"
+                isCustomizing
+                  ? "cursor-move select-none"
+                  : isCaReport
+                    ? "cursor-default"
+                    : "cursor-pointer"
               } ${isDragged ? "opacity-50" : ""} ${
                 isDragOver ? "scale-105 transition-transform duration-200" : ""
               }`}
@@ -367,10 +386,10 @@ const QuickStats = ({
                 className="relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full"
                 style={{ background: meta.gradient }}
                 whileHover={{
-                  scale: isCustomizing ? 1 : 1.005,
+                  scale: isCustomizing || isCaReport ? 1 : 1.005,
                   transition: { duration: 0.2 },
                 }}
-                whileTap={{ scale: 0.98 }}
+                whileTap={{ scale: isCaReport ? 1 : 0.98 }}
               >
                 <div className="p-3">
                   <div className="flex items-start justify-between mb-2">
@@ -383,26 +402,36 @@ const QuickStats = ({
                           <div className="animate-pulse h-4 bg-white/20 rounded w-16" />
                           <div className="animate-pulse h-3 bg-white/20 rounded w-12" />
                         </div>
-                      ) : meta.showCaReport ? (
+                      ) : isCaReport ? (
                         <div
                           className={`space-y-1 ${blurEnabled ? "blur-sm" : ""}`}
                         >
-                          <div className="flex items-baseline justify-between gap-2 text-white leading-tight">
-                            <span className="text-white/70 text-[10px] font-medium uppercase tracking-wide">
-                              Pending
+                          <button
+                            type="button"
+                            onClick={(e) => handleCaReportLink(e, "sent")}
+                            disabled={isCustomizing}
+                            className="flex w-full items-baseline justify-between gap-2 rounded-md px-0.5 text-left text-white leading-tight transition-colors hover:bg-white/10 disabled:pointer-events-none"
+                          >
+                            <span className="text-white/80 text-[10px] font-medium uppercase tracking-wide">
+                              Sent
                             </span>
                             <span className="text-base font-bold">
-                              {formatNumber(Number(statData.pending) || 0)}
+                              {formatNumber(Number(statData.sent) || 0)}
                             </span>
-                          </div>
-                          <div className="flex items-baseline justify-between gap-2 text-white leading-tight">
-                            <span className="text-white/70 text-[10px] font-medium uppercase tracking-wide">
-                              Completed
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleCaReportLink(e, "complete")}
+                            disabled={isCustomizing}
+                            className="flex w-full items-baseline justify-between gap-2 rounded-md px-0.5 text-left text-white leading-tight transition-colors hover:bg-white/10 disabled:pointer-events-none"
+                          >
+                            <span className="text-white/80 text-[10px] font-medium uppercase tracking-wide">
+                              Complete
                             </span>
                             <span className="text-base font-bold">
-                              {formatNumber(Number(statData.completed) || 0)}
+                              {formatNumber(Number(statData.complete) || 0)}
                             </span>
-                          </div>
+                          </button>
                         </div>
                       ) : (
                         <div className="space-y-1">

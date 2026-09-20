@@ -218,7 +218,7 @@ const getDefaultQuickStatsCards = () => [
     icon: FiBriefcase,
     color: "bg-gradient-to-br from-violet-500 to-indigo-600 text-white",
     gradient: "linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)",
-    link: "/task/view?ca_approval=pending",
+    link: null,
     showCount: false,
     showAmount: false,
     showCaReport: true,
