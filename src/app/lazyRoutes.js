@@ -140,6 +140,7 @@ export const MyProfile = lazyWithRetry(() => import('../components/myProfile'));
 export const PasswordGroupFirms = lazyWithRetry(() => import('../pages/office-assistance/PasswordGroupFirms'));
 export const TransactionHistory = lazyWithRetry(() => import('../finance/bank/transaction-history'));
 export const WalletRecharge = lazyWithRetry(() => import('../pages/WalletRecharge'));
+export const WalletPaymentRequest = lazyWithRetry(() => import('../pages/WalletPaymentRequest'));
 export const TaskDetailedPage = lazyWithRetry(() => import('../DashboardComponents/TaskDetailedPage'));
 export const TaskDetailedLegacyRedirect = lazyWithRetry(() =>
   import('../DashboardComponents/TaskDetailedPage').then((m) => ({

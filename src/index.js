@@ -115,6 +115,7 @@ import {
   PasswordGroupFirms,
   TransactionHistory,
   WalletRecharge,
+  WalletPaymentRequest,
   TaskDetailedLegacyRedirect,
   TaskDetailedOdPage,
   TaskDetailedDtPage,
@@ -994,6 +995,12 @@ root.render(
             <Route path="/wallet-recharge" element={
               <ProtectedRoute>
                 <WalletRecharge />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/wallet/payment-request" element={
+              <ProtectedRoute>
+                <WalletPaymentRequest />
               </ProtectedRoute>
             } />
 

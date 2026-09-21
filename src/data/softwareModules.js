@@ -6,6 +6,7 @@ export const SOFTWARE_MODULES = [
   { title: "My Profile", path: "/my-profile", group: "Core", keywords: "account user" },
   { title: "Subscription", path: "/subscription", group: "Core", keywords: "plan billing" },
   { title: "Wallet Recharge", path: "/wallet-recharge", group: "Core", keywords: "wallet money" },
+  { title: "Payment Request", path: "/wallet/payment-request", group: "Core", keywords: "wallet bank transfer payment request" },
 
   // Tasks
   { title: "Tasks", path: "/task/view", group: "Tasks", keywords: "work job list view" },

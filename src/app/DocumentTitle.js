@@ -104,6 +104,7 @@ const EXACT_TITLES = {
   '/settings/widget': 'Widget Settings',
   '/subscription': 'Subscription',
   '/wallet-recharge': 'Wallet Recharge',
+  '/wallet/payment-request': 'Payment Request',
   '/service-sales-details': 'Service Sales',
   '/staff-sales-details': 'Staff Sales',
   '/sales/staff-wise': 'Staff-wise Sales',
