@@ -124,10 +124,11 @@ See [`finance-registers.md`](./finance-registers.md) for shell, actions, and `pa
 |-------|------|------------|
 | `AddStaffModal` | [`Modals/AddStaffModal.jsx`](../src/components/Modals/AddStaffModal.jsx) | `/settings/staff-list`, `/staff/view` |
 | `StaffStatusOtpModal` | [`Modals/StaffStatusOtpModal.jsx`](../src/components/Modals/StaffStatusOtpModal.jsx) | Status change after confirm |
-| `ConfirmActionModal` | [`ConfirmActionModal.jsx`](../src/components/ConfirmActionModal.jsx) | Activate / deactivate confirm (before OTP) |
+| `ConfirmActionModal` | [`ConfirmActionModal.jsx`](../src/components/ConfirmActionModal.jsx) | Staff activate/deactivate; **Sessions** end/revoke; **navbar Sign out** (`children` = all-sessions checkbox) |
 | Change permission / all permissions | shared [`Modal.jsx`](../src/components/common/Modal.jsx) | Staff list row ⋮ / +N more |
 
-- Fade-only (`duration: 0.18`). Shared `Modal` always portals; `isOpen` gates `AnimatePresence` so the **exit fade** runs (do not `return null` before the portal).
+- Fade-only (`duration: 0.18`). Shared `Modal` / `ConfirmActionModal` always portals; `isOpen` gates `AnimatePresence` so the **exit fade** runs (do not `return null` before the portal).
+- Sign-out and session end must use `ConfirmActionModal` (not a one-off portal). See [`sessions.md`](./sessions.md).
 - Add-staff: Email **and** Mobile find tabs. Body skeletons while check-user / create run.
 - Status: confirm first, then send OTP, then OTP submit. OTP body skeleton while sending.
 - Permission modal: layout-matching skeleton while user-permissions API loads (not a spinner).

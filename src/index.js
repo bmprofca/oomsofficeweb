@@ -116,6 +116,8 @@ import {
   TransactionHistory,
   WalletRecharge,
   WalletPaymentRequest,
+  HelpSupport,
+  Sessions,
   TaskDetailedLegacyRedirect,
   TaskDetailedOdPage,
   TaskDetailedDtPage,
@@ -242,7 +244,9 @@ const ProtectedRoute = ({ children, keepAlive = true }) => {
   else if (
     pathname !== '/subscription' &&
     pathname !== '/my-profile' &&
-    pathname !== '/branch-setup'
+    pathname !== '/branch-setup' &&
+    pathname !== '/help-support' &&
+    pathname !== '/sessions'
   ) {
     requiredLevel = 'core';
   }
@@ -330,6 +334,12 @@ root.render(
             <Route path="/my-profile" element={
               <ProtectedRoute>
                 <MyProfile />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/sessions" element={
+              <ProtectedRoute>
+                <Sessions />
               </ProtectedRoute>
             } />
 
@@ -989,6 +999,12 @@ root.render(
             <Route path="/subscription" element={
               <ProtectedRoute>
                 <Subscription />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/help-support" element={
+              <ProtectedRoute>
+                <HelpSupport />
               </ProtectedRoute>
             } />
 

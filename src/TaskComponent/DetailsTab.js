@@ -8,12 +8,14 @@ import {
     FiCalendar,
     FiFileText, FiAlertCircle,
     FiMail, FiPhone, FiHash, FiClock, FiEye, FiShield, FiCheckCircle,
+    FiList,
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { toast } from 'react-hot-toast';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
+import TaskStatusHistoryModal from '../components/Modals/TaskStatusHistoryModal';
 import CaApprovalChange from '../components/Modals/CaApprovalChange';
 import TaskEditModal from '../components/Modals/TaskEditModal';
 import { checkPermissionSync } from '../utils/permission-helper';
@@ -183,6 +185,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
 
     const [isChangingStatus, setIsChangingStatus] = useState(false);
     const [statusModalOpen, setStatusModalOpen] = useState(false);
+    const [statusHistoryOpen, setStatusHistoryOpen] = useState(false);
     const [savingCaApproval, setSavingCaApproval] = useState(false);
     const [caApprovalModalOpen, setCaApprovalModalOpen] = useState(false);
     const [savingUdin, setSavingUdin] = useState(false);
@@ -465,6 +468,14 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setStatusHistoryOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                        >
+                            <FiList className="h-3.5 w-3.5" />
+                            Status History
+                        </button>
                         <button
                             type="button"
                             onClick={() => setStatusModalOpen(true)}
@@ -948,6 +959,12 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                     value: statusOption.value,
                     name: statusOption.label,
                 }))}
+            />
+
+            <TaskStatusHistoryModal
+                isOpen={statusHistoryOpen}
+                taskId={task_id}
+                onClose={() => setStatusHistoryOpen(false)}
             />
 
             <CaApprovalChange

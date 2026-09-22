@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { applyBranchToSession, fetchOnboardingStatus } from '../services/branchSetupService';
 
-const BRANCH_OPTIONAL_PATHS = ['/branch-setup', '/subscription', '/my-profile'];
+const BRANCH_OPTIONAL_PATHS = ['/branch-setup', '/subscription', '/my-profile', '/sessions', '/help-support'];
 
 const isBranchOptionalPath = (pathname) =>
     BRANCH_OPTIONAL_PATHS.some(

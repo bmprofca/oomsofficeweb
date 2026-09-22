@@ -29,6 +29,9 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`global-search.md`](./global-search.md) | Header global search: records + software modules |
 | [`staff.md`](./staff.md) | Staff list (`/settings/staff-list`), `/staff/view`, invite by email/mobile, status OTP |
 | [`header-notifications.md`](./header-notifications.md) | Navbar bell: CA-approved open tasks |
+| [`help-support.md`](./help-support.md) | Help & Support page, sidebar entry, contacts + FAQs |
+| [`sessions.md`](./sessions.md) | Sessions table, profile Sessions link, sign-out ConfirmActionModal |
+| [`wallet.md`](./wallet.md) | Wallet recharge + payment-request pages |
 
 ## Other files
 
@@ -71,6 +74,9 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | `global-search.md` | `SERVER/context/utils.md` |
 | `staff.md` | `SERVER/context/staff.md` |
 | `header-notifications.md` | `SERVER/context/task-list.md` (`GET /task/notifications`) |
+| `help-support.md` | `SERVER/context/help-support.md`, `ADMIN/context/help-support.md` |
+| `sessions.md` | `SERVER/context/auth-sessions.md` |
+| `wallet.md` | `SERVER/context/wallet.md`, `ADMIN/context/wallet-payments.md` |
 | `layout.md` | — (client-only) |
 
 See also [`SERVER/context/README.md`](../../SERVER/context/README.md).

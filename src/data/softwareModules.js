@@ -4,7 +4,9 @@ export const SOFTWARE_MODULES = [
   // Core
   { title: "Dashboard", path: "/", group: "Core", keywords: "home overview" },
   { title: "My Profile", path: "/my-profile", group: "Core", keywords: "account user" },
+  { title: "Sessions", path: "/sessions", group: "Core", keywords: "login device security session" },
   { title: "Subscription", path: "/subscription", group: "Core", keywords: "plan billing" },
+  { title: "Help & Support", path: "/help-support", group: "Core", keywords: "help support contact" },
   { title: "Wallet Recharge", path: "/wallet-recharge", group: "Core", keywords: "wallet money" },
   { title: "Payment Request", path: "/wallet/payment-request", group: "Core", keywords: "wallet bank transfer payment request" },
 

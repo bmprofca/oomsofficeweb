@@ -7,7 +7,7 @@ import {
   FiPlus, FiUser, FiSettings, FiHelpCircle,
   FiLogOut, FiPieChart, FiMessageSquare, FiUsers, FiRepeat,
   FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiPhone,
-  FiClock,
+  FiClock, FiMonitor,
 } from 'react-icons/fi';
 import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
@@ -27,6 +27,7 @@ import { clearKeepAliveCache } from '../app/KeepAlive';
 import BranchSwitchOverlay from './BranchSwitchOverlay';
 import HeaderGlobalSearch from './HeaderGlobalSearch';
 import HeaderNotifications from './HeaderNotifications';
+import ConfirmActionModal from './ConfirmActionModal';
 
 function isStoredBranchAdmin() {
   try {
@@ -387,6 +388,9 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const profilePanelRef = useRef(null);
   const [profilePanelStyle, setProfilePanelStyle] = useState({ top: 0, right: 0 });
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [logoutAllSessions, setLogoutAllSessions] = useState(false);
+  const [logoutSubmitting, setLogoutSubmitting] = useState(false);
 
   const navigate = useNavigate();
   const [walletBalance, setWalletBalance] = useState(0);
@@ -440,9 +444,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     setMobileMenuOpen(true);
   };
 
-  const handleLogout = async () => {
-    setProfileDropdownOpen(false);
-
+  const performLogout = async (allSessions = false) => {
     const token = localStorage.getItem('user_token');
     const username = localStorage.getItem('user_username');
 
@@ -455,6 +457,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
             token,
             username,
           },
+          body: JSON.stringify({ all_sessions: Boolean(allSessions) }),
         });
       }
     } catch (error) {
@@ -475,6 +478,23 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     localStorage.removeItem('userData');
     clearKeepAliveCache();
     navigate('/login');
+  };
+
+  const openLogoutModal = () => {
+    setProfileDropdownOpen(false);
+    setLogoutAllSessions(false);
+    setLogoutModalOpen(true);
+  };
+
+  const confirmLogout = async () => {
+    if (logoutSubmitting) return;
+    setLogoutSubmitting(true);
+    try {
+      await performLogout(logoutAllSessions);
+    } finally {
+      setLogoutSubmitting(false);
+      setLogoutModalOpen(false);
+    }
   };
 
   const handleSelectCompany = async (company) => {
@@ -503,8 +523,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
 
   const profileItems = [
     { title: 'My Profile', icon: FiUser, path: '/my-profile' },
-    { title: 'Settings', icon: FiSettings, path: '/settings' },
-    { title: 'Help & Support', icon: FiHelpCircle, path: '/settings' },
+    { title: 'Sessions', icon: FiMonitor, path: '/sessions' },
   ];
 
   const branchLabel = selectedProjectName || selectedCompany?.name || 'Select Branch';
@@ -675,20 +694,19 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                     <div className="border-b border-slate-100 bg-gradient-to-br from-indigo-50/50 to-white px-3 py-2">
                       <div className="flex items-center gap-2.5">
                         {renderAvatar('lg')}
-                        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-                          <p className="truncate text-sm font-semibold leading-none text-slate-900">
+                        <div className="min-w-0 flex-1">
+                          <p className="m-0 truncate text-sm font-semibold leading-5 text-slate-900">
                             {userProfile.name || 'User'}
                           </p>
-                          <span className="w-fit rounded border border-indigo-200 bg-indigo-50 px-1.5 py-px text-[10px] font-semibold uppercase leading-none tracking-wide text-indigo-700">
-                            {userProfile.roleLabel || 'Member'}
-                          </span>
                           {userProfile.mobile ? (
-                            <p className="flex items-center gap-1 truncate text-xs leading-none text-slate-500">
+                            <p className="m-0 mt-0.5 flex items-center gap-1 truncate text-xs leading-4 text-slate-500">
                               <FiPhone className="h-3 w-3 shrink-0 text-slate-400" />
                               {userProfile.mobile}
                             </p>
                           ) : (
-                            <p className="text-xs leading-none text-slate-400">Mobile not available</p>
+                            <p className="m-0 mt-0.5 text-xs leading-4 text-slate-400">
+                              Mobile not available
+                            </p>
                           )}
                         </div>
                       </div>
@@ -748,7 +766,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                       <button
                         type="button"
                         role="menuitem"
-                        onClick={handleLogout}
+                        onClick={openLogoutModal}
                         className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
                       >
                         <FiLogOut className="h-4 w-4 shrink-0" />
@@ -798,6 +816,40 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
       />
 
       <BranchSwitchOverlay />
+
+      <ConfirmActionModal
+        isOpen={logoutModalOpen}
+        title="Sign Out"
+        heading="Sign out of your account?"
+        message="You will need to sign in again to access your account."
+        confirmLabel="Sign out"
+        cancelLabel="Cancel"
+        loading={logoutSubmitting}
+        tone="danger"
+        icon={FiLogOut}
+        onCancel={() => {
+          if (!logoutSubmitting) setLogoutModalOpen(false);
+        }}
+        onConfirm={confirmLogout}
+      >
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-red-100 bg-red-50/60 px-3.5 py-3">
+          <input
+            type="checkbox"
+            checked={logoutAllSessions}
+            disabled={logoutSubmitting}
+            onChange={(e) => setLogoutAllSessions(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-slate-800">
+              Logout from all sessions
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              Sign out on this device and every other device where you are logged in.
+            </span>
+          </span>
+        </label>
+      </ConfirmActionModal>
     </>
   );
 };
@@ -960,7 +1012,8 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         }]
         : []),
       { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings', permission: 'setting_' },
-      { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription', permission: 'subscription_' }
+      { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription', permission: 'subscription_' },
+      { key: 'help-support', title: 'Help & Support', icon: <FiHelpCircle size={18} />, path: '/help-support' },
     ];
 
     return items;
