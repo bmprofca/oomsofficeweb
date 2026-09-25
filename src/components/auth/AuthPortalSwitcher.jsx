@@ -1,4 +1,4 @@
-import { PORTALS, portalLoginUrl } from "../config/portalUrls";
+import { PORTALS, portalLoginUrl } from "../../config/portalUrls";
 
 /**
  * Tab switcher so users jump between Office / Client / CA domains.
