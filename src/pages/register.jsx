@@ -17,6 +17,7 @@ import { fetchWhatsappChannel } from '../services/whatsappChannelStore';
 import { fetchSmsChannel } from '../services/smsChannelStore';
 import { fetchCallChannel } from '../services/callChannelStore';
 import { saveUserSessionToStorage } from '../utils/user-profile-storage';
+import AuthPortalSwitcher from '../components/auth/AuthPortalSwitcher';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_REGEX = /^\d{10}$/;
@@ -312,10 +313,13 @@ const Register = () => {
                     <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,_#8b5cf612_0%,_transparent_70%)] filter blur-3xl pointer-events-none"></div>
 
                     <div className="relative z-10 flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 border border-white/[0.08]">
-                            <FiShield className="text-xl text-white" />
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-950 ring-1 ring-white/15 shadow-lg shadow-indigo-600/20 flex items-center justify-center">
+                            <img src="/logo512.png" alt="OOMS" className="h-8 w-8 object-contain" />
                         </div>
-                        <span className="text-xl font-bold tracking-tight text-white">OOMS</span>
+                        <div>
+                            <span className="text-xl font-bold tracking-tight text-white block leading-none">OOMS</span>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-300/80">Office</span>
+                        </div>
                     </div>
 
                     <div className="relative z-10 my-auto py-4 flex flex-col justify-center">
@@ -386,24 +390,29 @@ const Register = () => {
                 <div className="w-full md:w-[54%] flex flex-col justify-between p-6 sm:p-8 bg-white relative md:overflow-y-hidden overflow-y-auto scrollbar-hide">
                     <div className="flex md:hidden items-center justify-between w-full mb-6">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#4f35e3] to-[#3b82f6] flex items-center justify-center text-white shadow-md">
-                                <FiShield size={16} />
+                            <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center shadow-md">
+                                <img src="/logo512.png" alt="OOMS" className="h-6 w-6 object-contain" />
                             </div>
-                            <span className="text-sm font-bold text-slate-800">OOMS</span>
+                            <div>
+                                <span className="text-sm font-bold text-slate-800 block leading-none">OOMS</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600">Office</span>
+                            </div>
                         </div>
                     </div>
 
                     <div className="my-auto w-full max-w-[340px] mx-auto space-y-4">
+                        <AuthPortalSwitcher active="app" />
+
                         <div className="text-center">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#4f35e3] to-[#3b82f6] flex items-center justify-center text-white shadow-lg mb-2 mx-auto">
-                                <FiShield size={20} />
+                            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center shadow-lg mb-2 mx-auto ring-1 ring-indigo-200">
+                                <img src="/logo512.png" alt="OOMS" className="h-8 w-8 object-contain" />
                             </div>
                             <h2 className="text-2xl font-black text-slate-800 tracking-tight">
                                 {step === 1 ? 'Create account' : 'Verify OTP'}
                             </h2>
                             <p className="text-xs text-slate-450 mt-1">
                                 {step === 1
-                                    ? 'Mobile number is required. Email is optional.'
+                                    ? 'Office registration only — Client & CA portals use login.'
                                     : `Code sent to ${otpDestination}`}
                             </p>
 

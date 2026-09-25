@@ -24,6 +24,8 @@ import {
 } from '../utils/user-profile-storage';
 import { applyBranchToSession } from '../services/branchSetupService';
 import { clearUserPermissionCache } from '../utils/permission-helper';
+import AuthPortalSwitcher from '../components/auth/AuthPortalSwitcher';
+import { portalRegisterUrl } from '../config/portalUrls';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -327,10 +329,13 @@ const Login = () => {
 
                     {/* Logo & Brand */}
                     <div className="relative z-10 flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 border border-white/[0.08]">
-                            <FiShield className="text-xl text-white" />
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-950 ring-1 ring-white/15 shadow-lg shadow-indigo-600/20 flex items-center justify-center">
+                            <img src="/logo512.png" alt="OOMS" className="h-8 w-8 object-contain" />
                         </div>
-                        <span className="text-xl font-bold tracking-tight text-white">OOMS</span>
+                        <div>
+                            <span className="text-xl font-bold tracking-tight text-white block leading-none">OOMS</span>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-300/80">Office</span>
+                        </div>
                     </div>
 
                     {/* Widgets Visual Art (Glassmorphic Mockup) */}
@@ -426,24 +431,29 @@ const Login = () => {
                     {/* Top Right Mini Brand (Mobile Only) */}
                     <div className="flex md:hidden items-center justify-between w-full mb-6">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#4f35e3] to-[#3b82f6] flex items-center justify-center text-white shadow-md">
-                                OO
+                            <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center shadow-md">
+                                <img src="/logo512.png" alt="OOMS" className="h-6 w-6 object-contain" />
                             </div>
-                            <span className="text-sm font-bold text-slate-800">OOMS Admin</span>
+                            <div>
+                                <span className="text-sm font-bold text-slate-800 block leading-none">OOMS</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600">Office</span>
+                            </div>
                         </div>
                     </div>
 
                     {/* Centered Area */}
                     <div className="my-auto w-full max-w-[340px] mx-auto space-y-4">
 
+                        <AuthPortalSwitcher active="app" />
+
                         {/* Shield icon & Title */}
                         {!loginSuccess && (
                             <div className="text-center">
-                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#4f35e3] to-[#3b82f6] flex items-center justify-center text-white shadow-lg mb-2 mx-auto">
-                                    <FiShield size={20} />
+                                <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center shadow-lg mb-2 mx-auto ring-1 ring-indigo-200">
+                                    <img src="/logo512.png" alt="OOMS" className="h-8 w-8 object-contain" />
                                 </div>
                                 <h2 className="text-2xl font-black text-slate-800 tracking-tight">Welcome back</h2>
-                                <p className="text-xs text-slate-450 mt-1">Secure access to your dashboard</p>
+                                <p className="text-xs text-slate-450 mt-1">Secure access to your office dashboard</p>
 
                                 {/* Step Progress Bar */}
                                 {!showBranchSelection && (
@@ -686,6 +696,13 @@ const Login = () => {
                                         Create account
                                     </button>
                                 </p>
+                                <p className="text-center text-[10px] text-slate-400">
+                                    Registration is only available on the Office portal ({' '}
+                                    <a href={portalRegisterUrl()} className="text-[#5c3fe6] font-bold hover:underline">
+                                        app.ooms.in
+                                    </a>
+                                    ).
+                                </p>
                             </div>
                         )}
 
@@ -700,7 +717,7 @@ const Login = () => {
 
                     {/* Bottom Security Note */}
                     <div className="text-[10px] text-slate-400 font-semibold text-center mt-4 flex items-center justify-center gap-1">
-                        <span>🛡️</span> Secure admin area - All access is monitored
+                        <span>🛡️</span> Secure office area — all access is monitored
                     </div>
                 </div>
             </div>
