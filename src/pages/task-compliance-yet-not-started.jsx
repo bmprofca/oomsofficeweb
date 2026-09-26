@@ -145,11 +145,12 @@ const rowCharges = (row) => row?.charges || {};
 const rowClientContact = (row) => {
   const client = row?.client || {};
   const profile = client.profile || {};
+  const rawMobile = profile.mobile || client.mobile || "";
+  const mobile = String(rawMobile || "").replace(/\D/g, "").slice(-10);
   return {
     username: client.username || "",
     name: profile.name || client.name || "",
-    mobile: profile.mobile || client.mobile || "",
-    country_code: profile.country_code || client.country_code || "",
+    mobile,
     email: profile.email || client.email || "",
   };
 };
@@ -510,7 +511,11 @@ const ComplianceYetNotStarted = () => {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  const handleConfirmStart = async () => {
+  const handleCancelStart = useCallback(() => {
+    if (!startWorkingLoading) setStartWorkingTarget(null);
+  }, [startWorkingLoading]);
+
+  const handleConfirmStart = useCallback(async () => {
     if (!startWorkingTarget) return;
     const row = startWorkingTarget;
     const dates = rowDates(row);
@@ -544,7 +549,7 @@ const ComplianceYetNotStarted = () => {
       setStartWorkingLoading(false);
       setStatusUpdatingKey(null);
     }
-  };
+  }, [startWorkingTarget, loadRows]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -819,7 +824,6 @@ const ComplianceYetNotStarted = () => {
                                   </span>
                                   <ClickToCallButton
                                     phoneNumber={client.mobile}
-                                    countryCode={client.country_code}
                                     displayName={client.name}
                                     className="h-6 w-6"
                                   />
@@ -920,9 +924,7 @@ const ComplianceYetNotStarted = () => {
         loading={startWorkingLoading}
         periodOptions={periodOptions}
         onConfirm={handleConfirmStart}
-        onCancel={() => {
-          if (!startWorkingLoading) setStartWorkingTarget(null);
-        }}
+        onCancel={handleCancelStart}
       />
 
       <AssignedStaffList

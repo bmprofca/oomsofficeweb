@@ -421,12 +421,13 @@ const rowService = (row) => row?.service || {};
 const rowClientContact = (row) => {
   const profile = row?.client?.profile || {};
   const client = row?.client || {};
+  const rawMobile = profile.mobile || client.mobile || "";
+  const mobile = String(rawMobile || "").replace(/\D/g, "").slice(-10);
   return {
     username: profile.username || client.username || "",
     name:
       profile.name || client.name || profile.username || client.username || "",
-    mobile: profile.mobile || client.mobile || "",
-    country_code: profile.country_code || client.country_code || "",
+    mobile,
     email: profile.email || client.email || "",
   };
 };
@@ -1652,7 +1653,6 @@ export const ComplianceTaskBoard = ({
                                   </span>
                                   <ClickToCallButton
                                     phoneNumber={client.mobile}
-                                    countryCode={client.country_code}
                                     displayName={client.name}
                                     className="h-6 w-6"
                                   />

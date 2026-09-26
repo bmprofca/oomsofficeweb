@@ -44,8 +44,8 @@ function lazyWithRetry(importer) {
   );
 }
 
-/** Route-level code splitting — pages load on demand instead of at app startup. */
-export const Login = lazyWithRetry(() => import('../pages/login'));
+/** Route-level code splitting — pages load on demand instead of at app startup.
+ *  Login is eagerly imported in index.js to avoid Suspense spinner on /login. */
 export const PageNotFound = lazyWithRetry(() => import('../pages/error/page-not-found'));
 export const Dashboard = lazyWithRetry(() => import('../pages/dashboard'));
 export const Register = lazyWithRetry(() => import('../pages/register'));

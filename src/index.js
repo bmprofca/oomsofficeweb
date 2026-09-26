@@ -1,6 +1,5 @@
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import reportWebVitals from './reportWebVitals';
@@ -19,8 +18,9 @@ import RouteLoadingFallback from './app/RouteLoadingFallback';
 import DocumentTitle from './app/DocumentTitle';
 import { KeepAlivePage, KeepAliveProvider } from './app/KeepAlive';
 import { handleUnauthorizedResponse } from './utils/auth-session';
+/** Eager login — avoid Suspense spinner when landing on /login from portal switcher */
+import Login from './pages/login';
 import {
-  Login,
   PageNotFound,
   Dashboard,
   Register,
@@ -138,9 +138,6 @@ import {
   StaffWiseSalesPage,
   TopClientsViewAll,
 } from './app/lazyRoutes';
-
-// Google Client ID
-const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
 
 const redirectToSubscription = (upgrade = false) => {
   if (window.location.pathname === '/subscription') return;
@@ -284,7 +281,6 @@ const PublicRoute = ({ children }) => {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <BrowserRouter>
       <DocumentTitle />
       <TaskCreateProvider>
@@ -305,7 +301,7 @@ root.render(
           <BodyScrollLockObserver />
           <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
-            {/* Public Routes */}
+            {/* Public Routes — Login is eagerly loaded (no Suspense spinner) */}
             <Route path="/login" element={
               <Login />
             } />
@@ -1086,7 +1082,6 @@ root.render(
         </ClickToCallProvider>
       </TaskCreateProvider>
     </BrowserRouter>
-  </GoogleOAuthProvider>
 );
 
 reportWebVitals();

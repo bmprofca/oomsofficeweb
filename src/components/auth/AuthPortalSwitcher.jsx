@@ -18,7 +18,7 @@ export default function AuthPortalSwitcher({ active = "app" }) {
             return (
               <span
                 key={portal.id}
-                className="flex-1 rounded-lg bg-white px-2 py-2 text-center text-[11px] font-bold text-[#5c3fe6] shadow-sm ring-1 ring-indigo-100"
+                className="portal-tab-active flex-1 rounded-lg bg-white px-2 py-2 text-center text-[11px] font-bold text-[#5c3fe6] border border-indigo-200 shadow-sm no-underline"
               >
                 {portal.label}
               </span>
@@ -28,7 +28,8 @@ export default function AuthPortalSwitcher({ active = "app" }) {
             <a
               key={portal.id}
               href={href}
-              className="flex-1 rounded-lg px-2 py-2 text-center text-[11px] font-bold text-slate-500 transition hover:bg-white/70 hover:text-slate-800"
+              style={{ textDecoration: "none" }}
+              className="flex-1 rounded-lg px-2 py-2 text-center text-[11px] font-bold text-slate-500 border border-transparent no-underline hover:no-underline focus:no-underline hover:bg-white/70 hover:text-slate-800 transition"
             >
               {portal.label}
             </a>

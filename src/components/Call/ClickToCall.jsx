@@ -57,15 +57,15 @@ function isOomsCallChannel(value) {
 /** Compact call action next to a mobile number. */
 export function ClickToCallButton({
   phoneNumber,
-  countryCode,
+  countryCode: _countryCode,
   displayName,
   className = "",
   stopPropagation = true,
 }) {
   const { canCall, openCall } = useClickToCall();
-  const mobile = String(phoneNumber || "").trim();
-  // Only show when this logged-in user can place calls (enabled + extension)
-  if (!canCall || !mobile || mobile.toUpperCase() === "N/A") return null;
+  // India dial: always use last 10 digits; ignore country code for PBX.
+  const mobile = String(phoneNumber || "").replace(/\D/g, "").slice(-10);
+  if (!canCall || !mobile || mobile.length < 8) return null;
 
   return (
     <button
@@ -78,7 +78,7 @@ export function ClickToCallButton({
           e.stopPropagation();
           e.preventDefault();
         }
-        openCall({ phoneNumber: mobile, countryCode, displayName });
+        openCall({ phoneNumber: mobile, displayName });
       }}
     >
       <FiPhoneCall className="h-3.5 w-3.5" />
@@ -133,9 +133,9 @@ export function ClickToCallProvider({ children }) {
   }, [refresh]);
 
   const openCall = useCallback(
-    ({ phoneNumber, countryCode, displayName }) => {
-      const phone = String(phoneNumber || "").trim();
-      if (!phone || phone.toUpperCase() === "N/A") {
+    ({ phoneNumber, displayName }) => {
+      const phone = String(phoneNumber || "").replace(/\D/g, "").slice(-10);
+      if (!phone || phone.length < 8) {
         toast.error("Mobile number is missing");
         return;
       }
@@ -145,7 +145,6 @@ export function ClickToCallProvider({ children }) {
       }
       setConfirmState({
         phoneNumber: phone,
-        countryCode: countryCode || "",
         displayName: displayName || "",
       });
     },
@@ -163,7 +162,6 @@ export function ClickToCallProvider({ children }) {
     try {
       const res = await callApi.initiate({
         phoneNumber: confirmState.phoneNumber,
-        country_code: confirmState.countryCode,
       });
       toast.success(res?.message || "Call initiated");
       setConfirmState(null);
@@ -183,9 +181,7 @@ export function ClickToCallProvider({ children }) {
     [canCall, channelEnabled, refresh, openCall],
   );
 
-  const displayPhone = confirmState
-    ? `${confirmState.countryCode ? `+${String(confirmState.countryCode).replace(/^\+/, "")} ` : ""}${confirmState.phoneNumber}`
-    : "";
+  const displayPhone = confirmState ? confirmState.phoneNumber : "";
 
   return (
     <ClickToCallContext.Provider value={value}>
