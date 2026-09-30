@@ -118,7 +118,7 @@ const FormatCard = memo(function FormatCard({
   }, [sample?.url, sample?.data, sample?.format_id]);
 
   const displayName =
-    FORMAT_DISPLAY_NAMES[sample.format_id] || sample.format_id;
+    sample.name || FORMAT_DISPLAY_NAMES[sample.format_id] || sample.format_id;
 
   return (
     <div
@@ -463,9 +463,11 @@ const InvoiceSettings = () => {
         throw new Error(json?.message || "Update failed");
       }
 
-      toast.success(
-        `Format "${FORMAT_DISPLAY_NAMES[formatId] || formatId}" activated successfully!`,
-      );
+      const activatedName =
+        formatData?.samples?.find((sample) => sample.format_id === formatId)?.name ||
+        FORMAT_DISPLAY_NAMES[formatId] ||
+        formatId;
+      toast.success(`Format "${activatedName}" activated successfully!`);
       // Update active state locally — avoid refetch remounting all format cards
       setFormatData((prev) =>
         prev ? { ...prev, active_format: formatId } : prev,
@@ -1429,7 +1431,10 @@ const InvoiceSettings = () => {
 
               <div>
                 <h2 className="text-lg my-0 font-bold capitalize">
-                  {FORMAT_DISPLAY_NAMES[selectedFormatSample.format_id]} Format
+                  {selectedFormatSample.name ||
+                    FORMAT_DISPLAY_NAMES[selectedFormatSample.format_id] ||
+                    selectedFormatSample.format_id}{" "}
+                  Format
                   Preview
                 </h2>
                 <p className="text-indigo-100 text-xs my-0">
