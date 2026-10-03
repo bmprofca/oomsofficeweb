@@ -282,15 +282,28 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
 
   return (
     <>
+      <span
+        className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[11px] font-semibold ${
+          checking
+            ? 'bg-slate-100 text-slate-600'
+            : available
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-rose-100 text-rose-700'
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        {checking ? 'Checking status' : available ? 'Online' : 'Offline'}
+      </span>
       <button
         type="button"
         onClick={startCall}
         disabled={checking || !available || starting}
         title={available ? 'Start an app-to-app voice call' : unavailableTitle}
         aria-label={`Start in-app voice call with ${displayName || 'client'}`}
-        className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <FiPhoneCall className="h-3.5 w-3.5" />
+        <FiPhoneCall className="h-4 w-4" />
         App-to-app call
       </button>
 
