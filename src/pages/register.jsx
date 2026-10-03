@@ -9,8 +9,6 @@ import {
     FiArrowLeft,
     FiRefreshCw,
     FiCheck,
-    FiShield,
-    FiTrendingUp
 } from 'react-icons/fi';
 import API_BASE_URL from '../utils/api-controller';
 import { fetchWhatsappChannel } from '../services/whatsappChannelStore';
@@ -18,6 +16,18 @@ import { fetchSmsChannel } from '../services/smsChannelStore';
 import { fetchCallChannel } from '../services/callChannelStore';
 import { saveUserSessionToStorage } from '../utils/user-profile-storage';
 import AuthPortalSwitcher from '../components/auth/AuthPortalSwitcher';
+import OomsAuthShell from '../components/auth/OomsAuthShell';
+
+const OFFICE_FEATURES = [
+    { icon: "📋", label: "Tasks & compliance tracking" },
+    { icon: "👥", label: "Clients & firm management" },
+    { icon: "💰", label: "Billing & finance registers" },
+    { icon: "📣", label: "Broadcast & WhatsApp" },
+    { icon: "👨‍💼", label: "Staff attendance & reports" },
+    { icon: "🔐", label: "DSC, files & password vault" },
+    { icon: "📅", label: "Recurring & compliance calendar" },
+    { icon: "📊", label: "Dashboards & quick stats" },
+];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_REGEX = /^\d{10}$/;
@@ -301,106 +311,18 @@ const Register = () => {
     const otpDestination = `+91 ${normalizeMobile(formData.mobile)}`;
 
     return (
-        <div className="ooms-root h-[100dvh] overflow-hidden bg-[#f3f6fc] flex items-center justify-center p-4 sm:p-6 font-sans page-container">
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
-            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-
-            <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(99,102,241,0.06)] border border-slate-100/80 flex flex-col md:flex-row overflow-hidden w-full max-w-[920px] h-full md:h-[580px] max-h-full relative">
-                <div className="hidden md:flex md:w-[46%] bg-[#080b18] text-white flex-col justify-between p-8 relative overflow-hidden select-none">
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_#080b18_80%),_radial-gradient(#ffffff04_1px,_transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
-                    <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,_#3b82f612_0%,_transparent_70%)] filter blur-3xl pointer-events-none"></div>
-                    <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,_#8b5cf612_0%,_transparent_70%)] filter blur-3xl pointer-events-none"></div>
-
-                    <div className="relative z-10 flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-950 ring-1 ring-white/15 shadow-lg shadow-indigo-600/20 flex items-center justify-center">
-                            <img src="/logo512.png" alt="OOMS" className="h-8 w-8 object-contain" />
-                        </div>
-                        <div>
-                            <span className="text-xl font-bold tracking-tight text-white block leading-none">OOMS</span>
-                            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-300/80">Office</span>
-                        </div>
-                    </div>
-
-                    <div className="relative z-10 my-auto py-4 flex flex-col justify-center">
-                        <h1 className="text-3xl font-extrabold text-white tracking-tight leading-tight">
-                            Join OOMS,<br />
-                            <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
-                                create your account.
-                            </span>
-                        </h1>
-                        <p className="text-slate-400 text-xs mt-3 leading-relaxed font-normal">
-                            Register with your mobile number, verify with OTP, and sign in to manage your workspace.
-                        </p>
-
-                        <div className="mt-6 space-y-4">
-                            <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-md rounded-2xl p-4 shadow-2xl relative overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.04]">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center space-x-2.5">
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                                            <FiUser className="text-indigo-400" />
-                                        </div>
-                                        <div>
-                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Registration</span>
-                                            <span className="text-xs font-semibold text-slate-200">Account Setup Status</span>
-                                        </div>
-                                    </div>
-                                    <span className="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/20">
-                                        Step {step}/2
-                                    </span>
-                                </div>
-                                <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${(step / 2) * 100}%` }} />
-                                </div>
-                                <span className="text-[9px] text-slate-500 block mt-2">No branch is created during registration</span>
-                            </div>
-
-                            <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-md rounded-2xl p-4 shadow-2xl relative overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.04]">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div>
-                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Office Efficiency</span>
-                                        <span className="text-xl font-bold text-slate-100 mt-1 block">99.9% Automated</span>
-                                    </div>
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                                        <FiTrendingUp className="text-indigo-400 text-base" />
-                                    </div>
-                                </div>
-                                <div className="w-full h-[1px] bg-white/[0.08]" />
-                                <span className="text-[9px] text-slate-500 block mt-2">Create branches later from your dashboard</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="relative z-10 grid grid-cols-3 gap-4 pt-4 border-t border-white/[0.08]">
-                        <div>
-                            <span className="text-xl font-extrabold text-white block">10K+</span>
-                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mt-0.5">Clients</span>
-                        </div>
-                        <div>
-                            <span className="text-xl font-extrabold text-white block">99.9%</span>
-                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mt-0.5">Uptime</span>
-                        </div>
-                        <div>
-                            <span className="text-xl font-extrabold text-white block">4.9★</span>
-                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mt-0.5">Rating</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="w-full md:w-[54%] flex flex-col justify-between p-6 sm:p-8 bg-white relative md:overflow-y-hidden overflow-y-auto scrollbar-hide">
-                    <div className="flex md:hidden items-center justify-between w-full mb-6">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center shadow-md">
-                                <img src="/logo512.png" alt="OOMS" className="h-6 w-6 object-contain" />
-                            </div>
-                            <div>
-                                <span className="text-sm font-bold text-slate-800 block leading-none">OOMS</span>
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600">Office</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="my-auto w-full max-w-[340px] mx-auto space-y-4">
+        <OomsAuthShell
+            portalLabel="Office"
+            features={OFFICE_FEATURES}
+            allowFormScroll
+            footer={(
+                <>
+                    By registering, you agree to our{' '}
+                    <button type="button" className="text-slate-500 hover:underline">Terms</button> &{' '}
+                    <button type="button" className="text-slate-500 hover:underline">Privacy Policy</button>
+                </>
+            )}
+        >
                         <AuthPortalSwitcher active="app" />
 
                         <div className="text-center">
@@ -607,27 +529,7 @@ const Register = () => {
                                 </p>
                             </div>
                         )}
-                    </div>
-
-                    <div className="text-[10px] text-slate-400 font-semibold text-center mt-4">
-                        By registering, you agree to our{' '}
-                        <button type="button" className="text-slate-500 hover:underline">Terms</button> &{' '}
-                        <button type="button" className="text-slate-500 hover:underline">Privacy Policy</button>
-                    </div>
-                </div>
-            </div>
-
-            <style>{`
-                .ooms-root, .ooms-root * {
-                    font-family: 'Plus Jakarta Sans', sans-serif !important;
-                }
-                @keyframes fade-in {
-                    from { opacity: 0; transform: translateY(10px); }
-                    to   { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-            `}</style>
-        </div>
+        </OomsAuthShell>
     );
 };
 

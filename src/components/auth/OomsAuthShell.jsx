@@ -15,7 +15,9 @@ export default function OomsAuthShell({
     { icon: "📊", label: "Dashboards & quick stats" },
   ],
   children,
+  footer,
   footerNote = "Secure OOMS area — all access is monitored",
+  allowFormScroll = false,
 }) {
   const displayFeatures = features.slice(0, 8);
 
@@ -75,7 +77,7 @@ export default function OomsAuthShell({
         </div>
 
         {/* RIGHT form panel */}
-        <div className="w-full md:w-[54%] flex flex-col justify-between p-6 sm:p-8 bg-white relative md:overflow-y-hidden overflow-y-auto">
+        <div className={`w-full md:w-[54%] flex flex-col justify-between p-6 sm:p-8 bg-white relative overflow-y-auto ${allowFormScroll ? "" : "md:overflow-y-hidden"}`}>
           <div className="flex md:hidden items-center gap-2 mb-4">
             <div className="w-8 h-8 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center">
               <img src="/logo512.png" alt="OOMS" className="h-6 w-6 object-contain" />
@@ -91,7 +93,11 @@ export default function OomsAuthShell({
           <div className="my-auto w-full max-w-[340px] mx-auto space-y-4">{children}</div>
 
           <div className="text-[10px] text-slate-400 font-semibold text-center mt-4 flex items-center justify-center gap-1">
-            <span>🛡️</span> {footerNote}
+            {footer ?? (
+              <>
+                <span>🛡️</span> {footerNote}
+              </>
+            )}
           </div>
         </div>
       </div>
