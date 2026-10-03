@@ -66,6 +66,7 @@ import ChattingTab from "../ClientComponents/ChattingTab";
 import AutomationTab from "../ClientComponents/AutomationTab";
 import ClientPaymentReminderModal from "../components/Modals/ClientPaymentReminderModal";
 import { ClickToCallButton } from "../components/Call/ClickToCall";
+import { InAppVoiceCallButton } from "../components/Call/InAppVoiceCall";
 
 const InrIcon = ({ className = "w-4 h-4" }) => (
   <span
@@ -2087,12 +2088,18 @@ const ClientProfile = () => {
                             ? `+${clientData.country_code || "91"} ${clientData.mobile}`
                             : "—"}
                         </span>
+                      </dd>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <ClickToCallButton
                           phoneNumber={clientData.mobile}
                           countryCode={clientData.country_code}
                           displayName={clientData.name}
                         />
-                      </dd>
+                        <InAppVoiceCallButton
+                          clientUsername={clientData.username || username}
+                          displayName={clientData.name}
+                        />
+                      </div>
                     </div>
                     <div
                       className="min-w-0 rounded-lg px-2.5 py-2 sm:col-span-2 lg:col-span-1"
