@@ -1,6 +1,7 @@
 import axios from 'axios';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
+import { requestOfficeVoiceCallCapability } from './voiceCallSocket';
 
 const voiceCallAxios = axios.create({
   baseURL: `${API_BASE_URL}/voice-calls`,
@@ -25,14 +26,7 @@ const unwrap = (response) => {
 
 export const voiceCallApi = {
   getCapability: (recipientUsername, recipientPanel = 'client') =>
-    voiceCallAxios
-      .get('/capability', {
-        params: {
-          recipient_username: recipientUsername,
-          recipient_panel: recipientPanel,
-        },
-      })
-      .then(unwrap),
+    requestOfficeVoiceCallCapability(recipientUsername, recipientPanel),
   create: (recipientUsername, idempotencyKey, recipientPanel = 'client') =>
     voiceCallAxios
       .post(
