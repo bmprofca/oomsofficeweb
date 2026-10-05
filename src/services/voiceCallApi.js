@@ -24,27 +24,52 @@ const unwrap = (response) => {
 };
 
 export const voiceCallApi = {
-  getCapability: (clientUsername) =>
+  getCapability: (recipientUsername, recipientPanel = 'client') =>
     voiceCallAxios
-      .get('/capability', { params: { client_username: clientUsername } })
+      .get('/capability', {
+        params: {
+          recipient_username: recipientUsername,
+          recipient_panel: recipientPanel,
+        },
+      })
       .then(unwrap),
-  create: (clientUsername, idempotencyKey) =>
+  create: (recipientUsername, idempotencyKey, recipientPanel = 'client') =>
     voiceCallAxios
       .post(
         '/create',
-        { client_username: clientUsername },
+        { recipient_username: recipientUsername, recipient_panel: recipientPanel },
         { headers: { 'Idempotency-Key': idempotencyKey } },
       )
       .then(unwrap),
+  getIncoming: () =>
+    voiceCallAxios.get('/incoming').then(unwrap),
   get: (callId) =>
     voiceCallAxios.get(`/${encodeURIComponent(callId)}`).then(unwrap),
+  getStaffCall: (callId) =>
+    voiceCallAxios.get(`/staff/${encodeURIComponent(callId)}`).then(unwrap),
+  respondAsStaff: (callId, action) =>
+    voiceCallAxios
+      .post(`/${encodeURIComponent(callId)}/respond`, { action })
+      .then(unwrap),
+  respondToStaffCall: (callId, action) =>
+    voiceCallAxios
+      .post(`/staff/${encodeURIComponent(callId)}/respond`, { action })
+      .then(unwrap),
   token: (callId) =>
     voiceCallAxios
       .post(`/${encodeURIComponent(callId)}/token`)
       .then(unwrap),
+  staffToken: (callId) =>
+    voiceCallAxios
+      .post(`/staff/${encodeURIComponent(callId)}/token`)
+      .then(unwrap),
   end: (callId) =>
     voiceCallAxios
       .post(`/${encodeURIComponent(callId)}/end`)
+      .then(unwrap),
+  endStaffCall: (callId) =>
+    voiceCallAxios
+      .post(`/staff/${encodeURIComponent(callId)}/end`)
       .then(unwrap),
 };
 

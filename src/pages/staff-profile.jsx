@@ -31,6 +31,7 @@ import LoanTab from "../staff/LoanTab";
 import PerformanceTab from "../staff/PerformanceTab";
 import TaskTab from "../staff/StaffTaskTab";
 import StaffPayslip from "../staff/StaffPayslip";
+import { InAppVoiceCallButton } from "../components/Call/InAppVoiceCall";
 
 const InrIcon = ({ className = "w-4 h-4" }) => (
   <span
@@ -955,6 +956,14 @@ const StaffProfile = () => {
                         </div>
                       </div>
                     </div>
+                    {isActiveStaff &&
+                    username !== localStorage.getItem("user_username") ? (
+                      <InAppVoiceCallButton
+                        clientUsername={username}
+                        displayName={staffData.fullName}
+                        recipientPanel="enduser"
+                      />
+                    ) : null}
                     <div
                       className="flex w-full flex-col px-2 py-1.5 text-left sm:w-auto sm:min-w-[6.5rem] sm:text-right"
                       style={{

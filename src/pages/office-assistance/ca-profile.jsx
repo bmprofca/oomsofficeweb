@@ -21,6 +21,7 @@ import LedgerTab from "../../CAComponents/LedgerTab";
 import BillingTab from "../../CAComponents/BillingTab";
 import ReportTab from "../../CAComponents/ReportTab";
 import { fetchCaDetailsProfile } from "../../services/caService";
+import { InAppVoiceCallButton } from "../../components/Call/InAppVoiceCall";
 
 const EMPTY_CA_DATA = {
   name: "",
@@ -644,6 +645,13 @@ const CAProfile = () => {
                             : "—"}
                         </span>
                       </dd>
+                      <div className="mt-2">
+                        <InAppVoiceCallButton
+                        clientUsername={username}
+                        displayName={caData.name || "CA"}
+                        recipientPanel="ca"
+                        />
+                      </div>
                     </div>
                     <div
                       className="min-w-0 rounded-lg px-2.5 py-2 sm:col-span-2 lg:col-span-1"

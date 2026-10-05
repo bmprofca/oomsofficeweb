@@ -10,6 +10,7 @@ import { TaskCreateProvider } from './context/TaskCreateProvider';
 import WhatsappChannelBootstrap from './components/WhatsApp/WhatsappChannelBootstrap';
 import SmsChannelBootstrap from './components/Sms/SmsChannelBootstrap';
 import CallChannelBootstrap from './components/Call/CallChannelBootstrap';
+import IncomingInAppVoiceCall from './components/Call/IncomingInAppVoiceCall';
 import { ClickToCallProvider } from './components/Call/ClickToCall';
 import axios from 'axios';
 import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
@@ -297,6 +298,7 @@ root.render(
           <WhatsappChannelBootstrap />
           <SmsChannelBootstrap />
           <CallChannelBootstrap />
+          <IncomingInAppVoiceCall />
           {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
           <BodyScrollLockObserver />
           <Suspense fallback={<RouteLoadingFallback />}>

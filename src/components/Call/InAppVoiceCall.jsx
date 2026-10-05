@@ -1,8 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { Room, RoomEvent } from 'livekit-client';
 import { FiMic, FiMicOff, FiPhoneCall, FiPhoneOff, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { voiceCallApi } from '../../services/voiceCallApi';
+import { startCallTone } from '../../services/voiceCallTone';
 
 const TERMINAL_STATUSES = new Set([
   'rejected',
@@ -32,7 +40,17 @@ function formatDuration(seconds) {
   return `${minutes}:${remaining}`;
 }
 
-export function InAppVoiceCallButton({ clientUsername, displayName }) {
+export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
+  clientUsername,
+  displayName,
+  recipientPanel = 'client',
+  showTrigger = true,
+  checkAvailability = true,
+  availabilityOverride = null,
+  onAvailabilityChange,
+  onCallStarted,
+  onCallClosed,
+}, ref) {
   const [available, setAvailable] = useState(false);
   const [checking, setChecking] = useState(true);
   const [call, setCall] = useState(null);
@@ -52,13 +70,25 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
     let active = true;
     setAvailable(false);
     setChecking(true);
+    if (availabilityOverride !== null) {
+      setAvailable(Boolean(availabilityOverride));
+      setChecking(false);
+      return () => {
+        active = false;
+      };
+    }
+    if (!checkAvailability) {
+      return () => {
+        active = false;
+      };
+    }
     if (!clientUsername) {
       setChecking(false);
       return undefined;
     }
 
     voiceCallApi
-      .getCapability(clientUsername)
+      .getCapability(clientUsername, recipientPanel)
       .then((response) => {
         if (active) setAvailable(Boolean(response?.data?.can_call));
       })
@@ -75,7 +105,16 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
     return () => {
       active = false;
     };
-  }, [clientUsername]);
+  }, [availabilityOverride, checkAvailability, clientUsername, recipientPanel]);
+
+  useEffect(() => {
+    onAvailabilityChange?.({ available, checking });
+  }, [available, checking, onAvailabilityChange]);
+
+  useEffect(() => {
+    if (call?.status !== 'ringing') return undefined;
+    return startCallTone('outgoing');
+  }, [call?.call_id, call?.status]);
 
   const disconnectRoom = useCallback(async () => {
     const room = roomRef.current;
@@ -100,7 +139,8 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
     setError('');
     callIdRef.current = null;
     joiningCallRef.current = null;
-  }, [disconnectRoom]);
+    onCallClosed?.();
+  }, [disconnectRoom, onCallClosed]);
 
   const hangUp = useCallback(async () => {
     const callId = callIdRef.current;
@@ -110,12 +150,13 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
     }
     setStarting(true);
     try {
-      await voiceCallApi.end(callId);
+      const response = await voiceCallApi.end(callId);
       setCall((current) =>
         current
           ? {
               ...current,
-              status: current.status === 'ringing' ? 'cancelled' : 'ended',
+              status: response?.data?.status || (current.status === 'ringing' ? 'cancelled' : 'ended'),
+              ended_by_name: response?.data?.ended_by_name,
             }
           : current,
       );
@@ -128,22 +169,47 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
     }
   }, [closeCall, disconnectRoom]);
 
-  const startCall = async () => {
+  const startCall = useCallback(async () => {
     if (starting || !clientUsername) return;
+    const canStartCall = availabilityOverride === null ? available : availabilityOverride;
+    if ((checking && availabilityOverride === null) || !canStartCall) {
+      toast.error(`App-to-app calling is unavailable for ${recipientPanel === 'ca' ? 'this CA' : 'this client'}.`);
+      return;
+    }
     setStarting(true);
     setError('');
     try {
-      const response = await voiceCallApi.create(clientUsername, makeIdempotencyKey());
+      const response = await voiceCallApi.create(
+        clientUsername,
+        makeIdempotencyKey(),
+        recipientPanel,
+      );
       const createdCall = response?.data;
       if (!createdCall?.call_id) throw new Error('The server did not create the call invitation.');
       callIdRef.current = createdCall.call_id;
       setCall(createdCall);
+      onCallStarted?.();
     } catch (requestError) {
       toast.error(requestError?.response?.data?.message || requestError.message || 'Could not start the voice call');
     } finally {
       setStarting(false);
     }
-  };
+  }, [
+    starting,
+    clientUsername,
+    checking,
+    available,
+    availabilityOverride,
+    recipientPanel,
+    setStarting,
+    onCallStarted,
+  ]);
+
+  useImperativeHandle(ref, () => ({
+    startCall,
+    available,
+    checking,
+  }), [startCall, available, checking]);
 
   useEffect(() => {
     if (!call?.call_id || TERMINAL_STATUSES.has(call.status)) return undefined;
@@ -276,36 +342,41 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
   };
 
   const terminal = Boolean(call && TERMINAL_STATUSES.has(call.status));
+  const recipientLabel = recipientPanel === 'ca' ? 'CA' : 'client';
   const unavailableTitle = checking
-    ? 'Checking app-to-app call availability'
-    : 'App-to-app calling is unavailable for this client';
+    ? `Checking app-to-app call availability for this ${recipientLabel}`
+    : `App-to-app calling is unavailable for this ${recipientLabel}`;
 
   return (
     <>
-      <span
-        className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[11px] font-semibold ${
-          checking
-            ? 'bg-slate-100 text-slate-600'
-            : available
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-rose-100 text-rose-700'
-        }`}
-        role="status"
-        aria-live="polite"
-      >
-        {checking ? 'Checking status' : available ? 'Online' : 'Offline'}
-      </span>
-      <button
-        type="button"
-        onClick={startCall}
-        disabled={checking || !available || starting}
-        title={available ? 'Start an app-to-app voice call' : unavailableTitle}
-        aria-label={`Start in-app voice call with ${displayName || 'client'}`}
-        className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <FiPhoneCall className="h-4 w-4" />
-        App-to-app call
-      </button>
+      {showTrigger ? (
+        <>
+          <span
+            className={`inline-flex min-h-7 items-center rounded-full px-2.5 text-[11px] font-semibold ${
+              checking
+                ? 'bg-slate-100 text-slate-600'
+                : available
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-rose-100 text-rose-700'
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {checking ? 'Checking availability' : available ? 'Available' : 'Unavailable'}
+          </span>
+          <button
+            type="button"
+            onClick={startCall}
+            disabled={checking || !available || starting}
+            title={available ? 'Start an app-to-app voice call' : unavailableTitle}
+            aria-label={`Start in-app voice call with ${displayName || (recipientPanel === 'ca' ? 'CA' : 'client')}`}
+            className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FiPhoneCall className="h-4 w-4" />
+            App-to-app call
+          </button>
+        </>
+      ) : null}
 
       {call ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-label="In-app voice call">
@@ -320,8 +391,19 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
             </div>
             <h2 className="mt-5 text-xl font-semibold text-slate-900">{displayName || 'Client'}</h2>
             <p className="mt-2 text-sm text-slate-500">
-              {connected ? formatDuration(duration) : joining ? 'Connecting audio...' : STATUS_LABELS[call.status] || call.status}
+              {terminal
+                ? STATUS_LABELS[call.status] || call.status
+                : connected
+                  ? formatDuration(duration)
+                  : joining
+                    ? 'Connecting audio...'
+                    : STATUS_LABELS[call.status] || call.status}
             </p>
+            {(call.status === 'ended' || call.status === 'cancelled') && call.ended_by_name ? (
+              <p className="mt-1 text-xs text-slate-400">
+                {call.status === 'cancelled' ? 'Call cancelled' : 'Call ended'} by {call.ended_by_name}
+              </p>
+            ) : null}
             {error ? <p className="mt-4 text-sm text-red-600" role="alert">{error}</p> : null}
             <div ref={audioContainerRef} className="sr-only" />
             {connected ? (
@@ -350,6 +432,6 @@ export function InAppVoiceCallButton({ clientUsername, displayName }) {
       ) : null}
     </>
   );
-}
+});
 
 export default InAppVoiceCallButton;

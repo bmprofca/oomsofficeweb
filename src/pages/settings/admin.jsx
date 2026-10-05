@@ -21,6 +21,7 @@ import {
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
+import { InAppVoiceCallButton } from '../../components/Call/InAppVoiceCall';
 import TablePagination from '../../components/TablePagination';
 import AppDialog from '../../components/AppDialog';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
@@ -593,6 +594,17 @@ const ViewAdmins = () => {
                                                                     {profile.name || row.username}
                                                                 </span>
                                                                 <p className="text-xs text-slate-500 mt-0.5">@{row.username}</p>
+                                                                {isAdminAccepted(row) &&
+                                                                Boolean(row.status) &&
+                                                                row.username !== localStorage.getItem('user_username') ? (
+                                                                    <div className="mt-2">
+                                                                        <InAppVoiceCallButton
+                                                                            clientUsername={row.username}
+                                                                            displayName={profile.name || row.username}
+                                                                            recipientPanel="enduser"
+                                                                        />
+                                                                    </div>
+                                                                ) : null}
                                                             </div>
                                                         </div>
                                                     </td>
