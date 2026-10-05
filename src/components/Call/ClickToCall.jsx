@@ -127,10 +127,23 @@ export function ClientListCallButton({
       });
       return undefined;
     }
+    let unsubscribe;
     voiceCallApi
-      .getCapability(clientUsername, "client")
-      .then((response) => {
+      .watchCapability(clientUsername, "client", (update) => {
+        if (!active || !update?.success) return;
+        const reason = update?.data?.reason === "client_offline"
+          ? "Client is offline in the client web app."
+          : update?.data?.reason || "";
+        setAppAvailability({
+          available: Boolean(update?.data?.can_call),
+          checking: false,
+          reason,
+        });
+      })
+      .then((watch) => {
+        unsubscribe = watch.unsubscribe;
         if (!active) return;
+        const response = watch.capability;
         const reason = response?.data?.reason === "client_offline"
           ? "Client is offline in the client web app."
           : response?.data?.reason || "";
@@ -151,6 +164,7 @@ export function ClientListCallButton({
       });
     return () => {
       active = false;
+      unsubscribe?.();
     };
   }, [chooserOpen, clientUsername]);
 
