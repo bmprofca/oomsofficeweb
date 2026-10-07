@@ -96,24 +96,14 @@ export function ClientListCallButton({
   countryCode,
   className = "",
 }) {
-  const { canCall, openCall } = useClickToCall();
+  const { canCall, openCall, startAppCall } = useClickToCall();
   const [chooserOpen, setChooserOpen] = useState(false);
-  const [appCallActive, setAppCallActive] = useState(false);
   const [appAvailability, setAppAvailability] = useState({
     available: false,
     checking: true,
     reason: "",
   });
-  const appCallRef = React.useRef(null);
   const mobile = String(phoneNumber || "").replace(/\D/g, "").slice(-10);
-
-  const onCallStarted = useCallback(() => {
-    setChooserOpen(false);
-    setAppCallActive(true);
-  }, []);
-  const onCallClosed = useCallback(() => {
-    setAppCallActive(false);
-  }, []);
 
   useEffect(() => {
     if (!chooserOpen) return undefined;
@@ -175,7 +165,10 @@ export function ClientListCallButton({
     closeChooser();
     openCall({ phoneNumber: mobile, displayName });
   };
-  const startAppCall = () => appCallRef.current?.startCall();
+  const startClientAppCall = () => {
+    setChooserOpen(false);
+    startAppCall({ clientUsername, displayName });
+  };
 
   return (
     <>
@@ -192,21 +185,6 @@ export function ClientListCallButton({
       >
         <FiPhoneCall className="h-3.5 w-3.5" />
       </button>
-
-      {(chooserOpen || appCallActive) && clientUsername ? (
-        <InAppVoiceCallButton
-          ref={appCallRef}
-          clientUsername={clientUsername}
-          displayName={displayName}
-          showTrigger={false}
-          checkAvailability={false}
-          availabilityOverride={
-            appAvailability.checking ? null : appAvailability.available
-          }
-          onCallStarted={onCallStarted}
-          onCallClosed={onCallClosed}
-        />
-      ) : null}
 
       {chooserOpen
         ? createPortal(
@@ -257,7 +235,7 @@ export function ClientListCallButton({
                   </button>
                   <button
                     type="button"
-                    onClick={startAppCall}
+                    onClick={startClientAppCall}
                     disabled={!clientUsername || appAvailability.checking || !appAvailability.available}
                     title={
                       !clientUsername
@@ -313,6 +291,39 @@ export function ClickToCallProvider({ children }) {
   const [reasons, setReasons] = useState({});
   const [confirmState, setConfirmState] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [appCallRequest, setAppCallRequest] = useState(null);
+  const appCallRef = React.useRef(null);
+  const appCallRequestId = React.useRef(0);
+  const startedAppCallRequestId = React.useRef(null);
+
+  const startAppCall = useCallback(({ clientUsername, displayName }) => {
+    if (!clientUsername) {
+      toast.error("This client profile has no OOMS username.");
+      return;
+    }
+    if (appCallRequest) {
+      toast.error("An app-to-app call is already in progress.");
+      return;
+    }
+    setAppCallRequest({
+      id: ++appCallRequestId.current,
+      clientUsername,
+      displayName: displayName || "",
+    });
+  }, [appCallRequest]);
+
+  const closeAppCall = useCallback(() => {
+    setAppCallRequest(null);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !appCallRequest ||
+      startedAppCallRequestId.current === appCallRequest.id
+    ) return;
+    startedAppCallRequestId.current = appCallRequest.id;
+    appCallRef.current?.startCall();
+  }, [appCallRequest]);
 
   const refresh = useCallback(async () => {
     const storedEnabled = isOomsCallChannel(getStoredCallChannel());
@@ -396,8 +407,8 @@ export function ClickToCallProvider({ children }) {
   }, [confirmState]);
 
   const value = useMemo(
-    () => ({ canCall, channelEnabled, refresh, openCall }),
-    [canCall, channelEnabled, refresh, openCall],
+    () => ({ canCall, channelEnabled, refresh, openCall, startAppCall }),
+    [canCall, channelEnabled, refresh, openCall, startAppCall],
   );
 
   const displayPhone = confirmState ? confirmState.phoneNumber : "";
@@ -405,6 +416,18 @@ export function ClickToCallProvider({ children }) {
   return (
     <ClickToCallContext.Provider value={value}>
       {children}
+      {appCallRequest ? (
+        <InAppVoiceCallButton
+          key={appCallRequest.id}
+          ref={appCallRef}
+          clientUsername={appCallRequest.clientUsername}
+          displayName={appCallRequest.displayName}
+          showTrigger={false}
+          checkAvailability={false}
+          availabilityOverride
+          onCallClosed={closeAppCall}
+        />
+      ) : null}
       <ConfirmActionModal
         isOpen={Boolean(confirmState)}
         loading={loading}
