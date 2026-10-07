@@ -282,14 +282,14 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
             const container = screenShareContainerRef.current;
             if (!container || screenShareTilesRef.current.has(track)) return;
             const tile = document.createElement('div');
-            tile.className = 'overflow-hidden rounded-lg bg-black';
+            tile.className = 'flex h-full min-h-[280px] w-full flex-col overflow-hidden rounded-lg bg-black';
             const label = document.createElement('p');
-            label.className = 'px-3 py-2 text-left text-xs font-medium text-white';
+            label.className = 'shrink-0 px-4 py-2.5 text-left text-xs font-semibold text-white';
             label.textContent = `${participant.name || 'Participant'} is sharing`;
             const element = track.attach();
             element.autoplay = true;
             element.playsInline = true;
-            element.className = 'max-h-[55vh] w-full object-contain';
+            element.className = 'min-h-0 w-full flex-1 object-contain';
             tile.append(label, element);
             container.appendChild(tile);
             screenShareTilesRef.current.set(track, tile);
@@ -435,6 +435,9 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
   const unavailableTitle = checking
     ? `Checking app-to-app call availability for this ${recipientLabel}`
     : `App-to-app calling is unavailable for this ${recipientLabel}`;
+  const participantName = call?.other_participant_name || displayName || 'Client';
+  const participantUsername = call?.other_participant_username || clientUsername;
+  const branchName = call?.branch_name || call?.branch_id || localStorage.getItem('branch_id');
 
   return (
     <>
@@ -469,9 +472,32 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
 
       {call ? (
         <>
-        <div className={`fixed inset-0 z-[120] items-center justify-center bg-slate-950/55 p-4 ${minimized ? 'hidden' : 'flex'}`} role="dialog" aria-modal="true" aria-label="In-app voice call">
-          <div className={`relative w-full rounded-2xl bg-white p-6 text-center shadow-2xl ${remoteScreenCount ? 'max-w-4xl' : 'max-w-sm'}`}>
+        <main className={`fixed inset-0 z-[120] flex flex-col bg-slate-50 ${minimized ? 'hidden' : ''}`} aria-label="In-app voice call">
+          <header className="flex min-h-20 shrink-0 flex-wrap items-center justify-between gap-x-5 gap-y-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+            <div className="min-w-0 flex-[1_1_20rem]">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-teal-700">OOMS voice</p>
+                <span className="inline-flex min-h-5 max-w-full items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{connected ? formatDuration(duration) : joining ? 'Connecting…' : STATUS_LABELS[call.status] || call.status}</span>
+              </div>
+              <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                <h1 className="max-w-full truncate text-base font-bold text-slate-900">{participantName}</h1>
+                {participantUsername ? <p className="min-w-0 max-w-full truncate text-xs text-slate-500">{participantUsername}</p> : null}
+              </div>
+            </div>
+            {branchName ? (
+              <div className="max-w-[45vw] shrink-0 text-right sm:max-w-[30vw]">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Branch</p>
+                <p className="max-w-full truncate text-sm font-semibold text-slate-800">{branchName}</p>
+              </div>
+            ) : null}
             {!terminal ? (
+              <button type="button" onClick={() => setMinimized(true)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2" aria-label="Back to the app and keep call active" title="Back to app">
+                <FiMinimize2 className="h-4 w-4" />
+              </button>
+            ) : null}
+          </header>
+          <section className={`relative mx-auto flex min-h-0 w-full flex-1 flex-col text-center ${remoteScreenCount ? 'max-w-none items-stretch justify-start overflow-hidden px-2 py-1' : 'max-w-3xl items-center justify-center overflow-y-auto px-5 py-8'}`}>
+            {!terminal && !remoteScreenCount ? (
               <button type="button" onClick={() => setMinimized(true)} className="absolute right-4 top-4 rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Minimize call and return to the app">
                 <FiMinimize2 />
               </button>
@@ -481,11 +507,14 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
                 <FiX />
               </button>
             ) : null}
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-              <FiPhoneCall className="h-8 w-8" />
-            </div>
-            <h2 className="mt-5 text-xl font-semibold text-slate-900">{displayName || 'Client'}</h2>
-            <p className="mt-2 text-sm text-slate-500">
+            {!remoteScreenCount ? (
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                <FiPhoneCall className="h-8 w-8" />
+              </div>
+            ) : null}
+            {!remoteScreenCount ? <h2 className="mt-5 text-2xl font-semibold text-slate-900">{participantName}</h2> : null}
+            {participantUsername && !remoteScreenCount ? <p className="mt-1 text-sm text-slate-500">{participantUsername}</p> : null}
+            {!remoteScreenCount ? <p className="mt-2 text-sm text-slate-500">
               {terminal
                 ? STATUS_LABELS[call.status] || call.status
                 : connected
@@ -493,27 +522,27 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
                   : joining
                     ? 'Connecting audio...'
                     : STATUS_LABELS[call.status] || call.status}
-            </p>
+            </p> : null}
             {(call.status === 'ended' || call.status === 'cancelled') && call.ended_by_name ? (
               <p className="mt-1 text-xs text-slate-400">
                 {call.status === 'cancelled' ? 'Call cancelled' : 'Call ended'} by {call.ended_by_name}
               </p>
             ) : null}
-            {error ? <p className="mt-4 text-sm text-red-600" role="alert">{error}</p> : null}
+            {error ? <p className={`${remoteScreenCount ? 'shrink-0' : 'mt-4'} text-sm text-red-600`} role="alert">{error}</p> : null}
             <div ref={audioContainerRef} className="sr-only" />
             <div
               ref={screenShareContainerRef}
-              className={`mt-4 grid max-h-[55vh] gap-3 overflow-auto ${connected && remoteScreenCount ? '' : 'hidden'}`}
+              className={`${remoteScreenCount ? 'mt-0 min-h-0 flex-1 rounded-none p-0' : 'mt-2 h-[58vh] min-h-[280px] rounded-xl p-1.5'} grid w-full auto-rows-fr grid-cols-1 gap-2 overflow-hidden bg-slate-950 ${connected && remoteScreenCount ? '' : 'hidden'}`}
               aria-label="Shared screens"
             />
-            {connected && screenSharing ? (
+            {connected && screenSharing && !remoteScreenCount ? (
               <p className="mt-3 text-xs font-medium text-emerald-700" role="status" aria-live="polite">
                 Your screen is being shared with the other participant.
               </p>
             ) : null}
             {connected ? (
               <CallActionTransition transitionKey={call.status}>
-                <div className="mt-8 flex items-center justify-center gap-5">
+                <div className={`flex shrink-0 items-center justify-center gap-4 ${remoteScreenCount ? 'h-[68px] pb-2' : 'mt-3'}`}>
                 <button type="button" onClick={toggleScreenShare} disabled={screenShareBusy} aria-label={screenSharing ? 'Stop sharing screen' : 'Share screen'} title={screenSharing ? 'Stop sharing screen' : 'Share your screen with the other participant'} className={`flex h-14 w-14 items-center justify-center rounded-full ${screenSharing ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'} disabled:cursor-wait disabled:opacity-60`}>
                   <FiMonitor className="h-5 w-5" />
                 </button>
@@ -537,11 +566,11 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
                 Done
               </button>
             ) : null}
-          </div>
-        </div>
+          </section>
+        </main>
         {minimized && !terminal ? (
           <div className="fixed bottom-4 right-4 z-[121] flex items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-white shadow-xl" role="region" aria-label="Minimized voice call">
-            <span className="max-w-40 truncate text-sm">{displayName || 'Client'} · {screenSharing ? `Sharing screen · ${formatDuration(duration)}` : connected ? formatDuration(duration) : 'Call active'}</span>
+            <span className="max-w-40 truncate text-sm">{participantName} · {screenSharing ? `Sharing screen · ${formatDuration(duration)}` : connected ? formatDuration(duration) : 'Call active'}</span>
             {connected ? (
               <button type="button" onClick={toggleMute} disabled={changingMute} className="rounded-full p-2 hover:bg-slate-700 disabled:opacity-50" aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}>
                 {muted ? <FiMicOff /> : <FiMic />}

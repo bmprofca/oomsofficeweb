@@ -109,6 +109,7 @@ export const OomsSystemTemplates = lazyWithRetry(() => import('../pages/broadcas
 export const OomsSystemSmsTemplates = lazyWithRetry(() => import('../pages/broadcast/sms/OomsSystemSmsTemplates'));
 export const Fast2SmsConfigure = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsConfigure'));
 export const CallOomsConfigure = lazyWithRetry(() => import('../pages/broadcast/call/CallOomsConfigure'));
+export const VoiceCallHistory = lazyWithRetry(() => import('../pages/voice-call-history'));
 export const Fast2SmsTemplates = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsTemplates'));
 export const Fast2SmsCampaigns = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsCampaigns'));
 export const Fast2SmsCampaignCreate = lazyWithRetry(() => import('../pages/broadcast/sms/Fast2SmsCampaignCreate'));

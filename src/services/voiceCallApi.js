@@ -28,6 +28,8 @@ const unwrap = (response) => {
 };
 
 export const voiceCallApi = {
+  getHistory: (params = {}) =>
+    voiceCallAxios.get('/history', { params }).then(unwrap),
   getCapability: (recipientUsername, recipientPanel = 'client') =>
     requestOfficeVoiceCallCapability(recipientUsername, recipientPanel),
   watchCapability: (recipientUsername, recipientPanel, onUpdate) =>

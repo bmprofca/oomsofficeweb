@@ -85,6 +85,7 @@ import {
   OomsSystemSmsTemplates,
   Fast2SmsConfigure,
   CallOomsConfigure,
+  VoiceCallHistory,
   Fast2SmsTemplates,
   Fast2SmsCampaigns,
   Fast2SmsCampaignCreate,
@@ -338,6 +339,12 @@ root.render(
             <Route path="/sessions" element={
               <ProtectedRoute>
                 <Sessions />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/voice-call-history" element={
+              <ProtectedRoute>
+                <VoiceCallHistory />
               </ProtectedRoute>
             } />
 

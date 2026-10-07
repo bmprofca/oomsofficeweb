@@ -1002,6 +1002,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         ]
       },
       { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast/whatsapp', permission: 'broadcast_' },
+      { key: 'voice-call-history', title: 'Call History', icon: <FiPhone size={18} />, path: '/voice-call-history' },
       ...(whatsappChannel === 'onechatting'
         ? [{
           key: 'whatsapp-live-chat',

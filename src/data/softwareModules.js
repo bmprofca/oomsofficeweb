@@ -87,6 +87,7 @@ export const SOFTWARE_MODULES = [
   { title: "Email Broadcast", path: "/broadcast/email", group: "Broadcast", keywords: "email" },
   { title: "Call Broadcast", path: "/broadcast/call", group: "Broadcast", keywords: "call pbx phone" },
   { title: "Call Configure", path: "/broadcast/call/ooms-system/configure", group: "Broadcast", keywords: "call extension token" },
+  { title: "Call History", path: "/voice-call-history", group: "Calls", keywords: "voice call log incoming outgoing missed" },
   { title: "Email Campaigns", path: "/broadcast/email/campaigns", group: "Broadcast", keywords: "email list" },
   { title: "Create Email Broadcast", path: "/broadcast/email/create", group: "Broadcast", keywords: "create email" },
   { title: "Email Templates", path: "/broadcast/email/templates", group: "Broadcast", keywords: "template" },
