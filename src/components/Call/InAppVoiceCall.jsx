@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
-import { FiMaximize2, FiMic, FiMicOff, FiMinimize2, FiMonitor, FiPhoneCall, FiPhoneOff, FiX } from 'react-icons/fi';
+import { FiMaximize2, FiMic, FiMicOff, FiMinimize2, FiMonitor, FiPhoneCall, FiPhoneOff, FiStopCircle, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { voiceCallApi } from '../../services/voiceCallApi';
 import { startCallTone } from '../../services/voiceCallTone';
@@ -32,6 +32,22 @@ const STATUS_LABELS = {
 
 function makeIdempotencyKey() {
   return `web_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
+}
+
+function CallActionTransition({ transitionKey, children }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(false);
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, [transitionKey]);
+
+  return (
+    <div className={`transition-all duration-300 ease-out ${visible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'}`}>
+      {children}
+    </div>
+  );
 }
 
 function formatDuration(seconds) {
@@ -496,7 +512,8 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
               </p>
             ) : null}
             {connected ? (
-              <div className="mt-8 flex items-center justify-center gap-5">
+              <CallActionTransition transitionKey={call.status}>
+                <div className="mt-8 flex items-center justify-center gap-5">
                 <button type="button" onClick={toggleScreenShare} disabled={screenShareBusy} aria-label={screenSharing ? 'Stop sharing screen' : 'Share screen'} title={screenSharing ? 'Stop sharing screen' : 'Share your screen with the other participant'} className={`flex h-14 w-14 items-center justify-center rounded-full ${screenSharing ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'} disabled:cursor-wait disabled:opacity-60`}>
                   <FiMonitor className="h-5 w-5" />
                 </button>
@@ -506,7 +523,8 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
                 <button type="button" onClick={hangUp} disabled={starting} aria-label="End call" className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-60">
                   <FiPhoneOff className="h-5 w-5" />
                 </button>
-              </div>
+                </div>
+              </CallActionTransition>
             ) : null}
             {!connected && !terminal ? (
               <button type="button" onClick={hangUp} disabled={starting} className="mt-8 inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-3 font-medium text-white hover:bg-red-700 disabled:opacity-60">
@@ -523,10 +541,15 @@ export const InAppVoiceCallButton = forwardRef(function InAppVoiceCallButton({
         </div>
         {minimized && !terminal ? (
           <div className="fixed bottom-4 right-4 z-[121] flex items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-white shadow-xl" role="region" aria-label="Minimized voice call">
-            <span className="max-w-40 truncate text-sm">{displayName || 'Client'} · {screenSharing ? 'Sharing screen' : connected ? formatDuration(duration) : 'Call active'}</span>
+            <span className="max-w-40 truncate text-sm">{displayName || 'Client'} · {screenSharing ? `Sharing screen · ${formatDuration(duration)}` : connected ? formatDuration(duration) : 'Call active'}</span>
+            {connected ? (
+              <button type="button" onClick={toggleMute} disabled={changingMute} className="rounded-full p-2 hover:bg-slate-700 disabled:opacity-50" aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}>
+                {muted ? <FiMicOff /> : <FiMic />}
+              </button>
+            ) : null}
             {screenSharing ? (
               <button type="button" onClick={toggleScreenShare} disabled={screenShareBusy} className="rounded-full p-2 text-emerald-300 hover:bg-slate-700 disabled:opacity-50" aria-label="Stop sharing screen">
-                <FiMonitor />
+                <FiStopCircle />
               </button>
             ) : null}
             <button type="button" onClick={() => setMinimized(false)} className="rounded-full p-2 hover:bg-slate-700" aria-label="Return to call">

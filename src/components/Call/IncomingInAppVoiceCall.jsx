@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
-import { FiMaximize2, FiMic, FiMicOff, FiMinimize2, FiMonitor, FiPhoneCall, FiPhoneOff, FiX } from 'react-icons/fi';
+import { FiMaximize2, FiMic, FiMicOff, FiMinimize2, FiMonitor, FiPhoneCall, FiPhoneOff, FiStopCircle, FiX } from 'react-icons/fi';
 import { useLocation } from 'react-router-dom';
 import { voiceCallApi } from '../../services/voiceCallApi';
 import { connectOfficeVoiceCallSocket } from '../../services/voiceCallSocket';
@@ -24,6 +24,28 @@ const STATUS_LABELS = {
   failed: 'Call failed',
 };
 
+function formatDuration(seconds) {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const remainder = (seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainder}`;
+}
+
+function CallActionTransition({ transitionKey, children }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setVisible(false);
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, [transitionKey]);
+
+  return (
+    <div className={`transition-all duration-300 ease-out ${visible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-95 opacity-0'}`}>
+      {children}
+    </div>
+  );
+}
+
 export default function IncomingInAppVoiceCall() {
   const location = useLocation();
   const [call, setCall] = useState(null);
@@ -35,6 +57,7 @@ export default function IncomingInAppVoiceCall() {
   const [minimized, setMinimized] = useState(false);
   const [remoteScreenCount, setRemoteScreenCount] = useState(0);
   const [joining, setJoining] = useState(false);
+  const [duration, setDuration] = useState(0);
   const [error, setError] = useState('');
   const [permissionReady, setPermissionReady] = useState(false);
   const roomRef = useRef(null);
@@ -46,6 +69,15 @@ export default function IncomingInAppVoiceCall() {
   const callId = call?.call_id;
   const status = call?.status;
   const terminal = Boolean(status && TERMINAL_STATUSES.has(status));
+
+  useEffect(() => {
+    if (!connected) {
+      setDuration(0);
+      return undefined;
+    }
+    const interval = window.setInterval(() => setDuration((seconds) => seconds + 1), 1000);
+    return () => window.clearInterval(interval);
+  }, [connected, call?.call_id]);
 
   useEffect(() => {
     callRef.current = call;
@@ -370,27 +402,31 @@ export default function IncomingInAppVoiceCall() {
           </p>
         ) : null}
         {status === 'ringing' ? (
-          <div className="mt-8 flex justify-center gap-5">
-            <button type="button" onClick={() => respond('decline')} disabled={working} aria-label="Decline call" className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-              <FiPhoneOff className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={() => respond('accept')} disabled={working} aria-label="Accept call" className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
-              <FiPhoneCall className="h-5 w-5" />
-            </button>
-          </div>
+          <CallActionTransition transitionKey={status}>
+            <div className="mt-8 flex justify-center gap-5">
+              <button type="button" onClick={() => respond('decline')} disabled={working} aria-label="Decline call" className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition-transform duration-200 hover:scale-110 hover:bg-red-700 disabled:opacity-50">
+                <FiPhoneOff className="h-5 w-5" />
+              </button>
+              <button type="button" onClick={() => respond('accept')} disabled={working} aria-label="Accept call" className="flex h-14 w-14 animate-pulse items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-transform duration-200 hover:scale-110 hover:bg-emerald-700 disabled:opacity-50">
+                <FiPhoneCall className="h-5 w-5" />
+              </button>
+            </div>
+          </CallActionTransition>
         ) : null}
         {status === 'accepted' ? (
-          <div className="mt-8 flex justify-center gap-5">
-            <button type="button" onClick={toggleScreenShare} disabled={!connected || screenShareBusy} aria-label={screenSharing ? 'Stop sharing screen' : 'Share screen'} title={screenSharing ? 'Stop sharing screen' : 'Share your screen with the other participant'} className={`flex h-14 w-14 items-center justify-center rounded-full ${screenSharing ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'} disabled:opacity-50`}>
-              <FiMonitor className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={toggleMute} disabled={!connected} aria-label={muted ? 'Unmute microphone' : 'Mute microphone'} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-800 hover:bg-slate-200 disabled:opacity-50">
-              {muted ? <FiMicOff className="h-5 w-5" /> : <FiMic className="h-5 w-5" />}
-            </button>
-            <button type="button" onClick={endCall} disabled={working} aria-label="End call" className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-              <FiPhoneOff className="h-5 w-5" />
-            </button>
-          </div>
+          <CallActionTransition transitionKey={status}>
+            <div className="mt-8 flex justify-center gap-5">
+              <button type="button" onClick={toggleScreenShare} disabled={!connected || screenShareBusy} aria-label={screenSharing ? 'Stop sharing screen' : 'Share screen'} title={screenSharing ? 'Stop sharing screen' : 'Share your screen with the other participant'} className={`flex h-14 w-14 items-center justify-center rounded-full ${screenSharing ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'} disabled:opacity-50`}>
+                <FiMonitor className="h-5 w-5" />
+              </button>
+              <button type="button" onClick={toggleMute} disabled={!connected} aria-label={muted ? 'Unmute microphone' : 'Mute microphone'} className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-800 hover:bg-slate-200 disabled:opacity-50">
+                {muted ? <FiMicOff className="h-5 w-5" /> : <FiMic className="h-5 w-5" />}
+              </button>
+              <button type="button" onClick={endCall} disabled={working} aria-label="End call" className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                <FiPhoneOff className="h-5 w-5" />
+              </button>
+            </div>
+          </CallActionTransition>
         ) : null}
         {terminal ? (
           <button type="button" onClick={close} className="mt-8 rounded-lg bg-blue-700 px-6 py-3 font-medium text-white hover:bg-blue-800">
@@ -401,10 +437,15 @@ export default function IncomingInAppVoiceCall() {
     </div>
     {minimized && !terminal ? (
       <div className="fixed bottom-4 right-4 z-[121] flex items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-white shadow-xl" role="region" aria-label="Minimized voice call">
-        <span className="max-w-40 truncate text-sm">{callerName} · {screenSharing ? 'Sharing screen' : connected ? 'Call active' : 'Connecting'}</span>
+        <span className="max-w-40 truncate text-sm">{callerName} · {screenSharing ? `Sharing screen · ${formatDuration(duration)}` : connected ? formatDuration(duration) : 'Connecting'}</span>
+        {connected ? (
+          <button type="button" onClick={toggleMute} className="rounded-full p-2 hover:bg-slate-700" aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}>
+            {muted ? <FiMicOff /> : <FiMic />}
+          </button>
+        ) : null}
         {screenSharing ? (
           <button type="button" onClick={toggleScreenShare} disabled={screenShareBusy} className="rounded-full p-2 text-emerald-300 hover:bg-slate-700 disabled:opacity-50" aria-label="Stop sharing screen">
-            <FiMonitor />
+            <FiStopCircle />
           </button>
         ) : null}
         <button type="button" onClick={() => setMinimized(false)} className="rounded-full p-2 hover:bg-slate-700" aria-label="Return to call">
