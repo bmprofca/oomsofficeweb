@@ -5,6 +5,7 @@ import {
   requestOfficeVoiceCallCapability,
   watchOfficeVoiceCallCapability,
 } from './voiceCallSocket';
+import { getOfficeVoiceCallSessionId } from './voiceCallSocket';
 
 const voiceCallAxios = axios.create({
   baseURL: `${API_BASE_URL}/voice-calls`,
@@ -17,6 +18,7 @@ voiceCallAxios.interceptors.request.use((config) => {
     return Promise.reject(new Error('Missing authentication headers. Please sign in again.'));
   }
   config.headers = { ...(config.headers || {}), ...headers };
+  config.headers['x-voice-call-session-id'] = getOfficeVoiceCallSessionId();
   return config;
 });
 

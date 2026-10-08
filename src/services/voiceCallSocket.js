@@ -3,14 +3,25 @@ import { API_BASE_URL_NO_VERSION } from '../utils/api-controller';
 
 const SOCKET_URL = new URL(API_BASE_URL_NO_VERSION, window.location.origin).origin;
 
+export function getOfficeVoiceCallSessionId() {
+  let sessionId = sessionStorage.getItem('ooms_voice_call_session_id');
+  if (!sessionId) {
+    sessionId = `web:${window.crypto.randomUUID()}`;
+    sessionStorage.setItem('ooms_voice_call_session_id', sessionId);
+  }
+  return sessionId;
+}
+
 function createOfficeSocket(reconnection = true) {
   const username = localStorage.getItem('user_username') || '';
   const token = localStorage.getItem('user_token') || '';
   const branch = localStorage.getItem('branch_id') || '';
+  const sessionId = getOfficeVoiceCallSessionId();
   return {
     username,
     token,
     branch,
+    sessionId,
     socket: io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnection,
@@ -21,9 +32,14 @@ function createOfficeSocket(reconnection = true) {
   };
 }
 
-export function connectOfficeVoiceCallSocket({ onAuthenticated, onIncoming }) {
-  const { username, token, branch, socket } = createOfficeSocket();
-  socket.on('connect', () => socket.emit('auth', { username, token, branch }));
+export function connectOfficeVoiceCallSocket({ onAuthenticated, onIncoming, onAnswered, onCancelled }) {
+  const { username, token, branch, sessionId, socket } = createOfficeSocket();
+  socket.on('connect', () => socket.emit('auth', {
+    username,
+    token,
+    branch,
+    voice_call_session_id: sessionId,
+  }));
   socket.on('auth_status', (authenticated) => {
     if (!authenticated) {
       console.error('Office voice-call socket authentication failed.');
@@ -32,6 +48,8 @@ export function connectOfficeVoiceCallSocket({ onAuthenticated, onIncoming }) {
     onAuthenticated?.();
   });
   socket.on('voice_call_incoming', onIncoming);
+  socket.on('voice_call_answered', onAnswered);
+  socket.on('voice_call_cancelled', onCancelled);
   socket.connect();
   return socket;
 }

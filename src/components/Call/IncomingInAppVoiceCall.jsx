@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { FiArrowLeft, FiBriefcase, FiClock, FiMaximize2, FiMic, FiMicOff, FiMinimize2, FiMonitor, FiPhoneCall, FiPhoneOff, FiStopCircle, FiUser, FiX } from 'react-icons/fi';
 import { useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { voiceCallApi } from '../../services/voiceCallApi';
 import { connectOfficeVoiceCallSocket } from '../../services/voiceCallSocket';
 import { startCallTone } from '../../services/voiceCallTone';
@@ -74,10 +75,31 @@ export default function IncomingInAppVoiceCall() {
   const callRef = useRef(null);
   const callId = call?.call_id;
   const status = call?.status;
-  const answeredElsewhere = Boolean(call?.accepted_on_another_device);
   const terminal = Boolean(
-    (status && TERMINAL_STATUSES.has(status)) || answeredElsewhere,
+    status && TERMINAL_STATUSES.has(status),
   );
+  const dismissAnsweredCall = useCallback((event) => {
+    const current = callRef.current;
+    if (
+      !current?.call_id ||
+      String(current.call_id) !== String(event?.call_id) ||
+      current.status !== 'ringing'
+    ) return;
+    const answeredByName = String(event.answered_by_name || 'Another OOMS user');
+    callRef.current = null;
+    setCall(null);
+    toast(`${answeredByName} already answered this call.`);
+  }, []);
+  const dismissCancelledCall = useCallback((event) => {
+    const current = callRef.current;
+    if (
+      !current?.call_id ||
+      String(current.call_id) !== String(event?.call_id) ||
+      current.status !== 'ringing'
+    ) return;
+    callRef.current = null;
+    setCall(null);
+  }, []);
 
   useEffect(() => {
     if (!connected) {
@@ -101,12 +123,12 @@ export default function IncomingInAppVoiceCall() {
   }, [terminal]);
 
   useEffect(() => {
-    if (!callId || status !== 'accepted' || answeredElsewhere || minimized) return undefined;
+    if (!callId || status !== 'accepted' || minimized) return undefined;
     window.history.pushState({ activeVoiceCall: callId }, '', window.location.href);
     const minimizeOnBack = () => setMinimized(true);
     window.addEventListener('popstate', minimizeOnBack);
     return () => window.removeEventListener('popstate', minimizeOnBack);
-  }, [callId, minimized, status, answeredElsewhere]);
+  }, [callId, minimized, status]);
 
   useEffect(() => {
     if (status !== 'ringing') return undefined;
@@ -143,13 +165,17 @@ export default function IncomingInAppVoiceCall() {
     const socket = connectOfficeVoiceCallSocket({
       onAuthenticated: restoreIncomingCall,
       onIncoming: acceptIncomingCall,
+      onAnswered: dismissAnsweredCall,
+      onCancelled: dismissCancelledCall,
     });
     return () => {
       mounted = false;
       socket.off('voice_call_incoming', acceptIncomingCall);
+      socket.off('voice_call_answered', dismissAnsweredCall);
+      socket.off('voice_call_cancelled', dismissCancelledCall);
       socket.disconnect();
     };
-  }, [active, location.pathname]);
+  }, [active, location.pathname, dismissAnsweredCall, dismissCancelledCall]);
 
   useEffect(() => {
     if (!permissionReady || !callId || terminal) return undefined;
@@ -164,6 +190,20 @@ export default function IncomingInAppVoiceCall() {
           ? await voiceCallApi.getStaffCall(callId)
           : await voiceCallApi.get(callId);
         if (mounted) {
+          if (callRef.current?.call_id !== callId) return;
+          if (response.data.session_declined) {
+            callRef.current = null;
+            setCall(null);
+            return;
+          }
+          if (response.data.accepted_on_another_device) {
+            dismissAnsweredCall({
+              call_id: callId,
+              answered_by_name: response.data.accepted_by_name,
+            });
+            return;
+          }
+          callRef.current = response.data;
           setCall(response.data);
           setError('');
         }
@@ -182,10 +222,10 @@ export default function IncomingInAppVoiceCall() {
       mounted = false;
       window.clearTimeout(timer);
     };
-  }, [permissionReady, callId, status, call?.initiated_by, terminal]);
+  }, [permissionReady, callId, status, call?.initiated_by, terminal, dismissAnsweredCall]);
 
   useEffect(() => {
-    if (!permissionReady || !callId || status !== 'accepted' || answeredElsewhere) return undefined;
+    if (!permissionReady || !callId || status !== 'accepted') return undefined;
     let mounted = true;
     let room;
     const tracks = new Set();
@@ -293,7 +333,7 @@ export default function IncomingInAppVoiceCall() {
       mounted = false;
       disconnect();
     };
-  }, [permissionReady, callId, status, call?.initiated_by, answeredElsewhere]);
+  }, [permissionReady, callId, status, call?.initiated_by]);
 
   const respond = async (action) => {
     if (!callId || working) return;
@@ -303,6 +343,11 @@ export default function IncomingInAppVoiceCall() {
       const response = call?.initiated_by === 'staff'
         ? await voiceCallApi.respondToStaffCall(callId, action)
         : await voiceCallApi.respondAsStaff(callId, action);
+      if (action === 'decline') {
+        callRef.current = null;
+        setCall(null);
+        return;
+      }
       setCall((current) => current ? { ...current, status: response.data.status } : current);
     } catch (requestError) {
       setError(requestError?.response?.data?.message || requestError?.message || 'Unable to respond to call.');
@@ -392,7 +437,7 @@ export default function IncomingInAppVoiceCall() {
           <div className="min-w-0 flex-[1_1_20rem]">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <p className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-teal-700">OOMS voice</p>
-              <span className="inline-flex min-h-5 max-w-full items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{answeredElsewhere ? 'Answered on another device' : connected ? `Connected · ${formatDuration(duration)}` : joining ? 'Connecting…' : STATUS_LABELS[status] || status}</span>
+              <span className="inline-flex min-h-5 max-w-full items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{connected ? `Connected · ${formatDuration(duration)}` : joining ? 'Connecting…' : STATUS_LABELS[status] || status}</span>
             </div>
             <div className="mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
               <h1 className="max-w-full truncate text-base font-bold text-slate-900">{callerName}</h1>
@@ -438,9 +483,7 @@ export default function IncomingInAppVoiceCall() {
         ) : null}
         {!isCallPage ? <h2 className="mt-5 text-xl font-semibold text-slate-900">{callerName}</h2> : null}
         {!isCallPage ? <p className="mt-2 text-sm text-slate-500">
-          {answeredElsewhere
-            ? 'This call was answered on another device.'
-            : terminal
+          {terminal
             ? STATUS_LABELS[status] || status
             : connected
               ? 'Voice call connected'
@@ -484,11 +527,6 @@ export default function IncomingInAppVoiceCall() {
             {status === 'cancelled' ? 'Call cancelled' : 'Call ended'} by {call.ended_by_name}
           </p>
         ) : null}
-        {answeredElsewhere ? (
-          <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800" role="status" aria-live="polite">
-            This call was answered on another device. You can dismiss this notification.
-          </p>
-        ) : null}
         {error ? <p className="mt-4 text-sm text-red-600" role="alert">{error}</p> : null}
         <div ref={audioContainerRef} className="sr-only" />
         <div
@@ -513,7 +551,7 @@ export default function IncomingInAppVoiceCall() {
             </div>
           </CallActionTransition>
         ) : null}
-        {status === 'accepted' && !answeredElsewhere ? (
+        {status === 'accepted' ? (
           <CallActionTransition transitionKey={status}>
             <div className={`flex shrink-0 justify-center gap-4 ${isCallPage ? 'h-[68px] items-center pb-2' : 'mt-3 pb-2'}`}>
               <button type="button" onClick={toggleScreenShare} disabled={!connected || screenShareBusy} aria-label={screenSharing ? 'Stop sharing screen' : 'Share screen'} title={screenSharing ? 'Stop sharing screen' : 'Share your screen with the other participant'} className={`flex h-14 w-14 items-center justify-center rounded-full ${screenSharing ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'} disabled:opacity-50`}>
