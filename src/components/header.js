@@ -111,7 +111,7 @@ const requiresProject = (item) => {
 
 const isItemActive = (item, currentPath) => {
   if (item.path && item.path !== '#') {
-    if (item.path === '/') return currentPath === '/' || currentPath === '';
+    if (item.path === '/') return currentPath === '/';
     return currentPath === item.path || currentPath.startsWith(item.path + '/');
   }
   if (item.submenus) {
@@ -124,7 +124,7 @@ const isItemActive = (item, currentPath) => {
 };
 
 const isSubmenuItemActive = (submenuPath, currentPath) => {
-  if (submenuPath === '/') return currentPath === '/' || currentPath === '';
+  if (submenuPath === '/') return currentPath === '/';
   return submenuPath && submenuPath !== '#' && (currentPath === submenuPath || currentPath.startsWith(submenuPath + '/'));
 };
 
@@ -904,7 +904,6 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   const [openSubmenus, setOpenSubmenus] = useState({});
   const [hoveredMenu, setHoveredMenu] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [currentPath, setCurrentPath] = useState('');
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [pendingBillingCount, setPendingBillingCount] = useState(0);
   const whatsappChannel = useWhatsappChannel();
@@ -925,10 +924,10 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   }, []);
 
   const location = useLocation();
-
-  useEffect(() => {
-    setCurrentPath(location.pathname);
-  }, [location.pathname]);
+  // Every page mounts its own Sidebar, so this must be correct on the first
+  // render — mirroring it into state via an effect painted '' (= Dashboard
+  // active) for a frame on each navigation.
+  const currentPath = location.pathname;
 
   // Fetch and calculate total unread count
   useEffect(() => {
@@ -1027,7 +1026,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
           },
           {
             key: 'recurring-tasks', title: 'Compliance', icon: <FiRepeat size={17} />,
-            path: '/staff/office-assistance/compliance',
+            path: '/compliance',
             permission: 'recurring_task_'
           },
           {
@@ -1064,7 +1063,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
             key: 'assistance',
             title: 'Assistance',
             icon: <FiBriefcase size={17} />,
-            path: '/staff/office-assistance',
+            path: '/office-assistance',
             permission: 'office_assistance_'
           },
           {

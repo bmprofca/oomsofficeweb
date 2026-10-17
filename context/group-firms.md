@@ -7,7 +7,7 @@
 ## Mental model
 
 ```
-Route: /staff/office-assistance/group-firms/:groupId
+Route: /office-assistance/group-firms/:groupId
         ↓
 GET /group/details/:groupId     → 404 → error UI
         ↓

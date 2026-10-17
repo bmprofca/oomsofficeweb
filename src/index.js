@@ -258,12 +258,22 @@ const GroupFirmsLegacyRedirect = () => {
   if (groupId) {
     return (
       <Navigate
-        to={`/staff/office-assistance/group-firms/${encodeURIComponent(groupId)}`}
+        to={`/office-assistance/group-firms/${encodeURIComponent(groupId)}`}
         replace
       />
     );
   }
-  return <Navigate to="/staff/office-assistance/groups" replace />;
+  return <Navigate to="/office-assistance/groups" replace />;
+};
+
+/** Old URLs (bookmarks, history): /staff/office-assistance/* and compliance nested under office-assistance. */
+const LegacyOfficeAssistanceRedirect = () => {
+  const { pathname, search, hash } = useLocation();
+  const to = pathname
+    .replace(/^\/staff\/office-assistance\/compliance(?=\/|$)/, '/compliance')
+    .replace(/^\/office-assistance\/compliance(?=\/|$)/, '/compliance')
+    .replace(/^\/staff\/office-assistance(?=\/|$)/, '/office-assistance');
+  return <Navigate to={`${to}${search}${hash}`} replace />;
 };
 
 // Authentication & Subscription wrapper component
@@ -506,7 +516,7 @@ root.render(
               </ProtectedRoute>
             } />
 
-            <Route path="/office-assistance/compliance/assignment/:assignment_id" element={
+            <Route path="/compliance/assignment/:assignment_id" element={
               <ProtectedRoute>
                 <ComplianceAssignmentDetails />
               </ProtectedRoute>
@@ -674,55 +684,58 @@ root.render(
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance" element={
+            <Route path="/staff/office-assistance/*" element={<LegacyOfficeAssistanceRedirect />} />
+            <Route path="/office-assistance/compliance/*" element={<LegacyOfficeAssistanceRedirect />} />
+
+            <Route path="/office-assistance" element={
               <ProtectedRoute>
                 <OfficeAssistance />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/dsc-report" element={
+            <Route path="/office-assistance/dsc-report" element={
               <ProtectedRoute>
                 <ViewDSCRegister />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/file-index" element={
+            <Route path="/office-assistance/file-index" element={
               <ProtectedRoute>
                 <ViewFileIndex />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/password-groups" element={
+            <Route path="/office-assistance/password-groups" element={
               <ProtectedRoute>
                 <PasswordGroups />
               </ProtectedRoute>
             } />
-            <Route path="/staff/office-assistance/password-group/:group_id/firms" element={
+            <Route path="/office-assistance/password-group/:group_id/firms" element={
               <ProtectedRoute>
                 <PasswordGroupFirms />
               </ProtectedRoute>
             } />
 
 
-            <Route path="/staff/office-assistance/important-links" element={
+            <Route path="/office-assistance/important-links" element={
               <ProtectedRoute>
                 <ImportantLinks />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/services" element={
+            <Route path="/office-assistance/services" element={
               <ProtectedRoute>
                 <Services />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/compliance" element={
+            <Route path="/compliance" element={
               <ProtectedRoute>
                 <ComplianceServices />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/compliance/firm-assignment" element={
+            <Route path="/compliance/firm-assignment" element={
               <ProtectedRoute>
                 <ComplianceFirmAssignment />
               </ProtectedRoute>
@@ -734,70 +747,70 @@ root.render(
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/recurring-groups" element={
+            <Route path="/office-assistance/recurring-groups" element={
               <ProtectedRoute>
                 <RecurringGroups />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/groups" element={
+            <Route path="/office-assistance/groups" element={
               <ProtectedRoute>
                 <Groups />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/group-firms/:groupId" element={
+            <Route path="/office-assistance/group-firms/:groupId" element={
               <ProtectedRoute>
                 <GroupFirms />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/group-firms" element={
+            <Route path="/office-assistance/group-firms" element={
               <ProtectedRoute>
                 <GroupFirmsLegacyRedirect />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/deleted-clients" element={
+            <Route path="/office-assistance/deleted-clients" element={
               <ProtectedRoute>
                 <ViewDeletedClients />
               </ProtectedRoute>
             } />
-            <Route path="/staff/office-assistance/inactive-client" element={
-              <Navigate to="/staff/office-assistance/deleted-clients" replace />
+            <Route path="/office-assistance/inactive-client" element={
+              <Navigate to="/office-assistance/deleted-clients" replace />
             } />
 
-            <Route path="/staff/office-assistance/ca-list" element={
+            <Route path="/office-assistance/ca-list" element={
               <ProtectedRoute>
                 <CAList />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/ca-profile/:username" element={
+            <Route path="/office-assistance/ca-profile/:username" element={
               <ProtectedRoute>
                 <CAProfile />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/ca-profile/:username/:tab" element={
+            <Route path="/office-assistance/ca-profile/:username/:tab" element={
               <ProtectedRoute>
                 <CAProfile />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/auto-reminder" element={
+            <Route path="/office-assistance/auto-reminder" element={
               <ProtectedRoute>
                 <AutoReminder />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/follow-up" element={
+            <Route path="/office-assistance/follow-up" element={
               <ProtectedRoute>
                 <ClientFollowUp />
               </ProtectedRoute>
             } />
 
-            <Route path="/staff/office-assistance/service-requests" element={
+            <Route path="/office-assistance/service-requests" element={
               <ProtectedRoute>
                 <ServiceRequestList />
               </ProtectedRoute>

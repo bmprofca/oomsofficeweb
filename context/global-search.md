@@ -45,7 +45,7 @@ Each hit: `{ id, title, subtitle, path }`.
 | Firm | `/client/profile/:username/firms` |
 | Task | `/task/:task_id` |
 | Staff | `/staff/view/profile/:username` |
-| CA | `/staff/office-assistance/ca-profile/:username` |
+| CA | `/office-assistance/ca-profile/:username` |
 | Agent | `/settings/agent-profile/:username` |
 
 Debounce **180ms**. Limit **6** per type (server). People types (client / CA / agent) share one `UNION ALL` query. Profile join is on `username` only (no correlated `MAX(id)`). Firms skip the profile join. `ORDER BY` is omitted so `LIMIT` can stop early.

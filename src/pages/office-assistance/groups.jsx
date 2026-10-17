@@ -647,7 +647,7 @@ const Groups = () => {
                           </td>
                           <td className={TABLE_TD}>
                             <Link
-                              to={`/staff/office-assistance/group-firms/${encodeURIComponent(group.group_id)}`}
+                              to={`/office-assistance/group-firms/${encodeURIComponent(group.group_id)}`}
                               className="inline-flex items-center gap-1 no-underline hover:no-underline"
                             >
                               <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors">

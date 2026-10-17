@@ -111,19 +111,19 @@ const DEFAULT_CARDS = [
     id: "total-ca",
     title: "Total CA",
     value: "total_ca",
-    link: "/staff/office-assistance/ca-list",
+    link: "/office-assistance/ca-list",
   },
   {
     id: "total-firms",
     title: "Total Firms",
     value: "total_firms",
-    link: "/staff/office-assistance/groups",
+    link: "/office-assistance/groups",
   },
   {
     id: "total-services",
     title: "Total Services",
     value: "total_services",
-    link: "/staff/office-assistance/services",
+    link: "/office-assistance/services",
   },
   {
     id: "pending-staff-expense",

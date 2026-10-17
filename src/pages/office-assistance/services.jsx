@@ -1365,7 +1365,7 @@ const Services = () => {
                       type="button"
                       onClick={() =>
                         navigate(
-                          "/staff/office-assistance/compliance/firm-assignment",
+                          "/compliance/firm-assignment",
                         )
                       }
                       className="inline-flex items-center gap-1.5 shrink-0 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-lg transition-colors"

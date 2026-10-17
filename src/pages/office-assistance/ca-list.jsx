@@ -192,7 +192,7 @@ const CAList = () => {
 
   const openProfile = (row) => {
     if (!row?.username) return;
-    navigate(`/staff/office-assistance/ca-profile/${encodeURIComponent(row.username)}/tasks`, {
+    navigate(`/office-assistance/ca-profile/${encodeURIComponent(row.username)}/tasks`, {
       state: { caRow: row },
     });
   };

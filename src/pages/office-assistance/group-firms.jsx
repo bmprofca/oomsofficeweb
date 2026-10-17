@@ -562,7 +562,7 @@ const GroupFirms = () => {
 
   useEffect(() => {
     if (!groupId) {
-      navigate("/staff/office-assistance/groups", { replace: true });
+      navigate("/office-assistance/groups", { replace: true });
       return undefined;
     }
 
@@ -899,7 +899,7 @@ const GroupFirms = () => {
                 <button
                   type="button"
                   onClick={() =>
-                    navigate("/staff/office-assistance/groups")
+                    navigate("/office-assistance/groups")
                   }
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
                 >

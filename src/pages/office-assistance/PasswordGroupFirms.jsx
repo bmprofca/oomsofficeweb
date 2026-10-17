@@ -675,7 +675,7 @@ const PasswordGroupFirms = () => {
     }, [closeActionsMenu]);
 
     const handleBack = () => {
-        navigate('/staff/office-assistance/password-groups');
+        navigate('/office-assistance/password-groups');
     };
 
     const credentialIdsOnPage = credentials

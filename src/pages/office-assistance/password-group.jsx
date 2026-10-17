@@ -211,7 +211,7 @@ const PasswordGroups = () => {
   };
 
     const handleViewGroupFirms = (group) => {
-        navigate(`/staff/office-assistance/password-group/${group.group_id}/firms`, {
+        navigate(`/office-assistance/password-group/${group.group_id}/firms`, {
       state: { group_name: group.group_name },
         });
     };

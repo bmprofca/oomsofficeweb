@@ -7,11 +7,11 @@
 ## Mental model
 
 ```
-Route: /staff/office-assistance/password-groups
+Route: /office-assistance/password-groups
         ↓
 GET /assistance/password-group/list
         ↓
-Route: /staff/office-assistance/password-group/:group_id/firms
+Route: /office-assistance/password-group/:group_id/firms
         ↓
 GET /assistance/password-group/list-firm-credentials/:group_id
 ```

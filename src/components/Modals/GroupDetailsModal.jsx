@@ -144,7 +144,7 @@ const GroupDetailsModal = ({
                   {isActive ? "Active" : "Inactive"}
                 </span>
                 <Link
-                  to={`/staff/office-assistance/group-firms/${encodeURIComponent(group.group_id)}`}
+                  to={`/office-assistance/group-firms/${encodeURIComponent(group.group_id)}`}
                   onClick={onClose}
                   className="inline-flex items-center gap-1.5 rounded-full bg-white border border-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors"
                 >

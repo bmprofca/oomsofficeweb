@@ -27,8 +27,8 @@ export const SOFTWARE_MODULES = [
   // Clients
   { title: "Clients", path: "/client/view", group: "Clients", keywords: "customer party" },
   { title: "Create Client", path: "/client/create", group: "Clients", keywords: "new add" },
-  { title: "Deleted Clients", path: "/staff/office-assistance/deleted-clients", group: "Clients", keywords: "trash restore" },
-  { title: "Inactive Clients", path: "/staff/office-assistance/inactive-client", group: "Clients", keywords: "inactive" },
+  { title: "Deleted Clients", path: "/office-assistance/deleted-clients", group: "Clients", keywords: "trash restore" },
+  { title: "Inactive Clients", path: "/office-assistance/inactive-client", group: "Clients", keywords: "inactive" },
   { title: "Top Clients", path: "/clients/top", group: "Clients", keywords: "top" },
 
   // Billing & Finance
@@ -58,22 +58,22 @@ export const SOFTWARE_MODULES = [
   { title: "Staff-wise Sales", path: "/sales/staff-wise", group: "Finance", keywords: "staff wise sales" },
 
   // Office Assistance
-  { title: "Office Assistance", path: "/staff/office-assistance", group: "Assistance", keywords: "office hub" },
-  { title: "DSC Register", path: "/staff/office-assistance/dsc-report", group: "Assistance", keywords: "dsc signature" },
-  { title: "File Index", path: "/staff/office-assistance/file-index", group: "Assistance", keywords: "files documents" },
-  { title: "Password Groups", path: "/staff/office-assistance/password-groups", group: "Assistance", keywords: "credentials login" },
-  { title: "Important Links", path: "/staff/office-assistance/important-links", group: "Assistance", keywords: "urls" },
-  { title: "Services", path: "/staff/office-assistance/services", group: "Assistance", keywords: "offerings" },
-  { title: "Compliance", path: "/staff/office-assistance/compliance", group: "Assistance", keywords: "recurring" },
-  { title: "Compliance Firm Assignment", path: "/staff/office-assistance/compliance/firm-assignment", group: "Assistance", keywords: "firm assignment" },
+  { title: "Office Assistance", path: "/office-assistance", group: "Assistance", keywords: "office hub" },
+  { title: "DSC Register", path: "/office-assistance/dsc-report", group: "Assistance", keywords: "dsc signature" },
+  { title: "File Index", path: "/office-assistance/file-index", group: "Assistance", keywords: "files documents" },
+  { title: "Password Groups", path: "/office-assistance/password-groups", group: "Assistance", keywords: "credentials login" },
+  { title: "Important Links", path: "/office-assistance/important-links", group: "Assistance", keywords: "urls" },
+  { title: "Services", path: "/office-assistance/services", group: "Assistance", keywords: "offerings" },
+  { title: "Compliance", path: "/compliance", group: "Assistance", keywords: "recurring" },
+  { title: "Compliance Firm Assignment", path: "/compliance/firm-assignment", group: "Assistance", keywords: "firm assignment" },
   { title: "Staff Recurring Tasks", path: "/staff/recurring-tasks", group: "Assistance", keywords: "recurring tasks" },
-  { title: "Recurring Groups", path: "/staff/office-assistance/recurring-groups", group: "Assistance", keywords: "recurring groups" },
-  { title: "Groups", path: "/staff/office-assistance/groups", group: "Assistance", keywords: "firm groups" },
-  { title: "Group Firms", path: "/staff/office-assistance/group-firms", group: "Assistance", keywords: "group firms" },
-  { title: "CA List", path: "/staff/office-assistance/ca-list", group: "Assistance", keywords: "chartered accountant" },
-  { title: "Debtor Follow-up", path: "/staff/office-assistance/follow-up", group: "Assistance", keywords: "followup assign reminder debtors" },
-  { title: "Auto Reminder", path: "/staff/office-assistance/auto-reminder", group: "Assistance", keywords: "reminder" },
-  { title: "Service Requests", path: "/staff/office-assistance/service-requests", group: "Assistance", keywords: "requests" },
+  { title: "Recurring Groups", path: "/office-assistance/recurring-groups", group: "Assistance", keywords: "recurring groups" },
+  { title: "Groups", path: "/office-assistance/groups", group: "Assistance", keywords: "firm groups" },
+  { title: "Group Firms", path: "/office-assistance/group-firms", group: "Assistance", keywords: "group firms" },
+  { title: "CA List", path: "/office-assistance/ca-list", group: "Assistance", keywords: "chartered accountant" },
+  { title: "Debtor Follow-up", path: "/office-assistance/follow-up", group: "Assistance", keywords: "followup assign reminder debtors" },
+  { title: "Auto Reminder", path: "/office-assistance/auto-reminder", group: "Assistance", keywords: "reminder" },
+  { title: "Service Requests", path: "/office-assistance/service-requests", group: "Assistance", keywords: "requests" },
 
   // Staff
   { title: "Staff", path: "/staff/view", group: "Staff", keywords: "team employee" },

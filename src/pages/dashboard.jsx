@@ -304,7 +304,7 @@ const getDefaultAdditionalStatsCards = () => [
     icon: FiBriefcase,
     color: "bg-indigo-500 text-white",
     gradient: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-    link: "/staff/office-assistance/ca-list",
+    link: "/office-assistance/ca-list",
     isCurrency: false,
   },
   {
@@ -314,7 +314,7 @@ const getDefaultAdditionalStatsCards = () => [
     icon: FiHome,
     color: "bg-orange-500 text-white",
     gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
-    link: "/staff/office-assistance/groups",
+    link: "/office-assistance/groups",
     isCurrency: false,
   },
   {
@@ -324,7 +324,7 @@ const getDefaultAdditionalStatsCards = () => [
     icon: FiLayers,
     color: "bg-purple-500 text-white",
     gradient: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
-    link: "/staff/office-assistance/services",
+    link: "/office-assistance/services",
     isCurrency: false,
   },
   {

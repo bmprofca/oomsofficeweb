@@ -198,7 +198,7 @@ const DeletedClients = () => {
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <button
                     type="button"
-                    onClick={() => navigate("/staff/office-assistance")}
+                    onClick={() => navigate("/office-assistance")}
                     className="w-9 h-9 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:text-indigo-600 hover:border-indigo-200 shrink-0"
                     aria-label="Back to Office Assistance"
                   >
