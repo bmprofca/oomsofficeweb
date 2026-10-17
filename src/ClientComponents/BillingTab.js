@@ -70,12 +70,12 @@ const billingStatusLabel = (status) => {
 
 const billingStatusClass = (status) => {
     if (status === 'generated') {
-        return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
+        return 'bg-green-50 text-green-800 border border-green-200';
     }
     if (status === 'nonbillable') {
-        return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
+        return 'bg-red-50 text-red-800 border border-red-200';
     }
-    return 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border border-yellow-200';
+    return 'bg-yellow-50 text-yellow-800 border border-yellow-200';
 };
 
 const normalizeBillingRow = (raw) => {
@@ -455,11 +455,11 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-xl p-6"
+            className="bg-gray-50 rounded-2xl border border-gray-100 shadow-xl p-6"
         >
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                 <div className="space-y-1">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+                    <h3 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 text-slate-900">
                         Billing
                     </h3>
                 </div>
@@ -481,7 +481,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
                         placeholder="Search tasks, services, firms..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                        className="w-full px-4 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                     />
                 </div>
                 <div className="min-w-[160px]">
@@ -507,33 +507,33 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[48rem]">
-                        <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <thead className="bg-blue-50">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-12">
+                                <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-12">
                                     #
                                 </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                                     Service & Firm
                                 </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                                     Dates
                                 </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                                     Amount
                                 </th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                                     Status
                                 </th>
-                                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-14">
+                                <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-14">
                                     Action
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-slate-100">
                             {!loading && rowsForTable.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="px-6 py-12 text-center">
-                                        <div className="w-16 h-16 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
+                                        <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                             <FiFileText className="w-8 h-8 text-slate-400" />
                                         </div>
                                         <h3 className="text-sm font-semibold text-slate-800 mb-2">No billing tasks found</h3>
@@ -563,7 +563,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.03 }}
-                                            className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-300"
+                                            className="hover:bg-gradient-to-r transition-all duration-300"
                                         >
                                             <td className="px-4 py-4 text-sm text-slate-600">{serialNo}</td>
                                             <td className="px-4 py-4">
@@ -623,10 +623,8 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
                                                 <div className="flex items-center justify-center">
                                                     <motion.button
                                                         type="button"
-                                                        className="billing-tab-dropdown p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100 transition-all duration-150"
+                                                        className="billing-tab-dropdown p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-slate-100 transition-all duration-150"
                                                         onClick={(e) => toggleRowDropdown(row.task_id, e)}
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
                                                     >
                                                         <FiMoreVertical className="w-4 h-4" />
                                                     </motion.button>
@@ -745,7 +743,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
                             )}
                             <button
                                 type="button"
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
                                 onClick={() => {
                                     setActiveRowDropdown(null);
                                     handlePrint();
@@ -756,7 +754,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
                             </button>
                             <button
                                 type="button"
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
                                 onClick={() => {
                                     setActiveRowDropdown(null);
                                     setWhatsappModalOpen(true);
@@ -767,7 +765,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
                             </button>
                             <button
                                 type="button"
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
                                 onClick={() => {
                                     setActiveRowDropdown(null);
                                     setIsEmailModalOpen(true);

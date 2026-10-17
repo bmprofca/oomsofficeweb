@@ -245,7 +245,7 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                         className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200/80 w-full max-w-3xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="shrink-0 px-5 py-3 border-b border-emerald-100 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 flex items-center justify-between gap-3">
+                        <div className="shrink-0 px-5 py-3 border-b border-emerald-100 bg-emerald-600 flex items-center justify-between gap-3">
                             <div className="flex min-w-0 items-center gap-2.5">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white ring-1 ring-white/20">
                                     <FiPlus size={16} />
@@ -440,7 +440,7 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                             <button
                                 type="submit"
                                 disabled={submitting || logoUploading || signUploading}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 transition-colors"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60 transition-colors"
                             >
                                 {submitting ? (
                                     <FiRefreshCw className="animate-spin" size={14} />

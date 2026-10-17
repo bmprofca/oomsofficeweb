@@ -247,7 +247,7 @@ export default function TransactionTable({
         <div className={`overflow-x-auto ${className}`.trim()}>
             <table className={tableClassName}>
                 <thead>
-                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200">
+                    <tr className="bg-slate-50 border-y border-slate-200">
                         <th className="text-left p-4 font-semibold text-slate-600 w-16">#</th>
                         <th className="text-left p-4 font-semibold text-slate-600">Date</th>
                         <th className="text-left p-4 font-semibold text-slate-600">Particulars</th>

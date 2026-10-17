@@ -86,7 +86,7 @@ const ProfileTab = ({ staffData, variants }) => {
             <Card>
                 <div className="flex items-center gap-4">
                     {/* Avatar */}
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-sm flex-shrink-0 select-none">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-500 flex items-center justify-center text-white text-xl font-bold shadow-sm flex-shrink-0 select-none">
                         {initials}
                     </div>
 

@@ -338,7 +338,7 @@ const WebsiteSettings = () => {
                                     type="text"
                                     value={settings.basic?.websiteName || ''}
                                     onChange={(e) => handleInputChange('basic', 'websiteName', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                     placeholder="Enter website name"
                                 />
                             </div>
@@ -350,7 +350,7 @@ const WebsiteSettings = () => {
                                     type="text"
                                     value={settings.basic?.websiteTagline || ''}
                                     onChange={(e) => handleInputChange('basic', 'websiteTagline', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                     placeholder="Enter tagline"
                                 />
                             </div>
@@ -364,7 +364,7 @@ const WebsiteSettings = () => {
                                 value={settings.basic?.websiteDescription || ''}
                                 onChange={(e) => handleInputChange('basic', 'websiteDescription', e.target.value)}
                                 rows={3}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 placeholder="Brief description of your website"
                             />
                         </div>
@@ -374,7 +374,7 @@ const WebsiteSettings = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Logo Upload
                                 </label>
-                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center">
                                     {settings.basic?.logo ? (
                                         <div className="flex flex-col items-center">
                                             <img src={settings.basic.logo} alt="Logo" className="h-20 mb-2" />
@@ -400,7 +400,7 @@ const WebsiteSettings = () => {
                                             />
                                             <label
                                                 htmlFor="logo-upload"
-                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-colors inline-block"
+                                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors inline-block"
                                             >
                                                 Choose File
                                             </label>
@@ -413,7 +413,7 @@ const WebsiteSettings = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Favicon Upload
                                 </label>
-                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center">
                                     {settings.basic?.favicon ? (
                                         <div className="flex flex-col items-center">
                                             <img src={settings.basic.favicon} alt="Favicon" className="h-8 mb-2" />
@@ -439,7 +439,7 @@ const WebsiteSettings = () => {
                                             />
                                             <label
                                                 htmlFor="favicon-upload"
-                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-colors inline-block"
+                                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors inline-block"
                                             >
                                                 Choose File
                                             </label>
@@ -457,7 +457,7 @@ const WebsiteSettings = () => {
                                 <select
                                     value={settings.basic?.language || 'en'}
                                     onChange={(e) => handleInputChange('basic', 'language', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 >
                                     <option value="en">English</option>
                                     <option value="hi">Hindi</option>
@@ -472,7 +472,7 @@ const WebsiteSettings = () => {
                                 <select
                                     value={settings.basic?.timezone || 'UTC+5:30'}
                                     onChange={(e) => handleInputChange('basic', 'timezone', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 >
                                     <option value="UTC+5:30">IST (UTC+5:30)</option>
                                     <option value="UTC">UTC</option>
@@ -487,7 +487,7 @@ const WebsiteSettings = () => {
                                 <select
                                     value={settings.basic?.dateFormat || 'DD/MM/YYYY'}
                                     onChange={(e) => handleInputChange('basic', 'dateFormat', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 >
                                     <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                                     <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -510,7 +510,7 @@ const WebsiteSettings = () => {
                                     type="email"
                                     value={settings.contact?.primaryEmail || ''}
                                     onChange={(e) => handleInputChange('contact', 'primaryEmail', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 />
                             </div>
                             <div>
@@ -521,7 +521,7 @@ const WebsiteSettings = () => {
                                     type="email"
                                     value={settings.contact?.supportEmail || ''}
                                     onChange={(e) => handleInputChange('contact', 'supportEmail', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 />
                             </div>
                             <div>
@@ -532,7 +532,7 @@ const WebsiteSettings = () => {
                                     type="email"
                                     value={settings.contact?.salesEmail || ''}
                                     onChange={(e) => handleInputChange('contact', 'salesEmail', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 />
                             </div>
                         </div>
@@ -546,7 +546,7 @@ const WebsiteSettings = () => {
                                     type="tel"
                                     value={settings.contact?.primaryPhone || ''}
                                     onChange={(e) => handleInputChange('contact', 'primaryPhone', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 />
                             </div>
                             <div>
@@ -557,7 +557,7 @@ const WebsiteSettings = () => {
                                     type="tel"
                                     value={settings.contact?.secondaryPhone || ''}
                                     onChange={(e) => handleInputChange('contact', 'secondaryPhone', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 />
                             </div>
                             <div>
@@ -568,7 +568,7 @@ const WebsiteSettings = () => {
                                     type="tel"
                                     value={settings.contact?.telephone || ''}
                                     onChange={(e) => handleInputChange('contact', 'telephone', e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 />
                             </div>
                         </div>
@@ -578,9 +578,7 @@ const WebsiteSettings = () => {
                                 <h4 className="text-lg font-semibold text-gray-800">Office Addresses</h4>
                                 <motion.button
                                     onClick={addAddress}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     Add Address
@@ -622,7 +620,7 @@ const WebsiteSettings = () => {
                                                     type="text"
                                                     value={address.name}
                                                     onChange={(e) => handleArrayChange('contact', 'addresses', index, 'name', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-all duration-200"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm transition-all duration-200"
                                                     placeholder="e.g., Head Office"
                                                 />
                                             </div>
@@ -633,7 +631,7 @@ const WebsiteSettings = () => {
                                                 <select
                                                     value={address.type}
                                                     onChange={(e) => handleArrayChange('contact', 'addresses', index, 'type', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-all duration-200"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm transition-all duration-200"
                                                 >
                                                     <option value="headquarters">Headquarters</option>
                                                     <option value="branch">Branch</option>
@@ -649,7 +647,7 @@ const WebsiteSettings = () => {
                                                     type="text"
                                                     value={address.address}
                                                     onChange={(e) => handleArrayChange('contact', 'addresses', index, 'address', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-all duration-200"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm transition-all duration-200"
                                                     placeholder="Full street address"
                                                 />
                                             </div>
@@ -661,7 +659,7 @@ const WebsiteSettings = () => {
                                                     type="text"
                                                     value={address.city}
                                                     onChange={(e) => handleArrayChange('contact', 'addresses', index, 'city', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-all duration-200"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm transition-all duration-200"
                                                 />
                                             </div>
                                             <div>
@@ -672,7 +670,7 @@ const WebsiteSettings = () => {
                                                     type="text"
                                                     value={address.state}
                                                     onChange={(e) => handleArrayChange('contact', 'addresses', index, 'state', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-all duration-200"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm transition-all duration-200"
                                                 />
                                             </div>
                                             <div>
@@ -683,7 +681,7 @@ const WebsiteSettings = () => {
                                                     type="text"
                                                     value={address.country}
                                                     onChange={(e) => handleArrayChange('contact', 'addresses', index, 'country', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-all duration-200"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm transition-all duration-200"
                                                 />
                                             </div>
                                             <div>
@@ -694,7 +692,7 @@ const WebsiteSettings = () => {
                                                     type="text"
                                                     value={address.pincode}
                                                     onChange={(e) => handleArrayChange('contact', 'addresses', index, 'pincode', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm transition-all duration-200"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm transition-all duration-200"
                                                 />
                                             </div>
                                         </div>
@@ -718,13 +716,13 @@ const WebsiteSettings = () => {
                                         type="color"
                                         value={settings.colors?.primaryColor || '#3B82F6'}
                                         onChange={(e) => handleInputChange('colors', 'primaryColor', e.target.value)}
-                                        className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                                        className="w-16 h-10 rounded border border-slate-200 cursor-pointer"
                                     />
                                     <input
                                         type="text"
                                         value={settings.colors?.primaryColor || '#3B82F6'}
                                         onChange={(e) => handleInputChange('colors', 'primaryColor', e.target.value)}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                     />
                                 </div>
                             </div>
@@ -737,13 +735,13 @@ const WebsiteSettings = () => {
                                         type="color"
                                         value={settings.colors?.secondaryColor || '#1E40AF'}
                                         onChange={(e) => handleInputChange('colors', 'secondaryColor', e.target.value)}
-                                        className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                                        className="w-16 h-10 rounded border border-slate-200 cursor-pointer"
                                     />
                                     <input
                                         type="text"
                                         value={settings.colors?.secondaryColor || '#1E40AF'}
                                         onChange={(e) => handleInputChange('colors', 'secondaryColor', e.target.value)}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                     />
                                 </div>
                             </div>
@@ -759,13 +757,13 @@ const WebsiteSettings = () => {
                                         type="color"
                                         value={settings.colors?.accentColor || '#10B981'}
                                         onChange={(e) => handleInputChange('colors', 'accentColor', e.target.value)}
-                                        className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                                        className="w-16 h-10 rounded border border-slate-200 cursor-pointer"
                                     />
                                     <input
                                         type="text"
                                         value={settings.colors?.accentColor || '#10B981'}
                                         onChange={(e) => handleInputChange('colors', 'accentColor', e.target.value)}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                     />
                                 </div>
                             </div>
@@ -778,13 +776,13 @@ const WebsiteSettings = () => {
                                         type="color"
                                         value={settings.colors?.backgroundColor || '#FFFFFF'}
                                         onChange={(e) => handleInputChange('colors', 'backgroundColor', e.target.value)}
-                                        className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                                        className="w-16 h-10 rounded border border-slate-200 cursor-pointer"
                                     />
                                     <input
                                         type="text"
                                         value={settings.colors?.backgroundColor || '#FFFFFF'}
                                         onChange={(e) => handleInputChange('colors', 'backgroundColor', e.target.value)}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                     />
                                 </div>
                             </div>
@@ -800,10 +798,8 @@ const WebsiteSettings = () => {
                                     className={`p-4 border-2 rounded-lg text-center ${
                                         settings.colors?.gradientType === 'solid' 
                                             ? 'border-blue-500 bg-blue-50' 
-                                            : 'border-gray-200 hover:border-gray-300'
+                                            : 'border-gray-200 hover:border-slate-200'
                                     }`}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     <div className="h-8 bg-blue-500 rounded mb-2"></div>
                                     <span className="text-sm font-medium">Solid</span>
@@ -813,10 +809,8 @@ const WebsiteSettings = () => {
                                     className={`p-4 border-2 rounded-lg text-center ${
                                         settings.colors?.gradientType === 'gradient' 
                                             ? 'border-blue-500 bg-blue-50' 
-                                            : 'border-gray-200 hover:border-gray-300'
+                                            : 'border-gray-200 hover:border-slate-200'
                                     }`}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     <div 
                                         className="h-8 rounded mb-2"
@@ -831,12 +825,10 @@ const WebsiteSettings = () => {
                                     className={`p-4 border-2 rounded-lg text-center ${
                                         settings.colors?.gradientType === 'custom' 
                                             ? 'border-blue-500 bg-blue-50' 
-                                            : 'border-gray-200 hover:border-gray-300'
+                                            : 'border-gray-200 hover:border-slate-200'
                                     }`}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
-                                    <div className="h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded mb-2"></div>
+                                    <div className="h-8 bg-purple-500 rounded mb-2"></div>
                                     <span className="text-sm font-medium">Custom</span>
                                 </motion.button>
                             </div>
@@ -853,13 +845,13 @@ const WebsiteSettings = () => {
                                             type="color"
                                             value={settings.colors?.gradientStart || '#3B82F6'}
                                             onChange={(e) => handleInputChange('colors', 'gradientStart', e.target.value)}
-                                            className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                                            className="w-16 h-10 rounded border border-slate-200 cursor-pointer"
                                         />
                                         <input
                                             type="text"
                                             value={settings.colors?.gradientStart || '#3B82F6'}
                                             onChange={(e) => handleInputChange('colors', 'gradientStart', e.target.value)}
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                         />
                                     </div>
                                 </div>
@@ -872,13 +864,13 @@ const WebsiteSettings = () => {
                                             type="color"
                                             value={settings.colors?.gradientEnd || '#1E40AF'}
                                             onChange={(e) => handleInputChange('colors', 'gradientEnd', e.target.value)}
-                                            className="w-16 h-10 rounded border border-gray-300 cursor-pointer"
+                                            className="w-16 h-10 rounded border border-slate-200 cursor-pointer"
                                         />
                                         <input
                                             type="text"
                                             value={settings.colors?.gradientEnd || '#1E40AF'}
                                             onChange={(e) => handleInputChange('colors', 'gradientEnd', e.target.value)}
-                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                         />
                                     </div>
                                 </div>
@@ -893,7 +885,7 @@ const WebsiteSettings = () => {
                                 value={settings.colors?.customCSS || ''}
                                 onChange={(e) => handleInputChange('colors', 'customCSS', e.target.value)}
                                 rows={6}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                className="w-full px-4 py-3 border border-slate-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                 placeholder="Add your custom CSS here..."
                             />
                         </div>
@@ -948,11 +940,9 @@ const WebsiteSettings = () => {
                                         className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                                             settings.themes?.selectedTheme === theme.id
                                                 ? 'border-blue-500 bg-blue-50'
-                                                : 'border-gray-200 hover:border-gray-300'
+                                                : 'border-gray-200 hover:border-slate-200'
                                         }`}
                                         onClick={() => handleInputChange('themes', 'selectedTheme', theme.id)}
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
                                     >
                                         <div className="bg-gray-100 rounded-lg h-32 mb-3 flex items-center justify-center">
                                             <div className="text-gray-400 text-sm">Theme Preview</div>
@@ -965,7 +955,7 @@ const WebsiteSettings = () => {
                                             </span>
                                             <span className={`px-3 py-1 rounded text-xs ${
                                                 settings.themes?.selectedTheme === theme.id
-                                                    ? 'bg-blue-600 text-white'
+                                                    ? 'bg-indigo-600 text-white'
                                                     : 'bg-gray-200 text-gray-700'
                                             }`}>
                                                 {settings.themes?.selectedTheme === theme.id ? 'Active' : 'Select'}
@@ -983,7 +973,7 @@ const WebsiteSettings = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Layout Type
                                     </label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                                    <select className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200">
                                         <option>Boxed</option>
                                         <option>Full Width</option>
                                         <option>Fluid</option>
@@ -993,7 +983,7 @@ const WebsiteSettings = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Header Style
                                     </label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                                    <select className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200">
                                         <option>Standard</option>
                                         <option>Fixed</option>
                                         <option>Transparent</option>
@@ -1003,7 +993,7 @@ const WebsiteSettings = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Navigation Style
                                     </label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                                    <select className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200">
                                         <option>Horizontal</option>
                                         <option>Vertical</option>
                                         <option>Mega Menu</option>
@@ -1013,7 +1003,7 @@ const WebsiteSettings = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Footer Style
                                     </label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200">
+                                    <select className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200">
                                         <option>Simple</option>
                                         <option>Detailed</option>
                                         <option>Minimal</option>
@@ -1039,7 +1029,7 @@ const WebsiteSettings = () => {
                                     {settings.components?.enabledComponents?.map((component) => (
                                         <div
                                             key={component.id}
-                                            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-slate-50 transition-colors"
                                         >
                                             <div className="flex items-center gap-4">
                                                 <div className="flex items-center gap-2">
@@ -1124,17 +1114,13 @@ const WebsiteSettings = () => {
 
                                 <div className="mt-6 flex gap-3">
                                     <motion.button
-                                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                                     >
                                         <FiPlus className="w-4 h-4" />
                                         Add Custom Component
                                     </motion.button>
                                     <motion.button
-                                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                                     >
                                         <FiDownload className="w-4 h-4" />
                                         Export Configuration
@@ -1157,7 +1143,7 @@ const WebsiteSettings = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1176,7 +1162,7 @@ const WebsiteSettings = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                             {/* Card Header */}
                             <div className="border-b border-gray-200 px-6 py-4">
                                 <div className="flex justify-between items-center">
@@ -1184,7 +1170,7 @@ const WebsiteSettings = () => {
                                         <h5 className="text-xl font-bold text-gray-800 mb-1">
                                             Website Settings
                                         </h5>
-                                        <p className="text-gray-500 text-xs">
+                                        <p className="text-slate-500 text-xs mt-0.5">
                                             Customize your website appearance and functionality
                                         </p>
                                     </div>
@@ -1203,7 +1189,7 @@ const WebsiteSettings = () => {
                                                 className={`flex items-center gap-2 px-6 py-4 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
                                                     activeTab === tab.id
                                                         ? 'border-blue-500 text-blue-600 bg-blue-50'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200'
                                                 }`}
                                             >
                                                 <Icon className="w-4 h-4" />
@@ -1224,9 +1210,7 @@ const WebsiteSettings = () => {
                                 <div className="flex justify-between items-center">
                                     <motion.button
                                         onClick={handleResetSettings}
-                                        className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="flex items-center gap-2 px-6 py-3 border border-slate-200 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                                     >
                                         <FiRefreshCw className="w-4 h-4" />
                                         Reset to Default
@@ -1234,9 +1218,7 @@ const WebsiteSettings = () => {
                                     <div className="flex gap-3">
                                         <motion.button
                                             onClick={() => {/* Handle preview */}}
-                                            className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="flex items-center gap-2 px-6 py-3 border border-slate-200 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                                         >
                                             <FiEye className="w-4 h-4" />
                                             Preview Changes
@@ -1244,9 +1226,7 @@ const WebsiteSettings = () => {
                                         <motion.button
                                             onClick={handleSaveSettings}
                                             disabled={saving}
-                                            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                         >
                                             <FiSave className="w-4 h-4" />
                                             {saving ? 'Saving...' : 'Save Changes'}

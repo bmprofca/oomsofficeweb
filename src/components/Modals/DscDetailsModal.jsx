@@ -67,7 +67,7 @@ export default function DscDetailsModal({ open, dsc, onClose, onEdit }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-slate-100"
               >
                 <FiX className="w-4 h-4" />
               </button>
@@ -107,7 +107,7 @@ export default function DscDetailsModal({ open, dsc, onClose, onEdit }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
+                className="px-4 py-2 text-sm font-medium text-gray-700 border border-slate-200 rounded-lg hover:bg-white"
               >
                 Close
               </button>

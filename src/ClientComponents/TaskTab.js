@@ -804,7 +804,7 @@ const TaskTab = ({
                     const clientName = task.client?.profile?.name || task.client?.name || '-';
                     return (
                         <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
+                            <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
                                 <FiUser className="w-3.5 h-3.5 text-white" />
                             </div>
                             <button
@@ -994,8 +994,6 @@ const TaskTab = ({
                                     toggleRowDropdown(task.task_id, e.currentTarget);
                                 }}
                                 className="task-row-action-trigger w-8 h-8 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.95 }}
                             >
                                 <div className="w-1 h-1 rounded-full bg-gray-600" />
                                 <div className="w-1 h-1 rounded-full bg-gray-600" />
@@ -1026,11 +1024,11 @@ const TaskTab = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-xl p-6 min-w-0 max-w-full overflow-x-hidden"
+            className="bg-gray-50 rounded-2xl border border-gray-100 shadow-xl p-6 min-w-0 max-w-full overflow-x-hidden"
         >
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
                 <div className="space-y-2">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+                    <h3 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 text-slate-900">
                         {isCaMode ? 'CA Task Management' : 'Task Management'}
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-600">
@@ -1044,9 +1042,8 @@ const TaskTab = ({
                         <motion.button
                             type="button"
                             onClick={handleOpenCreateTask}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
                             whileHover={{ scale: 1.02, y: -2 }}
-                            whileTap={{ scale: 0.98 }}
                         >
                             <FiPlus className="w-5 h-5" />
                             New Task
@@ -1062,7 +1059,7 @@ const TaskTab = ({
                             <p className="text-xs font-semibold text-slate-600">Total Tasks</p>
                             <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.total}</p>
                         </div>
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
+                        <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
                             <FiTarget className="w-6 h-6 text-blue-600" />
                         </div>
                     </div>
@@ -1073,7 +1070,7 @@ const TaskTab = ({
                             <p className="text-xs font-semibold text-slate-600">Complete</p>
                             <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.complete}</p>
                         </div>
-                        <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
+                        <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
                             <FiCheckCircle className="w-6 h-6 text-green-600" />
                         </div>
                     </div>
@@ -1084,7 +1081,7 @@ const TaskTab = ({
                             <p className="text-xs font-semibold text-slate-600">Cancel</p>
                             <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.cancel}</p>
                         </div>
-                        <div className="w-12 h-12 bg-gradient-to-r from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
+                        <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
                             <FiXCircle className="w-6 h-6 text-red-600" />
                         </div>
                     </div>
@@ -1095,7 +1092,7 @@ const TaskTab = ({
                             <p className="text-xs font-semibold text-slate-600">In Process</p>
                             <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.inProcess}</p>
                         </div>
-                        <div className="w-12 h-12 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-xl flex items-center justify-center">
+                        <div className="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center">
                             <FiClock className="w-6 h-6 text-yellow-600" />
                         </div>
                     </div>
@@ -1109,7 +1106,7 @@ const TaskTab = ({
                         placeholder="Search tasks, descriptions, or assigned to..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full h-10 px-4 py-2 text-sm text-slate-700 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
+                        className="w-full h-10 px-4 py-2 text-sm text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent shadow-sm transition-all duration-300"
                     />
                 </div>
                 <div className="flex w-full md:w-auto md:flex-none md:shrink-0 items-stretch gap-1.5 min-w-0 max-w-full">
@@ -1132,7 +1129,7 @@ const TaskTab = ({
                                     type="button"
                                     aria-label="Clear firm filter"
                                     onClick={() => setSelectedFirmId(null)}
-                                    className="inline-flex h-10 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-slate-500 shadow-sm transition-colors hover:bg-gray-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                                    className="inline-flex h-10 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-0"
                                 >
                                     <FiX className="h-4 w-4" />
                                 </button>
@@ -1171,7 +1168,7 @@ const TaskTab = ({
             </div>
 
             {/* Same task table shell as `task-display` (TaskTable) */}
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm text-sm text-gray-700 min-w-0 overflow-hidden">
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm text-sm text-gray-700 min-w-0 overflow-hidden">
                 <TaskTable
                     tasks={tasks}
                     selectedTasks={selectedTasks}

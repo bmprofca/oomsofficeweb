@@ -37,7 +37,7 @@ const OpeningBalanceModal = ({
                 className="relative w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="px-5 py-3.5 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-indigo-700 shrink-0">
+                <div className="px-5 py-3.5 border-b border-slate-200 bg-indigo-600 shrink-0">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-white/20 rounded-lg">
@@ -77,7 +77,7 @@ const OpeningBalanceModal = ({
                                         required
                                         value={openingBalanceForm.amount}
                                         onChange={(e) => setOpeningBalanceForm((f) => ({ ...f, amount: sanitizeAmountInput(e.target.value) }))}
-                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                         placeholder="0.00"
                                     />
                                 </div>
@@ -87,7 +87,7 @@ const OpeningBalanceModal = ({
                                     <select
                                         value={openingBalanceForm.type}
                                         onChange={(e) => setOpeningBalanceForm((f) => ({ ...f, type: e.target.value }))}
-                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                     >
                                         <option value="credit">Credit (Client owes you)</option>
                                         <option value="debit">Debit (You owe client)</option>
@@ -104,7 +104,7 @@ const OpeningBalanceModal = ({
                                     hideTabs={true}
                                     showResetButton={false}
                                     placeholder="Select date"
-                                    buttonClassName="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                    buttonClassName="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white"
                                 />
                             </div>
 
@@ -114,7 +114,7 @@ const OpeningBalanceModal = ({
                                     rows={3}
                                     value={openingBalanceForm.remark}
                                     onChange={(e) => setOpeningBalanceForm((f) => ({ ...f, remark: e.target.value }))}
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 resize-none"
                                     placeholder="Optional note..."
                                 />
                             </div>

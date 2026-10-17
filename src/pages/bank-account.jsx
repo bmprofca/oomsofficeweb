@@ -202,7 +202,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -261,7 +261,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                                 disabled={exporting || !userEmail}
                                 className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${exporting && selectedFormat === option.type
                                         ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-slate-50'
                                     } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
@@ -300,7 +300,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        className="px-4 py-2 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm transition-colors"
                         disabled={exporting}
                     >
                         Cancel
@@ -447,7 +447,7 @@ const ModalContent = React.memo(({
                 className="relative z-[1] pointer-events-auto w-full max-w-4xl my-2 sm:my-4 flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] overscroll-none"
             >
                 {/* Header */}
-                <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-2xl">
+                <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-200 bg-blue-600 text-white rounded-t-2xl">
                     <div>
                         <h2 className="text-xl font-bold">{title}</h2>
                     </div>
@@ -496,7 +496,7 @@ const ModalContent = React.memo(({
                                     value={formData.holder || ''}
                                     onChange={onChange}
                                     placeholder="Enter account holder name"
-                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                     required
                                 />
                             </div>
@@ -514,7 +514,7 @@ const ModalContent = React.memo(({
                                             value={formData.account_no || ''}
                                             onChange={onChange}
                                             placeholder="Enter account number"
-                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                             required={!isCashType}
                                             autoCapitalize="characters"
                                             autoCorrect="off"
@@ -542,7 +542,7 @@ const ModalContent = React.memo(({
                                             onKeyUp={handleIfscKeyUp}
                                             onPaste={handleIfscPaste}
                                             placeholder="Enter IFSC code"
-                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                             required={!isCashType}
                                             maxLength={11}
                                             autoCapitalize="characters"
@@ -562,7 +562,7 @@ const ModalContent = React.memo(({
                                             value={formData.bank || ''}
                                             onChange={onChange}
                                             placeholder="Auto-filled from IFSC or type manually"
-                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                             required={!isCashType}
                                         />
                                     </div>
@@ -578,7 +578,7 @@ const ModalContent = React.memo(({
                                             value={formData.branch || ''}
                                             onChange={onChange}
                                             placeholder="Auto-filled from IFSC or type manually"
-                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                             required={!isCashType}
                                         />
                                     </div>
@@ -596,7 +596,7 @@ const ModalContent = React.memo(({
                                     value={formData.remark || ''}
                                     onChange={onChange}
                                     placeholder="Enter any remarks"
-                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                 />
                             </div>
 
@@ -616,7 +616,7 @@ const ModalContent = React.memo(({
                                     value={formData.opening_balance?.amount || ''}
                                     onChange={onChange}
                                     placeholder="Enter amount"
-                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                     required
                                     inputMode="decimal"
                                 />
@@ -651,7 +651,7 @@ const ModalContent = React.memo(({
                                     hideTabs={true}
                                     showResetButton={false}
                                     placeholder="Select opening date"
-                                    buttonClassName="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    buttonClassName="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                 />
                             </div>
                         </div>
@@ -665,7 +665,7 @@ const ModalContent = React.memo(({
                             type="button"
                             onClick={onClose}
                             disabled={loading}
-                            className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
+                            className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -673,7 +673,7 @@ const ModalContent = React.memo(({
                             type="submit"
                             form="bank-form"
                             disabled={loading || !isFormValid}
-                            className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center min-w-[140px] justify-center shadow-lg"
+                            className="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center min-w-[140px] justify-center shadow-lg"
                         >
                             {loading ? (
                                 <>
@@ -741,7 +741,7 @@ const DeleteModal = React.memo(({ isOpen, onClose, onConfirm, bank, loading }) =
                         <button
                             onClick={onConfirm}
                             disabled={loading}
-                            className="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-xl hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
+                            className="flex-1 px-4 py-3 text-sm font-medium text-white bg-red-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
                         >
                             {loading ? (
                                 <>
@@ -1384,7 +1384,7 @@ const BankList = () => {
     ), []);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1400,7 +1400,7 @@ const BankList = () => {
 
             {/* Main Content Area */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {fetchLoading && banks.length === 0 ? (
                             <>
@@ -1448,7 +1448,7 @@ const BankList = () => {
                         transition={{ duration: 0.25 }}
                         className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
                             <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                                     <h5 className="mr-4 shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:mr-6 sm:text-base lg:mr-8">
@@ -1461,7 +1461,7 @@ const BankList = () => {
                                             placeholder="Search…"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
                                         />
                                     </div>
                                 </div>
@@ -1472,8 +1472,6 @@ const BankList = () => {
                                         onClick={handleRefresh}
                                         title="Refresh"
                                         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition-all hover:bg-slate-50 sm:h-10"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
                                     >
                                         <FiRefreshCw className="h-4 w-4" />
                                     </motion.button>
@@ -1482,9 +1480,7 @@ const BankList = () => {
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:h-10 sm:px-3"
                                         >
                                             <PiExportBold className="h-4 w-4 shrink-0" />
                                             <span className="whitespace-nowrap">Export</span>
@@ -1539,9 +1535,7 @@ const BankList = () => {
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowAddModal(true)}
-                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 sm:mr-3 sm:h-10 sm:px-3"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all sm:mr-3 sm:h-10 sm:px-3"
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
                                         <span className="whitespace-nowrap">Create</span>
@@ -1572,9 +1566,7 @@ const BankList = () => {
                                                     <motion.button
                                                         type="button"
                                                         onClick={handleRefresh}
-                                                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
+                                                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
                                                     >
                                                         Try Again
                                                     </motion.button>
@@ -1597,9 +1589,7 @@ const BankList = () => {
                                                     <motion.button
                                                         type="button"
                                                         onClick={() => setShowAddModal(true)}
-                                                        className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-800"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
+                                                        className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all"
                                                     >
                                                         Add Your First Bank Account
                                                     </motion.button>
@@ -1673,8 +1663,6 @@ const BankList = () => {
                                                                 data-bank-actions-trigger
                                                                 className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-colors duration-150 hover:bg-blue-50 hover:text-blue-600"
                                                                 onClick={(e) => openActionsFromButton(e, bank.bank_id)}
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
                                                             >
                                                                 <FiMenu className="h-4 w-4" />
                                                             </motion.button>
@@ -1846,7 +1834,7 @@ const BankList = () => {
                             className="bg-white rounded-2xl p-8 max-w-sm w-full mx-auto shadow-2xl"
                         >
                             <div className="text-center">
-                                <div className="w-20 h-20 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                     <PiExportBold className="w-8 h-8 text-blue-600" />
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-800 mb-2">
@@ -1856,9 +1844,9 @@ const BankList = () => {
                                     Your {exportModal.type} export is being processed...
                                 </p>
                                 <div className="flex justify-center space-x-3 mb-6">
-                                    <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div>
-                                    <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                                    <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                    <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                 </div>
                                 <p className="text-sm text-slate-500">
                                     This will only take a moment...

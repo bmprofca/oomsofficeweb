@@ -228,7 +228,7 @@ const AnimatedCheckbox = ({
         className={`flex h-[16px] w-[16px] items-center justify-center rounded-[3px] border-2 transition-colors duration-200 ${
           isActive
             ? "border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200"
-            : "border-gray-300 bg-white group-hover:border-indigo-400"
+            : "border-slate-200 bg-white group-hover:border-indigo-400"
         }`}
         animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
         transition={{ duration: 0.18 }}
@@ -272,7 +272,7 @@ const AnimatedCheckbox = ({
 
 const PageSkeleton = () => (
   <div className="w-full rounded-lg border border-gray-200 bg-white overflow-hidden" aria-busy="true">
-    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5">
+    <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 bg-slate-50/60 px-3 py-2.5">
       <div className="w-full sm:w-48 space-y-1.5">
         <div className="h-3 w-12 animate-pulse rounded bg-slate-200/90" />
         <div className="h-9 w-full animate-pulse rounded-lg bg-slate-200/90" />
@@ -589,14 +589,14 @@ const StaffAttendanceTab = ({
       className="space-y-2"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-base font-bold text-gray-800 md:text-lg">
+        <h2 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
           Attendance
         </h2>
         <button
           type="button"
           onClick={fetchMonth}
           disabled={!username || loading}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50 disabled:opacity-50"
           title="Refresh"
           aria-label="Refresh"
         >
@@ -620,7 +620,7 @@ const StaffAttendanceTab = ({
         <PageSkeleton />
       ) : (
         <div className="w-full rounded-lg border border-gray-200 bg-white overflow-hidden">
-          <div className="flex flex-col gap-2.5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-2.5 border-b border-gray-200 bg-slate-50/60 px-3 py-2.5 sm:flex-row sm:items-end sm:justify-between">
             <div className="w-full sm:w-48 shrink-0">
               <MonthPickerField
                 label="Month"

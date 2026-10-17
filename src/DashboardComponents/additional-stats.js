@@ -35,44 +35,32 @@ const CARD_ICONS = {
   "today-birthday": FiGift,
 };
 
+const TONES = {
+  slate: { chip: "bg-white text-slate-600 ring-1 ring-slate-200", tile: "bg-slate-50 border-slate-200", ring: "hover:border-slate-300" },
+  indigo: { chip: "bg-white text-indigo-600 ring-1 ring-indigo-100", tile: "bg-indigo-50 border-indigo-100", ring: "hover:border-indigo-200" },
+  emerald: { chip: "bg-white text-emerald-600 ring-1 ring-emerald-100", tile: "bg-emerald-50 border-emerald-100", ring: "hover:border-emerald-200" },
+  amber: { chip: "bg-white text-amber-600 ring-1 ring-amber-100", tile: "bg-amber-50 border-amber-100", ring: "hover:border-amber-200" },
+  rose: { chip: "bg-white text-rose-600 ring-1 ring-rose-100", tile: "bg-rose-50 border-rose-100", ring: "hover:border-rose-200" },
+  violet: { chip: "bg-white text-violet-600 ring-1 ring-violet-100", tile: "bg-violet-50 border-violet-100", ring: "hover:border-violet-200" },
+  teal: { chip: "bg-white text-teal-600 ring-1 ring-teal-100", tile: "bg-teal-50 border-teal-100", ring: "hover:border-teal-200" },
+  orange: { chip: "bg-white text-orange-600 ring-1 ring-orange-100", tile: "bg-orange-50 border-orange-100", ring: "hover:border-orange-200" },
+  sky: { chip: "bg-white text-sky-600 ring-1 ring-sky-100", tile: "bg-sky-50 border-sky-100", ring: "hover:border-sky-200" },
+  pink: { chip: "bg-white text-pink-600 ring-1 ring-pink-100", tile: "bg-pink-50 border-pink-100", ring: "hover:border-pink-200" },
+};
+
 const CARD_META = {
-  "total-client": {
-    gradient: "linear-gradient(135deg, #4b5563 0%, #374151 100%)",
-  },
-  "new-client": {
-    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-  },
-  "active-client": {
-    gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-  },
-  "net-profit": {
-    gradient: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
-    isCurrency: true,
-  },
-  "total-staff": {
-    gradient: "linear-gradient(135deg, #ef4444 0%, #e11d48 100%)",
-  },
-  "task-create-today": {
-    gradient: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
-  },
-  "task-complete-today": {
-    gradient: "linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)",
-  },
-  "total-ca": {
-    gradient: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-  },
-  "total-firms": {
-    gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
-  },
-  "total-services": {
-    gradient: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
-  },
-  "pending-staff-expense": {
-    gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-  },
-  "today-birthday": {
-    gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-  },
+  "total-client": { tone: "slate" },
+  "new-client": { tone: "indigo" },
+  "active-client": { tone: "emerald" },
+  "net-profit": { tone: "amber", isCurrency: true },
+  "total-staff": { tone: "rose" },
+  "task-create-today": { tone: "violet" },
+  "task-complete-today": { tone: "teal" },
+  "total-ca": { tone: "indigo" },
+  "total-firms": { tone: "orange" },
+  "total-services": { tone: "violet" },
+  "pending-staff-expense": { tone: "amber" },
+  "today-birthday": { tone: "pink" },
 };
 
 const DEFAULT_CARDS = [
@@ -187,20 +175,19 @@ const resolveCardMeta = (card) => {
   const meta = CARD_META[card.id] || {};
   return {
     isCurrency: card.isCurrency ?? meta.isCurrency ?? false,
-    gradient:
-      card.gradient || meta.gradient || CARD_META["total-client"].gradient,
+    tone: TONES[card.tone] || TONES[meta.tone] || TONES.slate,
   };
 };
 
 const ErrorState = ({ message, onRetry }) => (
-  <div className="text-center py-10">
-    <div className="inline-flex items-center justify-center w-14 h-14 bg-red-100 rounded-full mb-3">
-      <FiAlertCircle className="w-7 h-7 text-red-500" />
+  <div className="ui-empty">
+    <div className="ui-empty-icon !bg-rose-50 !text-rose-500">
+      <FiAlertCircle className="w-5 h-5" />
     </div>
-    <h3 className="text-base font-semibold text-gray-900 mb-1.5">
+    <h3 className="ui-empty-title">
       Failed to load statistics
     </h3>
-    <p className="text-sm text-gray-600 mb-4">{message}</p>
+    <p className="ui-empty-text mb-4">{message}</p>
     <button
       type="button"
       onClick={onRetry}
@@ -332,24 +319,27 @@ const AdditionalStatsComponent = ({
   }
 
   return (
-    <div className="w-full relative p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex-shrink-0">
-          <FiGrid className="w-4 h-4 text-indigo-600" />
+    <div className="w-full relative">
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 flex-shrink-0">
+          <FiGrid className="w-4 h-4" />
         </div>
-        <h3 className="text-sm font-semibold text-gray-800">
-          Dashboard Statistics
-        </h3>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-slate-900 leading-tight">
+            Dashboard Statistics
+          </h3>
+          <p className="text-[11px] text-slate-500 leading-tight">Clients, team, tasks and firm-level totals</p>
+        </div>
 
         {isCustomizing ? (
-          <div className="ml-auto text-[10px] px-2 py-0.5 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
+          <div className="ml-auto ui-badge ui-badge-brand">
             Drag to reorder
           </div>
         ) : (
           <button
             type="button"
             onClick={fetchDashboardData}
-            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-indigo-600 shadow-sm hover:bg-indigo-50 disabled:opacity-60 transition-colors"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-60 transition-colors"
             title="Refresh statistics"
             aria-label="Refresh dashboard statistics"
             disabled={loading}
@@ -361,7 +351,7 @@ const AdditionalStatsComponent = ({
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 auto-rows-fr relative">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 auto-rows-fr relative">
         {cardsToRender.map((card) => {
           const value = getStatValue(stats, card.value);
           const IconComponent = resolveCardIcon(card);
@@ -385,37 +375,31 @@ const AdditionalStatsComponent = ({
               className={`relative ${
                 isCustomizing ? "cursor-move select-none" : "cursor-pointer"
               } ${isDragged ? "opacity-50" : ""} ${
-                isDragOver ? "scale-105 transition-transform duration-200" : ""
+                isDragOver ? "ring-2 ring-indigo-400 ring-offset-2 rounded-xl" : ""
               }`}
             >
               {isCustomizing && (
                 <div className="absolute -top-2 -left-2 z-10 pointer-events-none">
-                  <div className="p-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg">
+                  <div className="p-1 bg-indigo-600 rounded-md shadow-md">
                     <FiMove className="w-2.5 h-2.5 text-white" />
                   </div>
                 </div>
               )}
 
               <motion.div
-                className="relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full"
-                style={{ background: meta.gradient }}
-                whileHover={{
-                  scale: isCustomizing ? 1 : 1.005,
-                  transition: { duration: 0.2 },
-                }}
-                whileTap={{ scale: 0.98 }}
+                className={`group relative h-full overflow-hidden rounded-xl border ${meta.tone.tile} transition-all duration-200 hover:shadow-md ${meta.tone.ring}`}
               >
-                <div className="p-3">
-                  <div className="flex items-start justify-between">
+                                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="text-white/80 text-xs font-medium mb-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 truncate">
                         {card.title}
                       </div>
                       {loading ? (
-                        <div className="animate-pulse h-5 bg-white/20 rounded w-16" />
+                        <div className="ui-skeleton mt-2 h-6 w-20" />
                       ) : (
                         <div
-                          className={`flex items-baseline gap-1.5 flex-wrap text-lg font-bold text-white leading-tight ${
+                          className={`mt-1.5 flex items-baseline gap-1.5 flex-wrap font-mono text-xl font-medium tabular-nums tracking-tight text-slate-900 leading-tight ${
                             blurEnabled ? "blur-sm" : ""
                           }`}
                         >
@@ -425,19 +409,18 @@ const AdditionalStatsComponent = ({
                               : formatNumber(value)}
                           </span>
                           {card.secondaryValue ? (
-                            <span className="text-sm font-semibold text-white/90">
+                            <span className="text-xs font-medium text-slate-500">
                               · {formatCurrency(getStatValue(stats, card.secondaryValue))}
                             </span>
                           ) : null}
                         </div>
                       )}
                     </div>
-                    <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg flex-shrink-0 ml-2">
-                      <IconComponent className="w-4 h-4 text-white" />
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${meta.tone.chip}`}>
+                      <IconComponent className="w-4 h-4" />
                     </div>
                   </div>
                 </div>
-                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 hover:translate-x-full transition-transform duration-700 pointer-events-none" />
               </motion.div>
             </div>
           );

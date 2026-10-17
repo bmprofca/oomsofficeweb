@@ -267,7 +267,7 @@ export default function DateTimePicker({
             ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
             : isToday
               ? "bg-emerald-50 text-emerald-700"
-              : "text-gray-700 hover:bg-gray-100"
+              : "text-gray-700 hover:bg-slate-100"
         } ${disabledDay ? "opacity-30 cursor-not-allowed hover:bg-transparent" : ""}`}
       >
         {d}
@@ -296,14 +296,14 @@ export default function DateTimePicker({
                 }}
                 className="rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-gray-900/10 overflow-hidden"
               >
-                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 bg-slate-50/60">
                   <p className="text-xs font-bold text-gray-700 uppercase tracking-wide m-0">
                     Schedule
                   </p>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                    className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-slate-100"
                     aria-label="Close"
                   >
                     <FiX className="w-4 h-4" />
@@ -315,7 +315,7 @@ export default function DateTimePicker({
                     <button
                       type="button"
                       onClick={() => setViewMonth(new Date(y, m - 1, 1))}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-slate-50"
                       aria-label="Previous month"
                     >
                       <FiChevronLeft className="w-4 h-4" />
@@ -349,7 +349,7 @@ export default function DateTimePicker({
                     <button
                       type="button"
                       onClick={() => setViewMonth(new Date(y, m + 1, 1))}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-slate-50"
                       aria-label="Next month"
                     >
                       <FiChevronRight className="w-4 h-4" />
@@ -457,7 +457,7 @@ export default function DateTimePicker({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className={`w-full flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white hover:border-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${inputClassName}`}
+        className={`w-full flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm text-left bg-white hover:border-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${inputClassName}`}
       >
         <FiCalendar className="w-4 h-4 text-gray-400 shrink-0" />
         <span
@@ -478,7 +478,7 @@ export default function DateTimePicker({
                 clearValue(e);
               }
             }}
-            className="p-0.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+            className="p-0.5 rounded text-gray-400 hover:text-gray-700 hover:bg-slate-100"
             aria-label="Clear date"
           >
             <FiX className="w-3.5 h-3.5" />

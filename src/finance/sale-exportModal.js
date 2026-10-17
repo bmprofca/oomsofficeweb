@@ -198,7 +198,7 @@ const ExportModal = ({ isOpen, onClose, exportData, columns, jobType = 'report' 
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -258,7 +258,7 @@ const ExportModal = ({ isOpen, onClose, exportData, columns, jobType = 'report' 
                                 className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
                                     exporting && selectedFormat === option.type
                                         ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-slate-50'
                                 } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
@@ -295,7 +295,7 @@ const ExportModal = ({ isOpen, onClose, exportData, columns, jobType = 'report' 
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        className="px-4 py-2 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm transition-colors"
                         disabled={exporting}
                     >
                         Cancel

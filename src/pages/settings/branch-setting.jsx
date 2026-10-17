@@ -80,13 +80,13 @@ const TONE = {
 };
 
 const inputClass =
-  "w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg placeholder:text-gray-400 outline-none transition duration-200 hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed";
+  "w-full px-3 py-2 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg placeholder:text-gray-400 outline-none transition duration-200 hover:border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed";
 
 const inputWithIconClass =
-  "w-full py-2 pl-10 pr-3 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg placeholder:text-gray-400 outline-none transition duration-200 hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed";
+  "w-full py-2 pl-10 pr-3 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg placeholder:text-gray-400 outline-none transition duration-200 hover:border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed";
 
 const textareaClass =
-  "w-full min-h-[72px] px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg placeholder:text-gray-400 outline-none transition duration-200 hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 resize-y";
+  "w-full min-h-[72px] px-3 py-2 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg placeholder:text-gray-400 outline-none transition duration-200 hover:border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 resize-y";
 
 const Field = ({ label, required, children, hint }) => (
   <div>
@@ -112,9 +112,9 @@ const IconBox = ({ icon: Icon, tone = "gray" }) => {
 
 const SectionCard = ({ icon, tone = "gray", title, hint, children, className = "" }) => (
   <section
-    className={`overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
+    className={`overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}
   >
-    <div className="flex items-start gap-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 md:px-4">
+    <div className="flex items-start gap-2 border-b border-gray-200 bg-slate-50/60 px-3 py-2.5 md:px-4">
       <IconBox icon={icon} tone={tone} />
       <div className="min-w-0">
         <h3 className="text-sm font-bold text-gray-800">{title}</h3>
@@ -170,7 +170,7 @@ const SecondaryButton = ({ children, onClick, className = "", icon: Icon }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`inline-flex items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100 ${className}`}
+    className={`inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-slate-100 ${className}`}
   >
     {Icon ? <Icon className="h-3 w-3" /> : null}
     {children}
@@ -717,7 +717,7 @@ const BranchSettings = () => {
   const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
 
   const renderShell = (children) => (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -731,7 +731,7 @@ const BranchSettings = () => {
         setIsMinimized={setIsMinimized}
       />
       <div className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}>
-        <div className="mx-2 sm:mx-4 md:mx-8 pb-6 pt-3 md:pt-4">
+        <div className="mx-3 pt-3 pb-6 sm:mx-5 sm:pt-4 lg:mx-8 lg:pt-5">
           {children}
         </div>
       </div>
@@ -985,7 +985,7 @@ const BranchSettings = () => {
                 className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition duration-200 ${
                   active
                     ? tones.activeTab
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                    : "text-gray-600 hover:bg-slate-50 hover:text-gray-800"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -1366,7 +1366,7 @@ const BranchSettings = () => {
                 onChange={(e) =>
                   handleGstConfigChange("gst_applicable", e.target.checked)
                 }
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                className="mt-0.5 h-4 w-4 rounded border-slate-200 text-amber-600 focus:ring-amber-500"
               />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-gray-800">
@@ -1402,7 +1402,7 @@ const BranchSettings = () => {
                   hideTabs
                   showResetButton={false}
                   quickOptionKeys={["td", "yd"]}
-                  buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                  buttonClassName="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none hover:border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                 />
               </div>
             </Field>

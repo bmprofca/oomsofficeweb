@@ -336,7 +336,7 @@ const TopClientsViewAll = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -355,10 +355,10 @@ const TopClientsViewAll = () => {
                     }`}
             >
                 <div className="w-full px-4 sm:px-6 lg:px-8 py-4 md:py-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="p-4 border-b border-gray-100">
                             <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                <div className="p-2 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg flex-shrink-0">
+                                <div className="p-2 bg-amber-50 rounded-lg flex-shrink-0">
                                     <FiAward className="w-4 h-4 text-amber-600" />
                                 </div>
 
@@ -469,7 +469,7 @@ const TopClientsViewAll = () => {
                                         setSearchTerm(e.target.value);
                                         setCurrentPage(1);
                                     }}
-                                    className="h-8 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="h-8 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
                                 />
                             </div>
                         </div>
@@ -530,7 +530,7 @@ const TopClientsViewAll = () => {
                                                     return (
                                                         <tr
                                                             key={username || index}
-                                                            className="hover:bg-gray-50/70 transition-colors"
+                                                            className="hover:bg-slate-50/70 transition-colors"
                                                         >
                                                             <td className="px-3 py-2.5">
                                                                 <div

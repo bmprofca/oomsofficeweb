@@ -262,22 +262,22 @@ const TaskTab = ({ username, variants }) => {
     // Table View — aligned with task-display Task / Client / Dates / Status columns
     const TableView = () => (
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-            <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-gray-50 to-white">
+            <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/60">
                     <tr>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-12">
+                        <th className="px-3 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-12">
                             #
                         </th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[200px]">
+                        <th className="px-3 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider min-w-[200px]">
                             Task
                         </th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[160px]">
+                        <th className="px-3 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider min-w-[160px]">
                             Client
                         </th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[140px]">
+                        <th className="px-3 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider min-w-[140px]">
                             Dates
                         </th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        <th className="px-3 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                             Status
                         </th>
                     </tr>
@@ -289,7 +289,7 @@ const TaskTab = ({ username, variants }) => {
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: Math.min(index * 0.03, 0.3) }}
-                            className="hover:bg-gray-50/80 transition-colors group"
+                            className="hover:bg-slate-50/80 transition-colors group"
                         >
                             <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500 font-medium align-top">
                                 {indexOfFirstItem + index + 1}
@@ -370,7 +370,7 @@ const TaskTab = ({ username, variants }) => {
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: Math.min(index * 0.03, 0.3) }}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50/80 transition-colors cursor-pointer"
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-slate-50/80 transition-colors cursor-pointer"
                         onClick={() => openTask(task.task_id)}
                     >
                         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -455,7 +455,7 @@ const TaskTab = ({ username, variants }) => {
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: Math.min(index * 0.03, 0.3) }}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50/80 transition-colors group cursor-pointer"
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-slate-50/80 transition-colors group cursor-pointer"
                         onClick={() => openTask(task.task_id)}
                     >
                         <div className="flex justify-between items-start mb-2 gap-2">
@@ -540,18 +540,18 @@ const TaskTab = ({ username, variants }) => {
                 <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    className="px-3 py-1 border border-slate-200 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
                 >
                     <FiChevronLeft className="w-4 h-4" />
                     Previous
                 </button>
-                <span className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md">
+                <span className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-slate-200 rounded-md">
                     Page {currentPage} of {totalPages}
                 </span>
                 <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    className="px-3 py-1 border border-slate-200 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
                 >
                     Next
                     <FiChevronRight className="w-4 h-4" />
@@ -566,10 +566,10 @@ const TaskTab = ({ username, variants }) => {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
+            className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
         >
             {/* Header with Staff Info */}
-            <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-200">
+            <div className="bg-slate-50/60 px-6 py-4 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -601,7 +601,7 @@ const TaskTab = ({ username, variants }) => {
                             className={`p-2 rounded-md transition-all duration-200 ${
                                 viewMode === 'table'
                                     ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'text-gray-600 hover:bg-gray-100'
+                                    : 'text-gray-600 hover:bg-slate-100'
                             }`}
                             title="Table View"
                         >
@@ -612,7 +612,7 @@ const TaskTab = ({ username, variants }) => {
                             className={`p-2 rounded-md transition-all duration-200 ${
                                 viewMode === 'list'
                                     ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'text-gray-600 hover:bg-gray-100'
+                                    : 'text-gray-600 hover:bg-slate-100'
                             }`}
                             title="List View"
                         >
@@ -623,7 +623,7 @@ const TaskTab = ({ username, variants }) => {
                             className={`p-2 rounded-md transition-all duration-200 ${
                                 viewMode === 'grid'
                                     ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'text-gray-600 hover:bg-gray-100'
+                                    : 'text-gray-600 hover:bg-slate-100'
                             }`}
                             title="Grid View"
                         >
@@ -644,7 +644,7 @@ const TaskTab = ({ username, variants }) => {
                             placeholder="Search by service, client, firm, or task ID..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent bg-white"
                         />
                     </div>
 
@@ -652,7 +652,7 @@ const TaskTab = ({ username, variants }) => {
                     <div className="relative">
                         <button
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 transition-all duration-200 flex items-center gap-2 shadow-sm min-w-[200px] justify-between"
+                            className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 hover:bg-slate-100 border border-gray-200 transition-all duration-200 flex items-center gap-2 shadow-sm min-w-[200px] justify-between"
                         >
                             <div className="flex items-center gap-2">
                                 {getSelectedStatusIcon()}
@@ -670,7 +670,7 @@ const TaskTab = ({ username, variants }) => {
                                     className="fixed inset-0 z-10"
                                     onClick={() => setIsDropdownOpen(false)}
                                 />
-                                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20 overflow-hidden">
+                                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-pop border border-slate-200 z-20 overflow-hidden">
                                     {statusOptions.map(option => {
                                         const Icon = option.icon;
                                         return (
@@ -680,7 +680,7 @@ const TaskTab = ({ username, variants }) => {
                                                     setFilterStatus(option.value);
                                                     setIsDropdownOpen(false);
                                                 }}
-                                                className={`w-full px-4 py-2 text-left text-sm font-medium transition-all duration-200 flex items-center justify-between hover:bg-gray-50 ${
+                                                className={`w-full px-4 py-2 text-left text-sm font-medium transition-all duration-200 flex items-center justify-between hover:bg-slate-50 ${
                                                     filterStatus === option.value
                                                         ? 'bg-indigo-50 text-indigo-700'
                                                         : 'text-gray-700'
@@ -720,7 +720,7 @@ const TaskTab = ({ username, variants }) => {
                     {/* Refresh Button */}
                     <button
                         onClick={() => fetchTasks(filterStatus, caApprovalFilter)}
-                        className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 transition-all duration-200 flex items-center gap-2 shadow-sm"
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white text-gray-700 hover:bg-slate-100 border border-gray-200 transition-all duration-200 flex items-center gap-2 shadow-sm"
                         disabled={loading}
                     >
                         <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />

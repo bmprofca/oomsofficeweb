@@ -269,7 +269,7 @@ export function GroupFirmsAddModal({
               type="button"
               onClick={onCancel}
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -309,7 +309,7 @@ export function GroupFirmsAddModal({
                       onChange={(e) => setFirmSearchQuery(e.target.value)}
                       placeholder="Search firms..."
                       disabled={saving}
-                      className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:bg-gray-50"
+                      className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none disabled:bg-gray-50"
                     />
                   </div>
                 </div>
@@ -363,7 +363,6 @@ export function GroupFirmsAddModal({
                 onClick={addAllFirmsFromResults}
                 disabled={saving || availableFirms.length === 0}
                 className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                whileTap={{ scale: 0.95 }}
                 aria-label="Add all visible firms"
               >
                 <FiArrowRight className="w-4 h-4" />
@@ -373,7 +372,6 @@ export function GroupFirmsAddModal({
                 onClick={removeAllFirms}
                 disabled={saving || selectedFirmOptions.length === 0}
                 className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                whileTap={{ scale: 0.95 }}
                 aria-label="Remove all selected firms"
               >
                 <FiArrowLeft className="w-4 h-4" />
@@ -447,7 +445,7 @@ export function GroupFirmsDeleteModal({
       onClose={onClose}
       closeDisabled={saving}
       maxWidth="max-w-sm"
-      headerClass="bg-gradient-to-r from-red-600 to-rose-600"
+      headerClass="bg-red-600"
       icon={FiTrash2}
       title="Remove firm?"
       subtitle={firm?.name || "Firm"}
@@ -457,7 +455,7 @@ export function GroupFirmsDeleteModal({
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -508,7 +506,7 @@ export function GroupFirmsBulkDeleteModal({
       onClose={onClose}
       closeDisabled={saving}
       maxWidth="max-w-sm"
-      headerClass="bg-gradient-to-r from-red-600 to-rose-600"
+      headerClass="bg-red-600"
       icon={FiTrash2}
       title="Remove selected?"
       subtitle={`${selectedCount.toLocaleString()} firm(s)`}
@@ -518,7 +516,7 @@ export function GroupFirmsBulkDeleteModal({
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50"
           >
             Cancel
           </button>

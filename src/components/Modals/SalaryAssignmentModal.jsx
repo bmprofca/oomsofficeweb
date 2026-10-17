@@ -519,7 +519,7 @@ export default function SalaryAssignmentModal({
             className="relative z-[1] pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-teal-50/40 px-5 py-3.5">
+            <header className="shrink-0 border-b border-slate-100 bg-slate-50 px-5 py-3.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div
@@ -767,7 +767,7 @@ export default function SalaryAssignmentModal({
                 <button
                   type="button"
                   onClick={() => onEdit(assignment)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 shadow-sm shadow-sky-600/20"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl bg-sky-600 hover:bg-sky-700 shadow-sm shadow-sky-600/20"
                 >
                   <FiEdit2 className="h-4 w-4" />
                   Edit
@@ -778,7 +778,7 @@ export default function SalaryAssignmentModal({
                   type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 shadow-sm shadow-teal-600/20 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl bg-teal-600 hover:bg-teal-700 shadow-sm shadow-teal-600/20 disabled:opacity-50"
                 >
                   <FiCheck className="h-4 w-4" />
                   {saving ? "Saving…" : isEdit ? "Save changes" : "Assign"}

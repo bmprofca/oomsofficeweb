@@ -785,7 +785,7 @@ export default function BulkImportClientsModal({
         transition={{ duration: 0.2 }}
         className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in"
       >
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 px-6 py-4 text-white flex justify-between items-center shrink-0">
+        <div className="bg-indigo-600 px-6 py-4 text-white flex justify-between items-center shrink-0">
           <div>
             <h3 className="text-lg font-bold flex items-center gap-2">
               <FiUpload className="w-5 h-5 animate-bounce" />
@@ -971,7 +971,7 @@ export default function BulkImportClientsModal({
                                   [field.key]: e.target.value,
                                 }))
                               }
-                              className={`w-full px-2 py-1 border rounded text-xs bg-white outline-none focus:ring-1 focus:ring-indigo-500 ${
+                              className={`w-full px-2 py-1 border rounded text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500/25 ${
                                 !columnMappings[field.key]
                                   ? "border-amber-350 bg-amber-50/10"
                                   : "border-slate-300"
@@ -1010,7 +1010,7 @@ export default function BulkImportClientsModal({
                                   [field.key]: e.target.value,
                                 }))
                               }
-                              className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500/25"
                             >
                               <option value="">-- Skip Column --</option>
                               {fileHeaders.map((h) => (

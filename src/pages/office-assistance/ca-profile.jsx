@@ -53,11 +53,10 @@ const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => (
     onClick={() => onClick(to)}
     className={`flex flex-col items-center justify-center rounded-lg p-3 transition-all duration-200 ${
       isActive
-        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
-        : "border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+        ? "bg-blue-600 text-white shadow-sm"
+        : "border border-gray-200 text-gray-600 hover:bg-slate-50 hover:text-gray-900"
     }`}
     whileHover={{ scale: 1.03, y: -1 }}
-    whileTap={{ scale: 0.98 }}
   >
     <Icon className="mb-1 h-4 w-4" />
     <span className="text-center text-xs font-medium leading-tight">
@@ -72,11 +71,10 @@ const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => (
     onClick={() => onClick(to)}
     className={`flex min-w-[70px] flex-col items-center justify-center rounded-lg p-2 transition-all duration-200 ${
       isActive
-        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
-        : "border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+        ? "bg-blue-600 text-white shadow-sm"
+        : "border border-gray-200 text-gray-600 hover:bg-slate-50 hover:text-gray-900"
     }`}
     whileHover={{ scale: 1.05, y: -2 }}
-    whileTap={{ scale: 0.98 }}
   >
     <Icon className="mx-auto mb-1 h-4 w-4" />
     <span className="w-full text-center text-[10px] font-medium leading-tight">
@@ -161,7 +159,7 @@ const CAProfilePageSkeleton = ({ tabsMinimized = true, tabCount = 5 }) => {
         </div>
       </section>
 
-      <div className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between p-3">
           {tabsMinimized ? (
             <>
@@ -419,7 +417,7 @@ const CAProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
+    <div className="app-page via-white to-blue-50/30">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -450,7 +448,7 @@ const CAProfile = () => {
             )}
 
             {error && !loading && (
-              <div className="mb-6 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-6">
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-6">
                 <div className="mb-3 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
                     <FiX className="h-5 w-5 text-red-600" />
@@ -466,7 +464,7 @@ const CAProfile = () => {
                   <button
                     type="button"
                     onClick={() => fetchCaData(username)}
-                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:from-blue-700 hover:to-indigo-700"
+                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all duration-200"
                   >
                     <FiRefreshCw className="h-4 w-4" />
                     Retry
@@ -474,7 +472,7 @@ const CAProfile = () => {
                   <button
                     type="button"
                     onClick={() => navigate("/staff/office-assistance/ca-list")}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-gray-100"
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-slate-100"
                   >
                     Go Back
                   </button>
@@ -677,7 +675,7 @@ const CAProfile = () => {
                 </motion.section>
 
                 <motion.div
-                  className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                  className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
@@ -704,8 +702,6 @@ const CAProfile = () => {
                           type="button"
                           onClick={() => setTabsMinimized(false)}
                           className="ml-1 shrink-0 rounded-lg p-2 text-gray-500 transition-all duration-200 hover:bg-blue-50 hover:text-blue-600"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
                           title="Show full tabs"
                         >
                           <FiMaximize2 className="h-4 w-4" />
@@ -732,8 +728,6 @@ const CAProfile = () => {
                           type="button"
                           onClick={() => setTabsMinimized(true)}
                           className="ml-1 shrink-0 rounded-lg p-2 text-gray-500 transition-all duration-200 hover:bg-blue-50 hover:text-blue-600"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
                           title="Minimize tabs"
                         >
                           <FiMinimize2 className="h-4 w-4" />

@@ -98,7 +98,7 @@ export default function StaffColumnCell({
                     className="flex items-center justify-start cursor-pointer hover:opacity-80 transition-opacity"
                     title={`Click to view ${staffName}'s details`}
                 >
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm">
+                    <div className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm">
                         {staffName.charAt(0)}
                     </div>
                 </button>
@@ -118,7 +118,7 @@ export default function StaffColumnCell({
                                 className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                                 title={`Click to view ${staffName}'s details`}
                             >
-                                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm">
+                                <div className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm">
                                     {staffName.charAt(0)}
                                 </div>
                             </button>
@@ -139,7 +139,7 @@ export default function StaffColumnCell({
                                 type="button"
                                 key={staff.assign_id || staff.username || staffIndex}
                                 onClick={openUsers}
-                                className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm hover:opacity-80 transition-opacity"
+                                className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm hover:opacity-80 transition-opacity"
                                 title={`Click to view all ${staffs.length} staff members`}
                             >
                                 {staffName.charAt(0)}
@@ -149,7 +149,7 @@ export default function StaffColumnCell({
                     <button
                         type="button"
                         onClick={openUsers}
-                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm"
+                        className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-sm"
                         title={`Click to view all ${staffs.length} staff members`}
                     >
                         +{showMoreCount}

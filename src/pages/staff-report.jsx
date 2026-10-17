@@ -326,7 +326,7 @@ const StaffReport = () => {
   );
 
   const SkeletonLoader = () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="app-page to-slate-100">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -366,7 +366,7 @@ const StaffReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="app-page to-slate-100">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -466,7 +466,7 @@ const StaffReport = () => {
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder="Search staff..."
-                      className="pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                      className="pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 w-64"
                     />
                     <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                   </div>
@@ -490,7 +490,7 @@ const StaffReport = () => {
                   <button
                     onClick={handleReload}
                     disabled={loading}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1"
+                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1"
                   >
                     <FiRefreshCw
                       className={`w-3 h-3 ${loading ? "animate-spin" : ""}`}
@@ -512,25 +512,25 @@ const StaffReport = () => {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
                       Staff
                     </th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-center px-3 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       OD
                     </th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-center px-3 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       DT
                     </th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-center px-3 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       D7
                     </th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-center px-3 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       FT
                     </th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-center px-3 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       WIP
                     </th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-center px-3 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       PFC
                     </th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="text-center px-3 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                       PFD
                     </th>
                   </tr>
@@ -587,7 +587,7 @@ const StaffReport = () => {
                                     className="h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
                                   />
                                 ) : (
-                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-sm">
+                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500 shadow-sm">
                                     <span className="text-sm font-semibold text-white">
                                       {staff.name?.charAt(0).toUpperCase() ||
                                         "S"}
@@ -675,7 +675,7 @@ const StaffReport = () => {
                               <button
                                 key={page}
                                 onClick={() => setCurrentPage(page)}
-                                className={`px-2.5 py-1 text-xs rounded transition ${currentPage === page ? "bg-blue-600 text-white" : "border border-slate-300 hover:bg-white"}`}
+                                className={`px-2.5 py-1 text-xs rounded transition ${currentPage === page ? "bg-indigo-600 text-white" : "border border-slate-300 hover:bg-white"}`}
                               >
                                 {formatIndianNumber(page)}
                               </button>

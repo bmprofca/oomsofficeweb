@@ -584,7 +584,7 @@ const NotesTab = ({ task_id }) => {
                 </div>
                 <button
                     onClick={openAddModal}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm hover:shadow"
                 >
                     <FiPlus className="w-4 h-4" />
                     New Note
@@ -600,7 +600,7 @@ const NotesTab = ({ task_id }) => {
                         placeholder="Search notes by content, author, or date..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-gray-400"
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none placeholder:text-gray-400"
                     />
                 </div>
 
@@ -628,7 +628,7 @@ const NotesTab = ({ task_id }) => {
 
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-slate-100 rounded-lg transition-colors"
                     >
                         <FiFilter className="w-4 h-4" />
                     </button>
@@ -645,13 +645,13 @@ const NotesTab = ({ task_id }) => {
                         >
                             <div className="pt-3 mt-3 border-t border-gray-200">
                                 <div className="flex gap-3">
-                                    <select className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                    <select className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none">
                                         <option>All priorities</option>
                                         <option>High</option>
                                         <option>Medium</option>
                                         <option>Low</option>
                                     </select>
-                                    <select className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                    <select className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none">
                                         <option>All status</option>
                                         <option>Active</option>
                                         <option>Archived</option>
@@ -693,7 +693,7 @@ const NotesTab = ({ task_id }) => {
                             <p className="text-xs text-gray-400 mb-4">Get started by creating your first note</p>
                             <button
                                 onClick={openAddModal}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
                             >
                                 <FiPlus className="w-4 h-4" />
                                 Add your first note
@@ -708,7 +708,7 @@ const NotesTab = ({ task_id }) => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className="group relative p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                                    className="group relative p-4 hover:bg-slate-50 transition-colors cursor-pointer"
                                     onClick={() => { setSelectedNote(note); setShowViewModal(true); }}
                                 >
                                     <div className="flex items-start gap-3">
@@ -829,7 +829,7 @@ const NotesTab = ({ task_id }) => {
                             className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
                         >
                             {/* Header */}
-                            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+                            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-slate-50/60">
                                 <div className="flex items-center gap-3">
                                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedNote.type === 'text' ? 'bg-blue-50' :
                                             selectedNote.type === 'file' ? 'bg-green-50' :
@@ -860,7 +860,7 @@ const NotesTab = ({ task_id }) => {
                                 </div>
                                 <button
                                     onClick={() => setShowViewModal(false)}
-                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-slate-100 rounded-lg transition-colors"
                                 >
                                     <FiX className="w-5 h-5" />
                                 </button>
@@ -906,7 +906,7 @@ const NotesTab = ({ task_id }) => {
                                     <div className="space-y-4">
                                         {selectedNote.file_name && (
                                             <div className="bg-gray-50 rounded-lg p-4">
-                                                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">File Name</h4>
+                                                <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider tracking-wider mb-2">File Name</h4>
                                                 <div className="flex items-center gap-2">
                                                     {getFileIcon(selectedNote.file_name)}
                                                     <span className="text-sm text-gray-900 font-medium">{selectedNote.file_name}</span>
@@ -916,13 +916,13 @@ const NotesTab = ({ task_id }) => {
 
                                         {selectedNote.note && (
                                             <div className="bg-gray-50 rounded-lg p-4">
-                                                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Description</h4>
+                                                <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider tracking-wider mb-2">Description</h4>
                                                 <p className="text-sm text-gray-800">{selectedNote.note}</p>
                                             </div>
                                         )}
 
                                         <div className="bg-gray-50 rounded-lg p-4">
-                                            <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">Preview</h4>
+                                            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider tracking-wider mb-4">Preview</h4>
                                             {isImageFile(selectedNote.file) && (
                                                 <img
                                                     src={selectedNote.file}
@@ -975,7 +975,7 @@ const NotesTab = ({ task_id }) => {
                                             <a
                                                 href={selectedNote.file}
                                                 download={selectedNote.file_name}
-                                                className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                                className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                                             >
                                                 <FiDownload className="w-4 h-4" />
                                                 Download
@@ -1030,7 +1030,7 @@ const NotesTab = ({ task_id }) => {
 
                                         {selectedNote.note && (
                                             <div className="bg-gray-50 rounded-lg p-4">
-                                                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Description</h4>
+                                                <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider tracking-wider mb-2">Description</h4>
                                                 <p className="text-sm text-gray-800">{selectedNote.note}</p>
                                             </div>
                                         )}
@@ -1070,7 +1070,7 @@ const NotesTab = ({ task_id }) => {
                             className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
                         >
                             {/* Header */}
-                            <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+                            <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-slate-50/60">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
                                         <FiPlus className="w-5 h-5 text-blue-600" />
@@ -1085,7 +1085,7 @@ const NotesTab = ({ task_id }) => {
                                         setShowAddModal(false);
                                         resetForm();
                                     }}
-                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-slate-100 rounded-lg transition-colors"
                                 >
                                     <FiX className="w-5 h-5" />
                                 </button>
@@ -1105,7 +1105,7 @@ const NotesTab = ({ task_id }) => {
                                             onClick={() => setNewNote({ ...newNote, type: item.type })}
                                             className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${newNote.type === item.type
                                                     ? `border-${item.color}-500 bg-${item.color}-50`
-                                                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                    : 'border-gray-200 hover:border-slate-200 hover:bg-slate-50'
                                                 }`}
                                         >
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${newNote.type === item.type ? `bg-${item.color}-100` : 'bg-gray-100'
@@ -1129,7 +1129,7 @@ const NotesTab = ({ task_id }) => {
                                                 <textarea
                                                     value={text}
                                                     onChange={(e) => handleTextNoteChange(i, e.target.value)}
-                                                    className="flex-1 p-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-h-[120px] resize-none"
+                                                    className="flex-1 p-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none min-h-[120px] resize-none"
                                                     placeholder="Write your note here..."
                                                 />
                                                 {newNote.textNotes.length > 1 && (
@@ -1193,7 +1193,7 @@ const NotesTab = ({ task_id }) => {
                                                         setNewNote({ ...newNote, attachments: updated });
                                                     }}
                                                     placeholder="File name (optional)"
-                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
                                                 />
 
                                                 <input
@@ -1205,7 +1205,7 @@ const NotesTab = ({ task_id }) => {
                                                         setNewNote({ ...newNote, attachments: updated });
                                                     }}
                                                     placeholder="Add a remark or description..."
-                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
                                                 />
 
                                                 {uploadProgress[att.file?.name] && (
@@ -1269,7 +1269,7 @@ const NotesTab = ({ task_id }) => {
                                                     </button>
                                                     <button
                                                         onClick={cancelRecording}
-                                                        className="px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+                                                        className="px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-slate-50 transition-colors"
                                                     >
                                                         Cancel
                                                     </button>
@@ -1327,7 +1327,7 @@ const NotesTab = ({ task_id }) => {
                                 <button
                                     onClick={handleAddNote}
                                     disabled={submitting || uploadingAttachment || isRecording}
-                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+                                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
                                 >
                                     {submitting ? (
                                         <>
@@ -1365,7 +1365,7 @@ const NotesTab = ({ task_id }) => {
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
                             className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
                         >
-                            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-white">
+                            <div className="px-6 py-4 border-b border-gray-200 bg-red-50">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
                                         <FiAlertCircle className="w-5 h-5 text-red-600" />

@@ -130,7 +130,7 @@ const SwitchBranchModal = ({ isOpen, onClose, onSelectCompany, onOpenBranchSetup
                         className="relative z-[1] pointer-events-auto w-full max-w-3xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200/80"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="shrink-0 px-5 py-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 flex items-center justify-between gap-3">
+                        <div className="shrink-0 px-5 py-3 border-b border-indigo-100 bg-indigo-600 flex items-center justify-between gap-3">
                             <div className="flex min-w-0 items-center gap-2.5">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white ring-1 ring-white/20">
                                     <FiHome size={16} />
@@ -254,7 +254,7 @@ const SwitchBranchModal = ({ isOpen, onClose, onSelectCompany, onOpenBranchSetup
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400">
+                                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                                     <FiHome size={28} />
                                 </div>
                                 <p className="text-base font-semibold text-slate-700">No branches found</p>
@@ -282,7 +282,7 @@ const SwitchBranchModal = ({ isOpen, onClose, onSelectCompany, onOpenBranchSetup
                             <button
                                 type="button"
                                 onClick={onOpenBranchSetup}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-indigo-700 hover:to-violet-700 transition-colors"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors"
                             >
                                 <FiPlus size={16} />
                                 Add Branch

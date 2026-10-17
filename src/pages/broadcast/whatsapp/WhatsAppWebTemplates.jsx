@@ -24,11 +24,11 @@ import { useUserPermissions } from '../../../utils/permission-helper';
 
 /** Task-table typography baseline — see CLIENT/context/typography.md */
 const TABLE_HEAD_ROW =
-  'bg-gradient-to-r from-gray-50 to-white border-b border-gray-200';
+  'bg-slate-50/60 border-b border-gray-200';
 const TABLE_TH =
   'px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap';
 const TABLE_ROW =
-  'border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors';
+  'border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors';
 const TABLE_TD = 'px-3 py-3 min-w-0 text-left align-middle';
 const CELL_TITLE = 'font-semibold text-gray-800 text-sm';
 const CELL_BODY = 'text-sm font-medium text-gray-700';
@@ -37,10 +37,10 @@ const CELL_EMPTY = 'text-sm text-gray-400';
 const SECTION_LABEL =
   'text-[11px] font-bold text-gray-700 uppercase tracking-wide';
 const TOOLBAR_ROW =
-  'flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white';
+  'flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60';
 const TOOLBAR_BTN = 'px-3 py-2 text-sm font-medium rounded-lg';
 const FIELD_INPUT =
-  'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 placeholder:text-gray-400';
+  'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none disabled:opacity-60 placeholder:text-gray-400';
 const EMPTY_WRAP =
   'flex flex-col items-center justify-center py-12 text-gray-500 px-4';
 const EMPTY_TITLE = 'text-sm font-medium text-gray-500';
@@ -419,7 +419,7 @@ const MediaUrlField = ({
   };
 
   const inputClass =
-    'flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 font-mono';
+    'flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 font-mono';
 
   return (
     <div className="flex gap-2">
@@ -476,7 +476,7 @@ const VariableChips = ({ variables }) => {
 
 const ContentFields = ({ form, setForm, saving }) => {
   const inputClass =
-    'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 font-mono';
+    'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 font-mono';
 
   if (form.template_type === 'text') {
     return (
@@ -637,7 +637,7 @@ const TemplateFormModal = ({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-50"
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-gray-500 disabled:opacity-50"
             aria-label="Close"
           >
             <FiX className="w-5 h-5" />
@@ -657,7 +657,7 @@ const TemplateFormModal = ({
               }
               placeholder="Task Created Alert"
               disabled={saving}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
             />
           </div>
 
@@ -669,7 +669,7 @@ const TemplateFormModal = ({
               value={form.template_type}
               onChange={(e) => handleTypeChange(e.target.value)}
               disabled={saving}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 capitalize"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 capitalize"
             >
               {TEMPLATE_TYPES.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -701,7 +701,7 @@ const TemplateFormModal = ({
                 setForm((prev) => ({ ...prev, status: e.target.value }))
               }
               disabled={saving}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
             >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
@@ -749,7 +749,7 @@ const TemplateDetailsModal = ({ template, loading, onClose, onEdit }) => {
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-gray-500"
             aria-label="Close"
           >
             <FiX className="w-5 h-5" />
@@ -821,7 +821,7 @@ const TemplateDetailsModal = ({ template, loading, onClose, onEdit }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-slate-100 rounded-lg"
             >
               Close
             </button>
@@ -1193,7 +1193,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={fetchTemplateMappings}
               disabled={mappingLoading}
-              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-white disabled:opacity-50"
+              className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-white disabled:opacity-50"
               title="Refresh"
             >
               <FiRefreshCw className={`w-4 h-4 ${mappingLoading ? 'animate-spin' : ''}`} />
@@ -1291,7 +1291,7 @@ const WhatsAppWebTemplates = () => {
                       value={mappingEditorType}
                       onChange={(e) => handleEditorTypeChange(e.target.value)}
                       disabled={mappingSaving || isDocumentSharingTemplate(selectedMappingItem?.name)}
-                      className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 capitalize"
+                      className="w-full max-w-xs px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 capitalize"
                     >
                       {(isDocumentSharingTemplate(selectedMappingItem?.name)
                         ? TEMPLATE_TYPES.filter((option) => option.value === 'document')
@@ -1442,7 +1442,7 @@ const WhatsAppWebTemplates = () => {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
           >
             {TYPE_OPTIONS.map((option) => (
               <option key={option.value || 'all-types'} value={option.value}>
@@ -1453,7 +1453,7 @@ const WhatsAppWebTemplates = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-gray-700 bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value || 'all-status'} value={option.value}>
@@ -1472,7 +1472,7 @@ const WhatsAppWebTemplates = () => {
               )
             }
             disabled={listLoading}
-            className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-50"
             title="Refresh"
           >
             <FiRefreshCw className={`w-4 h-4 ${listLoading ? 'animate-spin' : ''}`} />
@@ -1598,7 +1598,7 @@ const WhatsAppWebTemplates = () => {
             <select
               value={pagination.limit}
               onChange={(e) => handleLimitChange(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded-md text-sm bg-white outline-none"
+              className="px-2 py-1 border border-slate-200 rounded-md text-sm bg-white outline-none"
             >
               {[10, 20, 50].map((size) => (
                 <option key={size} value={size}>
@@ -1613,7 +1613,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={() => goToPage(1)}
               disabled={pagination.page_no <= 1}
-              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+              className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-40"
             >
               <FiChevronsLeft className="w-4 h-4" />
             </button>
@@ -1621,7 +1621,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={() => goToPage(pagination.page_no - 1)}
               disabled={pagination.page_no <= 1}
-              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+              className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-40"
             >
               <FiChevronLeft className="w-4 h-4" />
             </button>
@@ -1632,7 +1632,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={() => goToPage(pagination.page_no + 1)}
               disabled={pagination.page_no >= pagination.total_pages}
-              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+              className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-40"
             >
               <FiChevronRight className="w-4 h-4" />
             </button>
@@ -1640,7 +1640,7 @@ const WhatsAppWebTemplates = () => {
               type="button"
               onClick={() => goToPage(pagination.total_pages)}
               disabled={pagination.page_no >= pagination.total_pages}
-              className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+              className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-40"
             >
               <FiChevronsRight className="w-4 h-4" />
             </button>
@@ -1652,7 +1652,7 @@ const WhatsAppWebTemplates = () => {
 
   if (!check('broadcast_config_edit')) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -1668,7 +1668,7 @@ const WhatsAppWebTemplates = () => {
         <div
           className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}
         >
-          <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+          <div className="text-center p-8 bg-white rounded-xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <FiLock className="w-5 h-5 text-gray-400" />
             </div>
@@ -1685,7 +1685,7 @@ const WhatsAppWebTemplates = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1702,8 +1702,8 @@ const WhatsAppWebTemplates = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
               <div className="flex items-center gap-2 shrink-0 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
@@ -1714,7 +1714,7 @@ const WhatsAppWebTemplates = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate m-0">
+                  <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight truncate m-0">
                     WhatsApp Web Templates
                   </h1>
                   <p className={`${CELL_META} m-0 mt-0.5`}>
@@ -1732,7 +1732,7 @@ const WhatsAppWebTemplates = () => {
                     className={`${TOOLBAR_BTN} transition-colors ${
                       activeTab === tab.id
                         ? 'bg-green-50 text-green-700'
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                        : 'text-gray-500 hover:text-gray-700 hover:bg-slate-100'
                     }`}
                   >
                     {tab.label}
@@ -1767,7 +1767,7 @@ const WhatsAppWebTemplates = () => {
                   disabled={
                     activeTab === 'mapping' ? mappingLoading : listLoading
                   }
-                  className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-50"
                   title="Refresh"
                 >
                   <FiRefreshCw

@@ -374,8 +374,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                         <motion.button
                             onClick={openAssignModal}
                             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm text-sm font-medium"
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
                             disabled={loading}
                         >
                             <FiPlus className="w-4 h-4" />
@@ -411,8 +409,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                         disabled={submitting}
                                         onClick={() => requestDelete(tableSelectedRows)}
                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
                                     >
                                         {submitting
                                             ? <FiLoader className="w-3.5 h-3.5 animate-spin" />
@@ -432,8 +428,8 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                 ) : (
                     <div className="overflow-x-auto">
                         {staffList.length > 0 ? (
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-slate-100">
+                                <thead className="bg-slate-50 border-b border-slate-200">
                                     <tr>
                                         {/* Checkbox header */}
                                         <th className="pl-6 pr-3 py-3 w-10">
@@ -443,11 +439,11 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                                 onChange={toggleAllRows}
                                             />
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Staff Member</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Designation</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned On</th>
-                                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Staff Member</th>
+                                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Designation</th>
+                                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+                                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Assigned On</th>
+                                        <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
@@ -465,7 +461,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                                     className={`cursor-pointer transition-colors ${
                                                         isRowSelected
                                                             ? 'bg-indigo-50 hover:bg-indigo-100'
-                                                            : 'hover:bg-gray-50'
+                                                            : 'hover:bg-slate-50'
                                                     }`}
                                                 >
                                                     {/* Checkbox cell */}
@@ -516,8 +512,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                                                 type="button"
                                                                 onClick={() => { setSelectedStaffMember(member); setShowViewModal(true); }}
                                                                 className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
                                                                 title="View details"
                                                             >
                                                                 <FiEye className="w-4 h-4" />
@@ -527,8 +521,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                                                 disabled={submitting}
                                                                 onClick={() => requestDelete([member.username])}
                                                                 className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
                                                                 title="Remove"
                                                             >
                                                                 <FiTrash2 className="w-4 h-4" />
@@ -549,8 +541,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                 <motion.button
                                     onClick={openAssignModal}
                                     className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     Assign Staff
@@ -596,7 +586,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                     type="button"
                                     onClick={closeAssignModal}
                                     disabled={submitting}
-                                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40"
+                                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-40"
                                 >
                                     <FiX className="w-4 h-4" />
                                 </button>
@@ -637,7 +627,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                                     value={searchQuery}
                                                     onChange={(e) => setSearchQuery(e.target.value)}
                                                     placeholder="Name, designation, mobile…"
-                                                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
+                                                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none bg-white"
                                                 />
                                             </div>
                                             <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-0.5">
@@ -678,10 +668,10 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
 
                                         {/* Middle: Transfer buttons */}
                                         <div className="flex lg:flex-col items-center justify-center gap-2">
-                                            <motion.button type="button" onClick={addAllEmployees} disabled={filteredAvailableStaff.length === 0} title="Add all visible" className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                            <motion.button type="button" onClick={addAllEmployees} disabled={filteredAvailableStaff.length === 0} title="Add all visible" className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm">
                                                 <FiArrowRight className="w-4 h-4" />
                                             </motion.button>
-                                            <motion.button type="button" onClick={removeAllEmployees} disabled={selectedStaff.length === 0} title="Remove all" className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                                            <motion.button type="button" onClick={removeAllEmployees} disabled={selectedStaff.length === 0} title="Remove all" className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm">
                                                 <FiArrowLeft className="w-4 h-4" />
                                             </motion.button>
                                         </div>
@@ -744,8 +734,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                     onClick={handleAssignStaff}
                                     disabled={submitting}
                                     className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[130px] justify-center shadow-sm"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     {submitting ? (
                                         <><FiLoader className="w-4 h-4 animate-spin" /> Saving…</>
@@ -801,7 +789,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                 <button
                                     type="button"
                                     onClick={() => setShowViewModal(false)}
-                                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-slate-100 rounded-lg transition-colors"
                                 >
                                     <FiX className="w-4 h-4" />
                                 </button>
@@ -849,8 +837,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                     type="button"
                                     onClick={() => setShowViewModal(false)}
                                     className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     Close
                                 </motion.button>
@@ -899,7 +885,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                     type="button"
                                     disabled={submitting}
                                     onClick={() => setDeleteConfirm(null)}
-                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium disabled:opacity-50"
+                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-slate-100 rounded-lg transition-colors font-medium disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
@@ -912,8 +898,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                         await performDelete(toRemove);
                                     }}
                                     className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     {submitting ? <FiLoader className="w-4 h-4 animate-spin" /> : <FiTrash2 className="w-4 h-4" />}
                                     {deleteConfirm.usernamesToRemove.length > 1
@@ -965,7 +949,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                 <button
                                     type="button"
                                     onClick={() => setShowRemoveAllConfirm(false)}
-                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-slate-100 rounded-lg transition-colors font-medium"
                                 >
                                     Cancel
                                 </button>
@@ -976,8 +960,6 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
                                         executeAssignStaff([]);
                                     }}
                                     className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     <FiTrash2 className="w-4 h-4" />
                                     Yes, remove all

@@ -25,99 +25,99 @@ const OFFICE_MODULES = [
     description: "Digital signature certificates",
     icon: FiKey,
     link: "/dsc-report",
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-600",
-    hover: "hover:border-blue-200 hover:bg-blue-50/40",
+    iconBg: "bg-white ring-1 ring-indigo-200",
+    iconColor: "text-indigo-600",
+    hover: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
   },
   {
     title: "File Index",
     description: "Office document index",
     icon: FiFileText,
     link: "/file-index",
-    iconBg: "bg-emerald-50",
+    iconBg: "bg-white ring-1 ring-emerald-200",
     iconColor: "text-emerald-600",
-    hover: "hover:border-emerald-200 hover:bg-emerald-50/40",
+    hover: "border-emerald-100 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md",
   },
   {
     title: "Important Links",
     description: "Quick-access resources",
     icon: FiLink,
     link: "/important-links",
-    iconBg: "bg-amber-50",
-    iconColor: "text-amber-600",
-    hover: "hover:border-amber-200 hover:bg-amber-50/40",
+    iconBg: "bg-white ring-1 ring-violet-200",
+    iconColor: "text-violet-600",
+    hover: "border-violet-100 bg-violet-50 hover:border-violet-300 hover:bg-violet-100/70 hover:shadow-md",
   },
   {
     title: "Password Groups",
     description: "Shared credentials vault",
     icon: FiLock,
     link: "/password-groups",
-    iconBg: "bg-indigo-50",
-    iconColor: "text-indigo-600",
-    hover: "hover:border-indigo-200 hover:bg-indigo-50/40",
+    iconBg: "bg-white ring-1 ring-amber-200",
+    iconColor: "text-amber-600",
+    hover: "border-amber-100 bg-amber-50 hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-md",
   },
   {
     title: "Group Firms",
     description: "Client group firms",
     icon: FiUsers,
     link: "/groups",
-    iconBg: "bg-teal-50",
-    iconColor: "text-teal-600",
-    hover: "hover:border-teal-200 hover:bg-teal-50/40",
+    iconBg: "bg-white ring-1 ring-sky-200",
+    iconColor: "text-sky-600",
+    hover: "border-sky-100 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/70 hover:shadow-md",
   },
   {
     title: "Services",
     description: "Offerings and pricing",
     icon: FiGrid,
     link: "/services",
-    iconBg: "bg-rose-50",
+    iconBg: "bg-white ring-1 ring-rose-200",
     iconColor: "text-rose-600",
-    hover: "hover:border-rose-200 hover:bg-rose-50/40",
+    hover: "border-rose-100 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/70 hover:shadow-md",
   },
   {
     title: "Service Requests",
     description: "Client request queue",
     icon: FiClipboard,
     link: "/service-requests",
-    iconBg: "bg-cyan-50",
-    iconColor: "text-cyan-600",
-    hover: "hover:border-cyan-200 hover:bg-cyan-50/40",
+    iconBg: "bg-white ring-1 ring-teal-200",
+    iconColor: "text-teal-600",
+    hover: "border-teal-100 bg-teal-50 hover:border-teal-300 hover:bg-teal-100/70 hover:shadow-md",
   },
   {
     title: "Deleted Clients",
     description: "Restore soft-deleted clients",
     icon: FiTrash2,
     link: "/deleted-clients",
-    iconBg: "bg-slate-100",
-    iconColor: "text-slate-600",
-    hover: "hover:border-slate-300 hover:bg-slate-50",
+    iconBg: "bg-white ring-1 ring-orange-200",
+    iconColor: "text-orange-600",
+    hover: "border-orange-100 bg-orange-50 hover:border-orange-300 hover:bg-orange-100/70 hover:shadow-md",
   },
   {
     title: "Debtor Follow-up",
     description: "Assign debtors and reminders",
     icon: FiPhoneCall,
     link: "/follow-up",
-    iconBg: "bg-sky-50",
-    iconColor: "text-sky-600",
-    hover: "hover:border-sky-200 hover:bg-sky-50/40",
+    iconBg: "bg-white ring-1 ring-fuchsia-200",
+    iconColor: "text-fuchsia-600",
+    hover: "border-fuchsia-100 bg-fuchsia-50 hover:border-fuchsia-300 hover:bg-fuchsia-100/70 hover:shadow-md",
   },
   {
     title: "CA List",
     description: "Chartered accountant directory",
     icon: FiUserCheck,
     link: "/ca-list",
-    iconBg: "bg-violet-50",
-    iconColor: "text-violet-600",
-    hover: "hover:border-violet-200 hover:bg-violet-50/40",
+    iconBg: "bg-white ring-1 ring-cyan-200",
+    iconColor: "text-cyan-600",
+    hover: "border-cyan-100 bg-cyan-50 hover:border-cyan-300 hover:bg-cyan-100/70 hover:shadow-md",
   },
   {
     title: "Auto Payment Reminder",
     description: "Automated payment alerts",
     icon: FiBell,
     link: "/auto-reminder",
-    iconBg: "bg-orange-50",
-    iconColor: "text-orange-600",
-    hover: "hover:border-orange-200 hover:bg-orange-50/40",
+    iconBg: "bg-white ring-1 ring-lime-200",
+    iconColor: "text-lime-600",
+    hover: "border-lime-100 bg-lime-50 hover:border-lime-300 hover:bg-lime-100/70 hover:shadow-md",
   },
 ];
 
@@ -131,9 +131,8 @@ function ModuleCard({ module, index, onNavigate }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.2 }}
       whileHover={{ y: -1 }}
-      whileTap={{ scale: 0.985 }}
       onClick={() => onNavigate(module.link)}
-      className={`group flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3.5 py-[0.7rem] text-left shadow-sm transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${module.hover}`}
+      className={`group flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${module.hover}`}
     >
       <span
         className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${module.iconBg} ${module.iconColor}`}
@@ -188,7 +187,7 @@ const OfficeAssistance = () => {
   const handleNavigate = (link) => navigate(`.${link}`);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -207,16 +206,16 @@ const OfficeAssistance = () => {
           isMinimized ? "md:pl-20" : "md:pl-[260px]"
         }`}
       >
-        <div className="mx-2 my-3 sm:mx-4 md:mx-8 md:my-4">
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:px-4">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
                     <FiBriefcase className="h-4 w-4 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base font-bold leading-tight text-gray-800 md:text-lg">
+                    <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
                       Office Assistance
                     </h1>
                   </div>
@@ -233,7 +232,7 @@ const OfficeAssistance = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search modules…"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-indigo-500/25"
                   />
                 </div>
               </div>

@@ -68,7 +68,7 @@ const CallExtensionModal = ({ isOpen, onClose, row, onSubmit, saving }) => {
             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-teal-600 to-emerald-600 text-white flex items-center justify-between gap-3">
+            <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-teal-600 text-white flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
                   <FiPhone className="w-4 h-4" />
@@ -118,7 +118,7 @@ const CallExtensionModal = ({ isOpen, onClose, row, onSubmit, saving }) => {
                     disabled={saving}
                     autoFocus
                     autoComplete="off"
-                    className="w-full px-3 py-2.5 text-sm text-gray-800 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none disabled:opacity-60 placeholder:text-gray-400 font-mono tracking-wide"
+                    className="w-full px-3 py-2.5 text-sm text-gray-800 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none disabled:opacity-60 placeholder:text-gray-400 font-mono tracking-wide"
                   />
                 </div>
               </form>

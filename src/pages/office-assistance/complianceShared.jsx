@@ -44,14 +44,14 @@ const GST_RATE_OPTIONS = [0, 5, 12, 18, 28];
 const isValidAmountInput = (value) => /^\d*(\.\d{0,2})?$/.test(value);
 
 const inputClass =
-  'w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white';
+  'w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white';
 
 /** Inputs with an absolute leading icon — never combine with px-* (see search-input-icon.md). */
 const inputWithIconClass =
-  'w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white placeholder:text-gray-400';
+  'w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white placeholder:text-gray-400';
 
 const sectionClass =
-  'rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 space-y-4';
+  'rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4';
 
 const labelClass = 'block text-sm font-medium text-gray-700 mb-1';
 
@@ -192,7 +192,7 @@ const StaffAssignPanel = ({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, mobile, designation..."
                 disabled={disabled}
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none disabled:opacity-60"
               />
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
@@ -231,7 +231,6 @@ const StaffAssignPanel = ({
             onClick={addAllEmployees}
             disabled={disabled || filteredAvailable.length === 0}
             className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            whileTap={{ scale: 0.9 }}
           >
             <FiArrowRight className="w-4 h-4" />
           </motion.button>
@@ -240,7 +239,6 @@ const StaffAssignPanel = ({
             onClick={removeAllEmployees}
             disabled={disabled || selectedEmployees.length === 0}
             className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            whileTap={{ scale: 0.9 }}
           >
             <FiArrowLeft className="w-4 h-4" />
           </motion.button>
@@ -782,7 +780,7 @@ export const FirmFormModal = ({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg disabled:opacity-50"
           >
             Cancel
           </button>

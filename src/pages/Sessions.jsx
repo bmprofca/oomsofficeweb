@@ -189,7 +189,7 @@ const Sessions = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -208,16 +208,16 @@ const Sessions = () => {
           isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}
       >
-        <div className="mx-2 my-3 sm:mx-4 md:mx-8 md:my-4">
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:px-4">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
                     <FiMonitor className="h-4 w-4 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base font-bold leading-tight text-gray-800 md:text-lg">
+                    <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
                       Sessions
                     </h1>
                     <p className="text-xs text-gray-500">
@@ -232,7 +232,7 @@ const Sessions = () => {
                       fetchSessions(pagination.page_no, pagination.limit)
                     }
                     disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
                   >
                     <FiRefreshCw
                       className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
@@ -327,7 +327,7 @@ const Sessions = () => {
                               className={
                                 session.is_current
                                   ? 'bg-indigo-50/50'
-                                  : 'bg-white hover:bg-gray-50/80'
+                                  : 'bg-white hover:bg-slate-50/80'
                               }
                             >
                               <td className="px-3 py-2.5 text-gray-500">

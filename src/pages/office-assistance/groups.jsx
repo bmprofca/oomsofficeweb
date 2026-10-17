@@ -27,16 +27,16 @@ import getHeaders from "../../utils/get-headers";
 import API_BASE_URL from "../../utils/api-controller";
 
 /** Task-table typography baseline — see context/typography.md */
-const TABLE_HEAD_ROW = "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+const TABLE_HEAD_ROW = "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
 const TABLE_ROW =
-  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors group";
+  "border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors group";
 const TABLE_TD = "px-3 py-3 min-w-0 text-left align-middle";
 const TOOLBAR_ROW =
   "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50";
 const TOOLBAR_INPUT =
-  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-gray-400";
+  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none placeholder:text-gray-400";
 const CELL_BODY = "text-sm font-medium text-gray-700";
 const CELL_INDEX = "text-[11px] font-bold text-gray-800";
 const CELL_TITLE = "font-semibold text-gray-800 text-sm";
@@ -136,7 +136,7 @@ const ActionMenu = ({ items }) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-slate-100 rounded-lg transition-colors"
         aria-label="Actions"
       >
         <FiMoreVertical className="w-3.5 h-3.5" />
@@ -174,7 +174,7 @@ const ActionMenu = ({ items }) => {
                     className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
                       item.danger
                         ? "text-red-600 hover:bg-red-50"
-                        : "text-gray-700 hover:bg-gray-50"
+                        : "text-gray-700 hover:bg-slate-50"
                     } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
                     {item.icon}
@@ -508,7 +508,7 @@ const Groups = () => {
   const indexOffset = (page - 1) * limit;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -527,8 +527,8 @@ const Groups = () => {
           isMinimized ? "md:pl-20" : "md:pl-[260px]"
         }`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className={`${TOOLBAR_ROW} flex-nowrap`}>
               <div className="flex items-center gap-2 shrink-0">
                 <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
@@ -553,7 +553,7 @@ const Groups = () => {
                   <button
                     type="button"
                     onClick={handleRefresh}
-                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-300 bg-white"
+                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-slate-200 bg-white"
                     aria-label="Refresh"
                   >
                     <FiRefreshCw
@@ -658,7 +658,7 @@ const Groups = () => {
                           </td>
                           <td className={TABLE_TD}>
                             <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
+                              <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
                                 <FiUser className="w-3.5 h-3.5 text-white" />
                               </div>
                               <div className="min-w-0 overflow-hidden">

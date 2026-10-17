@@ -208,7 +208,7 @@ const RecurringTaskDetailedPage = () => {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3.5 shrink-0 flex items-center justify-between">
+              <div className="bg-indigo-600 text-white px-5 py-3.5 shrink-0 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
                     <FiUsers className="w-5 h-5" />
@@ -230,7 +230,7 @@ const RecurringTaskDetailedPage = () => {
               <div className="p-5 flex-1 overflow-y-auto space-y-3 [scrollbar-width:none]">
                 {users.map((user) => (
                   <div key={user.username} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                    <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    <div className="w-9 h-9 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
                       {user.name?.charAt(0).toUpperCase() || 'S'}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -280,7 +280,7 @@ const RecurringTaskDetailedPage = () => {
             key={staff.username || idx}
             type="button"
             onClick={() => openUsersModal(list, serviceName)}
-            className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+            className="w-7 h-7 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
             title={`View assigned staff details`}
           >
             {(staff.name || staff.username || 'S').charAt(0).toUpperCase()}
@@ -290,7 +290,7 @@ const RecurringTaskDetailedPage = () => {
           <button
             type="button"
             onClick={() => openUsersModal(list, serviceName)}
-            className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+            className="w-7 h-7 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
           >
             +{list.length - 2}
           </button>
@@ -300,7 +300,7 @@ const RecurringTaskDetailedPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -375,7 +375,7 @@ const RecurringTaskDetailedPage = () => {
                     setFilters(prev => ({ ...prev, search: e.target.value }));
                     setPagination(prev => ({ ...prev, page: 1 }));
                   }}
-                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm bg-slate-50/50"
+                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none text-sm bg-slate-50/50"
                 />
               </div>
               <div className="min-w-[160px]">
@@ -385,7 +385,7 @@ const RecurringTaskDetailedPage = () => {
                     setFilters(prev => ({ ...prev, status_filter: e.target.value }));
                     setPagination(prev => ({ ...prev, page: 1 }));
                   }}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm bg-white font-medium text-slate-700"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none text-sm bg-white font-medium text-slate-700"
                 >
                   <option value="">All Statuses</option>
                   <option value="Pending From The Department">Pending (Dept)</option>
@@ -486,7 +486,7 @@ const RecurringTaskDetailedPage = () => {
                                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-pop border border-slate-200 z-55 overflow-hidden text-left"
                                   >
                                     <div className="py-1">
                                       {record.status === 'Sale' && record.invoice_no ? (

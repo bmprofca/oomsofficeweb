@@ -80,7 +80,7 @@ const SortableWidget = ({ widget, onToggle, onDuplicate, onDelete, isDragging })
                 relative group border-2 rounded-lg p-4 transition-all duration-200
                 ${widget.enabled 
                     ? 'border-green-200 bg-green-50 hover:border-green-300' 
-                    : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                    : 'border-gray-200 bg-gray-50 hover:border-slate-200'
                 }
                 ${isDragging ? 'rotate-3 shadow-xl z-50' : 'shadow-sm hover:shadow-md'}
                 ${getWidgetWidthClass(widget.type)}
@@ -159,7 +159,7 @@ const SortableWidget = ({ widget, onToggle, onDuplicate, onDelete, isDragging })
                 bg-white border border-gray-200 rounded-lg mb-3 overflow-hidden
                 ${getWidgetHeight(widget.type)}
             `}>
-                <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className="h-full flex items-center justify-center bg-gray-50">
                     <div className="text-center text-gray-400">
                         <FiLayout className="w-8 h-8 mx-auto mb-2" />
                         <div className="text-sm">{widget.title} Preview</div>
@@ -522,9 +522,7 @@ const WidgetSettings = () => {
                 </span>
                 <motion.button
                     onClick={() => addWidget(widget.id)}
-                    className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition-colors"
                 >
                     <FiPlus className="w-3 h-3" />
                     Add
@@ -536,7 +534,7 @@ const WidgetSettings = () => {
     const activeWidget = widgets.find((widget) => widget.id === activeId);
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -555,7 +553,7 @@ const WidgetSettings = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                             {/* Card Header */}
                             <div className="border-b border-gray-200 px-6 py-4">
                                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -573,20 +571,16 @@ const WidgetSettings = () => {
                                             onClick={() => setEditMode(!editMode)}
                                             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                                                 editMode 
-                                                    ? 'bg-blue-600 text-white' 
-                                                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                                    ? 'bg-indigo-600 text-white' 
+                                                    : 'border border-slate-200 text-gray-700 hover:bg-slate-50'
                                             }`}
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
                                         >
                                             <FiEdit className="w-4 h-4" />
                                             {editMode ? 'Editing Mode' : 'Edit Layout'}
                                         </motion.button>
                                         <motion.button
                                             onClick={handleResetWidgets}
-                                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-50 transition-colors"
                                         >
                                             <FiRefreshCw className="w-4 h-4" />
                                             Reset
@@ -594,9 +588,7 @@ const WidgetSettings = () => {
                                         <motion.button
                                             onClick={handleSaveWidgets}
                                             disabled={saving}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                         >
                                             <FiSave className="w-4 h-4" />
                                             {saving ? 'Saving...' : 'Save Changes'}
@@ -692,7 +684,7 @@ const WidgetSettings = () => {
 
                                     {/* Available Widgets Sidebar */}
                                     <div className="xl:col-span-1">
-                                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm sticky top-6">
+                                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm sticky top-6">
                                             <div className="border-b border-gray-200 px-6 py-4">
                                                 <h6 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                                                     <FiPlus className="w-4 h-4" />
@@ -709,16 +701,14 @@ const WidgetSettings = () => {
                                                 ))}
                                                 
                                                 {/* Custom Widget Option */}
-                                                <div className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-4 text-center">
+                                                <div className="bg-gray-50 border border-dashed border-slate-200 rounded-lg p-4 text-center">
                                                     <FiPlus className="w-6 h-6 text-gray-400 mx-auto mb-2" />
                                                     <h6 className="font-medium text-gray-700 mb-1">Custom Widget</h6>
                                                     <p className="text-xs text-gray-500 mb-3">
                                                         Create a custom widget from scratch
                                                     </p>
                                                     <motion.button
-                                                        className="w-full px-3 py-2 border border-gray-300 text-gray-700 rounded text-sm hover:bg-white transition-colors"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
+                                                        className="w-full px-3 py-2 border border-slate-200 text-gray-700 rounded text-sm hover:bg-white transition-colors"
                                                     >
                                                         Create Custom Widget
                                                     </motion.button>

@@ -56,7 +56,7 @@ import CustomSelect from "../../components/CustomSelect";
 
 /** Task-table typography baseline — see context/typography.md & TaskTable.js */
 const TABLE_HEAD_ROW =
-  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+  "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide border-l border-gray-100";
 const TABLE_TH_FIRST =
@@ -71,7 +71,7 @@ const getRowBackgroundClass = (row, canForceGetOut) => {
   if (inOutState.mode === "other") {
     return `${TABLE_ROW_BASE} bg-amber-700/20 hover:bg-amber-700/25`;
   }
-  return `${TABLE_ROW_BASE} bg-white hover:bg-gray-50`;
+  return `${TABLE_ROW_BASE} bg-white hover:bg-slate-50`;
 };
 
 const getStatusColorClass = (status) => {
@@ -132,7 +132,7 @@ const CellDash = () => <span className="text-sm text-gray-400">—</span>;
 const TOOLBAR_ROW =
   "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50";
 const TOOLBAR_INPUT =
-  "w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none";
+  "w-full px-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none";
 
 const StackedColumnCell = ({ items }) => {
   if (!items?.length) return <CellDash />;
@@ -513,7 +513,7 @@ const StaffAvatarsCell = ({ row, onOpenStaffModal }) => {
         className="flex items-center justify-start cursor-pointer hover:opacity-80 transition-opacity"
         title={`Click to view ${staffName}'s details`}
       >
-        <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+        <div className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
           {staffName.charAt(0).toUpperCase()}
         </div>
       </button>
@@ -533,7 +533,7 @@ const StaffAvatarsCell = ({ row, onOpenStaffModal }) => {
               className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
               title={`Click to view ${staffName}'s details`}
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+              <div className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
                 {staffName.charAt(0).toUpperCase()}
               </div>
             </button>
@@ -553,7 +553,7 @@ const StaffAvatarsCell = ({ row, onOpenStaffModal }) => {
             type="button"
             key={staff.username || staffIndex}
             onClick={() => onOpenStaffModal(staffs, serviceLabel)}
-            className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
+            className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
             title={`Click to view all ${staffs.length} staff members`}
           >
             {staffName.charAt(0).toUpperCase()}
@@ -563,7 +563,7 @@ const StaffAvatarsCell = ({ row, onOpenStaffModal }) => {
       <button
         type="button"
         onClick={() => onOpenStaffModal(staffs, serviceLabel)}
-        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
+        className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
         title={`Click to view all ${staffs.length} staff members`}
       >
         +{showMoreCount}
@@ -1224,15 +1224,15 @@ export const ComplianceTaskBoard = ({
     ? COL_WIDTHS_NO_CLIENT
     : COL_WIDTHS_WITH_CLIENT;
   const cardShellClass = embedded
-    ? "bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col w-full min-w-0"
-    : "bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 min-w-0";
+    ? "bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200 flex flex-col w-full min-w-0"
+    : "bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200 flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5 min-w-0";
 
   const boardContent = (
     <>
       <div className={cardShellClass}>
-        <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+        <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
+            <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight">
               Compliance Tasks
             </h1>
             {!isClientScoped ? (
@@ -1264,7 +1264,7 @@ export const ComplianceTaskBoard = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search firm, service, client, mobile, email, PAN, GST..."
-                className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
               />
             </div>
           </div>
@@ -1388,7 +1388,7 @@ export const ComplianceTaskBoard = ({
                 type="button"
                 onClick={loadTasks}
                 disabled={loading}
-                className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                className="p-2 rounded-lg border border-slate-200 text-gray-600 hover:bg-slate-50 disabled:opacity-50"
                 title="Refresh"
               >
                 <FiRefreshCw
@@ -1400,8 +1400,8 @@ export const ComplianceTaskBoard = ({
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="flex-1 overflow-x-hidden overflow-y-auto min-w-0">
-            <table className="w-full table-fixed">
+          <div className="flex-1 overflow-x-auto overflow-y-auto min-w-0">
+            <table className="w-full min-w-[720px] table-fixed">
               <colgroup>
                 <col style={{ width: colWidths.index }} />
                 <col style={{ width: colWidths.service }} />
@@ -1933,7 +1933,7 @@ const ComplianceServices = () => {
   }, [isMinimized]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}

@@ -111,7 +111,7 @@ const Pagination = ({
                             value={limit}
                             onChange={(e) => onLimitChange(Number(e.target.value))}
                             disabled={loading}
-                            className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
+                            className="border border-slate-200 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white disabled:opacity-50"
                         >
                             <option value="5">5</option>
                             <option value="10">10</option>
@@ -141,9 +141,7 @@ const Pagination = ({
                     <motion.button
                         onClick={() => onPageChange(page - 1)}
                         disabled={page === 1 || loading}
-                        className="p-2 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        className="p-2 border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <FiArrowLeft className="w-4 h-4" />
                     </motion.button>
@@ -160,11 +158,9 @@ const Pagination = ({
                                     disabled={loading}
                                     className={`w-8 h-8 rounded text-sm font-medium ${
                                         page === pageNum
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+                                            ? 'bg-indigo-600 text-white shadow-sm'
+                                            : 'border border-slate-200 text-gray-700 hover:bg-slate-100'
                                     } disabled:opacity-50`}
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
                                 >
                                     {pageNum}
                                 </motion.button>
@@ -176,9 +172,7 @@ const Pagination = ({
                     <motion.button
                         onClick={() => onPageChange(page + 1)}
                         disabled={is_last_page || loading}
-                        className="p-2 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        className="p-2 border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <FiArrowRight className="w-4 h-4" />
                     </motion.button>
@@ -197,13 +191,13 @@ const Pagination = ({
                                 onChange={handleCustomPageChange}
                                 onBlur={handleCustomPageBlur}
                                 disabled={loading}
-                                className="w-16 border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                                className="w-16 border border-slate-200 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 disabled:opacity-50"
                                 placeholder={page.toString()}
                             />
                             <button
                                 type="submit"
                                 disabled={loading || customPageInput === page.toString() || customPageInput === ''}
-                                className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Go
                             </button>

@@ -72,7 +72,7 @@ const NOTE_STATUS_OPTIONS = [
 const DESKTOP_MIN_W = "min-w-[1100px]";
 const SELECT_CONTROL = "w-[180px] shrink-0";
 const DATE_RANGE_BTN =
-  "min-w-[12rem] w-full sm:w-56 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-indigo-400 focus:outline-none";
+  "min-w-[12rem] w-full sm:w-56 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-gray-700 hover:border-indigo-400 focus:outline-none";
 
 const formatPhone = (row) => {
   if (!row?.mobile) return "N/A";
@@ -165,7 +165,7 @@ const AnimatedCheckbox = ({
         className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
           isActive
             ? "border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200"
-            : "border-gray-300 bg-white group-hover:border-indigo-400"
+            : "border-slate-200 bg-white group-hover:border-indigo-400"
         }`}
         animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
         transition={{ duration: 0.18 }}
@@ -349,7 +349,7 @@ function AssignModal({
                 type="button"
                 onClick={onClose}
                 disabled={busy}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-slate-100 hover:text-gray-700 disabled:opacity-50"
                 aria-label="Close"
               >
                 <FiX className="h-5 w-5" />
@@ -369,7 +369,7 @@ function AssignModal({
                   value={staffSearch}
                   onChange={(e) => setStaffSearch(e.target.value)}
                   placeholder="Name or mobile…"
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
 
@@ -391,14 +391,14 @@ function AssignModal({
                         type="button"
                         onClick={() => setStaffUsername(staff.username)}
                         className={`flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2.5 text-left last:border-b-0 ${
-                          selected ? "bg-indigo-50" : "hover:bg-gray-50"
+                          selected ? "bg-indigo-50" : "hover:bg-slate-50"
                         }`}
                       >
                         <span
                           className={`inline-flex h-5 w-5 items-center justify-center rounded-full border-2 ${
                             selected
                               ? "border-indigo-600 bg-indigo-600 text-white"
-                              : "border-gray-300"
+                              : "border-slate-200"
                           }`}
                         >
                           {selected ? <FiCheck size={11} /> : null}
@@ -446,7 +446,7 @@ function AssignModal({
                   type="button"
                   onClick={onClose}
                   disabled={busy}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-slate-100 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -646,7 +646,7 @@ function NotesModal({ open, client, onClose, canEdit, onChanged }) {
                   <button
                     type="button"
                     onClick={onClose}
-                    className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-slate-100 hover:text-gray-700"
                     aria-label="Close"
                   >
                     <FiX className="h-5 w-5" />
@@ -671,7 +671,7 @@ function NotesModal({ open, client, onClose, canEdit, onChanged }) {
                         }
                         rows={3}
                         placeholder="Note…"
-                        className="mb-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                        className="mb-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                       />
                       <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <CustomSelect
@@ -717,7 +717,7 @@ function NotesModal({ open, client, onClose, canEdit, onChanged }) {
                             }))
                           }
                           placeholder="Reminder date"
-                          buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          buttonClassName="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                           hideTabs
                           quickOptionKeys={["td", "tom", "n7"]}
                         />
@@ -804,7 +804,7 @@ function NotesModal({ open, client, onClose, canEdit, onChanged }) {
                                   <button
                                     type="button"
                                     onClick={() => markDone(item.note_id)}
-                                    className="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                                    className="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-slate-50"
                                   >
                                     Mark done
                                   </button>
@@ -1467,7 +1467,7 @@ const ClientFollowUp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1489,7 +1489,7 @@ const ClientFollowUp = () => {
         <div className="mx-2 my-3 flex h-full flex-col sm:mx-4 md:mx-8 md:my-4">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="m-0 text-base font-bold text-gray-800 md:text-lg">
+              <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
                 Debtor Follow-up
               </h1>
             </div>
@@ -1497,7 +1497,7 @@ const ClientFollowUp = () => {
               type="button"
               onClick={() => fetchClients(pagination.page, pagination.limit)}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-slate-100 disabled:opacity-50"
             >
               <FiRefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -1569,8 +1569,8 @@ const ClientFollowUp = () => {
             )}
           </div>
 
-          <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:px-4">
+          <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   {filterTabs.map((tab) => {
@@ -1583,7 +1583,7 @@ const ClientFollowUp = () => {
                         className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                           filter === tab.id
                             ? "bg-indigo-50 text-indigo-700"
-                            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                            : "text-gray-500 hover:bg-slate-100 hover:text-gray-700"
                         }`}
                       >
                         {tab.label}
@@ -1601,7 +1601,7 @@ const ClientFollowUp = () => {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search debtors…"
-                      className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                      className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                     />
                   </div>
                   {canManage && filter === "assigned" ? (
@@ -1653,7 +1653,7 @@ const ClientFollowUp = () => {
                         onClick={() =>
                           setReminderRange({ start: "", end: "" })
                         }
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-gray-500 hover:bg-slate-100 hover:text-gray-700"
                         title="Clear reminder range"
                         aria-label="Clear reminder range"
                       >
@@ -1768,7 +1768,7 @@ const ClientFollowUp = () => {
                                 index +
                                 1}
                             </span>
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500">
                               <FiUser className="h-3.5 w-3.5 text-white" />
                             </div>
                             <div className="min-w-0">
@@ -1814,7 +1814,7 @@ const ClientFollowUp = () => {
                                 <button
                                   type="button"
                                   onClick={() => openPaymentReminder(row)}
-                                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
                                   title="Send payment reminder"
                                   aria-label={`Send payment reminder to ${row.client_name}`}
                                 >
@@ -1845,7 +1845,7 @@ const ClientFollowUp = () => {
                   </div>
 
                   <div className={`hidden md:block ${DESKTOP_MIN_W}`}>
-                    <div className="sticky top-0 z-10 flex items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                    <div className="sticky top-0 z-10 flex items-center border-b border-gray-200 bg-slate-50/60">
                       {canManage ? (
                         <div className="flex w-12 flex-shrink-0 justify-center p-3">
                           <AnimatedCheckbox
@@ -1884,7 +1884,7 @@ const ClientFollowUp = () => {
                     {rows.map((row, index) => (
                       <motion.div
                         key={row.client_username}
-                        className={`group flex items-center border-b border-gray-100 bg-white transition-colors hover:bg-gray-50 ${
+                        className={`group flex items-center border-b border-gray-100 bg-white transition-colors hover:bg-slate-50 ${
                           effectiveSelected.has(row.client_username)
                             ? "bg-indigo-50/30"
                             : ""
@@ -1915,7 +1915,7 @@ const ClientFollowUp = () => {
                         </div>
                         <div className="min-w-[180px] flex-[1.4] border-l border-gray-100 p-3 text-left">
                           <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-sm">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500 shadow-sm">
                               <FiUser className="h-3.5 w-3.5 text-white" />
                             </div>
                             <div className="min-w-0">
@@ -1970,7 +1970,7 @@ const ClientFollowUp = () => {
                               <button
                                 type="button"
                                 onClick={() => openPaymentReminder(row)}
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
                                 title="Send payment reminder"
                                 aria-label={`Send payment reminder to ${row.client_name}`}
                               >
@@ -2047,7 +2047,7 @@ const ClientFollowUp = () => {
               <button
                 type="button"
                 onClick={openBulkUnassign}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-slate-100"
               >
                 Unassign
               </button>

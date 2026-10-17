@@ -423,7 +423,7 @@ const PermissionList = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -442,7 +442,7 @@ const PermissionList = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                             {/* Card Header */}
                             <div className="border-b border-gray-200 px-6 py-4">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -450,7 +450,7 @@ const PermissionList = () => {
                                         <h5 className="text-xl font-bold text-gray-800 mb-1">
                                             Permission Management
                                         </h5>
-                                        <p className="text-gray-500 text-xs">
+                                        <p className="text-slate-500 text-xs mt-0.5">
                                             {filteredPermissions.length} of {permissionData.length} permissions shown
                                         </p>
                                     </div>
@@ -464,7 +464,7 @@ const PermissionList = () => {
                                                 placeholder="Search permissions by name or remark..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm text-sm"
                                             />
                                         </div>
 
@@ -474,15 +474,13 @@ const PermissionList = () => {
                                                 <motion.button
                                                     onClick={() => setShowExportDropdown(!showExportDropdown)}
                                                     className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                    whileHover={{ scale: 1.02 }}
-                                                    whileTap={{ scale: 0.98 }}
                                                 >
                                                     <PiExportBold className="w-4 h-4" />
                                                     Export
                                                 </motion.button>
 
                                                 {showExportDropdown && (
-                                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-pop border border-slate-200 z-50 overflow-hidden">
                                                         <div className="py-1">
                                                             <button
                                                                 onClick={() => handleExport('pdf')}
@@ -519,9 +517,7 @@ const PermissionList = () => {
 
                                             <motion.button
                                                 onClick={openCreateModal}
-                                                className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
+                                                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
                                             >
                                                 <FiPlus className="w-4 h-4" />
                                                 Add Permission
@@ -534,14 +530,14 @@ const PermissionList = () => {
                             {/* Table Container */}
                             <div className="flex-1 overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
                                         <tr>
                                             <th className="w-12 p-4">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectAll}
                                                     onChange={handleSelectAll}
-                                                    className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
+                                                    className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500/25"
                                                 />
                                             </th>
                                             <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
@@ -576,13 +572,13 @@ const PermissionList = () => {
                                             </tr>
                                         ) : (
                                             filteredPermissions.map((permission, index) => (
-                                                <tr key={permission.permission_role_id} className="hover:bg-gray-50 transition-colors">
+                                                <tr key={permission.permission_role_id} className="hover:bg-slate-50 transition-colors">
                                                     <td className="p-4">
                                                         <input
                                                             type="checkbox"
                                                             checked={selectedPermissions.has(permission.permission_role_id)}
                                                             onChange={() => handlePermissionSelect(permission.permission_role_id)}
-                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
+                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500/25"
                                                         />
                                                     </td>
                                                     <td className="p-4 text-sm text-gray-600 font-medium">
@@ -590,7 +586,7 @@ const PermissionList = () => {
                                                     </td>
                                                     <td className="p-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+                                                            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center shadow-sm">
                                                                 <FiShield className="w-4 h-4 text-white" />
                                                             </div>
                                                             <div className="font-semibold text-gray-800 text-sm">
@@ -639,13 +635,13 @@ const PermissionList = () => {
                                                         <div className="flex justify-center items-center action-dropdown-container">
                                                             <button
                                                                 onClick={() => setActiveRowDropdown(activeRowDropdown === permission.permission_role_id ? null : permission.permission_role_id)}
-                                                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                                className="p-2 text-gray-600 hover:bg-slate-100 rounded-lg transition-colors"
                                                                 title="Actions"
                                                             >
                                                                 <FiMenu className="w-4 h-4" />
                                                             </button>
                                                             {activeRowDropdown === permission.permission_role_id && (
-                                                                <div className={`absolute right-4 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden py-1 text-left ${
+                                                                <div className={`absolute right-4 w-48 bg-white rounded-xl shadow-pop border border-slate-200 z-50 overflow-hidden py-1 text-left ${
                                                                     filteredPermissions.indexOf(permission) >= filteredPermissions.length - 2 && filteredPermissions.length > 2
                                                                         ? 'bottom-full mb-1'
                                                                         : 'top-full mt-1'
@@ -693,7 +689,7 @@ const PermissionList = () => {
                             </div>
 
                             {/* Table Footer */}
-                            <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+                            <div className="border-t border-gray-200 bg-gray-50">
                                 <div className="p-4">
                                     <div className="flex items-center justify-between">
                                         <span className="font-semibold text-gray-800 text-sm">
@@ -743,7 +739,7 @@ const PermissionList = () => {
                     
                     {/* Modal Panel */}
                     <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+                        <div className="bg-indigo-600 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold">Create New Permission</h2>
                                 <p className="text-indigo-100 text-sm mt-1">Define a new permission level for the system</p>
@@ -771,7 +767,7 @@ const PermissionList = () => {
                                             type="text"
                                             value={formData.name}
                                             onChange={(e) => handleInputChange('name', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="Enter permission name"
                                             required
                                         />
@@ -783,7 +779,7 @@ const PermissionList = () => {
                                         <textarea
                                             value={formData.remark}
                                             onChange={(e) => handleInputChange('remark', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="Enter permission description"
                                             rows="3"
                                         />
@@ -836,7 +832,7 @@ const PermissionList = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))}
-                                                            className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/70 transition-colors text-left"
+                                                            className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 hover:bg-slate-100/70 transition-colors text-left"
                                                         >
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-sm font-bold text-indigo-900 font-sans">{category}</span>
@@ -895,9 +891,7 @@ const PermissionList = () => {
                                 <motion.button
                                     type="button"
                                     onClick={() => setShowCreateModal(false)}
-                                    className="px-6 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="px-6 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
                                 >
                                     Cancel
                                 </motion.button>
@@ -905,8 +899,6 @@ const PermissionList = () => {
                                     type="submit"
                                     disabled={loading}
                                     className="px-6 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     {loading ? 'Creating...' : 'Create Permission'}
                                 </motion.button>
@@ -927,7 +919,7 @@ const PermissionList = () => {
                     
                     {/* Modal Panel */}
                     <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+                        <div className="bg-indigo-600 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold">Edit Permission</h2>
                                 <p className="text-indigo-100 text-sm mt-1">Update permission level settings</p>
@@ -955,7 +947,7 @@ const PermissionList = () => {
                                             type="text"
                                             value={formData.name}
                                             onChange={(e) => handleInputChange('name', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="Enter permission name"
                                             required
                                         />
@@ -967,7 +959,7 @@ const PermissionList = () => {
                                         <textarea
                                             value={formData.remark}
                                             onChange={(e) => handleInputChange('remark', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="Enter permission description"
                                             rows="3"
                                         />
@@ -1020,7 +1012,7 @@ const PermissionList = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))}
-                                                            className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/70 transition-colors text-left"
+                                                            className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 hover:bg-slate-100/70 transition-colors text-left"
                                                         >
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-sm font-bold text-indigo-900 font-sans">{category}</span>
@@ -1079,9 +1071,7 @@ const PermissionList = () => {
                                 <motion.button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
-                                    className="px-6 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="px-6 py-2 text-sm font-medium border border-slate-200 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
                                 >
                                     Cancel
                                 </motion.button>
@@ -1089,8 +1079,6 @@ const PermissionList = () => {
                                     type="submit"
                                     disabled={loading}
                                     className="px-6 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     {loading ? 'Updating...' : 'Update Permission'}
                                 </motion.button>

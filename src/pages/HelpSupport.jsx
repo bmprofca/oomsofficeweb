@@ -61,7 +61,7 @@ const ContactCard = ({ icon: Icon, label, value, href, copyable }) => {
         <button
           type="button"
           onClick={copy}
-          className="shrink-0 rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-indigo-600"
+          className="shrink-0 rounded-md p-1.5 text-gray-400 transition hover:bg-slate-100 hover:text-indigo-600"
           title={`Copy ${label}`}
         >
           <FiCopy className="h-4 w-4" />
@@ -72,7 +72,7 @@ const ContactCard = ({ icon: Icon, label, value, href, copyable }) => {
           href={href}
           target="_blank"
           rel="noreferrer"
-          className="shrink-0 rounded-md p-1.5 text-gray-400 no-underline transition hover:bg-gray-100 hover:text-indigo-600"
+          className="shrink-0 rounded-md p-1.5 text-gray-400 no-underline transition hover:bg-slate-100 hover:text-indigo-600"
           title="Open"
         >
           <FiExternalLink className="h-4 w-4" />
@@ -83,11 +83,11 @@ const ContactCard = ({ icon: Icon, label, value, href, copyable }) => {
 };
 
 const FaqItem = ({ faq, open, onToggle }) => (
-  <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-gray-50"
+      className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-slate-50"
       aria-expanded={open}
     >
       <span className="min-w-0 flex-1 text-sm font-semibold text-gray-800">
@@ -169,7 +169,7 @@ const HelpSupport = () => {
   const faqs = Array.isArray(data?.faqs) ? data.faqs : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -189,15 +189,15 @@ const HelpSupport = () => {
         }`}
       >
         <div className="mx-2 my-3 space-y-3 sm:mx-4 md:mx-8 md:my-4">
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:px-4">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
                     <FiHelpCircle className="h-4 w-4 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base font-bold leading-tight text-gray-800 md:text-lg">
+                    <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
                       {loading
                         ? 'Help & Support'
                         : data?.page_title || 'Help & Support'}
@@ -208,7 +208,7 @@ const HelpSupport = () => {
                   type="button"
                   onClick={fetchHelp}
                   disabled={loading}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
                 >
                   <FiRefreshCw
                     className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
@@ -298,8 +298,8 @@ const HelpSupport = () => {
           </div>
 
           {!loading && faqs.length > 0 ? (
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:px-4">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
                 <h2 className="text-sm font-bold text-gray-800 md:text-base">
                   Frequently asked questions
                 </h2>

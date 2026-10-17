@@ -73,7 +73,7 @@ const DetailsModal = ({ entry, onClose }) => {
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* ── Fixed header ── */}
-                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-t-2xl">
+                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-indigo-600 rounded-t-2xl">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white/20 rounded-xl">
                             <FiEye className="w-4 h-4 text-white" />
@@ -246,7 +246,7 @@ const EditModal = ({ entry, username, onClose, onSuccess }) => {
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Fixed header */}
-                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-2xl">
+                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-blue-600 rounded-t-2xl">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white/20 rounded-xl">
                             <FiEdit2 className="w-4 h-4 text-white" />
@@ -276,7 +276,7 @@ const EditModal = ({ entry, username, onClose, onSuccess }) => {
                                 value={txnDate}
                                 onChange={(e) => setTxnDate(e.target.value)}
                                 required
-                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700"
+                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700"
                             />
                         </div>
 
@@ -294,7 +294,7 @@ const EditModal = ({ entry, username, onClose, onSuccess }) => {
                                 onWheel={(e) => e.target.blur()}
                                 required
                                 placeholder="0.00"
-                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 font-mono"
+                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 font-mono"
                             />
                         </div>
 
@@ -306,7 +306,7 @@ const EditModal = ({ entry, username, onClose, onSuccess }) => {
                                 onChange={(e) => setRemark(e.target.value)}
                                 rows={3}
                                 placeholder="Optional note…"
-                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 resize-none"
+                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 resize-none"
                             />
                         </div>
 
@@ -412,7 +412,7 @@ const CreateEntryModal = ({ loanType, username, onClose, onSuccess }) => {
                 style={{ maxHeight: '82vh' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-t-2xl">
+                <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-emerald-600 rounded-t-2xl">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-white/20 rounded-xl">
                             <FiPlus className="w-4 h-4 text-white" />
@@ -439,7 +439,7 @@ const CreateEntryModal = ({ loanType, username, onClose, onSuccess }) => {
                                 value={txnDate}
                                 onChange={(e) => setTxnDate(e.target.value)}
                                 required
-                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700"
+                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700"
                             />
                         </div>
                         <div>
@@ -455,7 +455,7 @@ const CreateEntryModal = ({ loanType, username, onClose, onSuccess }) => {
                                 onWheel={(e) => e.target.blur()}
                                 required
                                 placeholder="0.00"
-                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 font-mono"
+                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 font-mono"
                             />
                         </div>
                         <div>
@@ -465,7 +465,7 @@ const CreateEntryModal = ({ loanType, username, onClose, onSuccess }) => {
                                 onChange={(e) => setRemark(e.target.value)}
                                 rows={3}
                                 placeholder="Optional note…"
-                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 resize-none"
+                                className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-slate-50 text-slate-700 resize-none"
                             />
                         </div>
                     </div>
@@ -768,7 +768,7 @@ const LoanTab = ({ username, readOnly = false }) => {
                                     defaultQuickKey="tm"
                                     placeholder="Select period"
                                     wrapperClassName="w-full"
-                                    buttonClassName="w-full truncate pl-9 pr-2.5 py-2 text-left text-xs font-medium text-slate-700 sm:text-sm border border-slate-200 rounded-lg bg-white shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    buttonClassName="w-full truncate pl-9 pr-2.5 py-2 text-left text-xs font-medium text-slate-700 sm:text-sm border border-slate-200 rounded-lg bg-white shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
                                     onChange={({ start, end }) => {
                                         if (!start || !end) return;
                                         setFromDate(start);
@@ -818,7 +818,7 @@ const LoanTab = ({ username, readOnly = false }) => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200">
+                            <tr className="bg-slate-50 border-y border-slate-200">
                                 <th className="text-left p-4 font-semibold text-slate-600 w-14">#</th>
                                 <th className="text-left p-4 font-semibold text-slate-600">Date</th>
                                 <th className="text-left p-4 font-semibold text-slate-600">Particulars</th>
@@ -956,7 +956,7 @@ const LoanTab = ({ username, readOnly = false }) => {
                                     <select
                                         value={itemsPerPage}
                                         onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                        className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                                        className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/25 cursor-pointer"
                                     >
                                         {LIMIT_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
                                     </select>
@@ -1002,7 +1002,7 @@ const LoanTab = ({ username, readOnly = false }) => {
                                         value={pageJumpInput}
                                         onChange={(e) => setPageJumpInput(e.target.value)}
                                         placeholder="Go"
-                                        className="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                                        className="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/25 shadow-sm"
                                     />
                                     <button type="submit" className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
                                         Go
@@ -1058,7 +1058,7 @@ const LoanTab = ({ username, readOnly = false }) => {
                             transition={{ duration: 0.14 }}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden">
+                            <div className="bg-white rounded-xl shadow-pop border border-slate-200 py-1 overflow-hidden">
                                 <button
                                     type="button"
                                     onClick={() => openCreateModal('loan')}
@@ -1116,7 +1116,7 @@ const LoanTab = ({ username, readOnly = false }) => {
                                 transition={{ duration: 0.14 }}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden">
+                                <div className="bg-white rounded-xl shadow-pop border border-slate-200 py-1 overflow-hidden">
                                     <button
                                         onClick={() => { setActiveEntry(menuEntry); setShowActionMenu(null); setDropdownPos(null); }}
                                         className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2.5 transition-colors"

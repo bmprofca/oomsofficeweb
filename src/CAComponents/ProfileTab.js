@@ -360,7 +360,7 @@ export default function ProfileTab({ caData, onEdit, loading, caUsername, onRefr
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            <section className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/55 via-white to-white p-3.5">
+                            <section className="rounded-xl border border-indigo-100 bg-indigo-50 p-3.5">
                                 <div className="mb-2 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -383,7 +383,7 @@ export default function ProfileTab({ caData, onEdit, loading, caUsername, onRefr
                                 {renderList(personalFields)}
                             </section>
 
-                            <section className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/55 via-white to-white p-3.5">
+                            <section className="rounded-xl border border-emerald-100 bg-emerald-50 p-3.5">
                                 <div className="mb-2 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">

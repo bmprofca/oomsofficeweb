@@ -50,7 +50,7 @@ export function FirmModalShell({
     open,
     onClose,
     maxWidth = 'max-w-5xl',
-    headerClass = 'bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800',
+    headerClass = 'bg-indigo-600',
     icon: Icon = FiBriefcase,
     title,
     subtitle,
@@ -408,7 +408,7 @@ export function ModalFooterActions({
     onConfirm,
     cancelLabel = 'Cancel',
     confirmLabel,
-    confirmClass = 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-indigo-200',
+    confirmClass = 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200',
     loading,
     disabled,
 }) {

@@ -322,7 +322,7 @@ const BroadcastReport = () => {
                         showRangeHint={false}
                         showResetButton
                         truncateRangeLabel={false}
-                        buttonClassName="w-full min-w-0 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:border-indigo-400 focus:outline-none"
+                        buttonClassName="w-full min-w-0 px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-gray-700 hover:border-indigo-400 focus:outline-none"
                         wrapperClassName="w-full min-w-0"
                     />
                 </div>
@@ -344,7 +344,7 @@ const BroadcastReport = () => {
                         placeholder="Search by template name..."
                         value={filters.search}
                         onChange={(e) => handleFilterChange('search', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-md focus:ring-indigo-500/25 focus:border-indigo-500 text-sm"
                     />
                 </div>
             </div>
@@ -357,7 +357,7 @@ const BroadcastReport = () => {
                 </button>
                 <button
                     onClick={() => setShowFilters(false)}
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
                 >
                     Apply Filters
                 </button>
@@ -366,7 +366,7 @@ const BroadcastReport = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -382,9 +382,9 @@ const BroadcastReport = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <motion.div 
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mb-6"
+                        className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full mb-6"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
@@ -395,7 +395,7 @@ const BroadcastReport = () => {
                                     <h5 className="text-xl font-bold text-gray-800 mb-1">
                                         Broadcast Report
                                     </h5>
-                                    <p className="text-gray-500 text-xs">
+                                    <p className="text-slate-500 text-xs mt-0.5">
                                         View and manage broadcast reports
                                     </p>
                                 </div>
@@ -568,7 +568,7 @@ const BroadcastReport = () => {
                                                     reports.map((report, index) => (
                                                         <motion.tr 
                                                             key={report.broadcast_id} 
-                                                            className="border-b border-gray-200 hover:bg-gray-50"
+                                                            className="border-b border-gray-200 hover:bg-slate-50"
                                                             initial={{ opacity: 0, y: 10 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             transition={{ delay: index * 0.05 }}
@@ -665,7 +665,7 @@ const BroadcastReport = () => {
             <AnimatePresence>
                 {showBulkActions && (
                     <motion.div 
-                        className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50 min-w-64"
+                        className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-xl shadow-pop border border-slate-200 p-4 z-50 min-w-64"
                         initial={{ opacity: 0, y: 50 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 50 }}
@@ -674,9 +674,7 @@ const BroadcastReport = () => {
                             <div className="flex space-x-3">
                                 <motion.button
                                     onClick={requestBulkDelete}
-                                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded hover:from-red-700 hover:to-red-800 transition-colors flex items-center gap-2 text-sm"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    className="px-4 py-2 bg-red-600 text-white rounded transition-colors flex items-center gap-2 text-sm"
                                 >
                                     <FiTrash2 className="w-4 h-4" />
                                     Delete ({selectedItems.length})

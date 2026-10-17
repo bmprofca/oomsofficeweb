@@ -40,7 +40,7 @@ const AnimatedCheckbox = ({
         className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
           isActive
             ? "border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200"
-            : "border-gray-300 bg-white group-hover:border-indigo-400"
+            : "border-slate-200 bg-white group-hover:border-indigo-400"
         }`}
         animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
         transition={{ duration: 0.18 }}

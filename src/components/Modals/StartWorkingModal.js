@@ -154,7 +154,7 @@ const StartWorkingModal = ({
             className="relative z-[1] pointer-events-auto w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col rounded-2xl bg-white shadow-2xl ring-1 ring-indigo-100"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="shrink-0 px-5 py-4 bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 flex items-start justify-between gap-3">
+            <div className="shrink-0 px-5 py-4 bg-indigo-600 flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/25">
                   <FiPlay className="h-5 w-5" />

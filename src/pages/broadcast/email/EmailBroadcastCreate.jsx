@@ -30,7 +30,7 @@ import { formatEmailTemplateType } from "./emailTemplateTypes";
 const contentInset = (isMinimized) => (isMinimized ? "md:pl-20" : "md:pl-[260px]");
 
 const FIELD_INPUT =
-  "w-full h-10 px-3 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 bg-white";
+  "w-full h-10 px-3 border border-slate-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none disabled:opacity-60 bg-white";
 const FIELD_LABEL = "block text-xs font-semibold text-gray-600 mb-1.5 leading-4";
 const FIELD_ERROR = "mt-1 text-xs font-medium text-red-600 m-0";
 const SECTION_LABEL = "text-[11px] font-bold text-gray-700 uppercase tracking-wide";
@@ -514,7 +514,7 @@ const EmailBroadcastCreate = () => {
 
   if (!check("broadcast_send")) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <div className={`pt-16 flex items-center justify-center h-[calc(100vh-4rem)] ${contentInset(isMinimized)}`}>
@@ -529,14 +529,14 @@ const EmailBroadcastCreate = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
         <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
       <div className={`pt-16 transition-all duration-300 ${contentInset(isMinimized)}`}>
         <div className="mx-2 sm:mx-4 md:mx-6 my-3 md:my-4">
           <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="flex flex-wrap items-center gap-3 px-3 md:px-5 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+            <div className="flex flex-wrap items-center gap-3 px-3 md:px-5 py-3 border-b border-gray-200 bg-slate-50/60">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <button
                   type="button"
@@ -547,7 +547,7 @@ const EmailBroadcastCreate = () => {
                   <FiArrowLeft className="w-4 h-4" />
                 </button>
                 <div className="min-w-0">
-                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight m-0">Create email campaign</h1>
+                  <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight m-0">Create email campaign</h1>
                   <p className="text-xs text-gray-500 m-0">Pick SMTP, template, audience, and send</p>
               </div>
             </div>

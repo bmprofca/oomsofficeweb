@@ -75,7 +75,7 @@ const TaskStatusChange = ({
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-3">
+                        <div className="bg-indigo-600 text-white px-4 py-3">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
@@ -93,8 +93,6 @@ const TaskStatusChange = ({
                                 <motion.button
                                     onClick={onClose}
                                     className="text-white p-1 rounded-lg hover:bg-white/10"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
                                 >
                                     <FiX className="w-4 h-4" />
                                 </motion.button>
@@ -129,8 +127,6 @@ const TaskStatusChange = ({
                                                 onClick={() => !isDisabled && setSelectedStatus(status.value)}
                                                 className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all ${isSelected ? 'ring-1 ring-indigo-500' : ''
                                                     } ${getStatusColor(status.value)} ${isDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                                whileHover={{ scale: 1.01 }}
-                                                whileTap={{ scale: 0.99 }}
                                                 disabled={isDisabled}
                                             >
                                                 <div className="flex items-center gap-2">
@@ -177,9 +173,7 @@ const TaskStatusChange = ({
                             <div className="flex justify-end gap-2">
                                 <motion.button
                                     onClick={onClose}
-                                    className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    className="px-3 py-1.5 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm"
                                     disabled={loading}
                                 >
                                     Cancel
@@ -187,9 +181,7 @@ const TaskStatusChange = ({
 
                                 <motion.button
                                     onClick={handleConfirm}
-                                    className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-sm flex items-center gap-2"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-medium text-sm flex items-center gap-2"
                                     disabled={isUpdateDisabled}
                                 >
                                     {loading ? (

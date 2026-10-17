@@ -33,7 +33,7 @@ export default function DeleteConfirmationModal({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-all duration-300">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95 animate-fade-in">
-                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
+                <div className="bg-red-600 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
                     <div>
                         <h2 className="text-xl font-bold">{title}</h2>
                     </div>
@@ -119,7 +119,7 @@ export default function DeleteConfirmationModal({
                         type="button"
                         onClick={handleConfirm}
                         disabled={otp.length !== 6 || loading || confirming}
-                        className="px-6 py-3 text-sm font-medium bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-6 py-3 text-sm font-medium bg-red-600 text-white rounded-lg transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {confirming || loading ? (
                             <FiLoader className="w-4 h-4 animate-spin" />

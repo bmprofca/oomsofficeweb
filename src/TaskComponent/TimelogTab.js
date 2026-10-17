@@ -380,7 +380,7 @@ const TimelogTab = ({
             {/* Add custom styles for datepicker */}
             <style>{datePickerStyles}</style>
             
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div>
@@ -391,8 +391,6 @@ const TimelogTab = ({
                     <motion.button
                         onClick={() => setShowCreateModal(true)}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors duration-200 font-medium shadow-sm hover:shadow"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
                         disabled={submitting}
                     >
                         <FiPlus className="w-4 h-4" />
@@ -441,7 +439,7 @@ const TimelogTab = ({
                                                 animate={{ opacity: 1 }}
                                                 exit={{ opacity: 0 }}
                                                 transition={{ delay: index * 0.05 }}
-                                                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                                                className="border-b border-gray-100 hover:bg-slate-50 transition-colors"
                                             >
                                                 <td className="px-4 py-3">
                                                     {((pagination.page_no - 1) * pagination.limit) + index + 1}
@@ -477,9 +475,7 @@ const TimelogTab = ({
                                                     <div className="flex items-center justify-center">
                                                         <motion.button
                                                             onClick={() => setActiveMenu(activeMenu === log.timelog_id ? null : log.timelog_id)}
-                                                            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                            whileHover={{ scale: 1.1 }}
-                                                            whileTap={{ scale: 0.9 }}
+                                                            className="p-1.5 text-gray-600 hover:bg-slate-100 rounded-lg transition-colors"
                                                         >
                                                             <FiMoreVertical className="w-4 h-4" />
                                                         </motion.button>
@@ -488,18 +484,18 @@ const TimelogTab = ({
                                                         {activeMenu === log.timelog_id && (
                                                             <div 
                                                                 ref={menuRef}
-                                                                className="absolute right-0 top-10 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10"
+                                                                className="absolute right-0 top-10 mt-1 w-32 bg-white rounded-xl shadow-pop border border-slate-200 py-1 z-10"
                                                             >
                                                                 <button
                                                                     onClick={() => openViewModal(log)}
-                                                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-slate-50 flex items-center gap-2"
                                                                 >
                                                                     <FiEye className="w-3.5 h-3.5" />
                                                                     View
                                                                 </button>
                                                                 <button
                                                                     onClick={() => openEditModal(log)}
-                                                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-slate-50 flex items-center gap-2"
                                                                 >
                                                                     <FiEdit className="w-3.5 h-3.5" />
                                                                     Edit
@@ -648,8 +644,6 @@ const TimelogTab = ({
                                             type="submit"
                                             disabled={submitting}
                                             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
                                         >
                                             {submitting ? (
                                                 <>
@@ -783,8 +777,6 @@ const TimelogTab = ({
                                             type="submit"
                                             disabled={submitting}
                                             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
                                         >
                                             {submitting ? (
                                                 <>
@@ -872,7 +864,7 @@ const TimelogTab = ({
                                 <div className="flex justify-end p-6 border-t border-gray-100 bg-gray-50">
                                     <button
                                         onClick={() => setShowViewModal(false)}
-                                        className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
+                                        className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-slate-50 transition-colors border border-gray-200"
                                     >
                                         Close
                                     </button>

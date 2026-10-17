@@ -36,7 +36,7 @@ export function PreviewTable({
             <col className="w-[14%]" />
             <col className="w-20" />
           </colgroup>
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               {[
                 "#",
@@ -70,7 +70,7 @@ export function PreviewTable({
               rows.map((row, idx) => (
                 <tr
                   key={row.id}
-                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50/80"
+                  className="border-b border-gray-100 last:border-0 hover:bg-slate-50/80"
                 >
                   <td className="px-3 py-2.5 text-xs font-semibold text-gray-700 tabular-nums align-top">
                     {idx + 1}

@@ -4,8 +4,8 @@ import { createPortal } from "react-dom";
 import { Sidebar, Header } from "../components/header";
 import { useNavigate } from "react-router-dom";
 import {
-  FiUsers,
-  FiUserCheck,
+  FiDownload,
+  
   FiUserPlus,
   FiFileText,
   FiPlus,
@@ -13,7 +13,6 @@ import {
   FiSearch,
   FiX,
   FiUser,
-  FiLoader,
   FiCheckCircle,
   FiTrash2,
   FiClock,
@@ -24,30 +23,23 @@ import {
   FiGrid,
   FiMail,
   FiPhone,
-  FiTrendingUp,
-  FiTrendingDown,
+  
   FiMessageSquare,
-  FiPrinter,
   FiFilter,
-  FiMoreHorizontal,
-  FiArrowRight,
-  FiArrowLeft,
-  FiCalendar,
-  FiBriefcase,
+  
+  
+  
+  
   FiMove,
   FiSave,
-  FiList,
   FiRefreshCw,
-  FiExternalLink,
   FiAlertCircle,
   FiCheckSquare,
   FiFile,
   FiArchive,
   FiBell,
 } from "react-icons/fi";
-import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
-import { AiOutlineMail } from "react-icons/ai";
 import { FaFileCsv } from "react-icons/fa";
 import ClientDeleteConfirmModal from "../components/Modals/ClientDeleteConfirmModal";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,12 +48,12 @@ import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import TablePagination from "../components/TablePagination";
 import useDebounce from "../components/useDebounce";
-import ExportModal from "../ClientComponents/ExportModal";
+import ExportDialog from "../components/ExportDialog";
 import toast from "react-hot-toast";
 import { useUserPermissions } from "../utils/permission-helper";
+import { useClientCreate } from "../context/ClientCreateProvider";
 import ClientPaymentReminderModal from "../components/Modals/ClientPaymentReminderModal";
 import { ClientListCallButton } from "../components/Call/ClickToCall";
-
 import FirmsDetailsModal from "../components/Modals/FirmsDetailsModal";
 
 // Import DnD Kit
@@ -83,7 +75,6 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
 const AnimatedCheckbox = ({
   checked,
   indeterminate = false,
@@ -92,15 +83,12 @@ const AnimatedCheckbox = ({
   disabled = false,
 }) => {
   const inputRef = useRef(null);
-
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.indeterminate = indeterminate;
     }
   }, [indeterminate, checked]);
-
   const isActive = checked || indeterminate;
-
   return (
     <label
       className={`relative inline-flex items-center group ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
@@ -118,7 +106,7 @@ const AnimatedCheckbox = ({
         className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
           isActive
             ? "border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200"
-            : "border-gray-300 bg-white group-hover:border-indigo-400"
+            : "border-slate-200 bg-white group-hover:border-indigo-400"
         }`}
         animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
         transition={{ duration: 0.18 }}
@@ -159,7 +147,6 @@ const AnimatedCheckbox = ({
     </label>
   );
 };
-
 const ClientActionMenuItems = ({
   client,
   onClose,
@@ -177,10 +164,8 @@ const ClientActionMenuItems = ({
         : `/client/profile/${encodeURIComponent(username)}`,
     );
   };
-
   const itemClass =
-    "flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50";
-
+    "flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-slate-50";
   return (
     <div className="py-1">
       <button type="button" onClick={() => go()} className={itemClass}>
@@ -259,9 +244,7 @@ const StatusChangeModal = ({
   statusOptions,
 }) => {
   const [selectedStatus, setSelectedStatus] = useState(currentStatus);
-
   if (!isOpen) return null;
-
   const getStatusColor = (status) => {
     switch (status) {
       case "ACTIVE":
@@ -271,10 +254,9 @@ const StatusChangeModal = ({
       case "PENDING":
         return "bg-yellow-100 text-yellow-700 border-yellow-300";
       default:
-        return "bg-gray-100 text-gray-700 border-gray-300";
+        return "bg-gray-100 text-gray-700 border-slate-200";
     }
   };
-
   const getStatusIcon = (status) => {
     switch (status) {
       case "ACTIVE":
@@ -287,12 +269,10 @@ const StatusChangeModal = ({
         return <FiClock className="w-4 h-4" />;
     }
   };
-
   const handleConfirm = () => {
     onStatusChange(clientId, selectedStatus);
     onClose();
   };
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -311,7 +291,7 @@ const StatusChangeModal = ({
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3">
+            <div className="bg-blue-600 text-white px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
@@ -327,8 +307,6 @@ const StatusChangeModal = ({
                 <motion.button
                   onClick={onClose}
                   className="text-white hover:text-blue-200 transition-colors p-1 rounded-lg hover:bg-white/10"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
                 >
                   <FiX className="w-4 h-4" />
                 </motion.button>
@@ -361,8 +339,6 @@ const StatusChangeModal = ({
                       key={status.value}
                       onClick={() => setSelectedStatus(status.value)}
                       className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all ${selectedStatus === status.value ? "ring-1 ring-blue-500 ring-offset-1 " : ""} ${getStatusColor(status.value)}`}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
                     >
                       <div className="flex items-center gap-2">
                         {getStatusIcon(status.value)}
@@ -382,17 +358,13 @@ const StatusChangeModal = ({
             <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2">
               <motion.button
                 onClick={onClose}
-                className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm"
               >
                 Cancel
               </motion.button>
               <motion.button
                 onClick={handleConfirm}
-                className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium text-sm"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-medium text-sm"
               >
                 Update
               </motion.button>
@@ -401,33 +373,6 @@ const StatusChangeModal = ({
         </motion.div>
       )}
     </AnimatePresence>
-  );
-};
-
-// View Mode Toggle Component (keep your existing code)
-const TableViewSwitch = ({ viewMode, setViewMode }) => {
-  return (
-    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-      <motion.button
-        onClick={() => setViewMode("table")}
-        className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === "table" ? "bg-white shadow-sm text-blue-600" : "text-gray-600 hover:text-gray-800"}`}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <FiList className="w-4 h-4" />
-        <span className="text-xs font-medium hidden sm:inline">Table</span>
-      </motion.button>
-
-      <motion.button
-        onClick={() => setViewMode("card")}
-        className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === "card" ? "bg-white shadow-sm text-blue-600" : "text-gray-600 hover:text-gray-800"}`}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <FiGrid className="w-4 h-4" />
-        <span className="text-xs font-medium hidden sm:inline">Cards</span>
-      </motion.button>
-    </div>
   );
 };
 
@@ -447,8 +392,6 @@ const ClientFetchError = ({ message, onRetry }) => (
           type="button"
           onClick={onRetry}
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
         >
           <FiRefreshCw className="w-4 h-4" />
           Try again
@@ -457,7 +400,6 @@ const ClientFetchError = ({ message, onRetry }) => (
     </div>
   </div>
 );
-
 const getFetchErrorMessage = (error) => {
   if (axios.isCancel?.(error) || error?.code === "ERR_CANCELED") {
     return null;
@@ -512,7 +454,7 @@ const ClientTable = ({
         <div className="h-4 bg-gray-200 rounded w-4"></div>
       </div>
       {columnConfig.map((column, index) => (
-        <div key={index} className="hidden md:block flex-1 p-2">
+        <div key={index} className="flex-1 p-2">
           <div className="space-y-1">
             {column.items &&
               column.items.map((item, itemIndex) => (
@@ -528,142 +470,12 @@ const ClientTable = ({
       ))}
     </div>
   );
-
-  const MobileClientCard = ({
-    client,
-    index,
-    handleExport,
-    showFirmsModal,
-  }) => {
-    const getLastUpdatedFirm = () => {
-      if (!client.firms || client.firms.length === 0) return null;
-
-      const sortedFirms = [...client.firms].sort((a, b) => {
-        const dateA = a.modify_date || a.create_date;
-        const dateB = b.modify_date || b.create_date;
-        return new Date(dateB) - new Date(dateA);
-      });
-
-      return sortedFirms[0];
-    };
-
-    const lastFirm = getLastUpdatedFirm();
-
-    return (
-      <motion.div
-        className="bg-white border border-gray-200 rounded-lg p-3 mb-2 md:hidden"
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <AnimatedCheckbox
-              checked={selectedClients.has(client._id)}
-              onChange={() => handleClientSelect(client._id)}
-              ariaLabel={`Select ${client.name || "client"}`}
-            />
-            <div className="font-bold text-gray-800 text-sm w-4">
-              {index + 1}
-            </div>
-            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <FiUser className="w-3.5 h-3.5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-gray-800 text-sm truncate">
-                {client.name || "N/A"}
-              </div>
-              <div className="text-xs text-gray-500 truncate leading-tight">
-                {client.guardian_name || "N/A"}
-              </div>
-              {client.pan_number ? (
-                <div className="text-xs text-gray-500 font-mono truncate leading-tight">
-                  PAN: {client.pan_number}
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="relative dropdown-container">
-            <motion.button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleRowDropdown(client._id, e);
-              }}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <div className="flex flex-col items-center justify-center space-y-0.5">
-                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-              </div>
-            </motion.button>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gray-700 text-sm">
-              <FiPhone className="w-3 h-3 text-gray-400" />
-              <span>{client.mobile || "N/A"}</span>
-              <ClientListCallButton
-                phoneNumber={client.mobile}
-                countryCode={client.country_code}
-                displayName={client.name}
-                clientUsername={client.username}
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    `/client/profile/${encodeURIComponent(client.username)}/ledger`,
-                  )
-                }
-                className={`text-sm font-semibold ${client.balance < 0 ? "text-red-600" : "text-green-600"}`}
-                title="View ledger"
-              >
-                {check("task_fees_view") ? (
-                  `${Number(client.balance || 0) < 0 ? "-" : ""}₹${Math.abs(client.balance || 0).toLocaleString()}`
-                ) : (
-                  <span className="blur-[3.5px] select-none">₹99,999</span>
-                )}
-              </button>
-              {Number(client.balance) > 0 && (
-                <button
-                  type="button"
-                  onClick={() => openClientPaymentReminderModal(client)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
-                  title="Send payment reminder"
-                  aria-label={`Send payment reminder to ${client.name || client.username}`}
-                >
-                  <FiBell className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-gray-700 text-sm">
-            <FiUsers className="w-3 h-3 text-gray-400" />
-            <span>{client.firms?.length || 0} firms</span>
-          </div>
-
-          {lastFirm && (
-            <div className="text-xs text-gray-700 bg-gray-50 rounded p-2 border border-gray-200">
-              <div className="font-semibold mb-1">Latest Firm:</div>
-              <div>{lastFirm.firm_name || "N/A"}</div>
-            </div>
-          )}
-        </div>
-      </motion.div>
-    );
-  };
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="hidden md:block border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10">
-        <div className="flex items-center min-w-max bg-white">
+      <div className="flex-1 overflow-auto">
+      <div className="min-w-[960px]">
+      <div className="border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
+        <div className="flex items-center bg-slate-50">
           <div className="w-12 p-3 flex-shrink-0 flex justify-center">
             <AnimatedCheckbox
               checked={selectAll}
@@ -676,14 +488,14 @@ const ClientTable = ({
             />
           </div>
 
-          <div className="w-12 p-3 font-bold text-gray-700 text-xs flex-shrink-0 text-center border-l border-gray-100">
+          <div className="w-12 p-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider flex-shrink-0 text-center border-l border-slate-200">
             #
           </div>
 
           {columnConfig.map((column) => (
             <div
               key={column.id}
-              className="p-3 font-semibold text-gray-700 text-xs flex-1 min-w-0 text-center border-l border-gray-100"
+              className="p-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider flex-1 min-w-0 text-left border-l border-slate-200"
               style={{
                 flex:
                   column.id === "1"
@@ -703,29 +515,9 @@ const ClientTable = ({
         </div>
       </div>
 
-      <div className="md:hidden border-b border-gray-200 bg-white px-3 py-2 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AnimatedCheckbox
-              checked={selectAll}
-              indeterminate={
-                selectedClients.size > 0 &&
-                selectedClients.size < clients.length
-              }
-              onChange={handleSelectAll}
-              ariaLabel="Select all clients"
-            />
-            <span className="font-semibold text-gray-800 text-sm">Clients</span>
-          </div>
-          <span className="text-xs text-gray-600">
-            {clients.length} clients
-          </span>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div>
         {loading ? (
-          <div className="md:min-w-max">
+          <div>
             {Array.from({ length: 6 }).map((_, index) => (
               <SkeletonRow key={index} />
             ))}
@@ -747,24 +539,12 @@ const ClientTable = ({
             </div>
           </div>
         ) : (
-          <div className="md:min-w-max">
-            <div className="md:hidden px-3 py-1">
-              {clients.map((client, index) => (
-                <MobileClientCard
-                  key={client._id}
-                  client={client}
-                  index={index}
-                  handleExport={handleExport}
-                  showFirmsModal={showFirmsModal}
-                />
-              ))}
-            </div>
-
-            <div className="hidden md:block">
+          <div>
+            <div>
               {clients.map((client, index) => (
                 <motion.div
                   key={client._id}
-                  className="flex items-center border-b border-gray-100 hover:bg-gray-50 transition-colors group bg-white"
+                  className="flex items-center border-b border-gray-100 hover:bg-slate-50 transition-colors group bg-white"
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.03 }}
@@ -819,255 +599,57 @@ const ClientTable = ({
           </div>
         )}
       </div>
+      </div>
+      </div>
     </div>
   );
 };
 
-// Client Cards Component (keep your existing code)
-const ClientCards = ({
-  clients,
-  selectedClients,
-  handleClientSelect,
-  columnConfig,
-  renderCellContent,
-  loading,
-  fetchError,
-  onRetryFetch,
-  toggleRowDropdown,
-  activeRowDropdown,
-  setActiveRowDropdown,
-  handleStatusChange,
-  statusOptions,
-  openStatusModal,
-  navigate,
-  handleExport,
-  showFirmsModal,
-  openClientPaymentReminderModal,
-  onDeleteClient,
-}) => {
-  const { check } = useUserPermissions();
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-green-100 text-green-700";
-      case "INACTIVE":
-        return "bg-red-100 text-red-700";
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
 
-  const formatBalance = (balance) => {
-    if (!check("task_fees_view")) {
-      return <span className="blur-[3.5px] select-none">₹99,999</span>;
-    }
-    const amount = Number(balance || 0);
-    return `${amount < 0 ? "-" : ""}₹${Math.abs(amount).toLocaleString()}`;
-  };
-
-  const getLastUpdatedFirm = (firms) => {
-    if (!firms || firms.length === 0) return null;
-
-    const sortedFirms = [...firms].sort((a, b) => {
-      const dateA = a.modify_date || a.create_date;
-      const dateB = b.modify_date || b.create_date;
-      return new Date(dateB) - new Date(dateA);
-    });
-
-    return sortedFirms[0];
-  };
-
-  const SkeletonCard = () => (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="h-3 bg-gray-200 rounded w-24 mb-2"></div>
-          <div className="h-3 bg-gray-200 rounded w-20"></div>
-        </div>
-        <div className="h-5 bg-gray-200 rounded w-16"></div>
-      </div>
-      <div className="space-y-2">
-        <div className="h-3 bg-gray-200 rounded w-full"></div>
-        <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="p-3 md:p-4">
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <SkeletonCard key={index} />
-          ))}
-        </div>
-      ) : fetchError ? (
-        <ClientFetchError message={fetchError} onRetry={onRetryFetch} />
-      ) : clients.length === 0 ? (
-        <div className="flex items-center justify-center py-8 text-gray-500 px-4">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <FiUser className="w-6 h-6 text-gray-400" />
-            </div>
-            <p className="text-gray-500 font-medium text-sm">
-              No clients found
-            </p>
-            <p className="text-gray-400 text-xs mt-1">
-              Try adjusting your search or filters
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {clients.map((client, index) => {
-            const lastFirm = getLastUpdatedFirm(client.firms);
-
-            return (
-              <motion.div
-                key={client._id}
-                className={`bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 overflow-hidden ${selectedClients.has(client._id) ? "ring-2 ring-blue-500" : ""}`}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <div className="p-3 border-b border-gray-100">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <AnimatedCheckbox
-                          checked={selectedClients.has(client._id)}
-                          onChange={() => handleClientSelect(client._id)}
-                          ariaLabel={`Select ${client.name || "client"}`}
-                        />
-                        <div className="font-bold text-gray-800 text-xs w-4">
-                          {index + 1}
-                        </div>
-                        <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-                          <FiUser className="w-3.5 h-3.5 text-white" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-gray-800 text-xs truncate">
-                            {client.name || "N/A"}
-                          </h3>
-                        </div>
-                      </div>
-                      <h4 className="font-bold text-gray-800 text-sm truncate leading-tight">
-                        {client.guardian_name || "N/A"}
-                      </h4>
-                      {client.pan_number ? (
-                        <p className="text-xs text-gray-500 font-mono truncate leading-tight">
-                          PAN: {client.pan_number}
-                        </p>
-                      ) : null}
-                      <p className="text-gray-600 text-xs truncate">
-                        {client.firms?.length || 0} firms
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="relative dropdown-container">
-                        <motion.button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleRowDropdown(client._id, e);
-                          }}
-                          className="w-6 h-6 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                          <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                          <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                        </motion.button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-gray-700 text-xs">
-                        <FiPhone className="w-3 h-3 text-gray-400" />
-                        <span>{client.mobile || "N/A"}</span>
-                        <ClientListCallButton
-                          phoneNumber={client.mobile}
-                          countryCode={client.country_code}
-                          displayName={client.name}
-                          clientUsername={client.username}
-                          className="h-6 w-6"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/client/profile/${encodeURIComponent(client.username)}/ledger`,
-                            )
-                          }
-                          className={`text-xs font-semibold ${(client.balance || 0) < 0 ? "text-red-600" : "text-green-600"}`}
-                          title="View ledger"
-                        >
-                          {formatBalance(client.balance)}
-                        </button>
-                        {Number(client.balance) > 0 && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openClientPaymentReminderModal(client)
-                            }
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
-                            title="Send payment reminder"
-                            aria-label={`Send payment reminder to ${client.name || client.username}`}
-                          >
-                            <FiBell className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-gray-700">
-                      <div className="font-medium mb-1">
-                        Firms ({client.firms?.length || 0}):
-                      </div>
-                      {lastFirm && (
-                        <div
-                          className="text-xs bg-gray-50 rounded p-1 border border-gray-200 mb-1 cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() =>
-                            showFirmsModal(client.firms, client.name)
-                          }
-                        >
-                          <div className="font-semibold">
-                            {lastFirm.firm_name || "N/A"}
-                          </div>
-                        </div>
-                      )}
-
-                      {client.firms && client.firms.length > 1 && (
-                        <div
-                          className="text-blue-600 font-medium text-xs mt-1 cursor-pointer hover:text-blue-700 transition-colors"
-                          onClick={() =>
-                            showFirmsModal(client.firms, client.name)
-                          }
-                        >
-                          +{client.firms.length - 1} more firm
-                          {client.firms.length - 1 > 1 ? "s" : ""}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
+// Normalise one /client/list record into the shape the table and export use
+const normalizeClientRecord = (client, index) => ({
+  _id:
+    client.profile_id ||
+    client._id ||
+    client.id ||
+    `temp-${index}-${Date.now()}`,
+  id:
+    client.profile_id ||
+    client._id ||
+    client.id ||
+    `temp-${index}-${Date.now()}`,
+  username:
+    client.username ||
+    client.email ||
+    client.user_name ||
+    `user${index + 1}`,
+  name:
+    client.name ||
+    client.full_name ||
+    client.client_name ||
+    `Client ${index + 1}`,
+  guardian_name:
+    client.guardian_name ||
+    client.father_name ||
+    client.guardian ||
+    "N/A",
+  pan_number:
+    client.pan_number || client.pan || client.pan_no || "",
+  mobile:
+    client.mobile || client.phone || client.contact_number || "N/A",
+  status:
+    client.status === "1" ||
+    client.status === "ACTIVE" ||
+    client.active
+      ? "ACTIVE"
+      : "INACTIVE",
+  balance:
+    parseFloat(client.balance) ||
+    parseFloat(client.outstanding) ||
+    0,
+  firms: client.firms || [],
+  firm_count: client.firms ? client.firms.length : 0,
+});
 
 // Main ViewClients Component
 const ViewClients = () => {
@@ -1090,11 +672,6 @@ const ViewClients = () => {
   const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
   const [activeRowDropdown, setActiveRowDropdown] = useState(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const [exportModal, setExportModal] = useState({
-    open: false,
-    type: "",
-    data: null,
-  });
   const navigate = useNavigate();
   const [deleteModal, setDeleteModal] = useState({
     open: false,
@@ -1109,7 +686,6 @@ const ViewClients = () => {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [activeDragId, setActiveDragId] = useState(null);
   const [activeItemDragId, setActiveItemDragId] = useState(null);
-  const [viewMode, setViewMode] = useState("table");
   const [isMobile, setIsMobile] = useState(false);
   const [statusModal, setStatusModal] = useState({
     open: false,
@@ -1121,7 +697,6 @@ const ViewClients = () => {
     firms: [],
     clientName: "",
   });
-
   const [clientPaymentReminder, setClientPaymentReminder] = useState({
     open: false,
     clients: [],
@@ -1129,9 +704,7 @@ const ViewClients = () => {
   });
 
   // Export Modal State
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportData, setExportData] = useState([]);
-  const [exportColumns, setExportColumns] = useState([]);
+  const [exportDialog, setExportDialog] = useState({ open: false, format: "excel" });
 
   // Pagination state based on API structure
   const [clients, setClients] = useState([]);
@@ -1148,7 +721,6 @@ const ViewClients = () => {
     right: 0,
     openUpward: false,
   });
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -1159,7 +731,6 @@ const ViewClients = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-
   useEffect(() => {
     if (selectAllAcrossPages) {
       setSelectAll(true);
@@ -1184,11 +755,9 @@ const ViewClients = () => {
         setLoading(false);
         return;
       }
-
       try {
         setLoading(true);
         setFetchError(null);
-
         const params = new URLSearchParams({
           search: search || "",
           page: page.toString(),
@@ -1196,7 +765,6 @@ const ViewClients = () => {
           ...(selectedStatus && { status: selectedStatus }),
           ...(selectedGroup && { group: selectedGroup }),
         });
-
         const response = await axios.get(
           `${API_BASE_URL}/client/list?${params}`,
           {
@@ -1205,9 +773,7 @@ const ViewClients = () => {
             signal,
           },
         );
-
         if (signal?.aborted) return;
-
         if (response.data) {
           let clientsData = [];
           let paginationData = {
@@ -1217,7 +783,6 @@ const ViewClients = () => {
             total_pages: 1,
             is_last_page: true,
           };
-
           if (response.data.pagination && Array.isArray(response.data.data)) {
             clientsData = response.data.data;
             paginationData = response.data.pagination;
@@ -1238,53 +803,9 @@ const ViewClients = () => {
               is_last_page: true,
             };
           }
-
-          const transformedClients = clientsData.map((client, index) => {
-            return {
-              _id:
-                client.profile_id ||
-                client._id ||
-                client.id ||
-                `temp-${index}-${Date.now()}`,
-              id:
-                client.profile_id ||
-                client._id ||
-                client.id ||
-                `temp-${index}-${Date.now()}`,
-              username:
-                client.username ||
-                client.email ||
-                client.user_name ||
-                `user${index + 1}`,
-              name:
-                client.name ||
-                client.full_name ||
-                client.client_name ||
-                `Client ${index + 1}`,
-              guardian_name:
-                client.guardian_name ||
-                client.father_name ||
-                client.guardian ||
-                "N/A",
-              pan_number:
-                client.pan_number || client.pan || client.pan_no || "",
-              mobile:
-                client.mobile || client.phone || client.contact_number || "N/A",
-              status:
-                client.status === "1" ||
-                client.status === "ACTIVE" ||
-                client.active
-                  ? "ACTIVE"
-                  : "INACTIVE",
-              balance:
-                parseFloat(client.balance) ||
-                parseFloat(client.outstanding) ||
-                0,
-              firms: client.firms || [],
-              firm_count: client.firms ? client.firms.length : 0,
-            };
-          });
-
+          const transformedClients = clientsData.map((client, index) =>
+            normalizeClientRecord(client, index),
+          );
           setClients(transformedClients);
           setPagination(paginationData);
           setFetchError(null);
@@ -1321,10 +842,8 @@ const ViewClients = () => {
     },
     [searchQuery, selectedStatus, selectedGroup],
   );
-
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const clientsAbortRef = useRef(null);
-
   const requestClients = useCallback(
     (page = 1, limit = 20, search = debouncedSearchQuery) => {
       if (clientsAbortRef.current) {
@@ -1339,24 +858,19 @@ const ViewClients = () => {
     },
     [fetchClients, debouncedSearchQuery],
   );
-
   useEffect(() => {
     const checkIfMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-
     checkIfMobile();
     window.addEventListener("resize", checkIfMobile);
-
     return () => {
       window.removeEventListener("resize", checkIfMobile);
     };
   }, []);
-
   useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
   }, [isMinimized]);
-
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = "hidden";
@@ -1367,7 +881,6 @@ const ViewClients = () => {
       document.body.style.overflow = "auto";
     };
   }, [mobileMenuOpen]);
-
   useEffect(() => {
     requestClients(1, pagination.limit, debouncedSearchQuery);
     return () => {
@@ -1377,17 +890,23 @@ const ViewClients = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchQuery, selectedStatus, selectedGroup, requestClients]);
-
+  // Refresh the list when a client is created from the global "New client" modal.
+  const { openClientCreate } = useClientCreate();
+  const refreshAfterCreateRef = useRef(null);
+  refreshAfterCreateRef.current = () => requestClients(1, pagination.limit, debouncedSearchQuery);
+  useEffect(() => {
+    const onCreated = () => refreshAfterCreateRef.current?.();
+    window.addEventListener("ooms:client-created", onCreated);
+    return () => window.removeEventListener("ooms:client-created", onCreated);
+  }, []);
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > pagination.total_pages) return;
     requestClients(newPage, pagination.limit);
   };
-
   const handleLimitChange = (newLimit) => {
     setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
     requestClients(1, newLimit);
   };
-
   const availableFields = [
     { id: "id", label: "ID", type: "text" },
     { id: "username", label: "Username", type: "text" },
@@ -1401,7 +920,6 @@ const ViewClients = () => {
     { id: "file_no", label: "File No", type: "text" },
     { id: "actions", label: "Actions", type: "actions" },
   ];
-
   const defaultColumnConfig = [
     {
       id: "1",
@@ -1430,7 +948,6 @@ const ViewClients = () => {
       fixed: true,
     },
   ];
-
   useEffect(() => {
     const savedConfig = localStorage.getItem("clientColumnConfig");
     if (savedConfig) {
@@ -1451,18 +968,15 @@ const ViewClients = () => {
       setColumnConfig(defaultColumnConfig);
     }
   }, []);
-
   const saveColumnConfig = (config) => {
     setColumnConfig(config);
     localStorage.setItem("clientColumnConfig", JSON.stringify(config));
   };
-
   const [statusOptions] = useState([
     { value: "ACTIVE", name: "Active" },
     { value: "INACTIVE", name: "Inactive" },
     { value: "PENDING", name: "Pending" },
   ]);
-
   const [groupOptions] = useState([
     { value: "gst", name: "GST" },
     { value: "itr", name: "ITR" },
@@ -1470,23 +984,22 @@ const ViewClients = () => {
   ]);
 
   // Prepare data for export - Uses existing clients state
-  const prepareExportData = () => {
+  const prepareExportData = (sourceClients = null) => {
     const exportDataList = [];
     const exportColumnsConfig = [];
 
     // Use already fetched clients data from state
-    const clientsToExport =
-      selectedClients.size > 0
+    const clientsToExport = Array.isArray(sourceClients)
+      ? sourceClients
+      : selectedClients.size > 0
         ? clients.filter((client) => selectedClients.has(client._id))
         : clients;
 
     // Build columns from visible column config
     const visibleColumns = columnConfig;
-
     visibleColumns.forEach((col) => {
       col.items.forEach((item) => {
         if (item.id === "actions") return;
-
         exportColumnsConfig.push({
           header: item.label,
           key: item.id,
@@ -1498,11 +1011,9 @@ const ViewClients = () => {
     // Build data rows from clients state
     clientsToExport.forEach((client) => {
       const row = {};
-
       visibleColumns.forEach((col) => {
         col.items.forEach((item) => {
           if (item.id === "actions") return;
-
           let value = "";
           switch (item.id) {
             case "name":
@@ -1555,27 +1066,64 @@ const ViewClients = () => {
       });
       exportDataList.push(row);
     });
-
     return { data: exportDataList, columns: exportColumnsConfig };
   };
-
-  const handleExportClick = () => {
-    const { data, columns } = prepareExportData();
-
-    if (data.length === 0) {
-      toast.error("No data to export");
-      return;
+  const handleExportClick = (format = "excel") => {
+    setShowMoreMenu(false);
+    setExportDialog({
+      open: true,
+      format: ["excel", "csv", "pdf"].includes(format) ? format : "excel",
+    });
+  };
+  const handleExport = (type) => {
+    handleExportClick(type === "pdf" || type === "csv" ? type : "excel");
+  };
+  // Fetch every client matching the current search/filters, 100 per request
+  const fetchAllClientsForExport = async (onProgress) => {
+    const headers = getHeaders();
+    const all = [];
+    let page = 1;
+    let total = Number(pagination.total) || 0;
+    for (let guard = 0; guard < 500; guard += 1) {
+      const params = new URLSearchParams({
+        search: debouncedSearchQuery || "",
+        page: String(page),
+        limit: "100",
+        ...(selectedStatus && { status: selectedStatus }),
+        ...(selectedGroup && { group: selectedGroup }),
+      });
+      const response = await axios.get(`${API_BASE_URL}/client/list?${params}`, {
+        headers,
+        timeout: 120000,
+      });
+      const payload = response.data || {};
+      const rows = Array.isArray(payload.data)
+        ? payload.data
+        : Array.isArray(payload.data?.clients)
+          ? payload.data.clients
+          : [];
+      const pg = payload.pagination || payload.data?.pagination || {};
+      total = Number(pg.total) || total;
+      rows.forEach((row, i) => all.push(normalizeClientRecord(row, all.length + i)));
+      onProgress?.(all.length, total || all.length);
+      if (!rows.length || pg.is_last_page || all.length >= total) break;
+      page += 1;
     }
-
-    setExportData(data);
-    setExportColumns(columns);
-    setExportModalOpen(true);
+    return all;
   };
-
-  const handleExport = (type, data = null) => {
-    handleExportClick();
+  const buildClientExportRows = async (scope, onProgress) => {
+    let list;
+    if (scope === "selected") {
+      list = selectAllAcrossPages
+        ? await fetchAllClientsForExport(onProgress)
+        : clients.filter((client) => selectedClients.has(client._id));
+    } else if (scope === "all") {
+      list = await fetchAllClientsForExport(onProgress);
+    } else {
+      list = clients;
+    }
+    return prepareExportData(list);
   };
-
   const handleClientSelect = (clientId) => {
     const newSelected = selectAllAcrossPages
       ? new Set(clients.map((client) => client._id))
@@ -1587,13 +1135,11 @@ const ViewClients = () => {
       newSelected.add(clientId);
     }
     setSelectedClients(newSelected);
-
     if (clients.length > 0) {
       const allSelected = newSelected.size === clients.length;
       setSelectAll(allSelected);
     }
   };
-
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedClients(new Set());
@@ -1604,7 +1150,6 @@ const ViewClients = () => {
     setSelectAllAcrossPages(false);
     setSelectAll(!selectAll);
   };
-
   const formatBalance = (balance) => {
     if (!check("task_fees_view")) {
       return <span className="blur-[3.5px] select-none">₹99,999</span>;
@@ -1612,7 +1157,6 @@ const ViewClients = () => {
     const amount = Number(balance || 0);
     return `${amount < 0 ? "-" : ""}₹${Math.abs(amount).toLocaleString()}`;
   };
-
   const handleStatusChange = (clientId, newStatus) => {
     setClients((prev) =>
       prev.map((client) =>
@@ -1620,7 +1164,6 @@ const ViewClients = () => {
       ),
     );
   };
-
   const openStatusModal = (clientId, currentStatus) => {
     setStatusModal({
       open: true,
@@ -1628,7 +1171,6 @@ const ViewClients = () => {
       currentStatus,
     });
   };
-
   const closeStatusModal = () => {
     setStatusModal({
       open: false,
@@ -1636,7 +1178,6 @@ const ViewClients = () => {
       currentStatus: "",
     });
   };
-
   const openFirmsModal = (firms, clientName) => {
     setFirmsModal({
       open: true,
@@ -1644,7 +1185,6 @@ const ViewClients = () => {
       clientName,
     });
   };
-
   const closeFirmsModal = () => {
     setFirmsModal({
       open: false,
@@ -1652,7 +1192,6 @@ const ViewClients = () => {
       clientName: "",
     });
   };
-
   const closeDeleteModal = () => {
     setDeleteModal({
       open: false,
@@ -1665,14 +1204,12 @@ const ViewClients = () => {
       error: null,
     });
   };
-
   const sendClientDeleteOtp = async (username, name = "") => {
     const headers = getHeaders();
     if (!headers) {
       toast.error("Please log in again");
       return false;
     }
-
     setDeleteModal((prev) => ({
       ...prev,
       open: true,
@@ -1683,18 +1220,15 @@ const ViewClients = () => {
       destinationMasked: null,
       error: null,
     }));
-
     try {
       const response = await axios.post(
         `${API_BASE_URL}/client/delete/send-otp`,
         { username },
         { headers },
       );
-
       if (!response.data?.success) {
         throw new Error(response.data?.message || "Failed to send OTP");
       }
-
       setDeleteModal((prev) => ({
         ...prev,
         sending: false,
@@ -1724,7 +1258,6 @@ const ViewClients = () => {
       return false;
     }
   };
-
   const openDeleteClientModal = async (client) => {
     const username = String(client?.username || "").trim();
     if (!username) {
@@ -1734,13 +1267,11 @@ const ViewClients = () => {
     setActiveRowDropdown(null);
     await sendClientDeleteOtp(username, client?.name || username);
   };
-
   const handleConfirmClientDelete = async ({ confirmed, otp }) => {
     if (!confirmed) {
       closeDeleteModal();
       return;
     }
-
     const username = deleteModal.username;
     if (!username) {
       setDeleteModal((prev) => ({
@@ -1750,7 +1281,6 @@ const ViewClients = () => {
       }));
       return;
     }
-
     const headers = getHeaders();
     if (!headers) {
       setDeleteModal((prev) => ({
@@ -1760,18 +1290,15 @@ const ViewClients = () => {
       }));
       return;
     }
-
     setDeleteModal((prev) => ({ ...prev, confirming: true, error: null }));
     try {
       const response = await axios.delete(`${API_BASE_URL}/client/delete`, {
         headers,
         data: { username, otp },
       });
-
       if (!response.data?.success) {
         throw new Error(response.data?.message || "Failed to delete client");
       }
-
       toast.success(response.data?.message || "Client deleted successfully");
       closeDeleteModal();
       setSelectedClients((prev) => {
@@ -1793,13 +1320,11 @@ const ViewClients = () => {
       }));
     }
   };
-
   const openPaymentReminderModal = () => {
     if (selectAllAcrossPages) {
       setClientPaymentReminder({ open: true, clients: [], isAll: true });
       return;
     }
-
     const eligibleClients = clients.filter(
       (client) => selectedClients.has(client._id) && Number(client.balance) > 0,
     );
@@ -1813,29 +1338,24 @@ const ViewClients = () => {
       isAll: false,
     });
   };
-
   const openClientPaymentReminderModal = (client) => {
     if (!client || Number(client.balance) <= 0) return;
     setClientPaymentReminder({ open: true, clients: [client], isAll: false });
   };
-
   const closeClientPaymentReminderModal = () => {
     setClientPaymentReminder({ open: false, clients: [], isAll: false });
   };
-
   const effectiveSelectedClients = selectAllAcrossPages
     ? new Set(clients.map((client) => client._id))
     : selectedClients;
   const selectedClientCount = selectAllAcrossPages
     ? pagination.total
     : selectedClients.size;
-
   const toggleRowDropdown = (clientId, e) => {
     if (activeRowDropdown === clientId) {
       setActiveRowDropdown(null);
       return;
     }
-
     const rect = e?.currentTarget?.getBoundingClientRect?.();
     if (rect) {
       const estimatedHeight = 280;
@@ -1848,10 +1368,8 @@ const ViewClients = () => {
         openUpward,
       });
     }
-
     setActiveRowDropdown(clientId);
   };
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".dropdown-container")) {
@@ -1861,13 +1379,11 @@ const ViewClients = () => {
         setShowMoreMenu(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
   const getStatusColor = (status) => {
     switch (status) {
       case "ACTIVE":
@@ -1880,7 +1396,6 @@ const ViewClients = () => {
         return "bg-gray-100 text-gray-700";
     }
   };
-
   const getStatusText = (status) => {
     switch (status) {
       case "ACTIVE":
@@ -1893,19 +1408,15 @@ const ViewClients = () => {
         return status;
     }
   };
-
   const getLastUpdatedFirm = (firms) => {
     if (!firms || firms.length === 0) return null;
-
     const sortedFirms = [...firms].sort((a, b) => {
       const dateA = a.modify_date || a.create_date;
       const dateB = b.modify_date || b.create_date;
       return new Date(dateB) - new Date(dateA);
     });
-
     return sortedFirms[0];
   };
-
   const renderCellContent = (
     client,
     fieldId,
@@ -1917,7 +1428,7 @@ const ViewClients = () => {
       case "name":
         return (
           <div className="flex items-center gap-3 w-full">
-            <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center shadow-sm">
               <FiUser className="w-4 h-4 text-white" />
             </div>
             <div
@@ -1974,7 +1485,7 @@ const ViewClients = () => {
               <button
                 type="button"
                 onClick={() => openClientPaymentReminderModal(client)}
-                className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-md"
+                className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-md"
                 title="Send payment reminder"
                 aria-label={`Send payment reminder to ${client.name || client.username}`}
               >
@@ -1986,12 +1497,11 @@ const ViewClients = () => {
       case "firms":
         const lastFirm = getLastUpdatedFirm(client.firms);
         const firmCount = client.firms?.length || 0;
-
         return (
           <div className="text-center">
             {firmCount > 0 ? (
               <div
-                className="cursor-pointer hover:bg-gray-100 transition-colors text-center p-2"
+                className="cursor-pointer hover:bg-slate-100 transition-colors text-center p-2"
                 onClick={() => showFirmsModal(client.firms, client.name)}
               >
                 <div className="font-medium text-gray-800 text-sm mb-1">
@@ -2033,9 +1543,7 @@ const ViewClients = () => {
                 toggleRowDropdown(client._id, e);
               }}
               className="w-8 h-8 flex items-center justify-center rounded
-                           bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-300"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+                           bg-gray-100 hover:bg-gray-200 transition-colors border border-slate-200"
             >
               <FiMoreVertical className="w-4 h-4 text-gray-700" />
             </motion.button>
@@ -2049,14 +1557,12 @@ const ViewClients = () => {
         );
     }
   };
-
   const SettingsModal = React.memo(() => {
     const [localColumnConfig, setLocalColumnConfig] = useState(columnConfig);
     const [localActiveDragId, setLocalActiveDragId] = useState(null);
     const [localActiveItemDragId, setLocalActiveItemDragId] = useState(null);
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [tempColumnName, setTempColumnName] = useState("");
-
     const resetModalState = useCallback(() => {
       if (settingsModalOpen) {
         setLocalColumnConfig(JSON.parse(JSON.stringify(columnConfig)));
@@ -2066,39 +1572,30 @@ const ViewClients = () => {
         setTempColumnName("");
       }
     }, [columnConfig, settingsModalOpen]);
-
     useEffect(() => {
       resetModalState();
     }, [resetModalState]);
-
     const handleModalDragEnd = (event) => {
       const { active, over } = event;
-
       if (!over || active.id === over.id) {
         setLocalActiveDragId(null);
         return;
       }
-
       const oldIndex = localColumnConfig.findIndex(
         (col) => col.id === active.id,
       );
       const newIndex = localColumnConfig.findIndex((col) => col.id === over.id);
-
       if (oldIndex === -1 || newIndex === -1) {
         setLocalActiveDragId(null);
         return;
       }
-
       const sourceColumn = localColumnConfig[oldIndex];
       const targetColumn = localColumnConfig[newIndex];
-
       const firstFixedIndex = localColumnConfig.findIndex((col) => col.fixed);
-
       if (sourceColumn.fixed) {
         setLocalActiveDragId(null);
         return;
       }
-
       if (newIndex >= firstFixedIndex && newIndex < localColumnConfig.length) {
         if (firstFixedIndex > 0) {
           const newConfig = arrayMove(
@@ -2112,19 +1609,15 @@ const ViewClients = () => {
         const newConfig = arrayMove(localColumnConfig, oldIndex, newIndex);
         setLocalColumnConfig(newConfig);
       }
-
       setLocalActiveDragId(null);
     };
-
     const handleModalItemDragEnd = (event, columnIndex) => {
       const { active, over } = event;
-
       if (active.id !== over.id) {
         const newConfig = [...localColumnConfig];
         const columnItems = newConfig[columnIndex].items;
         const oldIndex = columnItems.findIndex((item) => item.id === active.id);
         const newIndex = columnItems.findIndex((item) => item.id === over.id);
-
         newConfig[columnIndex].items = arrayMove(
           columnItems,
           oldIndex,
@@ -2132,14 +1625,11 @@ const ViewClients = () => {
         );
         setLocalColumnConfig(newConfig);
       }
-
       setLocalActiveItemDragId(null);
     };
-
     const addItemToColumnInModal = (columnIndex, fieldId) => {
       const field = availableFields.find((f) => f.id === fieldId);
       if (!field) return;
-
       const newConfig = [...localColumnConfig];
       if (newConfig[columnIndex].items.length < 5) {
         newConfig[columnIndex].items.push({
@@ -2149,21 +1639,17 @@ const ViewClients = () => {
         setLocalColumnConfig(newConfig);
       }
     };
-
     const removeItemFromColumnInModal = (columnIndex, itemIndex) => {
       const newConfig = [...localColumnConfig];
       newConfig[columnIndex].items.splice(itemIndex, 1);
       setLocalColumnConfig(newConfig);
     };
-
     const addNewColumnInModal = () => {
       const newConfig = [...localColumnConfig];
       const newColumnId = `col-${Date.now()}`;
-
       const firstFixedIndex = newConfig.findIndex((col) => col.fixed);
       const insertIndex =
         firstFixedIndex >= 0 ? firstFixedIndex : newConfig.length;
-
       newConfig.splice(insertIndex, 0, {
         id: newColumnId,
         name: `New Column`,
@@ -2171,45 +1657,37 @@ const ViewClients = () => {
         fixed: false,
       });
       setLocalColumnConfig(newConfig);
-
       setEditingColumnId(newColumnId);
       setTempColumnName("New Column");
     };
-
     const startEditingColumn = (columnId, currentName) => {
       setEditingColumnId(columnId);
       setTempColumnName(currentName);
     };
-
     const saveColumnName = (columnId) => {
       if (!tempColumnName.trim()) {
         setEditingColumnId(null);
         return;
       }
-
       const newConfig = localColumnConfig.map((col) =>
         col.id === columnId ? { ...col, name: tempColumnName.trim() } : col,
       );
       setLocalColumnConfig(newConfig);
       setEditingColumnId(null);
     };
-
     const cancelEditingColumn = () => {
       setEditingColumnId(null);
       setTempColumnName("");
     };
-
     const saveModalChanges = () => {
       saveColumnConfig(localColumnConfig);
       setSettingsModalOpen(false);
     };
-
     const resetToDefaultInModal = () => {
       setLocalColumnConfig(JSON.parse(JSON.stringify(defaultColumnConfig)));
       setEditingColumnId(null);
       setTempColumnName("");
     };
-
     const ModalSortableColumn = React.memo(({ column, index }) => {
       const {
         attributes,
@@ -2224,7 +1702,6 @@ const ViewClients = () => {
           column.fixed ||
           index >= localColumnConfig.findIndex((col) => col.fixed),
       });
-
       const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -2236,10 +1713,8 @@ const ViewClients = () => {
             ? "not-allowed"
             : "move",
       };
-
       const firstFixedIndex = localColumnConfig.findIndex((col) => col.fixed);
       const isDraggable = !column.fixed && index < firstFixedIndex;
-
       return (
         <motion.div
           ref={setNodeRef}
@@ -2251,7 +1726,7 @@ const ViewClients = () => {
               ? "bg-blue-50 border-blue-300 shadow-sm cursor-not-allowed"
               : !isDraggable
                 ? "bg-gray-50 border-gray-200 cursor-not-allowed"
-                : "bg-white border-gray-200 hover:shadow-md hover:border-gray-300 cursor-move"
+                : "bg-white border-gray-200 hover:shadow-md hover:border-slate-200 cursor-move"
           }`}
           whileHover={{ scale: isDraggable ? 1.02 : 1 }}
         >
@@ -2273,7 +1748,7 @@ const ViewClients = () => {
                         if (e.key === "Enter") saveColumnName(column.id);
                         if (e.key === "Escape") cancelEditingColumn();
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded text-sm font-bold text-gray-800 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                       autoFocus
                       placeholder="Column name"
                     />
@@ -2315,7 +1790,7 @@ const ViewClients = () => {
                         onClick={() =>
                           startEditingColumn(column.id, column.name)
                         }
-                        className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded flex-shrink-0 ml-2"
+                        className="text-gray-500 hover:text-gray-700 p-1 hover:bg-slate-100 rounded flex-shrink-0 ml-2"
                         title="Edit column name"
                       >
                         <FiEdit className="w-3 h-3" />
@@ -2395,7 +1870,7 @@ const ViewClients = () => {
                     e.target.value = "";
                   }
                 }}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200 bg-white"
               >
                 <option value="">Add field...</option>
                 {availableFields
@@ -2430,7 +1905,6 @@ const ViewClients = () => {
         </motion.div>
       );
     });
-
     const ModalSortableItem = React.memo(
       ({ item, columnIndex, itemIndex, columnId, removeItem }) => {
         const {
@@ -2441,14 +1915,12 @@ const ViewClients = () => {
           transition,
           isDragging,
         } = useSortable({ id: item.id });
-
         const style = {
           transform: CSS.Transform.toString(transform),
           transition,
           opacity: isDragging ? 0.5 : 1,
           zIndex: isDragging ? 1000 : 1,
         };
-
         return (
           <motion.div
             ref={setNodeRef}
@@ -2456,7 +1928,7 @@ const ViewClients = () => {
             {...attributes}
             {...listeners}
             className={`flex items-center justify-between bg-white border px-3 py-2 rounded-lg text-sm transition-all duration-200
-                        ${isDragging ? "shadow-lg border-blue-400" : "border-gray-200 hover:bg-gray-50 hover:border-gray-300"}`}
+                        ${isDragging ? "shadow-lg border-blue-400" : "border-gray-200 hover:bg-slate-50 hover:border-slate-200"}`}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: itemIndex * 0.05 }}
@@ -2468,8 +1940,6 @@ const ViewClients = () => {
             <motion.button
               onClick={() => removeItem(columnIndex, itemIndex)}
               className="text-red-500 hover:text-red-700 transition-colors duration-200 p-1 rounded hover:bg-red-50"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
             >
               <FiX className="w-3 h-3" />
             </motion.button>
@@ -2477,7 +1947,6 @@ const ViewClients = () => {
         );
       },
     );
-
     const DraggableField = React.memo(({ field }) => {
       const {
         attributes,
@@ -2487,23 +1956,19 @@ const ViewClients = () => {
         transition,
         isDragging,
       } = useSortable({ id: field.id });
-
       const style = {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 1000 : 1,
       };
-
       return (
         <motion.div
           ref={setNodeRef}
           style={style}
           {...attributes}
           {...listeners}
-          className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 transition-all duration-200 hover:shadow-md hover:border-gray-400 hover:from-white hover:to-gray-50 cursor-move text-center"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          className="bg-gray-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 transition-all duration-200 hover:shadow-md hover:border-gray-400 hover:from-white cursor-move text-center"
         >
           <div className="flex items-center justify-center gap-2">
             <FiMove className="w-3 h-3 text-gray-400" />
@@ -2512,7 +1977,6 @@ const ViewClients = () => {
         </motion.div>
       );
     });
-
     return (
       <AnimatePresence>
         {settingsModalOpen && (
@@ -2531,7 +1995,7 @@ const ViewClients = () => {
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex justify-between items-center shrink-0">
+              <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center shrink-0">
                 <div>
                   <h2 className="text-xl font-bold">Table Settings</h2>
                   <p className="text-blue-100 text-sm mt-1">
@@ -2541,8 +2005,6 @@ const ViewClients = () => {
                 <motion.button
                   onClick={() => setSettingsModalOpen(false)}
                   className="text-white hover:text-blue-200 transition-colors duration-200 p-1 rounded-lg hover:bg-blue-500"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
                 >
                   <FiX className="w-6 h-6" />
                 </motion.button>
@@ -2596,9 +2058,7 @@ const ViewClients = () => {
                 <div className="mb-6">
                   <motion.button
                     onClick={addNewColumnInModal}
-                    className="px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-xl text-gray-700 font-medium hover:from-gray-200 hover:to-gray-300 transition-all duration-200 flex items-center gap-2"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="px-4 py-3 bg-gray-100 border-2 border-dashed border-slate-200 rounded-xl text-gray-700 font-medium transition-all duration-200 flex items-center gap-2"
                   >
                     <FiPlus className="w-4 h-4" />
                     Add New Column
@@ -2669,10 +2129,8 @@ const ViewClients = () => {
                   <motion.button
                     onClick={resetToDefaultInModal}
                     className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium
-                                                 border border-gray-300 rounded-lg text-gray-700
+                                                 border border-slate-200 rounded-lg text-gray-700
                                                  hover:bg-gray-200 transition-all duration-200 hover:shadow-sm gap-2"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
                   >
                     <FiRefreshCw className="w-4 h-4" />
                     Reset to Default
@@ -2682,10 +2140,8 @@ const ViewClients = () => {
                     <motion.button
                       onClick={() => setSettingsModalOpen(false)}
                       className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium
-                                                       border border-gray-300 rounded-lg text-gray-700
+                                                       border border-slate-200 rounded-lg text-gray-700
                                                        hover:bg-gray-200 transition-all duration-200 hover:shadow-sm"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                     >
                       Cancel
                     </motion.button>
@@ -2693,11 +2149,9 @@ const ViewClients = () => {
                     <motion.button
                       onClick={saveModalChanges}
                       className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium
-                                                       bg-gradient-to-r from-blue-600 to-blue-700 text-white
-                                                       rounded-lg hover:from-blue-700 hover:to-blue-800
+                                                       bg-blue-600 text-white
+                                                       rounded-lg
                                                        transition-all duration-200 hover:shadow-md shadow-sm gap-2"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                     >
                       <FiSave className="w-4 h-4" />
                       Save Changes
@@ -2711,9 +2165,8 @@ const ViewClients = () => {
       </AnimatePresence>
     );
   });
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -2732,38 +2185,25 @@ const ViewClients = () => {
       >
         <div className="h-full flex flex-col">
           <motion.div
-            className="mx-2 my-3 flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm sm:mx-4 md:mx-8 md:my-4"
+            className="mx-2 my-3 flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:mx-4 md:mx-8 md:my-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 md:gap-3">
                 <div className="w-full md:w-auto">
-                  <h5 className="text-base md:text-lg font-bold text-gray-800 mb-0.5">
-                    Client Management
+                  <h5 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 mb-0.5">
+                    Clients
                   </h5>
-                  <p className="text-gray-500 text-xs">
-                    Manage your clients efficiently with multiple view options
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Contacts, firms, groups and balances for everyone you serve.
                   </p>
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-2 w-full lg:w-auto">
                   <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full">
                     <div className="flex items-center gap-2">
-                      <div className="md:hidden w-full">
-                        <TableViewSwitch
-                          viewMode={viewMode}
-                          setViewMode={setViewMode}
-                        />
-                      </div>
-                      <div className="hidden md:block">
-                        <TableViewSwitch
-                          viewMode={viewMode}
-                          setViewMode={setViewMode}
-                        />
-                      </div>
-
                       <div className="flex-1 md:flex-none md:min-w-[200px] lg:min-w-[250px]">
                         <div className="relative">
                           <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -2772,7 +2212,7 @@ const ViewClients = () => {
                             placeholder="Search clients..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-sm bg-white"
+                            className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm text-sm bg-white"
                           />
                         </div>
                       </div>
@@ -2784,9 +2224,7 @@ const ViewClients = () => {
                           onClick={() =>
                             setShowFilterDropdown(!showFilterDropdown)
                           }
-                          className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                          className="px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all duration-200 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
                         >
                           <FiFilter className="w-4 h-4" />
                           <span className="hidden sm:inline">Filter</span>
@@ -2795,7 +2233,7 @@ const ViewClients = () => {
                         <AnimatePresence>
                           {showFilterDropdown && (
                             <motion.div
-                              className="absolute right-0 md:left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-3"
+                              className="absolute right-0 md:left-0 mt-2 w-56 bg-white rounded-xl shadow-pop border border-slate-200 z-50 p-3"
                               initial={{ opacity: 0, y: -8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -8, scale: 0.96 }}
@@ -2810,7 +2248,7 @@ const ViewClients = () => {
                                   onChange={(e) =>
                                     setSelectedStatus(e.target.value)
                                   }
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                  className="w-full px-2 py-1.5 border border-slate-200 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 text-sm"
                                 >
                                   <option value="">All Status</option>
                                   {statusOptions.map((status) => (
@@ -2833,7 +2271,7 @@ const ViewClients = () => {
                                   onChange={(e) =>
                                     setSelectedGroup(e.target.value)
                                   }
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                  className="w-full px-2 py-1.5 border border-slate-200 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 text-sm"
                                 >
                                   <option value="">All Groups</option>
                                   {groupOptions.map((group) => (
@@ -2853,7 +2291,7 @@ const ViewClients = () => {
                                     setSelectedStatus("");
                                     setSelectedGroup("");
                                   }}
-                                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-100"
+                                  className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded hover:bg-slate-100"
                                 >
                                   Reset
                                 </button>
@@ -2862,7 +2300,7 @@ const ViewClients = () => {
                                     setShowFilterDropdown(false);
                                     requestClients(1, pagination.limit);
                                   }}
-                                  className="w-full px-2 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                  className="w-full px-2 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
                                 >
                                   Apply
                                 </button>
@@ -2875,17 +2313,16 @@ const ViewClients = () => {
                       <motion.button
                         disabled={!check("client_create")}
                         onClick={() =>
-                          check("client_create") && navigate("/client/create")
+                          check("client_create") && openClientCreate()
                         }
                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap ${
                           check("client_create")
-                            ? "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
+                            ? "bg-indigo-600 hover:bg-indigo-700 text-white"
                             : "bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60"
                         }`}
                         whileHover={
                           check("client_create") ? { scale: 1.05 } : {}
                         }
-                        whileTap={check("client_create") ? { scale: 0.95 } : {}}
                         title={
                           check("client_create")
                             ? "Add Client"
@@ -2899,12 +2336,20 @@ const ViewClients = () => {
                         )}
                       </motion.button>
 
+                      <button
+                        type="button"
+                        onClick={() => handleExportClick("excel")}
+                        className="ui-btn ui-btn-secondary"
+                        title="Export clients to Excel, CSV or PDF"
+                      >
+                        <FiDownload className="w-4 h-4" />
+                        <span className="hidden sm:inline">Export</span>
+                      </button>
+
                       <div className="relative dropdown-container">
                         <motion.button
                           onClick={() => setShowMoreMenu(!showMoreMenu)}
-                          className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-300 hover:bg-gray-100 transition shadow-sm"
-                          whileHover={{ scale: 1.08 }}
-                          whileTap={{ scale: 0.95 }}
+                          className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition shadow-sm"
                         >
                           <FiMoreVertical className="w-4 h-4 text-gray-700" />
                         </motion.button>
@@ -2912,7 +2357,7 @@ const ViewClients = () => {
                         <AnimatePresence>
                           {showMoreMenu && (
                             <motion.div
-                              className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
+                              className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-pop border border-slate-200 z-50 overflow-hidden"
                               initial={{ opacity: 0, y: -8 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -8 }}
@@ -2922,24 +2367,24 @@ const ViewClients = () => {
                               </div>
 
                               <button
-                                onClick={() => handleExportClick()}
-                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                                onClick={() => handleExportClick("pdf")}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-rose-50"
                               >
                                 <PiFilePdfDuotone className="w-4 h-4 mr-2 text-red-500" />
                                 Export as PDF
                               </button>
 
                               <button
-                                onClick={() => handleExportClick()}
-                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                                onClick={() => handleExportClick("excel")}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-emerald-50"
                               >
                                 <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 text-green-500" />
                                 Export as Excel
                               </button>
 
                               <button
-                                onClick={() => handleExportClick()}
-                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                                onClick={() => handleExportClick("csv")}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-sky-50"
                               >
                                 <FaFileCsv className="w-4 h-4 mr-2 text-blue-500" />
                                 Export as CSV
@@ -2949,17 +2394,13 @@ const ViewClients = () => {
 
                               <button
                                 onClick={() => {
-                                  if (viewMode === "table") {
-                                    setSettingsModalOpen(true);
-                                    setShowMoreMenu(false);
-                                  }
+                                  setSettingsModalOpen(true);
+                                  setShowMoreMenu(false);
                                 }}
-                                className={`flex items-center w-full px-3 py-2 text-sm ${viewMode === "table" ? "text-gray-700 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"}`}
-                                disabled={viewMode !== "table"}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-slate-100"
                               >
                                 <FiSettings className="w-4 h-4 mr-2" />
-                                Settings{" "}
-                                {viewMode !== "table" && "(Table view only)"}
+                                Column settings
                               </button>
                             </motion.div>
                           )}
@@ -3006,7 +2447,6 @@ const ViewClients = () => {
             )}
 
             <div className="flex-1 flex flex-col overflow-hidden">
-              {viewMode === "table" ? (
                 <ClientTable
                   clients={clients}
                   selectedClients={effectiveSelectedClients}
@@ -3033,33 +2473,6 @@ const ViewClients = () => {
                   }
                   onDeleteClient={(client) => openDeleteClientModal(client)}
                 />
-              ) : (
-                <ClientCards
-                  clients={clients}
-                  selectedClients={effectiveSelectedClients}
-                  handleClientSelect={handleClientSelect}
-                  columnConfig={columnConfig}
-                  renderCellContent={renderCellContent}
-                  loading={loading}
-                  fetchError={fetchError}
-                  onRetryFetch={() =>
-                    requestClients(pagination.page, pagination.limit)
-                  }
-                  toggleRowDropdown={toggleRowDropdown}
-                  activeRowDropdown={activeRowDropdown}
-                  setActiveRowDropdown={setActiveRowDropdown}
-                  handleStatusChange={handleStatusChange}
-                  statusOptions={statusOptions}
-                  openStatusModal={openStatusModal}
-                  navigate={navigate}
-                  handleExport={handleExport}
-                  showFirmsModal={openFirmsModal}
-                  openClientPaymentReminderModal={
-                    openClientPaymentReminderModal
-                  }
-                  onDeleteClient={(client) => openDeleteClientModal(client)}
-                />
-              )}
             </div>
 
             <TablePagination
@@ -3096,9 +2509,7 @@ const ViewClients = () => {
             <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
               <motion.button
                 onClick={openPaymentReminderModal}
-                className="px-3 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-purple-800 flex items-center gap-2 shadow-xl"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="px-3 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
               >
                 <FiMail className="w-4 h-4" />
                 <span className="hidden sm:inline">Payment Reminder</span>
@@ -3178,58 +2589,30 @@ const ViewClients = () => {
         clientName={firmsModal.clientName}
       />
 
-      <AnimatePresence>
-        {exportModal.open && (
-          <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white rounded-lg p-4 max-w-sm w-full mx-auto"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <PiExportBold className="w-6 h-6 text-green-600" />
-                </div>
-                <h3 className="text-base font-semibold text-gray-800 mb-2">
-                  Exporting {exportModal.type.toUpperCase()}
-                </h3>
-                <p className="text-gray-600 mb-4 text-sm">
-                  Your {exportModal.type} export is being processed...
-                </p>
-                <div className="flex justify-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Export Modal */}
-      <ExportModal
-        isOpen={exportModalOpen}
-        onClose={() => {
-          setExportModalOpen(false);
-          setExportData([]);
-          setExportColumns([]);
-        }}
-        exportData={exportData}
-        columns={exportColumns}
+      {/* Export dialog */}
+      <ExportDialog
+        isOpen={exportDialog.open}
+        onClose={() => setExportDialog((d) => ({ ...d, open: false }))}
+        title="Export clients"
+        reportTitle="Client list"
+        entityLabel="clients"
+        fileStem="Clients"
         jobType="client_report"
+        initialFormat={exportDialog.format}
+        counts={{
+          selected: selectAllAcrossPages
+            ? Number(pagination.total) || clients.length
+            : selectedClients.size,
+          page: clients.length,
+          total: Number(pagination.total) || clients.length,
+        }}
+        columnsCount={columnConfig.reduce(
+          (n, col) =>
+            n + (col.items || []).filter((item) => item.id !== "actions").length,
+          0,
+        )}
+        buildRows={buildClientExportRows}
       />
 
       <ClientDeleteConfirmModal
@@ -3250,5 +2633,4 @@ const ViewClients = () => {
     </div>
   );
 };
-
 export default ViewClients;

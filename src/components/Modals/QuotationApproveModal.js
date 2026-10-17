@@ -549,7 +549,7 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                 className="bg-white rounded-xl shadow-2xl w-full max-w-6xl my-1 max-h-[calc(100vh-0.5rem)] sm:max-h-[calc(100vh-1rem)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-4 py-2.5 text-white flex items-center justify-between gap-3 shrink-0">
+                <div className="bg-indigo-600 px-4 py-2.5 text-white flex items-center justify-between gap-3 shrink-0">
                     <h3 className="text-sm font-bold text-white truncate">Approve Quotation</h3>
                     <button
                         type="button"
@@ -604,7 +604,7 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                                         initialTab="single"
                                         quickOptionKeys={['td', 'tom', 'n7', 'eom']}
                                         wrapperClassName="w-full"
-                                        buttonClassName="w-full pl-3 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none text-slate-700"
+                                        buttonClassName="w-full pl-3 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none text-slate-700"
                                     />
                                 </div>
 
@@ -637,8 +637,8 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5">
                                             <label className="block text-sm font-medium text-slate-700">Assessment Years (AY)</label>
                                             <div className="flex gap-1.5">
-                                                <motion.button type="button" onClick={selectAllAssessmentYears} className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>Select all</motion.button>
-                                                <motion.button type="button" onClick={clearAllAssessmentYears} className="px-2.5 py-1 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-md" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>Clear all</motion.button>
+                                                <motion.button type="button" onClick={selectAllAssessmentYears} className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Select all</motion.button>
+                                                <motion.button type="button" onClick={clearAllAssessmentYears} className="px-2.5 py-1 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-md">Clear all</motion.button>
                                             </div>
                                         </div>
                                         <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
@@ -652,8 +652,6 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                                                             type="button"
                                                             onClick={() => toggleAssessmentYear(year)}
                                                             className={`py-2 px-2 text-xs font-medium rounded-md border transition-all ${form.assisment_years.includes(year) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
-                                                            whileHover={{ scale: 1.02 }}
-                                                            whileTap={{ scale: 0.98 }}
                                                         >
                                                             AY {year}
                                                         </motion.button>
@@ -669,8 +667,8 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5">
                                             <label className="block text-sm font-medium text-slate-700">Financial Years (FY)</label>
                                             <div className="flex gap-1.5">
-                                                <motion.button type="button" onClick={selectAllFinancialYears} className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>Select all</motion.button>
-                                                <motion.button type="button" onClick={clearAllFinancialYears} className="px-2.5 py-1 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-md" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>Clear all</motion.button>
+                                                <motion.button type="button" onClick={selectAllFinancialYears} className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Select all</motion.button>
+                                                <motion.button type="button" onClick={clearAllFinancialYears} className="px-2.5 py-1 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded-md">Clear all</motion.button>
                                             </div>
                                         </div>
                                         <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
@@ -684,8 +682,6 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                                                             type="button"
                                                             onClick={() => toggleFinancialYear(year)}
                                                             className={`py-2 px-2 text-xs font-medium rounded-md border transition-all ${form.financial_years.includes(year) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
-                                                            whileHover={{ scale: 1.02 }}
-                                                            whileTap={{ scale: 0.98 }}
                                                         >
                                                             FY {year}
                                                         </motion.button>

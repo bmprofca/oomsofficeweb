@@ -21,9 +21,9 @@ const SETTINGS_MODULES = [
     description: "Add, edit & delete staff",
     icon: FiUsers,
     link: "/settings/staff-list",
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-600",
-    hover: "hover:border-blue-200 hover:bg-blue-50/40",
+    iconBg: "bg-white ring-1 ring-indigo-200",
+    iconColor: "text-indigo-600",
+    hover: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
     permission: "setting_view_edit",
   },
   {
@@ -31,18 +31,18 @@ const SETTINGS_MODULES = [
     description: "Invite & manage branch admins",
     icon: FiUserCheck,
     link: "/settings/admin",
-    iconBg: "bg-indigo-50",
-    iconColor: "text-indigo-600",
-    hover: "hover:border-indigo-200 hover:bg-indigo-50/40",
+    iconBg: "bg-white ring-1 ring-emerald-200",
+    iconColor: "text-emerald-600",
+    hover: "border-emerald-100 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md",
   },
   {
     title: "Staff Permissions",
     description: "Manage staff access rights",
     icon: FiShield,
     link: "/settings/permissions",
-    iconBg: "bg-emerald-50",
-    iconColor: "text-emerald-600",
-    hover: "hover:border-emerald-200 hover:bg-emerald-50/40",
+    iconBg: "bg-white ring-1 ring-violet-200",
+    iconColor: "text-violet-600",
+    hover: "border-violet-100 bg-violet-50 hover:border-violet-300 hover:bg-violet-100/70 hover:shadow-md",
     permission: "setting_view_edit",
   },
   {
@@ -50,9 +50,9 @@ const SETTINGS_MODULES = [
     description: "Voucher configuration",
     icon: FiFileText,
     link: "/settings/invoice-setting",
-    iconBg: "bg-violet-50",
-    iconColor: "text-violet-600",
-    hover: "hover:border-violet-200 hover:bg-violet-50/40",
+    iconBg: "bg-white ring-1 ring-amber-200",
+    iconColor: "text-amber-600",
+    hover: "border-amber-100 bg-amber-50 hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-md",
     permission: ["setting_view_edit", "finance_entry"],
   },
   {
@@ -60,9 +60,9 @@ const SETTINGS_MODULES = [
     description: "Configure your branch details",
     icon: FiSettings,
     link: "/settings/branch-setting",
-    iconBg: "bg-orange-50",
-    iconColor: "text-orange-600",
-    hover: "hover:border-orange-200 hover:bg-orange-50/40",
+    iconBg: "bg-white ring-1 ring-sky-200",
+    iconColor: "text-sky-600",
+    hover: "border-sky-100 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/70 hover:shadow-md",
     showWhenHeadBranch: true,
     permission: "setting_view_edit",
   },
@@ -71,9 +71,9 @@ const SETTINGS_MODULES = [
     description: "Generate and download database backups",
     icon: FiDatabase,
     link: "/settings/backup",
-    iconBg: "bg-teal-50",
-    iconColor: "text-teal-600",
-    hover: "hover:border-teal-200 hover:bg-teal-50/40",
+    iconBg: "bg-white ring-1 ring-rose-200",
+    iconColor: "text-rose-600",
+    hover: "border-rose-100 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/70 hover:shadow-md",
     permission: "setting_view_edit",
   },
 ];
@@ -94,9 +94,9 @@ function ModuleCard({ module, index, locked, onNavigate }) {
       }}
       disabled={locked}
       title={locked ? "Locked (no permission)" : undefined}
-      className={`group relative flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3.5 py-[0.7rem] text-left shadow-sm transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${
+      className={`group relative flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${
         locked
-          ? "cursor-not-allowed opacity-60"
+          ? "cursor-not-allowed opacity-60 border-slate-200 bg-slate-50"
           : module.hover
       }`}
     >
@@ -190,7 +190,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -209,16 +209,16 @@ const Settings = () => {
           isMinimized ? "md:pl-20" : "md:pl-[260px]"
         }`}
       >
-        <div className="mx-2 my-3 sm:mx-4 md:mx-8 md:my-4">
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:px-4">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
                     <FiSettings className="h-4 w-4 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base font-bold leading-tight text-gray-800 md:text-lg">
+                    <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
                       Application Settings
                     </h1>
                   </div>
@@ -235,7 +235,7 @@ const Settings = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search settings…"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-indigo-500/25"
                   />
                 </div>
               </div>

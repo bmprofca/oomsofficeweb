@@ -70,7 +70,7 @@ const OneChattingTokenModal = ({ isOpen, onClose, row, onSubmit, saving }) => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header — shrink-0 */}
-            <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-green-600 to-emerald-600 text-white flex items-center justify-between gap-3">
+            <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-green-600 text-white flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
                   <FiKey className="w-4 h-4" />
@@ -116,7 +116,7 @@ const OneChattingTokenModal = ({ isOpen, onClose, row, onSubmit, saving }) => {
                     placeholder="Enter OneChatting developer token"
                     disabled={saving}
                     autoFocus
-                    className="w-full px-3 py-2.5 text-sm text-gray-800 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 placeholder:text-gray-400"
+                    className="w-full px-3 py-2.5 text-sm text-gray-800 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 placeholder:text-gray-400"
                   />
                   <p className="text-xs text-gray-500 mt-2 leading-relaxed m-0">
                     Required to enable OneChatting for this user on the current
@@ -132,7 +132,7 @@ const OneChattingTokenModal = ({ isOpen, onClose, row, onSubmit, saving }) => {
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50"
               >
                 Cancel
               </button>

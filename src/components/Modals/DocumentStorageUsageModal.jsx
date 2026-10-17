@@ -171,7 +171,7 @@ const DocumentStorageUsageModal = ({
           className="relative w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 bg-gradient-to-r from-slate-50 to-white">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 bg-slate-50/60">
             <div className="flex items-start gap-3 min-w-0">
               <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-sm">
                 <FiHardDrive className="w-5 h-5" />

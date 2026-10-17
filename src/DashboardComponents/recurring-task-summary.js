@@ -11,8 +11,6 @@ const RecurringTaskStatusBadge = ({ count, color, category, serviceId, navigate 
         {count > 0 ? (
             <motion.span 
                 className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${color} shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer`}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
                 onClick={(e) => {
                     e.stopPropagation();
                     navigate(`/recurring-task/detailed?category=${category}&service_id=${serviceId}`);
@@ -133,22 +131,22 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
 
     // Status color mapping
     const statusConfig = {
-        OD: 'bg-gradient-to-br from-red-500 to-pink-600 text-white',
-        DT: 'bg-gradient-to-br from-yellow-500 to-amber-600 text-white',
-        D7: 'bg-gradient-to-br from-blue-500 to-cyan-600 text-white',
-        FT: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
-        PFD: 'bg-gradient-to-br from-yellow-300 to-orange-400 text-white',
-        PFC: 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white',
-        CPL: 'bg-gradient-to-br from-green-400 to-emerald-500 text-white',
-        OUT: 'bg-gradient-to-br from-purple-400 to-indigo-500 text-white',
-        NA: 'bg-gradient-to-br from-gray-400 to-gray-500 text-white'
+        OD: 'bg-red-500 text-white',
+        DT: 'bg-yellow-500 text-white',
+        D7: 'bg-blue-500 text-white',
+        FT: 'bg-green-500 text-white',
+        PFD: 'bg-yellow-300 text-white',
+        PFC: 'bg-yellow-400 text-white',
+        CPL: 'bg-green-400 text-white',
+        OUT: 'bg-purple-400 text-white',
+        NA: 'bg-gray-400 text-white'
     };
 
     return (
         <div className="p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl">
+                    <div className="p-3 bg-indigo-50 rounded-xl">
                         <FiLayers className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
@@ -167,9 +165,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                     <motion.button 
                         onClick={handleRefresh}
                         disabled={loading}
-                        className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 rounded-xl hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:shadow-lg transition-all duration-300 disabled:opacity-50"
                     >
                         {loading ? <FiLoader className="w-5 h-5 animate-spin" /> : <FiRefreshCw className="w-5 h-5" />}
                     </motion.button>
@@ -179,7 +175,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                             <div className="relative">
                                 <button
                                     onClick={() => document.getElementById('rt-service-dropdown')?.classList.toggle('hidden')}
-                                    className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm flex items-center justify-between min-w-[250px] hover:bg-gray-50 transition-colors text-sm font-semibold"
+                                    className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none shadow-sm flex items-center justify-between min-w-[250px] hover:bg-slate-50 transition-colors text-sm font-semibold"
                                 >
                                     <span className="text-gray-700">
                                         {selectedServiceIds.length === 0 ? (
@@ -215,12 +211,12 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                                     
                                     <div className="max-h-[300px] overflow-y-auto">
                                         <div className="p-2">
-                                            <label className="flex items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                                            <label className="flex items-center p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedServiceIds.length === 0}
                                                     onChange={handleSelectAll}
-                                                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                                                    className="w-4 h-4 text-indigo-600 rounded border-slate-200 focus:ring-indigo-500/25 cursor-pointer"
                                                 />
                                                 <span className="ml-3 text-sm font-semibold text-gray-700">All Services</span>
                                                 <span className="ml-auto text-xs text-gray-500 font-medium">
@@ -231,7 +227,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                                             <div className="border-t border-gray-100 my-2"></div>
                                             
                                             {services.map(service => (
-                                                <label key={service.service_id} className="flex items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                                                <label key={service.service_id} className="flex items-center p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
                                                     <input
                                                         type="checkbox"
                                                         value={service.service_id}
@@ -250,7 +246,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                                                             setSelectedServiceIds(newSelectedIds);
                                                             fetchTaskSummary(newSelectedIds);
                                                         }}
-                                                        className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                                                        className="w-4 h-4 text-indigo-600 rounded border-slate-200 focus:ring-indigo-500/25 cursor-pointer"
                                                     />
                                                     <div className="ml-3 flex-1 min-w-0">
                                                         <div className="text-sm font-semibold text-gray-800 truncate">{service.name}</div>
@@ -284,7 +280,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                 <>
                     <div className="overflow-x-auto rounded-2xl border border-gray-100">
                         <table className="w-full min-w-[1000px]">
-                            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                            <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
                                     <th 
                                         className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider cursor-pointer hover:text-indigo-600 transition-colors"
@@ -357,7 +353,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                                     </tr>
                                 ) : (
                                     (isExpanded ? taskStats : taskStats.slice(0, 3)).map((service) => (
-                                        <tr key={service.service_id} className="hover:bg-gray-50/50 transition-colors">
+                                        <tr key={service.service_id} className="hover:bg-slate-50/50 transition-colors">
                                             <td 
                                                 className="p-4 cursor-pointer hover:text-indigo-600 transition-colors"
                                                 onClick={() => navigateToTaskView('ALL', service.service_id)}

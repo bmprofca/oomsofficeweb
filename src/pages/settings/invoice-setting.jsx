@@ -205,7 +205,7 @@ const FormatCard = memo(function FormatCard({
           <button
             type="button"
             onClick={() => onPreview(sample)}
-            className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-gray-200"
+            className="w-full py-2.5 px-4 bg-gray-50 hover:bg-slate-100 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-gray-200"
           >
             <FiEye className="w-4 h-4" />
             Preview
@@ -839,7 +839,7 @@ const InvoiceSettings = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -867,7 +867,7 @@ const InvoiceSettings = () => {
                     className={`py-3 px-1 text-sm font-medium transition-all duration-200 border-b-2 ${
                       activeTab === "prefix"
                         ? "border-indigo-600 text-indigo-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -880,7 +880,7 @@ const InvoiceSettings = () => {
                     className={`py-3 px-1 text-sm font-medium transition-all duration-200 border-b-2 ${
                       activeTab === "format"
                         ? "border-indigo-600 text-indigo-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -894,14 +894,14 @@ const InvoiceSettings = () => {
 
             {/* Prefix Management Tab */}
             {activeTab === "prefix" && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                     <div>
                       <h5 className="text-xl font-bold text-gray-800 mb-1">
                         Invoice Prefix Management
                       </h5>
-                      <p className="text-gray-500 text-xs">
+                      <p className="text-slate-500 text-xs mt-0.5">
                         {filteredInvoices.length} of {invoicePrefixData.length}{" "}
                         invoice prefixes shown
                       </p>
@@ -915,7 +915,7 @@ const InvoiceSettings = () => {
                           placeholder="Search by type or prefix..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm text-sm"
                         />
                       </div>
 
@@ -939,9 +939,7 @@ const InvoiceSettings = () => {
 
                         <motion.button
                           onClick={openCreateModal}
-                          className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap"
                         >
                           <FiPlus className="w-4 h-4" />
                           Add Prefix
@@ -953,21 +951,21 @@ const InvoiceSettings = () => {
 
                 <div className="flex-1 overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
-                        <th className="text-left p-4 font-semibold text-gray-700 text-sm">
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                           #
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-700 text-sm">
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                           Type
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-700 text-sm">
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                           Prefix
                         </th>
                         <th className="text-center p-4 font-semibold text-gray-700 text-sm">
                           Current #
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-700 text-sm">
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                           Valid Period
                         </th>
                         <th className="text-center p-4 font-semibold text-gray-700 text-sm">
@@ -1028,8 +1026,8 @@ const InvoiceSettings = () => {
                               key={invoice.id}
                               className={`transition-colors ${
                                 active
-                                  ? "hover:bg-gray-50"
-                                  : "bg-gray-50/60 hover:bg-gray-100/60 opacity-80"
+                                  ? "hover:bg-slate-50"
+                                  : "bg-gray-50/60 hover:bg-slate-100/60 opacity-80"
                               }`}
                             >
                               <td className="p-4 text-sm text-gray-600 font-medium">
@@ -1112,14 +1110,14 @@ const InvoiceSettings = () => {
 
             {/* Invoice Format Tab */}
             {activeTab === "format" && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <div className="flex flex-col gap-4">
                     <div>
                       <h5 className="text-xl font-bold text-gray-800 mb-1">
                         Invoice Format Management
                       </h5>
-                      <p className="text-gray-500 text-xs">
+                      <p className="text-slate-500 text-xs mt-0.5">
                         Manage and activate different invoice formats for each
                         invoice type
                       </p>
@@ -1211,7 +1209,7 @@ const InvoiceSettings = () => {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-all duration-300">
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
+            <div className="bg-indigo-600 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold">Add Invoice Prefix</h2>
                 <p className="text-indigo-100 text-sm mt-1">
@@ -1258,7 +1256,7 @@ const InvoiceSettings = () => {
                         onChange={(e) =>
                           handleInputChange("prefix", e.target.value)
                         }
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                         placeholder="Ex: COMPANY/2025/"
                         required
                       />
@@ -1276,7 +1274,7 @@ const InvoiceSettings = () => {
                         onChange={(e) =>
                           handleInputChange("issue_date", e.target.value)
                         }
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                         required
                       />
                     </div>
@@ -1291,7 +1289,7 @@ const InvoiceSettings = () => {
                         onChange={(e) =>
                           handleInputChange("expire_date", e.target.value)
                         }
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                         required
                       />
                     </div>
@@ -1308,7 +1306,7 @@ const InvoiceSettings = () => {
                         onChange={(e) =>
                           handleInputChange("current", e.target.value)
                         }
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                         placeholder="1"
                       />
                       <p className="mt-1 text-xs text-gray-500">
@@ -1322,9 +1320,7 @@ const InvoiceSettings = () => {
                 <motion.button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  className="px-6 py-3 text-sm font-medium border border-slate-200 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
                 >
                   Cancel
                 </motion.button>
@@ -1332,8 +1328,6 @@ const InvoiceSettings = () => {
                   type="submit"
                   disabled={loading}
                   className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   {loading ? "Adding..." : "Add Prefix"}
                 </motion.button>
@@ -1347,7 +1341,7 @@ const InvoiceSettings = () => {
       {deleteModal && selectedInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-all duration-300">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300">
-            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
+            <div className="bg-red-600 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
               <h2 className="text-xl font-bold">Delete Invoice Prefix</h2>
               <button
                 onClick={() => {
@@ -1407,7 +1401,7 @@ const InvoiceSettings = () => {
                   deleteLoading ||
                   deleteConfirmText.trim().toLowerCase() !== "delete"
                 }
-                className="px-6 py-3 text-sm font-medium bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 text-sm font-medium bg-red-600 text-white rounded-lg transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <FiTrash2 className="w-4 h-4" />
                 {deleteLoading ? "Deleting..." : "Confirm Delete"}
@@ -1421,7 +1415,7 @@ const InvoiceSettings = () => {
       {showPreviewModal && selectedFormatSample && (
         <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
           {/* Modal Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-2 flex justify-between items-center shadow-lg">
+          <div className="bg-indigo-600 text-white px-6 py-2 flex justify-between items-center shadow-lg">
             <div className="flex items-center gap-3">
               <FiArrowLeft
                 size={20}

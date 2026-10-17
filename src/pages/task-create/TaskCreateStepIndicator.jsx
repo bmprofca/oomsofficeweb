@@ -40,7 +40,7 @@ export default function TaskCreateStepIndicator({
                                         ? 'bg-indigo-600 border-indigo-600 text-white'
                                         : s.n < step
                                           ? 'bg-emerald-500 border-emerald-500 text-white'
-                                          : 'bg-white border-gray-300 text-gray-400'
+                                          : 'bg-white border-slate-200 text-gray-400'
                                 }`}
                             >
                                 {s.n < step ? <FiCheck className={headerInline ? 'w-2.5 h-2.5' : 'w-4 h-4'} /> : s.n}

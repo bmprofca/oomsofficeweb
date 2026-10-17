@@ -499,7 +499,7 @@ const ScheduleFields = ({ form, onChange, disabled = false }) => {
             const [h = "09", m = "00"] = raw.split(":");
             onChange("time", { hour: pad2(h), minute: pad2(m) });
           }}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 disabled:bg-gray-50 disabled:text-gray-400"
         />
       </div>
     </div>
@@ -526,7 +526,7 @@ const ChannelPicker = ({ selected, onToggle }) => (
           className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition ${
             active
               ? "border-indigo-300 bg-indigo-50/70"
-              : "border-gray-200 bg-white hover:border-gray-300"
+              : "border-gray-200 bg-white hover:border-slate-200"
           }`}
         >
           <span onClick={(e) => e.stopPropagation()}>
@@ -632,7 +632,7 @@ const ActionMenu = ({ items }) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-slate-100 hover:text-gray-700"
         aria-label="Actions"
       >
         <FiMoreVertical className="h-3.5 w-3.5" />
@@ -671,7 +671,7 @@ const ActionMenu = ({ items }) => {
                     className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
                       item.danger
                         ? "text-red-600 hover:bg-red-50"
-                        : "text-gray-700 hover:bg-gray-50"
+                        : "text-gray-700 hover:bg-slate-50"
                     } disabled:cursor-not-allowed disabled:opacity-40`}
                   >
                     {item.icon}
@@ -757,7 +757,7 @@ const ConfirmModal = ({
               type="button"
               onClick={onCancel}
               disabled={loading}
-              className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+              className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
             >
               {cancelText}
             </button>
@@ -1392,7 +1392,7 @@ const AutoReminder = () => {
 
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -1424,7 +1424,7 @@ const AutoReminder = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="app-page to-gray-100">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1460,7 +1460,7 @@ const AutoReminder = () => {
               <button
                 type="button"
                 onClick={handleProcessAll}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-slate-50"
               >
                 <FiRefreshCw className="h-3.5 w-3.5" />
                 Run all reminders
@@ -1536,7 +1536,7 @@ const AutoReminder = () => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
                 <div className="flex flex-col gap-3 border-b border-gray-200 bg-gray-50/50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between md:px-4">
                   <h3 className="m-0 text-sm font-semibold text-gray-800">
@@ -1548,13 +1548,13 @@ const AutoReminder = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search name, mobile…"
-                      className="w-56 rounded-lg border border-gray-300 py-2 pl-9 pr-8 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="w-56 rounded-lg border border-slate-200 py-2 pl-9 pr-8 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                     />
                     {searchQuery ? (
                       <button
                         type="button"
                         onClick={() => setSearchQuery("")}
-                        className="absolute right-2 top-2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        className="absolute right-2 top-2 rounded p-0.5 text-gray-400 hover:bg-slate-100 hover:text-gray-600"
                         aria-label="Clear search"
                       >
                         <FiX className="h-4 w-4" />
@@ -1564,8 +1564,8 @@ const AutoReminder = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
                         <th className="w-12 shrink-0 p-3">
                           <div className="flex justify-center">
@@ -1622,7 +1622,7 @@ const AutoReminder = () => {
                           return (
                             <tr
                               key={row.reminder_id}
-                              className="hover:bg-gray-50/80"
+                              className="hover:bg-slate-50/80"
                             >
                               <td className="w-12 shrink-0 p-3">
                                 <div className="flex justify-center">
@@ -1741,7 +1741,7 @@ const AutoReminder = () => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
                 <div className="flex flex-col gap-3 border-b border-gray-200 bg-gray-50/50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between md:px-4">
                   <h3 className="m-0 text-sm font-semibold text-gray-800">
@@ -1762,7 +1762,7 @@ const AutoReminder = () => {
                       }}
                       placeholder="Filter by date"
                       mode="range"
-                      buttonClassName="min-w-[12rem] px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-indigo-400"
+                      buttonClassName="min-w-[12rem] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-gray-700 hover:border-indigo-400"
                     />
                     <button
                       type="button"
@@ -1775,8 +1775,8 @@ const AutoReminder = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
                         <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600">
                           #
@@ -1824,7 +1824,7 @@ const AutoReminder = () => {
                           return (
                             <tr
                               key={log.log_id}
-                              className="hover:bg-gray-50/80"
+                              className="hover:bg-slate-50/80"
                             >
                               <td className="px-3 py-3 text-[11px] font-bold text-gray-700">
                                 {sn}
@@ -1906,7 +1906,7 @@ const AutoReminder = () => {
               className="pointer-events-auto relative z-[1] flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-2rem)]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-indigo-500/20 bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3.5 text-white">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-indigo-500/20 bg-indigo-600 px-5 py-3.5 text-white">
                 <div>
                   <p className="m-0 text-[10px] font-semibold uppercase tracking-wide text-white/80">
                     Auto payment reminder
@@ -1964,7 +1964,7 @@ const AutoReminder = () => {
                             className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 transition ${
                               selectAllClients
                                 ? "border-indigo-300 bg-indigo-50/70"
-                                : "border-gray-200 bg-white hover:border-gray-300"
+                                : "border-gray-200 bg-white hover:border-slate-200"
                             }`}
                           >
                             <span className="mt-0.5">
@@ -2148,7 +2148,7 @@ const AutoReminder = () => {
               className="pointer-events-auto relative z-[1] flex max-h-[calc(100vh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex shrink-0 items-center justify-between border-b border-indigo-500/20 bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3.5 text-white">
+              <div className="flex shrink-0 items-center justify-between border-b border-indigo-500/20 bg-indigo-600 px-5 py-3.5 text-white">
                 <div>
                   <p className="m-0 text-[10px] font-semibold uppercase tracking-wide text-white/80">
                     Edit reminder

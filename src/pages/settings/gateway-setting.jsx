@@ -107,9 +107,7 @@ const ConfirmationModal = ({
         <motion.button
           onClick={onClose}
           disabled={isLoading}
-          className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          className="flex-1 px-4 py-2 text-gray-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
         >
           {cancelText}
         </motion.button>
@@ -120,13 +118,11 @@ const ConfirmationModal = ({
             type === 'danger' 
               ? 'bg-red-600 hover:bg-red-700' 
               : type === 'info'
-              ? 'bg-blue-600 hover:bg-blue-700'
+              ? 'bg-indigo-600 hover:bg-indigo-700'
               : type === 'success'
-              ? 'bg-green-600 hover:bg-green-700'
+              ? 'bg-indigo-600 hover:bg-indigo-700'
               : 'bg-yellow-600 hover:bg-yellow-700'
           } disabled:opacity-50 flex items-center justify-center gap-2`}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
         >
           {isLoading && (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -174,15 +170,13 @@ const AlertModal = ({
           onClick={onClose}
           className={`px-6 py-2 text-white rounded-lg transition-colors ${
             type === 'success' 
-              ? 'bg-green-600 hover:bg-green-700' 
+              ? 'bg-indigo-600 hover:bg-indigo-700' 
               : type === 'error'
               ? 'bg-red-600 hover:bg-red-700'
               : type === 'warning'
               ? 'bg-yellow-600 hover:bg-yellow-700'
-              : 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-indigo-600 hover:bg-indigo-700'
           }`}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
         >
           OK
         </motion.button>
@@ -531,7 +525,7 @@ const GatewayConfig = () => {
                             </label>
                             <input
                                 type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-blue-600 font-semibold transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-gray-100 text-blue-600 font-semibold transition-all duration-200"
                                 value="Get E Pay"
                                 disabled
                             />
@@ -546,7 +540,7 @@ const GatewayConfig = () => {
                                 type="text"
                                 value={configForm.value_1 || gatewayConfig.value_1}
                                 onChange={(e) => handleConfigChange('value_1', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 placeholder="Enter MID"
                                 required
                             />
@@ -560,7 +554,7 @@ const GatewayConfig = () => {
                                 type="text"
                                 value={configForm.value_2 || gatewayConfig.value_2}
                                 onChange={(e) => handleConfigChange('value_2', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 placeholder="Enter Terminal ID"
                                 required
                             />
@@ -574,7 +568,7 @@ const GatewayConfig = () => {
                                 type="text"
                                 value={configForm.value_3 || gatewayConfig.value_3}
                                 onChange={(e) => handleConfigChange('value_3', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 placeholder="Enter Encryption Key"
                                 required
                             />
@@ -588,7 +582,7 @@ const GatewayConfig = () => {
                                 type="text"
                                 value={configForm.value_4 || gatewayConfig.value_4}
                                 onChange={(e) => handleConfigChange('value_4', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 placeholder="Enter Initial Vector"
                                 required
                             />
@@ -601,7 +595,7 @@ const GatewayConfig = () => {
                             <select
                                 value={configForm.bank_id || gatewayConfig.bank_id}
                                 onChange={(e) => handleConfigChange('bank_id', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 required
                             >
                                 <option value="">Select Bank Account</option>
@@ -621,7 +615,7 @@ const GatewayConfig = () => {
                                 type="text"
                                 value={configForm.google_2fa_totp}
                                 onChange={(e) => handleConfigChange('google_2fa_totp', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 placeholder="Enter TOTP"
                                 required
                             />
@@ -631,9 +625,7 @@ const GatewayConfig = () => {
                             <motion.button
                                 type="submit"
                                 disabled={loading.config}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
                             >
                                 {loading.config ? (
                                     <>
@@ -656,7 +648,7 @@ const GatewayConfig = () => {
                             </label>
                             <input
                                 type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-blue-600 font-semibold transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-gray-100 text-blue-600 font-semibold transition-all duration-200"
                                 value="Cash Free"
                                 disabled
                             />
@@ -669,7 +661,7 @@ const GatewayConfig = () => {
                             </label>
                             <input
                                 type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-gray-100 text-gray-700 transition-all duration-200"
                                 value={gatewayConfig.value_1}
                                 disabled
                             />
@@ -682,7 +674,7 @@ const GatewayConfig = () => {
                             <select
                                 value={configForm.bank_id || gatewayConfig.bank_id}
                                 onChange={(e) => handleConfigChange('bank_id', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 required
                             >
                                 <option value="">Select Bank Account</option>
@@ -702,7 +694,7 @@ const GatewayConfig = () => {
                                 type="text"
                                 value={configForm.google_2fa_totp}
                                 onChange={(e) => handleConfigChange('google_2fa_totp', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                 placeholder="Enter TOTP"
                                 required
                             />
@@ -712,9 +704,7 @@ const GatewayConfig = () => {
                             <motion.button
                                 type="submit"
                                 disabled={loading.config}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
                             >
                                 {loading.config ? (
                                     <>
@@ -731,7 +721,7 @@ const GatewayConfig = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -750,7 +740,7 @@ const GatewayConfig = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                             {/* Card Header */}
                             <div className="border-b border-gray-200 px-6 py-4">
                                 <h5 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -793,7 +783,7 @@ const GatewayConfig = () => {
                                                             <select
                                                                 value={channelForm.gateway}
                                                                 onChange={(e) => handleChannelChange('gateway', e.target.value)}
-                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                                             >
                                                                 <option value="">Disable</option>
                                                                 <option value="getepay">Get E Pay</option>
@@ -809,7 +799,7 @@ const GatewayConfig = () => {
                                                                 type="text"
                                                                 value={channelForm.google_2fa_totp}
                                                                 onChange={(e) => handleChannelChange('google_2fa_totp', e.target.value)}
-                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                                                 placeholder="Enter TOTP"
                                                                 required
                                                             />
@@ -819,9 +809,7 @@ const GatewayConfig = () => {
                                                             <motion.button
                                                                 type="submit"
                                                                 disabled={loading.channel}
-                                                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                                                whileHover={{ scale: 1.02 }}
-                                                                whileTap={{ scale: 0.98 }}
+                                                                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                                             >
                                                                 {loading.channel ? (
                                                                     <>
@@ -836,8 +824,6 @@ const GatewayConfig = () => {
                                                                     onClick={handleDisableGateway}
                                                                     disabled={loading.channel}
                                                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                                                                    whileHover={{ scale: 1.02 }}
-                                                                    whileTap={{ scale: 0.98 }}
                                                                 >
                                                                     Disable
                                                                 </motion.button>

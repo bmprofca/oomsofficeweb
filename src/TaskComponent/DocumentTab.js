@@ -697,7 +697,7 @@ const DocumentsTab = ({
 
     return (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-4 sm:px-6">
+            <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-4 sm:px-6">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
                     <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
                         <div className="flex shrink-0 items-center gap-3">
@@ -1050,7 +1050,7 @@ const DocumentsTab = ({
                             transition={{ type: 'spring', damping: 26, stiffness: 320 }}
                             className="flex h-[min(92dvh,920px)] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-white shadow-[0_-8px_40px_rgba(15,23,42,0.35)] sm:rounded-2xl sm:shadow-2xl"
                         >
-                            <div className="relative shrink-0 overflow-hidden border-b border-slate-200/80 bg-gradient-to-r from-teal-600 via-cyan-600 to-indigo-600 px-3 py-2.5 sm:px-4 sm:py-3">
+                            <div className="relative shrink-0 overflow-hidden border-b border-slate-200/80 bg-teal-600 px-3 py-2.5 sm:px-4 sm:py-3">
                                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.15),transparent_50%)]" />
                                 <div className="relative flex items-center justify-between gap-2">
                                     <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -1088,7 +1088,7 @@ const DocumentsTab = ({
                                 </div>
                             </div>
 
-                            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-50 to-white px-3 py-4 sm:px-6 sm:py-5">
+                            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50 px-3 py-4 sm:px-6 sm:py-5">
                                 <TaskDocumentCreate
                                     ref={taskDocCreateRef}
                                     embedded
@@ -1112,8 +1112,6 @@ const DocumentsTab = ({
                                 <div className="mx-auto flex max-w-5xl flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                                     <motion.button
                                         type="button"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
                                         onClick={() => setShowUploadModal(false)}
                                         className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100 sm:w-auto"
                                     >
@@ -1130,7 +1128,7 @@ const DocumentsTab = ({
                                         whileTap={
                                             uploadFormBusy ? {} : { scale: 0.98 }
                                         }
-                                        className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-600/25 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
+                                        className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-600/25 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
                                     >
                                         {uploadFormBusy ? (
                                             <>

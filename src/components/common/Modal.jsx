@@ -77,7 +77,7 @@ const Modal = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.18 }}
-                        className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm pointer-events-auto"
+                        className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px] pointer-events-auto"
                         onClick={onClose}
                     />
 
@@ -89,22 +89,22 @@ const Modal = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.18 }}
-                        className={`relative z-[1] pointer-events-auto my-2 sm:my-4 flex w-full ${SIZE_CLASS[size] || SIZE_CLASS.md} max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ${className}`.trim()}
+                        className={`relative z-[1] pointer-events-auto my-2 sm:my-4 flex w-full ${SIZE_CLASS[size] || SIZE_CLASS.md} max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-slide-up ${className}`.trim()}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className={`flex shrink-0 items-center justify-between gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 text-white ${compactHeader ? 'py-2' : 'py-3.5'}`}>
+                        <div className={`flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 ${compactHeader ? 'py-2.5' : 'py-4'}`}>
                             <div className="min-w-0">
-                                <h2 id="app-modal-title" className={`truncate font-semibold ${compactHeader ? 'text-base' : 'text-lg'}`}>
+                                <h2 id="app-modal-title" className={`truncate font-display font-bold tracking-tight text-slate-900 ${compactHeader ? 'text-[15px]' : 'text-base'}`}>
                                     {title}
                                 </h2>
                                 {subtitle ? (
-                                    <p className="mt-0.5 truncate text-sm text-indigo-100">{subtitle}</p>
+                                    <p className="mt-0.5 truncate text-xs text-slate-500">{subtitle}</p>
                                 ) : null}
                             </div>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                                 aria-label="Close"
                             >
                                 <FiX className="h-5 w-5" />

@@ -31,7 +31,7 @@ import {
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
 const TOOLBAR_ROW =
-  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
+  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60";
 const MENU_Z = 99999;
 const MENU_GAP = 8;
 const MENU_PAD = 8;
@@ -143,7 +143,7 @@ const ActionMenu = ({ items }) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-slate-100 hover:text-gray-700"
         aria-label="Actions"
       >
         <FiMoreVertical className="h-4 w-4" />
@@ -182,7 +182,7 @@ const ActionMenu = ({ items }) => {
                     className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
                       item.danger
                         ? "text-red-600 hover:bg-red-50"
-                        : "text-gray-700 hover:bg-gray-50"
+                        : "text-gray-700 hover:bg-slate-50"
                     } disabled:cursor-not-allowed disabled:opacity-40`}
                   >
                     {item.icon ? (
@@ -352,7 +352,7 @@ const Fast2SmsCampaigns = () => {
 
   if (!canView) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -381,7 +381,7 @@ const Fast2SmsCampaigns = () => {
   const serialBase = (pagination.page_no - 1) * pagination.limit;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -405,7 +405,7 @@ const Fast2SmsCampaigns = () => {
             </h1>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className={TOOLBAR_ROW}>
               <div className="flex min-w-0 items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
@@ -427,7 +427,7 @@ const Fast2SmsCampaigns = () => {
                 <button
                   type="button"
                   onClick={() => fetchCampaigns(pagination.page_no)}
-                  className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50"
+                  className="rounded-lg border border-slate-200 p-2 text-gray-600 hover:bg-slate-50"
                   aria-label="Refresh"
                 >
                   <FiRefreshCw
@@ -450,7 +450,7 @@ const Fast2SmsCampaigns = () => {
                       onClick={() =>
                         navigate(`${basePath}/campaigns/create`)
                       }
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                     >
                       <FiPlus className="h-4 w-4" />
                       Create
@@ -487,7 +487,7 @@ const Fast2SmsCampaigns = () => {
                       {rows.map((row, index) => (
                         <tr
                           key={row.campaign_id}
-                          className="border-b border-gray-100 hover:bg-gray-50"
+                          className="border-b border-gray-100 hover:bg-slate-50"
                         >
                           <td className="px-3 py-3 text-[11px] font-bold text-gray-800">
                             {serialBase + index + 1}

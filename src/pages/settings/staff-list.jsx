@@ -55,7 +55,7 @@ const StaffAvatar = ({ name, image }) => {
     }
 
     return (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-[11px] font-semibold text-white shadow-sm">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-[11px] font-semibold text-white shadow-sm">
             {initials || <FiUser className="h-4 w-4" />}
         </div>
     );
@@ -82,7 +82,7 @@ const PermissionModalSkeleton = () => (
             </div>
             <div className="space-y-3">
                 {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                    <div key={i} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center justify-between bg-gray-50 px-5 py-3.5">
                             <div className="flex items-center gap-2">
                                 <div className="h-4 w-28 rounded bg-gray-200" />
@@ -742,7 +742,7 @@ const StaffList = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -770,15 +770,13 @@ const StaffList = () => {
                                             <h5 className={`font-bold text-gray-800 mb-0.5 truncate ${isMinimized ? 'text-xl' : 'text-lg sm:text-xl'}`}>
                                                 Staff Management
                                             </h5>
-                                            <p className="text-gray-500 text-xs">
+                                            <p className="text-slate-500 text-xs mt-0.5">
                                                 {totalItems} staff member{totalItems === 1 ? '' : 's'} total
                                             </p>
                                         </div>
                                         <motion.button
                                             onClick={() => setShowCreateModal(true)}
-                                            className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
                                         >
                                             <FiPlus className="w-4 h-4" />
                                             <span className="hidden min-[400px]:inline">Add Staff</span>
@@ -794,7 +792,7 @@ const StaffList = () => {
                                             placeholder={isMinimized ? 'Search by name, mobile, email...' : 'Search staff...'}
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full min-w-0 rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                                         />
                                     </div>
                                         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
@@ -832,7 +830,7 @@ const StaffList = () => {
                             {/* Table Container */}
                             <div className="flex-1 overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
                                         <tr>
                                             <th className={`w-12 text-center ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>
                                                 <div className="flex items-center justify-center">
@@ -877,7 +875,7 @@ const StaffList = () => {
                                             </tr>
                                         ) : (
                                             staffData.map((staff) => (
-                                                <tr key={staff.username || staff.id} className="hover:bg-gray-50 transition-colors">
+                                                <tr key={staff.username || staff.id} className="hover:bg-slate-50 transition-colors">
                                                     <td className={`${tableCellPad} w-12`}>
                                                         <div className="flex items-center justify-center">
                                                         <AnimatedCheckbox
@@ -982,8 +980,8 @@ const StaffList = () => {
                                                     <td className={`${tableCellPad} text-center`}>
                                                         <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg min-w-[80px] border shadow-xs text-xs font-bold ${
                                                             staff.is_accepted
-                                                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200'
-                                                                : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200'
+                                                                ? 'bg-green-50 text-green-700 border-green-200'
+                                                                : 'bg-amber-50 text-amber-700 border-amber-200'
                                                         }`}>
                                                             {staff.is_accepted ? 'Accepted' : 'Pending'}
                                                         </span>
@@ -1070,9 +1068,7 @@ const StaffList = () => {
                             <motion.button
                                 type="button"
                                 onClick={() => setShowPermissionModal(false)}
-                                className="px-6 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                                className="px-6 py-2.5 text-sm font-medium border border-slate-200 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
                             >
                                 Cancel
                             </motion.button>
@@ -1081,8 +1077,6 @@ const StaffList = () => {
                                 form="staff-permission-form"
                                 disabled={loading}
                                 className="px-6 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 shadow-sm disabled:opacity-50"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
                             >
                                 {loading ? 'Saving...' : 'Save Permissions'}
                             </motion.button>
@@ -1134,7 +1128,7 @@ const StaffList = () => {
                                                             const name = getPermLabel(permKey);
                                                             const category = getCategoryName(permKey);
                                                             return (
-                                                                <tr key={permKey} className="hover:bg-gray-50 transition-colors">
+                                                                <tr key={permKey} className="hover:bg-slate-50 transition-colors">
                                                                     <td className="px-4 py-2 text-sm font-semibold text-gray-800">{name}</td>
                                                                     <td className="px-4 py-2 text-xs">
                                                                         <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
@@ -1210,7 +1204,7 @@ const StaffList = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))}
-                                                            className="w-full flex items-center justify-between px-5 py-3.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/70 transition-colors text-left"
+                                                            className="w-full flex items-center justify-between px-5 py-3.5 bg-gray-50 border-b border-gray-100 hover:bg-slate-100/70 transition-colors text-left"
                                                         >
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-sm font-bold text-indigo-900 font-sans">{category}</span>
@@ -1395,7 +1389,6 @@ const StaffList = () => {
                             onClick={handleBulkAssignPermissions}
                             disabled={bulkAssigning || !bulkPermissionRole}
                             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-lg text-sm font-semibold transition-colors"
-                            whileTap={{ scale: 0.98 }}
                         >
                             <FiShield className="w-4 h-4" />
                             {bulkAssigning ? 'Updating...' : 'Change Permission'}

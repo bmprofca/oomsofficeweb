@@ -73,14 +73,14 @@ const METRIC_CONFIG = [
     key: "invoice_count",
     label: "Sale invoices",
     icon: FiFileText,
-    gradient: "linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)",
+    tone: { chip: "bg-white text-sky-600 ring-1 ring-sky-100", tile: "bg-sky-50 border-sky-100" },
     captionKey: "invoice",
   },
   {
     key: "sale_amount",
     label: "Sale amount",
     icon: FiShoppingBag,
-    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    tone: { chip: "bg-white text-indigo-600 ring-1 ring-indigo-100", tile: "bg-indigo-50 border-indigo-100" },
     type: "currency",
     captionKey: "sale_amount",
   },
@@ -88,7 +88,7 @@ const METRIC_CONFIG = [
     key: "gst_amount",
     label: "GST amount",
     icon: FiPercent,
-    gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+    tone: { chip: "bg-white text-emerald-600 ring-1 ring-emerald-100", tile: "bg-emerald-50 border-emerald-100" },
     type: "currency",
     captionKey: "gst",
   },
@@ -99,28 +99,28 @@ const SALE_SOURCE_CONFIG = [
     key: "task",
     label: "Task",
     icon: FiCheckCircle,
-    gradient: "from-fuchsia-500 to-pink-600",
-    dot: "bg-fuchsia-500",
+    chip: "bg-indigo-100 text-indigo-700",
+    dot: "bg-indigo-600",
   },
   {
     key: "client",
     label: "Client",
     icon: FiUser,
-    gradient: "from-indigo-500 to-violet-600",
-    dot: "bg-indigo-500",
+    chip: "bg-sky-50 text-sky-700",
+    dot: "bg-sky-400",
   },
   {
     key: "bank",
     label: "Bank",
     icon: FiCreditCard,
-    gradient: "from-cyan-500 to-blue-600",
-    dot: "bg-cyan-500",
+    chip: "bg-teal-50 text-teal-700",
+    dot: "bg-teal-500",
   },
   {
     key: "other",
     label: "Others",
     icon: FiLayers,
-    gradient: "from-slate-500 to-slate-700",
+    chip: "bg-slate-100 text-slate-600",
     dot: "bg-slate-500",
     caption: "CA, agent, staff & more",
   },
@@ -268,15 +268,13 @@ const QuickStatCard = ({
   return (
     <motion.div
       variants={itemVariants}
-      whileHover={{ scale: 1.005 }}
       transition={{ duration: 0.2 }}
-      className="relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full"
-      style={{ background: metric.gradient }}
+      className={`relative h-full overflow-hidden rounded-xl border ${metric.tone.tile} transition-shadow hover:shadow-md`}
     >
-      <div className="p-3">
-        <div className="flex items-start justify-between mb-2">
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="text-white/80 text-xs font-medium mb-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 truncate">
               {metric.label}
             </div>
             <motion.div
@@ -285,20 +283,19 @@ const QuickStatCard = ({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="text-lg font-bold text-white leading-tight truncate">
+              <div className="mt-1.5 font-mono text-xl font-medium tabular-nums tracking-tight text-slate-900 leading-tight truncate">
                 {formatMetricValue(metric, value, canViewAmounts, maskedAmount)}
               </div>
-              <div className="text-white/50 text-[10px] leading-tight mt-1">
+              <div className="mt-1 text-[11px] text-slate-500 leading-tight">
                 {caption}
               </div>
             </motion.div>
           </div>
-          <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg flex-shrink-0 ml-2">
-            <Icon className="w-4 h-4 text-white" />
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${metric.tone.chip}`}>
+            <Icon className="w-4 h-4" />
           </div>
         </div>
       </div>
-      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 hover:translate-x-full transition-transform duration-700 pointer-events-none" />
     </motion.div>
   );
 };
@@ -310,9 +307,9 @@ const SaleSourceRow = ({ source, data, canViewAmounts, maskedAmount, totalCount 
   const share = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-white/80 px-3 py-2.5 border border-white/60">
+    <div className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 border border-slate-200">
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${source.gradient} text-white shadow-sm`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${source.chip}`}
       >
         <Icon className="h-3.5 w-3.5" />
       </div>
@@ -333,7 +330,7 @@ const SaleSourceRow = ({ source, data, canViewAmounts, maskedAmount, totalCount 
         </div>
         <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-gray-100">
           <div
-            className={`h-full rounded-full bg-gradient-to-r ${source.gradient}`}
+            className={`h-full rounded-full ${source.dot}`}
             style={{ width: `${Math.max(share, count > 0 ? 4 : 0)}%` }}
           />
         </div>
@@ -393,7 +390,7 @@ const SalesOverviewBodySkeleton = () => (
   <div className="p-4 bg-gray-50/50 animate-pulse">
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3">
       <div className="lg:col-span-4">
-        <div className="h-full rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 p-4 shadow-md">
+        <div className="h-full rounded-xl bg-indigo-600 p-4 shadow-sm">
           <div className="h-3 w-28 rounded bg-white/30" />
           <div className="mt-2 h-10 w-48 rounded bg-white/40" />
           <div className="mt-2 h-4 w-36 rounded bg-white/25" />
@@ -421,11 +418,11 @@ const SalesOverviewBodySkeleton = () => (
           {Array.from({ length: 3 }).map((_, index) => (
             <div
               key={index}
-              className="rounded-xl bg-gray-200 p-3 min-h-[88px] shadow-md"
+              className="rounded-xl bg-slate-100 p-3 min-h-[88px]"
             />
           ))}
         </div>
-        <div className="rounded-xl border border-gray-100 bg-gradient-to-br from-fuchsia-50 via-white to-indigo-50 p-3 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="h-4 w-28 rounded bg-gray-200 mb-2.5" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -471,7 +468,7 @@ const GrowthIndicator = ({ stats }) => {
   if (stats.sale_amount_growth_percent == null) {
     if (stats.sale_amount > 0 && stats.previous_fy_sale_amount === 0) {
       return (
-        <p className="mt-2 text-sm font-semibold text-emerald-200">
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-sm font-semibold text-white">
           New vs {previousLabel}
         </p>
       );
@@ -484,17 +481,9 @@ const GrowthIndicator = ({ stats }) => {
   const isNeutral = growth === 0;
 
   return (
-    <p
-      className={`mt-2 text-sm font-semibold ${
-        isNeutral
-          ? "text-indigo-100"
-          : isPositive
-            ? "text-emerald-200"
-            : "text-rose-200"
-      }`}
-    >
+    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-sm font-semibold text-white">
       {isNeutral ? "—" : isPositive ? "↑" : "↓"}{" "}
-      {isNeutral ? "No change" : `${Math.abs(growth)}%`} vs {previousLabel}
+      {isNeutral ? "No change" : `${isPositive ? "Up" : "Down"} ${Math.abs(growth)}%`} vs {previousLabel}
     </p>
   );
 };
@@ -520,7 +509,7 @@ const SalesOverviewBody = ({
         transition={{ duration: 0.35 }}
         className="lg:col-span-4"
       >
-        <div className="h-full rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 p-4 shadow-md">
+        <div className="h-full rounded-xl bg-indigo-600 p-4 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-100">
             Total sale amount
           </p>
@@ -591,7 +580,7 @@ const SalesOverviewBody = ({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.35 }}
-          className="rounded-xl border border-gray-100 bg-gradient-to-br from-fuchsia-50 via-white to-indigo-50 p-3 shadow-sm"
+          className="rounded-xl border border-slate-200 bg-slate-50 p-3"
         >
           <p className="text-xs font-bold text-gray-800 mb-2.5">
             Sales by source

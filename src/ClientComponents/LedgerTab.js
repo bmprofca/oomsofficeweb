@@ -760,7 +760,7 @@ const ClientLedger = ({
                     ) : (
                     <>
                     <div className="min-w-0">
-                        <h2 className="text-base sm:text-lg font-bold text-slate-800">Client Ledger</h2>
+                        <h2 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">Client Ledger</h2>
                         {clientNameProp ? (
                             <p className="text-sm text-slate-500 mt-1 truncate">{clientNameProp}</p>
                         ) : null}
@@ -799,8 +799,6 @@ const ClientLedger = ({
                         <motion.button
                             onClick={handleRefresh}
                             className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
                             title="Refresh"
                         >
                             <FiRefreshCw className="w-5 h-5 text-slate-600" />
@@ -829,8 +827,6 @@ const ClientLedger = ({
                                 }}
                                 disabled={!checkPermissionSync('task_fees_view') || downloadingLedger}
                                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-slate-700"
-                                whileHover={checkPermissionSync('task_fees_view') ? { scale: 1.02 } : {}}
-                                whileTap={checkPermissionSync('task_fees_view') ? { scale: 0.98 } : {}}
                                 title="Share / Download"
                             >
                                 {downloadingLedger ? (
@@ -848,16 +844,14 @@ const ClientLedger = ({
                                     e.stopPropagation();
                                     setShowAddMenu((prev) => !prev);
                                 }}
-                                className="p-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-white"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                className="p-2 bg-blue-600 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-white"
                                 title="Add Transaction"
                             >
                                 <FiPlus className="w-5 h-5" />
                             </motion.button>
                             {showAddMenu && (
                                 <div
-                                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50"
+                                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-pop border border-slate-200 py-2 z-50"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     {['RECEIVE', 'PAYMENT', 'SALE', 'PURCHASE', 'EXPENSE', 'JOURNAL'].map((type) => (
@@ -1033,7 +1027,7 @@ const ClientLedger = ({
                 <motion.div
                     initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="fixed w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-[99999] overflow-hidden"
+                    className="fixed w-44 bg-white rounded-xl shadow-pop border border-slate-200 py-1.5 z-[99999] overflow-hidden"
                     style={{ top: shareMenuPosition.top, left: shareMenuPosition.left }}
                     onClick={(e) => e.stopPropagation()}
                 >

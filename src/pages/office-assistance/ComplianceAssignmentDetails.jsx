@@ -530,7 +530,7 @@ const ComplianceAssignmentDetails = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800">
+        <div className="app-page text-slate-800">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
@@ -820,7 +820,7 @@ const ComplianceAssignmentDetails = () => {
                                 className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col border border-slate-100"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
+                                <div className="flex items-center justify-between px-5 py-3.5 bg-indigo-600 text-white shrink-0">
                                     <div className="flex items-center gap-2">
                                         <FiCalendar className="w-5 h-5" />
                                         <h3 className="text-sm font-bold">Update Period Status</h3>
@@ -884,7 +884,7 @@ const ComplianceAssignmentDetails = () => {
                                                 value={statusForm.status}
                                                 disabled={!isUpdatePermitted}
                                                 onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-750 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
+                                                className="w-full px-3 py-2.5 text-xs text-slate-750 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
                                             >
                                                 <option value="Pending From The Department">Pending (Dept)</option>
                                                 <option value="Pending From Client">Pending (Client)</option>
@@ -905,7 +905,7 @@ const ComplianceAssignmentDetails = () => {
                                                     disabled={!isUpdatePermitted}
                                                     onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
                                                     placeholder="0.00"
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
                                                 />
                                             </div>
                                         )}
@@ -967,7 +967,7 @@ const ComplianceAssignmentDetails = () => {
                             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shrink-0">
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-blue-600 text-white shrink-0">
                                 <div className="flex items-center gap-2">
                                     <FiUser className="w-5 h-5" />
                                     <h3 className="text-sm font-bold">Staff Details</h3>
@@ -1014,7 +1014,7 @@ const ComplianceAssignmentDetails = () => {
                             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-emerald-600 text-white">
                                 <div className="flex items-center gap-2">
                                     <FiShare2 className="w-5 h-5" />
                                     <h3 className="text-sm font-bold">Share Invoice</h3>
@@ -1051,7 +1051,7 @@ const ComplianceAssignmentDetails = () => {
                                             value={shareEmail}
                                             onChange={(e) => setShareEmail(e.target.value)}
                                             placeholder="client@example.com"
-                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white"
                                         />
                                     </div>
                                 </div>
@@ -1112,7 +1112,7 @@ const ComplianceAssignmentDetails = () => {
                                 className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-slate-800 to-indigo-950 text-white shrink-0">
+                                <div className="flex items-center justify-between px-5 py-3.5 bg-slate-800 text-white shrink-0">
                                     <div className="flex items-center gap-2">
                                         <FiLock className="w-5 h-5 text-indigo-400" />
                                         <h3 className="text-sm font-bold">Filing Credentials</h3>

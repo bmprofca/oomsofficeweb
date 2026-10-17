@@ -31,7 +31,7 @@ const SECTION_INFO = {
         title: 'Tasks',
         description: 'Branch tasks, descriptions, and statuses',
         icon: FiBriefcase,
-        card: 'border-blue-200 bg-gradient-to-br from-blue-50 to-sky-50',
+        card: 'border-blue-200 bg-blue-50',
         badge: 'bg-blue-100 text-blue-700',
         ring: 'ring-blue-400',
         dot: 'bg-blue-500',
@@ -40,7 +40,7 @@ const SECTION_INFO = {
         title: 'Clients & Firms',
         description: 'Branch clients, profiles, and associated firms',
         icon: FiUsers,
-        card: 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50',
+        card: 'border-emerald-200 bg-emerald-50',
         badge: 'bg-emerald-100 text-emerald-700',
         ring: 'ring-emerald-400',
         dot: 'bg-emerald-500',
@@ -49,7 +49,7 @@ const SECTION_INFO = {
         title: 'Finance Transactions',
         description: 'Financial ledger transactions',
         icon: TbCurrencyRupee,
-        card: 'border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50',
+        card: 'border-violet-200 bg-violet-50',
         badge: 'bg-violet-100 text-violet-700',
         ring: 'ring-violet-400',
         dot: 'bg-violet-500',
@@ -58,7 +58,7 @@ const SECTION_INFO = {
         title: 'Compliance & Schedules',
         description: 'Compliance assignments and calendar schedules',
         icon: FiCalendar,
-        card: 'border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50',
+        card: 'border-amber-200 bg-amber-50',
         badge: 'bg-amber-100 text-amber-800',
         ring: 'ring-amber-400',
         dot: 'bg-amber-500',
@@ -67,7 +67,7 @@ const SECTION_INFO = {
         title: 'Billing Invoices',
         description: 'Generated billing invoices',
         icon: FiFileText,
-        card: 'border-rose-200 bg-gradient-to-br from-rose-50 to-pink-50',
+        card: 'border-rose-200 bg-rose-50',
         badge: 'bg-rose-100 text-rose-700',
         ring: 'ring-rose-400',
         dot: 'bg-rose-500',
@@ -76,7 +76,7 @@ const SECTION_INFO = {
         title: 'Staff',
         description: 'Active staff mapping list',
         icon: FiUserCheck,
-        card: 'border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50',
+        card: 'border-teal-200 bg-teal-50',
         badge: 'bg-teal-100 text-teal-700',
         ring: 'ring-teal-400',
         dot: 'bg-teal-500',
@@ -99,7 +99,7 @@ const formatBtnClass = (active) =>
     `py-2 px-3 text-sm font-bold rounded-lg border text-center transition-all ${
         active
             ? 'bg-gradient-to-r text-white border-transparent shadow-md scale-[1.02]'
-            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+            : 'bg-white border-gray-200 text-gray-700 hover:bg-slate-50 hover:border-slate-200'
     }`;
 
 const Backup = () => {
@@ -506,7 +506,7 @@ const Backup = () => {
     }, 0);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/40 to-purple-50/30">
+        <div className="app-page via-indigo-50/40 to-purple-50/30">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -527,11 +527,11 @@ const Backup = () => {
             >
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     {/* Hero */}
-                    <div className="mb-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 p-[1px] shadow-lg shadow-indigo-200/50">
+                    <div className="mb-6 rounded-2xl bg-indigo-600 p-[1px] shadow-lg shadow-indigo-200/50">
                         <div className="rounded-2xl bg-white/95 backdrop-blur px-5 py-5 sm:px-6 sm:py-6">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shrink-0">
+                                    <div className="w-12 h-12 rounded-xl bg-indigo-500 flex items-center justify-center shadow-md shrink-0">
                                         <FiDatabase className="w-6 h-6 text-white" />
                                     </div>
                                     <div>
@@ -627,7 +627,7 @@ const Backup = () => {
                                                     Object.keys(SECTION_INFO).length
                                                 }
                                                 onChange={(e) => handleSelectAll(e.target.checked)}
-                                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                                className="w-4 h-4 text-indigo-600 rounded border-slate-200 focus:ring-indigo-500/25"
                                             />
                                             Select all
                                         </label>
@@ -648,7 +648,7 @@ const Backup = () => {
                                                     className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
                                                         isSelected
                                                             ? `${sec.card} shadow-sm ring-2 ${sec.ring} ring-offset-1`
-                                                            : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                                                            : 'bg-white border-gray-200 hover:border-slate-200 hover:bg-slate-50/50'
                                                     }`}
                                                 >
                                                     <input
@@ -656,7 +656,7 @@ const Backup = () => {
                                                         type="checkbox"
                                                         checked={isSelected}
                                                         onChange={() => toggleSection(key)}
-                                                        className="mt-0.5 w-5 h-5 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer"
+                                                        className="mt-0.5 w-5 h-5 shrink-0 rounded border-slate-200 text-indigo-600 focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-0 cursor-pointer"
                                                     />
                                                     <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
                                                         <div className="flex items-start gap-3 min-w-0">
@@ -761,7 +761,7 @@ const Backup = () => {
                                                     onChange={(e) =>
                                                         setRecipientEmail(e.target.value)
                                                     }
-                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/25 text-sm"
                                                     required
                                                 />
                                             </div>
@@ -775,7 +775,7 @@ const Backup = () => {
                                 <button
                                     type="submit"
                                     disabled={submitting || summaryLoading}
-                                    className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {submitting ? (
                                         <>
@@ -802,7 +802,7 @@ const Backup = () => {
                             </h2>
 
                             <div className="space-y-3 mb-5">
-                                <div className="rounded-xl bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 p-4">
+                                <div className="rounded-xl bg-violet-50 border border-violet-100 p-4">
                                     <p className="text-xs font-semibold text-violet-600 uppercase tracking-wide mb-1">
                                         Active branch
                                     </p>
@@ -1034,7 +1034,7 @@ const Backup = () => {
                                                             <tr>
                                                                 <td
                                                                     colSpan="7"
-                                                                    className="bg-gradient-to-b from-indigo-50/40 to-white p-0 border-t border-indigo-100/50"
+                                                                    className="bg-indigo-50 p-0 border-t border-indigo-100/50"
                                                                 >
                                                                     <motion.div
                                                                         initial={{
@@ -1155,7 +1155,7 @@ const Backup = () => {
                                                                                                             'download'
                                                                                                         )
                                                                                                     }
-                                                                                                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-gray-50 whitespace-nowrap min-w-[6.5rem] justify-center"
+                                                                                                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 whitespace-nowrap min-w-[6.5rem] justify-center"
                                                                                                 >
                                                                                                     {individualLoading[
                                                                                                         dlKey
@@ -1185,7 +1185,7 @@ const Backup = () => {
                                                                                                             'email'
                                                                                                         )
                                                                                                     }
-                                                                                                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-gray-50 whitespace-nowrap min-w-[6.5rem] justify-center"
+                                                                                                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 whitespace-nowrap min-w-[6.5rem] justify-center"
                                                                                                 >
                                                                                                     {individualLoading[
                                                                                                         emKey
@@ -1232,7 +1232,7 @@ const Backup = () => {
                             exit={{ scale: 0.95, opacity: 0 }}
                             className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-center"
                         >
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500 flex items-center justify-center">
                                 <FiDownload className="w-8 h-8 text-white animate-bounce" />
                             </div>
                             <h3 className="text-lg font-bold text-gray-900">Creating backup</h3>
@@ -1240,7 +1240,7 @@ const Backup = () => {
 
                             <div className="w-full bg-gray-100 rounded-full h-2.5 mt-6 mb-3 overflow-hidden">
                                 <motion.div
-                                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-600"
+                                    className="h-full rounded-full bg-indigo-500"
                                     style={{ width: `${progressPercent}%` }}
                                 />
                             </div>

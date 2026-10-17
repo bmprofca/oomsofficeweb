@@ -151,16 +151,37 @@ export default function HeaderNotifications({
     return () => clearInterval(interval);
   }, []);
 
+  // Close on any outside press. Capture phase so components that stop
+  // propagation (tables, drag handles, editors) can't swallow it; touch too;
+  // Escape; a click into an iframe (window blur); and route changes.
   useEffect(() => {
     if (!open) return undefined;
-    const onMouseDown = (event) => {
+    const isInside = (target) =>
+      triggerRef.current?.contains(target) || panelRef.current?.contains(target);
+    const onPointerDown = (event) => {
       if (confirmState) return;
-      if (triggerRef.current?.contains(event.target)) return;
-      if (panelRef.current?.contains(event.target)) return;
+      if (isInside(event.target)) return;
       setOpenSafe(false);
     };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !confirmState) setOpenSafe(false);
+    };
+    const onBlur = () => {
+      if (!confirmState && document.activeElement?.tagName === "IFRAME") setOpenSafe(false);
+    };
+    const onRoute = () => setOpenSafe(false);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("touchstart", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("popstate", onRoute);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("touchstart", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("popstate", onRoute);
+    };
   }, [open, setOpenSafe, confirmState]);
 
   // Stop wheel/trackpad scroll from chaining to the page behind the menu.

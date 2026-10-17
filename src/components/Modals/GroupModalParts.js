@@ -7,7 +7,7 @@ export const MODAL_BODY_CLASS =
   "px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 
 export const INPUT_CLASS =
-  "w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-60";
+  "w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent disabled:opacity-60";
 
 export const LABEL_CLASS = "block text-xs font-semibold text-gray-600 mb-1.5";
 
@@ -42,7 +42,7 @@ export function GroupModalShell({
   maxWidth = "max-w-lg",
   /** Extra classes on the dialog panel (e.g. fixed height). */
   panelClassName = "",
-  headerClass = "bg-gradient-to-r from-indigo-600 to-violet-600",
+  headerClass = "bg-indigo-600",
   icon: Icon,
   title,
   subtitle,

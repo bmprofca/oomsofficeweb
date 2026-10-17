@@ -50,7 +50,7 @@ const calculateGSTPrice = (price) => {
 const PLAN_META = {
     Business: { icon: FiStar, color: 'blue', tagline: 'For solo operators getting started' },
     BusinessPlus: { icon: FiZap, color: 'indigo', tagline: 'For growing teams that need staff tools', popular: true },
-    BusinessPro: { icon: FiAward, color: 'purple', tagline: 'For established businesses that need it all' },
+    BusinessPro: { icon: FiAward, color: 'violet', tagline: 'For established businesses that need it all' },
 };
 
 const Subscription = () => {
@@ -457,24 +457,16 @@ const Subscription = () => {
 
     const getColorClasses = (color) => {
         const colorMap = {
-            blue: 'border-blue-200 text-blue-600 bg-blue-50',
-            indigo: 'border-indigo-200 text-indigo-600 bg-indigo-50',
-            purple: 'border-purple-200 text-purple-600 bg-purple-50',
+            blue: 'text-sky-600 bg-sky-50',
+            indigo: 'text-indigo-600 bg-indigo-50',
+            violet: 'text-violet-600 bg-violet-50',
+            purple: 'text-violet-600 bg-violet-50',
         };
         return colorMap[color] || colorMap.indigo;
     };
 
-    const getButtonClasses = (color) => {
-        const map = {
-            blue: 'bg-blue-600 hover:bg-blue-700',
-            indigo: 'bg-indigo-600 hover:bg-indigo-700',
-            purple: 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700',
-        };
-        return map[color] || map.indigo;
-    };
-
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -490,183 +482,259 @@ const Subscription = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-                    <div className="flex flex-col gap-6">
-
-                        {/* Page heading */}
-                        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Billing &amp; Subscription</h1>
-                                <p className="text-sm text-slate-500 mt-1">
-                                    Plans apply to your active branch workspace
-                                    {branchId ? ` — ${branchName} (${branchId})` : ''}.
-                                    Purchase or extend plans below for this branch.
-                                </p>
-                            </div>
+                <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+                    {/* Page heading */}
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="ui-eyebrow">Billing</p>
+                            <h1 className="mt-0.5 font-display text-2xl font-semibold tracking-tight text-slate-900">Subscription</h1>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Plans apply to this branch only{branchId ? ` — ${branchName} (${branchId})` : ''}.
+                            </p>
                         </div>
+                        <Link
+                            to="/wallet-recharge"
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm no-underline transition-colors hover:border-slate-300 hover:bg-slate-50"
+                            title="Branch wallet — click to add money"
+                        >
+                            <FaWallet className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="text-slate-500">Wallet</span>
+                            <span className="font-mono font-semibold tabular-nums text-slate-900">
+                                {walletLoading ? '…' : `₹${formatINR(walletBalance)}`}
+                            </span>
+                        </Link>
+                    </div>
 
-                        {/* Expiring-soon banner */}
-                        {isExpiringSoon && (
-                            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                                <FiAlertTriangle className="w-4.5 h-4.5 text-amber-600 mt-0.5 flex-shrink-0" />
-                                <p className="text-sm text-amber-800">
-                                    <span className="font-semibold">{expiringPlan.plan_name} renews soon.</span>{' '}
-                                    {daysRemaining <= 0
-                                        ? 'This plan expires today.'
-                                        : `Only ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left before it expires.`}{' '}
-                                    Purchase again below to extend your access.
-                                </p>
-                            </div>
-                        )}
+                    {/* Expiring-soon banner */}
+                    {isExpiringSoon && (
+                        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                            <FiAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                            <p className="m-0 text-sm text-amber-900">
+                                <span className="font-semibold">{expiringPlan.plan_name} expires soon.</span>{' '}
+                                {daysRemaining <= 0
+                                    ? 'It ends today.'
+                                    : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left.`}{' '}
+                                Extend it below to avoid any interruption.
+                            </p>
+                        </div>
+                    )}
 
-                        {/* Subscription Plans Section */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                            <div className="border-b border-slate-100 px-6 py-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                                <div>
-                                    <h2 className="text-base font-bold text-slate-900">Available Plans</h2>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Pick the plan that fits your team. Upgrade, downgrade, or renew at any time.
-                                    </p>
-                                </div>
-
-                                {/* Monthly / Yearly toggle */}
-                                <div className="flex items-center self-start sm:self-auto bg-slate-100 p-1 rounded-xl border border-slate-200">
-                                    <button
-                                        onClick={() => setBillingCycle('monthly')}
-                                        className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${billingCycle === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-600'}`}
-                                    >
-                                        Monthly
-                                    </button>
-                                    <button
-                                        onClick={() => setBillingCycle('yearly')}
-                                        className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${billingCycle === 'yearly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-600'}`}
-                                    >
-                                        Yearly
-                                        <span className="bg-emerald-100 text-emerald-700 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                            Save 17%
+                    {/* Current plan */}
+                    {(() => {
+                        const current = (subscription?.active_plans || [])
+                            .filter((plan) => plan.is_active)
+                            .sort((x, y) => new Date(y.expires_at) - new Date(x.expires_at))[0];
+                        const meta = current ? PLAN_META[current.plan_name] || {} : {};
+                        const CurrentIcon = meta.icon || FiCreditCard;
+                        const days = current?.days_remaining ?? null;
+                        const pct = days == null ? 0 : Math.max(4, Math.min(100, (days / 365) * 100));
+                        return (
+                            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                                <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
+                                    <div className="flex min-w-0 items-start gap-4">
+                                        <span
+                                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+                                                current ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100' : 'bg-slate-100 text-slate-400'
+                                            }`}
+                                        >
+                                            <CurrentIcon className="h-5 w-5" />
                                         </span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {subscriptionPlans.map((plan) => {
-                                        const IconComponent = plan.icon;
-                                        const gstPrice = calculateGSTPrice(plan.price);
-                                        const planEntry = planActiveMap[plan.id];
-                                        const isPlanActive = !!planEntry?.is_active;
-                                        const expiryLabel = getPlanExpiryLabel(planEntry);
-
-                                        return (
-                                            <motion.div
-                                                key={plan.id}
-                                                className={`relative border rounded-2xl transition-all overflow-hidden flex flex-col justify-between
-                                                    ${isPlanActive
-                                                        ? 'border-indigo-400 ring-1 ring-indigo-400 bg-indigo-50/30'
-                                                        : plan.popular
-                                                            ? 'border-indigo-200 shadow-md'
-                                                            : 'border-slate-200 hover:border-slate-300 hover:shadow-md'}`}
-                                                whileHover={{ y: -2 }}
-                                            >
-                                                {plan.popular && !isPlanActive && (
-                                                    <div className="absolute top-0 inset-x-0 bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider text-center py-1.5">
-                                                        Most Popular
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-medium text-slate-500">Current plan</p>
+                                            {subLoading ? (
+                                                <div className="mt-1 h-6 w-40 animate-pulse rounded bg-slate-100" />
+                                            ) : current ? (
+                                                <>
+                                                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                                                        <h2 className="m-0 font-display text-lg font-semibold text-slate-900">{current.plan_name}</h2>
+                                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                                            Active
+                                                        </span>
                                                     </div>
-                                                )}
-
-                                                <div className={`p-6 ${plan.popular && !isPlanActive ? 'pt-10' : ''}`}>
-                                                    {/* Plan Header */}
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <div className={`p-3 rounded-xl border ${getColorClasses(plan.color)}`}>
-                                                            <IconComponent className="w-5 h-5" />
-                                                        </div>
-                                                        {isPlanActive && (
-                                                            <span className="inline-flex items-center gap-1 bg-indigo-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                                                                <FiCheck className="w-3 h-3" />
-                                                                Active
-                                                            </span>
+                                                    <p className="m-0 mt-1 text-sm text-slate-600">
+                                                        Valid until <span className="font-medium text-slate-900">{formatDate(current.expires_at)}</span>
+                                                        {days != null && (
+                                                            <span className="text-slate-400"> · {days} day{days === 1 ? '' : 's'} left</span>
                                                         )}
-                                                    </div>
-
-                                                    <h3 className="text-lg font-bold text-slate-900">
-                                                        {plan.name}
-                                                    </h3>
-                                                    <p className="text-xs text-slate-500 mt-1">{plan.tagline}</p>
-
-                                                    {expiryLabel && (
-                                                        <div className={`mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border
-                                                            ${isPlanActive
-                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                                                            <FiCalendar className="w-3.5 h-3.5 flex-shrink-0" />
-                                                            {expiryLabel}
+                                                    </p>
+                                                    {days != null && (
+                                                        <div className="mt-3 h-1.5 w-full max-w-md overflow-hidden rounded-full bg-slate-100">
+                                                            <div
+                                                                className={`h-full rounded-full ${days <= 7 ? 'bg-amber-500' : 'bg-indigo-500'}`}
+                                                                style={{ width: `${pct}%` }}
+                                                            />
                                                         </div>
                                                     )}
-
-                                                    {/* Pricing */}
-                                                    <div className="my-5 flex items-baseline">
-                                                        <span className="text-slate-500 text-lg font-medium">₹</span>
-                                                        <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-                                                            {plan.price.toLocaleString('en-IN')}
-                                                        </span>
-                                                        <span className="text-slate-500 text-sm ml-1 font-medium">
-                                                            /{plan.duration}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Features */}
-                                                    <ul className="space-y-3 pt-5 border-t border-slate-100">
-                                                        {plan.features.map((feature, index) => (
-                                                            <li
-                                                                key={index}
-                                                                className={`flex items-start gap-2.5 text-xs ${feature.included ? 'text-slate-700 font-medium' : 'text-slate-400'}`}
-                                                            >
-                                                                {feature.included ? (
-                                                                    <FiCheck className="w-4 h-4 mt-0.5 flex-shrink-0 text-emerald-500" />
-                                                                ) : (
-                                                                    <FiX className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-300" />
-                                                                )}
-                                                                <span>{feature.label}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-
-                                                <div className="p-6 pt-0">
-                                                    <motion.button
-                                                        onClick={() => handleBuyPlan(plan.id)}
-                                                        disabled={paymentLoading || subLoading}
-                                                        className={`w-full py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 text-sm text-white shadow-sm hover:shadow-md ${getButtonClasses(plan.color)}`}
-                                                        title={`18% GST included \u2014 Total: \u20B9${formatINR(gstPrice)}`}
-                                                        whileTap={{ scale: 0.98 }}
-                                                    >
-                                                        {paymentLoading ? (
-                                                            'Processing...'
-                                                        ) : isPlanActive ? (
-                                                            <>
-                                                                <FiClock className="w-4 h-4" />
-                                                                Extend {plan.name}
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                Choose {plan.name}
-                                                                <FiArrowRight className="w-4 h-4" />
-                                                            </>
-                                                        )}
-                                                    </motion.button>
-
-                                                    <div className="text-[11px] text-slate-400 text-center mt-2.5">
-                                                        ₹{formatINR(gstPrice)} incl. 18% GST
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        );
-                                    })}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <h2 className="m-0 mt-0.5 font-display text-lg font-semibold text-slate-900">No active plan</h2>
+                                                    <p className="m-0 mt-1 text-sm text-slate-600">Choose a plan below to unlock clients, tasks, billing and more.</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {current && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleBuyPlan(current.plan_name)}
+                                            disabled={paymentLoading || subLoading}
+                                            className="ui-btn ui-btn-primary w-full md:w-auto"
+                                        >
+                                            <FiClock className="h-4 w-4" />
+                                            Extend {current.plan_name}
+                                        </button>
+                                    )}
                                 </div>
+                            </section>
+                        );
+                    })()}
+
+                    {/* Plans */}
+                    <section className="rounded-2xl border border-slate-200 bg-white">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                            <div className="min-w-0">
+                                <h2 className="m-0 text-base font-semibold text-slate-900">Plans</h2>
+                                <p className="m-0 mt-0.5 text-xs text-slate-500">Upgrade, switch or renew at any time. Prices exclude 18% GST.</p>
+                            </div>
+                            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5" role="tablist" aria-label="Billing cycle">
+                                {[
+                                    { id: 'monthly', label: 'Monthly' },
+                                    { id: 'yearly', label: 'Yearly', badge: 'Save 17%' },
+                                ].map((opt) => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={billingCycle === opt.id}
+                                        onClick={() => setBillingCycle(opt.id)}
+                                        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                                            billingCycle === opt.id ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                        {opt.badge && (
+                                            <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+                                                {opt.badge}
+                                            </span>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                    </div>
+
+                        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
+                            {subscriptionPlans.map((plan) => {
+                                const IconComponent = plan.icon;
+                                const gstPrice = calculateGSTPrice(plan.price);
+                                const planEntry = planActiveMap[plan.id];
+                                const isPlanActive = !!planEntry?.is_active;
+                                const expiryLabel = getPlanExpiryLabel(planEntry);
+                                const perMonth = billingCycle === 'yearly' ? Math.round(plan.price / 12) : null;
+                                const highlighted = isPlanActive || plan.popular;
+
+                                return (
+                                    <div
+                                        key={plan.id}
+                                        className={`relative flex flex-col rounded-xl border bg-white p-5 transition-colors ${
+                                            isPlanActive
+                                                ? 'border-indigo-500 ring-1 ring-indigo-500'
+                                                : plan.popular
+                                                  ? 'border-indigo-200'
+                                                  : 'border-slate-200 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${getColorClasses(plan.color)}`}>
+                                                <IconComponent className="h-[18px] w-[18px]" />
+                                            </span>
+                                            {isPlanActive ? (
+                                                <span className="shrink-0 rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                                                    Current
+                                                </span>
+                                            ) : plan.popular ? (
+                                                <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100">
+                                                    Popular
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                        <h3 className="m-0 mt-3 text-base font-semibold text-slate-900">{plan.name}</h3>
+                                        <p className="m-0 mt-0.5 min-h-[2.5em] text-xs leading-snug text-slate-500">{plan.tagline}</p>
+
+                                        <div className="mt-3 flex items-baseline gap-1">
+                                            <span className="text-lg font-medium text-slate-500">₹</span>
+                                            <span className="font-display text-3xl font-semibold tracking-tight text-slate-900">
+                                                {plan.price.toLocaleString('en-IN')}
+                                            </span>
+                                            <span className="text-sm text-slate-500">/{plan.duration}</span>
+                                        </div>
+                                        <p className="m-0 mt-0.5 text-xs text-slate-500">
+                                            ₹{formatINR(gstPrice)} incl. GST
+                                            {perMonth ? ` · ≈ ₹${perMonth.toLocaleString('en-IN')}/month` : ''}
+                                        </p>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => handleBuyPlan(plan.id)}
+                                            disabled={paymentLoading || subLoading}
+                                            className={`ui-btn mt-4 w-full ${highlighted ? 'ui-btn-primary' : 'ui-btn-secondary'}`}
+                                            title={`18% GST included — total ₹${formatINR(gstPrice)}`}
+                                        >
+                                            {paymentLoading ? (
+                                                'Processing…'
+                                            ) : isPlanActive ? (
+                                                <>
+                                                    <FiClock className="h-4 w-4" />
+                                                    Extend plan
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Choose {plan.name}
+                                                    <FiArrowRight className="h-4 w-4" />
+                                                </>
+                                            )}
+                                        </button>
+                                        <p
+                                            className={`m-0 mt-2 flex min-h-[1.25rem] items-center justify-center gap-1.5 text-[11px] font-medium ${
+                                                isPlanActive ? 'text-emerald-700' : 'text-slate-500'
+                                            }`}
+                                        >
+                                            {expiryLabel && (
+                                                <>
+                                                    <FiCalendar className="h-3 w-3 shrink-0" />
+                                                    {expiryLabel}
+                                                </>
+                                            )}
+                                        </p>
+
+                                        <ul className="m-0 mt-3 list-none space-y-2 border-t border-slate-100 p-0 pt-4">
+                                            {plan.features.map((feature) => (
+                                                <li
+                                                    key={feature.label}
+                                                    className={`flex items-start gap-2 text-[13px] leading-snug ${
+                                                        feature.included ? 'text-slate-700' : 'text-slate-400 line-through decoration-slate-300'
+                                                    }`}
+                                                >
+                                                    {feature.included ? (
+                                                        <FiCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" strokeWidth={3} />
+                                                    ) : (
+                                                        <FiX className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                                                    )}
+                                                    <span>{feature.label}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    <p className="m-0 flex items-center justify-center gap-1.5 text-center text-xs text-slate-400">
+                        <FiClock className="h-3 w-3" />
+                        Plans activate immediately after payment. Pay from the branch wallet or by card, UPI or net banking.
+                    </p>
                 </div>
             </div>
 
@@ -922,7 +990,7 @@ const Subscription = () => {
                                         <div className="relative mx-auto mb-3 flex h-[52px] w-[52px] items-center justify-center">
                                             <span className="sub-success-ring absolute inset-0 rounded-full bg-emerald-400/25" />
                                             <span className="sub-success-ring-delay absolute inset-0 rounded-full bg-emerald-400/20" />
-                                            <div className="sub-success-pop relative flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30">
+                                            <div className="sub-success-pop relative flex h-[52px] w-[52px] items-center justify-center rounded-full bg-emerald-400 text-white shadow-lg shadow-emerald-500/30">
                                                 <FiCheck className="h-6 w-6" strokeWidth={3} />
                                             </div>
                                         </div>
@@ -1010,7 +1078,7 @@ const Subscription = () => {
                                     <button
                                         type="button"
                                         onClick={closeSubscriptionSuccessModal}
-                                        className="sub-success-fade-up-delay-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition-shadow hover:shadow-lg hover:shadow-indigo-500/25"
+                                        className="sub-success-fade-up-delay-2 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition-shadow hover:shadow-lg hover:shadow-indigo-500/25"
                                     >
                                         Continue
                                         <FiArrowRight className="h-4 w-4" />

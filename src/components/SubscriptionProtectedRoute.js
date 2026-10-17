@@ -218,7 +218,7 @@ export const SubscriptionBlockedScreen = ({ requiredLevel }) => {
                 <button
                     type="button"
                     onClick={() => navigate('/branch-setup?change=1')}
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-slate-50 transition-colors"
                 >
                     <FiArrowLeft className="w-4 h-4" />
                     Change branch

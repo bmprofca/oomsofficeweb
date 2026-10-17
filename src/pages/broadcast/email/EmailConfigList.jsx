@@ -154,7 +154,7 @@ const EmailConfigList = () => {
 
   if (!check('broadcast_config_edit')) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="app-page via-blue-50 to-indigo-50">
         <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
@@ -171,17 +171,17 @@ const EmailConfigList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
-            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h1 className="text-base md:text-lg font-bold text-gray-800">SMTP Configuration</h1>
+                  <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">SMTP Configuration</h1>
                   <p className="text-xs text-gray-500 mt-0.5">The active config is used for all branch emails</p>
                 </div>
                 <button

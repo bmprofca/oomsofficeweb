@@ -285,10 +285,10 @@ const ServiceStaffContribution = ({ dateRange, refreshKey }) => {
   }, []);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="p-2 bg-gradient-to-br from-violet-100 to-indigo-100 rounded-lg flex-shrink-0">
+          <div className="p-2 bg-violet-50 rounded-lg flex-shrink-0">
             <FiLayers className="w-4 h-4 text-violet-600" />
           </div>
           <div className="min-w-0 flex-1">
@@ -388,7 +388,7 @@ const ServiceStaffContribution = ({ dateRange, refreshKey }) => {
               />
             </div>
 
-            <div className="rounded-xl border border-gray-100 bg-gradient-to-br from-slate-50/80 via-white to-violet-50/40 p-2 sm:p-3">
+            <div className="rounded-xl border border-gray-100 bg-slate-50 p-2 sm:p-3">
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart
                   layout="vertical"
@@ -547,7 +547,7 @@ const StaffWiseSalesPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="app-page to-gray-100">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -567,9 +567,9 @@ const StaffWiseSalesPage = () => {
         }`}
       >
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4 md:py-6 space-y-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="p-2 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-lg flex-shrink-0">
+              <div className="p-2 bg-teal-50 rounded-lg flex-shrink-0">
                 <FiUsers className="w-4 h-4 text-teal-600" />
               </div>
               <div className="min-w-0 flex-1">
@@ -612,7 +612,7 @@ const StaffWiseSalesPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <StaffWiseSales
               showViewAll={false}
               showDatePicker={false}

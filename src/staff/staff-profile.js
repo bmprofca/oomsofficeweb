@@ -270,7 +270,7 @@
 //     };
 
 //     return (
-//         <div className="min-h-screen bg-gray-50">
+//         <div className="app-page">
 //             <Header
 //                 mobileMenuOpen={mobileMenuOpen}
 //                 setMobileMenuOpen={setMobileMenuOpen}
@@ -289,7 +289,7 @@
 //                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
 //                     {/* Staff Header Card */}
 //                     <motion.div 
-//                         className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 relative"
+//                         className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 relative"
 //                         initial={{ opacity: 0, y: -20 }}
 //                         animate={{ opacity: 1, y: 0 }}
 //                         transition={{ duration: 0.4 }}
@@ -297,7 +297,7 @@
 //                         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
 //                             <div className="flex items-center gap-4">
 //                                 <motion.div 
-//                                     className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl"
+//                                     className="w-16 h-16 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-xl"
 //                                     whileHover={{ scale: 1.05, rotate: 5 }}
 //                                 >
 //                                     {staffData.firstName.charAt(0)}{staffData.lastName.charAt(0)}
@@ -327,9 +327,9 @@
 //                             <div className="flex items-center gap-3">
 //                                 <motion.button
 //                                     onClick={() => setShowSettings(!showSettings)}
-//                                     className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-//                                     whileHover={{ scale: 1.05 }}
-//                                     whileTap={{ scale: 0.95 }}
+//                                     className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-slate-100 rounded-lg"
+//
+//
 //                                 >
 //                                     <FiUser className="w-5 h-5" />
 //                                 </motion.button>
@@ -346,18 +346,18 @@
 //                                     initial={{ opacity: 0, y: -10 }}
 //                                     animate={{ opacity: 1, y: 0 }}
 //                                     exit={{ opacity: 0, y: -10 }}
-//                                     className="absolute right-6 top-20 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10"
+//                                     className="absolute right-6 top-20 mt-2 w-48 bg-white rounded-xl shadow-pop border border-slate-200 py-1 z-10"
 //                                 >
 //                                     <button
 //                                         onClick={handleEditProfile}
-//                                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+//                                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-slate-100 flex items-center gap-2"
 //                                     >
 //                                         <FiEdit2 className="w-4 h-4" />
 //                                         Edit Profile
 //                                     </button>
 //                                     <button
 //                                         onClick={handleChangePassword}
-//                                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+//                                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-slate-100 flex items-center gap-2"
 //                                     >
 //                                         <FiLock className="w-4 h-4" />
 //                                         Change Password
@@ -393,10 +393,10 @@
 //                                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap transition-colors ${
 //                                             isActive 
 //                                                 ? 'bg-blue-100 text-blue-700' 
-//                                                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+//                                                 : 'text-gray-600 hover:text-gray-900 hover:bg-slate-100'
 //                                         }`}
-//                                         whileHover={{ scale: 1.02 }}
-//                                         whileTap={{ scale: 0.98 }}
+//
+//
 //                                     >
 //                                         <Icon className="w-4 h-4" />
 //                                         {tab.name}

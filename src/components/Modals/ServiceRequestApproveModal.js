@@ -12,7 +12,7 @@ import SearchablePickField, {
 import { approveServiceRequest } from '../../services/serviceRequestService';
 
 const DATE_BTN_CLASS =
-    'w-full min-h-[44px] pl-3 pr-3 py-2.5 text-sm text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none';
+    'w-full min-h-[44px] pl-3 pr-3 py-2.5 text-sm text-gray-900 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none';
 
 const formatMoney = (charges) => {
     const n = Number(charges?.amount ?? charges?.fees);
@@ -222,7 +222,7 @@ export default function ServiceRequestApproveModal({ isOpen, request, onClose, o
                                 value={officeNote}
                                 onChange={(e) => setOfficeNote(e.target.value)}
                                 rows={2}
-                                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 outline-none resize-none"
                                 placeholder="Note added to the task..."
                             />
                         </div>

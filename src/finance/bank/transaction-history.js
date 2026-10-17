@@ -148,7 +148,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -208,7 +208,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                                 className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
                                     exporting && selectedFormat === option.type
                                         ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-slate-50'
                                 } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
@@ -247,7 +247,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        className="px-4 py-2 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm transition-colors"
                         disabled={exporting}
                     >
                         Cancel
@@ -863,7 +863,7 @@ const TransactionHistory = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="app-page to-slate-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -887,7 +887,7 @@ const TransactionHistory = () => {
                         transition={{ delay: 0.1 }}
                         className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
                     >
-                        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 sm:px-5 py-4">
+                        <div className="border-b border-slate-200 bg-slate-50/60 px-4 sm:px-5 py-4">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="min-w-0 flex-1">
                                     <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Transaction History</h1>
@@ -929,8 +929,6 @@ const TransactionHistory = () => {
                                         type="button"
                                         onClick={handleRefresh}
                                         className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
                                         title="Refresh"
                                     >
                                         <FiRefreshCw className="w-5 h-5 text-slate-600" />
@@ -939,8 +937,6 @@ const TransactionHistory = () => {
                                         type="button"
                                         onClick={() => handleExport('pdf')}
                                         className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
                                         title="Export PDF"
                                     >
                                         <FiDownload className="w-5 h-5 text-slate-600" />
@@ -950,8 +946,6 @@ const TransactionHistory = () => {
                                         type="button"
                                         onClick={handleShareClick}
                                         className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
                                         title="Export Data"
                                     >
                                         <FiShare2 className="w-5 h-5 text-slate-600" />
@@ -963,16 +957,14 @@ const TransactionHistory = () => {
                                                 e.stopPropagation();
                                                 setShowAddMenu((prev) => !prev);
                                             }}
-                                            className="p-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-white"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
+                                            className="p-2 bg-blue-600 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-white"
                                             title="Add Transaction"
                                         >
                                             <FiPlus className="w-5 h-5" />
                                         </motion.button>
                                         {showAddMenu && (
                                             <div
-                                                className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-[60]"
+                                                className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-pop border border-slate-200 py-2 z-[60]"
                                                 onClick={(e) => e.stopPropagation()}
                                                 role="menu"
                                             >

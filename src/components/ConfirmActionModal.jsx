@@ -25,28 +25,28 @@ export default function ConfirmActionModal({
 
   const tones = {
     danger: {
-      header: "bg-gradient-to-r from-red-600 to-red-700",
+      header: "bg-red-600",
       iconWrap: "bg-red-100 ring-8 ring-red-50",
       icon: "text-red-600",
       banner: "bg-red-50 border-red-100 text-red-800",
       confirm:
-        "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-sm shadow-red-200",
+        "bg-red-600 hover:bg-red-700 shadow-sm shadow-red-200",
     },
     primary: {
-      header: "bg-gradient-to-r from-indigo-600 to-indigo-700",
+      header: "bg-indigo-600",
       iconWrap: "bg-indigo-100 ring-8 ring-indigo-50",
       icon: "text-indigo-600",
       banner: "bg-indigo-50 border-indigo-100 text-indigo-800",
       confirm:
-        "bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-sm shadow-indigo-200",
+        "bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-200",
     },
     warning: {
-      header: "bg-gradient-to-r from-amber-500 to-amber-600",
+      header: "bg-amber-500",
       iconWrap: "bg-amber-100 ring-8 ring-amber-50",
       icon: "text-amber-600",
       banner: "bg-amber-50 border-amber-100 text-amber-900",
       confirm:
-        "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-sm shadow-amber-200",
+        "bg-amber-500 hover:bg-amber-600 shadow-sm shadow-amber-200",
     },
   };
   const t = tones[tone] || tones.danger;
@@ -121,7 +121,7 @@ export default function ConfirmActionModal({
                 type="button"
                 onClick={onCancel}
                 disabled={loading}
-                className="px-5 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700 disabled:opacity-50 transition-colors"
+                className="px-5 py-2.5 text-sm font-medium border border-slate-200 rounded-lg hover:bg-slate-100 text-gray-700 disabled:opacity-50 transition-colors"
               >
                 {cancelLabel}
               </button>

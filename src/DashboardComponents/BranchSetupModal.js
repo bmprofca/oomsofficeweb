@@ -392,7 +392,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
             className="p-5"
         >
             <div className="text-center mb-5">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-3">
                     <FiHome className="w-8 h-8 text-indigo-600" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-800 mb-1">Setup Your Branch</h2>
@@ -416,10 +416,10 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
             <div className="space-y-3">
                 <button
                     onClick={() => setMode('create')}
-                    className="w-full p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 hover:border-indigo-400 transition-all duration-300 text-left group"
+                    className="w-full p-4 bg-indigo-50 rounded-xl border border-indigo-200 hover:border-indigo-400 transition-all duration-300 text-left group"
                 >
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
+                        <div className="p-2 bg-indigo-500 rounded-lg">
                             <FiHome className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex-1">
@@ -447,10 +447,10 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                             setError('No pending invitations found');
                         }
                     }}
-                    className="w-full p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 hover:border-green-400 transition-all duration-300 text-left group"
+                    className="w-full p-4 bg-green-50 rounded-xl border border-green-200 hover:border-green-400 transition-all duration-300 text-left group"
                 >
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg">
+                        <div className="p-2 bg-green-500 rounded-lg">
                             <FiMail className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex-1">
@@ -496,7 +496,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
             ) : (
                 <>
                     <div className="text-center mb-4">
-                        <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3">
                             <FiMail className="w-8 h-8 text-green-600" />
                         </div>
                         <h2 className="text-xl font-bold text-gray-800 mb-1">Branch Invitation</h2>
@@ -534,14 +534,14 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                     <div className="flex gap-3">
                         <button
                             onClick={() => setMode('choose')}
-                            className="flex-1 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="flex-1 px-3 py-2 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
                         >
                             Back
                         </button>
                         <button
                             onClick={acceptInvitation}
                             disabled={acceptingInvitation}
-                            className="flex-1 px-3 py-2 text-sm bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             {acceptingInvitation ? (
                                 <>
@@ -582,7 +582,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 <div className="flex flex-col items-center">
                                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
                                         step >= s 
-                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' 
+                                            ? 'bg-indigo-600 text-white' 
                                             : 'bg-gray-200 text-gray-500'
                                     }`}>
                                         {step > s ? <FiCheck className="w-3 h-3" /> : s}
@@ -593,7 +593,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 </div>
                                 {s === 1 && (
                                     <div className={`flex-1 h-0.5 mx-2 rounded-full ${
-                                        step > 1 ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gray-200'
+                                        step > 1 ? 'bg-indigo-600' : 'bg-gray-200'
                                     }`} />
                                 )}
                             </React.Fragment>
@@ -627,7 +627,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="branch_name"
                                     value={formData.branch_name}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
                                     placeholder="e.g., Mumbai Main Branch"
                                 />
                             </div>
@@ -640,7 +640,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="branch_code"
                                     value={formData.branch_code}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
                                     placeholder="e.g., MUM001"
                                 />
                             </div>
@@ -655,7 +655,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 name="address_line_1"
                                 value={formData.address_line_1}
                                 onChange={handleChange}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
                                 placeholder="Street address, building name"
                             />
                         </div>
@@ -669,7 +669,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 name="address_line_2"
                                 value={formData.address_line_2}
                                 onChange={handleChange}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
                                 placeholder="Landmark, area (optional)"
                             />
                         </div>
@@ -684,7 +684,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="city"
                                     value={formData.city}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                     placeholder="City"
                                 />
                             </div>
@@ -697,7 +697,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="state"
                                     value={formData.state}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                     placeholder="State"
                                 />
                             </div>
@@ -710,7 +710,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="pincode"
                                     value={formData.pincode}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                     placeholder="Pincode"
                                 />
                             </div>
@@ -725,7 +725,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 name="country"
                                 value={formData.country}
                                 onChange={handleChange}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                 placeholder="Country"
                             />
                         </div>
@@ -739,7 +739,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 value={formData.invoice_address}
                                 onChange={handleChange}
                                 rows="2"
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
                                 placeholder="Invoice address (if different from above)"
                             />
                         </div>
@@ -774,7 +774,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="mobile_1"
                                     value={formData.mobile_1}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                     placeholder="Primary mobile number"
                                 />
                             </div>
@@ -787,7 +787,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="mobile_2"
                                     value={formData.mobile_2}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                     placeholder="Alternate mobile number"
                                 />
                             </div>
@@ -803,7 +803,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="email_1"
                                     value={formData.email_1}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                     placeholder="Primary email"
                                 />
                             </div>
@@ -816,7 +816,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                     name="email_2"
                                     value={formData.email_2}
                                     onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                    className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                     placeholder="Alternate email"
                                 />
                             </div>
@@ -831,7 +831,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 name="gst"
                                 value={formData.gst}
                                 onChange={handleChange}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                 placeholder="GSTIN"
                             />
                         </div>
@@ -845,7 +845,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 name="pan"
                                 value={formData.pan}
                                 onChange={handleChange}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded-lg"
                                 placeholder="PAN card number"
                             />
                         </div>
@@ -872,7 +872,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                     <div className="flex justify-between gap-3">
                         <button
                             onClick={() => setMode('choose')}
-                            className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
                         >
                             Back
                         </button>
@@ -881,7 +881,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                                 <button
                                     onClick={handlePrevious}
                                     disabled={loading}
-                                    className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                                    className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
                                 >
                                     Previous
                                 </button>
@@ -889,7 +889,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                             <button
                                 onClick={handleNext}
                                 disabled={loading}
-                                className="px-4 py-1.5 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
+                                className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
                             >
                                 {loading ? (
                                     <>
@@ -939,7 +939,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                     exit={{ scale: 0.9, opacity: 0, y: 20 }}
                     className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
                 >
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3">
+                    <div className="bg-indigo-600 px-5 py-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <div className="p-1.5 bg-white/20 rounded-lg">

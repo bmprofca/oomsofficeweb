@@ -19,7 +19,7 @@ const InfoCard = ({ label, value }) => {
   if (!value) return null;
   return (
     <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
         {label}
       </div>
       <div className="font-bold text-gray-900 text-sm truncate" title={value}>
@@ -102,7 +102,7 @@ const FirmsDetailsModal = ({
                 aria-modal="true"
                 aria-labelledby="firms-details-title"
               >
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+                <div className="bg-blue-600 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
                       <FiBriefcase className="w-5 h-5" />
@@ -125,8 +125,6 @@ const FirmsDetailsModal = ({
                     type="button"
                     onClick={onClose}
                     className="text-white hover:text-blue-200 transition-colors p-2 rounded-lg hover:bg-white/10 shrink-0"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
                   >
                     <FiX className="w-5 h-5" />
                   </motion.button>
@@ -148,7 +146,7 @@ const FirmsDetailsModal = ({
                         return (
                           <motion.div
                             key={firmKey}
-                            className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl overflow-hidden"
+                            className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden"
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: Math.min(index * 0.04, 0.2) }}
@@ -156,7 +154,7 @@ const FirmsDetailsModal = ({
                             <div className="p-4 bg-white border-b border-gray-200">
                               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                                 <div className="flex items-start gap-4 min-w-0 flex-1">
-                                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+                                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
                                     <FiBriefcase className="w-6 h-6 text-white" />
                                   </div>
                                   <div className="min-w-0 flex-1">
@@ -189,9 +187,7 @@ const FirmsDetailsModal = ({
                                 <motion.button
                                   type="button"
                                   onClick={() => openFirmView(firm)}
-                                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm self-start"
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm self-start"
                                 >
                                   <FiEye className="w-4 h-4" />
                                   View Details
@@ -234,9 +230,7 @@ const FirmsDetailsModal = ({
                   <motion.button
                     type="button"
                     onClick={onClose}
-                    className="px-5 py-2.5 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-800 text-sm font-medium rounded-lg hover:from-gray-300 hover:to-gray-400 transition-colors shadow-sm"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    className="px-5 py-2.5 bg-gray-200 text-gray-800 text-sm font-medium rounded-lg transition-colors shadow-sm"
                   >
                     Close
                   </motion.button>
@@ -253,7 +247,7 @@ const FirmsDetailsModal = ({
         onClose={closeFirmView}
         maxWidth="max-w-5xl"
         zClass="z-[260]"
-        headerClass="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900"
+        headerClass="bg-slate-700"
         icon={FiEye}
         title="Firm details"
         subtitle={viewFirm?.firm_name || "View firm information"}

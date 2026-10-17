@@ -103,7 +103,7 @@ const JournalEntryModalShell = ({ isOpen, onClose, title, subtitle, icon: Icon, 
                         className="relative z-[1] pointer-events-auto flex w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-blue-500/25 bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 px-5 py-3.5 text-white">
+                        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-blue-500/25 bg-blue-600 px-5 py-3.5 text-white">
                             <div className="flex min-w-0 items-center gap-3">
                                 {Icon ? (
                                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
@@ -246,7 +246,7 @@ const JournalEntryDetailsModal = ({
                                 onEdit(journal);
                             }}
                             disabled={!canEdit}
-                            className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 ${
+                            className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-700 ${
                                 !canEdit ? 'cursor-not-allowed opacity-60 hover:bg-blue-600' : ''
                             }`}
                         >
@@ -262,7 +262,7 @@ const JournalEntryDetailsModal = ({
                     <p className="py-8 text-center text-sm text-slate-500">No journal data available.</p>
                 ) : (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+                        <div className="rounded-xl border border-blue-200/80 bg-blue-50 p-4 shadow-sm">
                             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                 <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
                                     Journal
@@ -464,7 +464,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -523,7 +523,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                                 disabled={exporting || !userEmail}
                                 className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${exporting && selectedFormat === option.type
                                     ? 'border-indigo-500 bg-indigo-50'
-                                    : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                    : 'border-gray-200 hover:border-indigo-300 hover:bg-slate-50'
                                     } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
@@ -562,7 +562,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        className="px-4 py-2 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm transition-colors"
                         disabled={exporting}
                     >
                         Cancel
@@ -1074,11 +1074,11 @@ const ViewJournal = () => {
 
     // Skeleton Loading Component for full page
     const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70">
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -1089,7 +1089,7 @@ const ViewJournal = () => {
                         <div className="overflow-hidden">
                             <div className="border-b border-slate-200">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                    <thead className="bg-slate-50">
                                         <tr>{[...Array(7)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
                                     </thead>
                                 </table>
@@ -1103,7 +1103,7 @@ const ViewJournal = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1118,14 +1118,14 @@ const ViewJournal = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <motion.div
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25 }}
                         className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
                             <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                                     <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
@@ -1138,7 +1138,7 @@ const ViewJournal = () => {
                                             placeholder="Search…"
                                             value={searchTerm}
                                             onChange={handleSearchChange}
-                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
                                         />
                                     </div>
                                     <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
@@ -1166,9 +1166,7 @@ const ViewJournal = () => {
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:h-10 sm:px-3"
                                         >
                                             <PiExportBold className="h-4 w-4 shrink-0" />
                                             <span className="whitespace-nowrap">Export</span>
@@ -1227,9 +1225,7 @@ const ViewJournal = () => {
                                     <motion.button
                                         type="button"
                                         onClick={() => setJournalEntryModal(true)}
-                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
                                         <span className="whitespace-nowrap">Create</span>
@@ -1282,7 +1278,7 @@ const ViewJournal = () => {
                                                 >
                                                     <td className="text-center p-3 align-middle"><div className="text-slate-700 font-medium text-xs">{serialNumber}</div></td>
                                                     <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(journal.date)}</div></td>
-                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50">{journal.invoice_no}</span></td>
+                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-slate-100 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50">{journal.invoice_no}</span></td>
                                                     <td className="text-center p-3 align-middle">
                                                         <JournalPartyCell
                                                             party={journal.raw_data?.payment_from}
@@ -1305,7 +1301,7 @@ const ViewJournal = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => openJournalDetails(journal)}
-                                                            className="inline-flex min-w-[90px] items-center justify-center rounded bg-gradient-to-r from-green-50 to-green-100 px-3 py-1.5 text-xs font-bold text-green-800 shadow-xs transition-all hover:shadow"
+                                                            className="inline-flex min-w-[90px] items-center justify-center rounded bg-green-50 px-3 py-1.5 text-xs font-bold text-green-800 shadow-xs transition-all hover:shadow"
                                                         >
                                                             ₹{formatCurrency(journal.amount)}
                                                         </button>
@@ -1490,7 +1486,7 @@ const ViewJournal = () => {
                             className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl"
                         >
                             <div className="text-center">
-                                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <PiExportBold className="w-8 h-8 text-blue-600" />
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-800 mb-2">
@@ -1500,9 +1496,9 @@ const ViewJournal = () => {
                                     Your {exportModal.type} export is being processed...
                                 </p>
                                 <div className="flex justify-center space-x-2 mb-6">
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                 </div>
                                 <div className="text-xs text-slate-500">
                                     This will only take a moment...

@@ -88,7 +88,7 @@ export default function EmailActionMenu({ items = [], buttonClassName = "" }) {
         }}
           className={
           buttonClassName ||
-          "inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          "inline-flex items-center justify-center rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-slate-100 hover:text-gray-700"
         }
         aria-label="Actions"
       >
@@ -130,7 +130,7 @@ export default function EmailActionMenu({ items = [], buttonClassName = "" }) {
                         ? "text-red-600 hover:bg-red-50"
                         : item.warning
                           ? "text-amber-700 hover:bg-amber-50"
-                          : "text-gray-700 hover:bg-gray-50"
+                          : "text-gray-700 hover:bg-slate-50"
                     } disabled:cursor-not-allowed disabled:opacity-40`}
                   >
                     {item.icon ? <item.icon className="h-3.5 w-3.5 shrink-0" /> : null}

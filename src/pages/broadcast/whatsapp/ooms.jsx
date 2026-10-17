@@ -430,7 +430,7 @@ const WhatsAppOoms = () => {
                                     <select
                                         value={sendForm.select_type}
                                         onChange={(e) => handleSendFormChange('select_type', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
                                     >
                                         <option value="">Select</option>
                                         <option value="all">All Client</option>
@@ -454,7 +454,7 @@ const WhatsAppOoms = () => {
                                             multiple
                                             value={sendForm.username}
                                             onChange={(e) => handleSendFormChange('username', Array.from(e.target.selectedOptions, option => option.value))}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none h-32"
+                                            className="w-full px-3 py-2 border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none h-32"
                                         >
                                             <option value="client001">
                                                 Name: ABC Traders | Owner: Rajesh Kumar | Mobile: +91 9876543210 | PAN: ABCDE1234F
@@ -482,7 +482,7 @@ const WhatsAppOoms = () => {
                                         <select
                                             value={sendForm.group_id}
                                             onChange={(e) => handleSendFormChange('group_id', e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
+                                            className="w-full px-3 py-2 border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
                                         >
                                             <option value="" disabled>Select Group</option>
                                             {groups.map(group => (
@@ -508,7 +508,7 @@ const WhatsAppOoms = () => {
                                             <select
                                                 value={sendForm.service_id}
                                                 onChange={(e) => handleSendFormChange('service_id', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
                                             >
                                                 <option value="" disabled>Select Service</option>
                                                 {services.map(service => (
@@ -529,7 +529,7 @@ const WhatsAppOoms = () => {
                                             <select
                                                 value={sendForm.status}
                                                 onChange={(e) => handleSendFormChange('status', e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
                                             >
                                                 <option value="">All</option>
                                                 {taskStatuses.map(status => (
@@ -554,7 +554,7 @@ const WhatsAppOoms = () => {
                                     <select
                                         value={sendForm.template_name}
                                         onChange={(e) => handleSendFormChange('template_name', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-white outline-none"
                                     >
                                         <option value="" disabled>Select Template</option>
                                         {templates.map(template => (
@@ -574,9 +574,7 @@ const WhatsAppOoms = () => {
                                     <motion.button
                                         type="submit"
                                         disabled={loadingStates.send}
-                                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded hover:from-green-700 hover:to-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                        className="px-4 py-2 bg-green-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
                                         <FiSend className="w-4 h-4" />
                                         {loadingStates.send ? 'Sending...' : 'Send WhatsApp'}
@@ -633,7 +631,7 @@ const WhatsAppOoms = () => {
                                     staticTemplates.map((template, index) => (
                                         <motion.tr 
                                             key={template.template_id} 
-                                            className="border-b border-gray-200 hover:bg-gray-50"
+                                            className="border-b border-gray-200 hover:bg-slate-50"
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.05 }}
@@ -651,8 +649,6 @@ const WhatsAppOoms = () => {
                                                         onClick={() => copyToClipboard(template.content)}
                                                         className="ml-2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
                                                         title="Copy to clipboard"
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
                                                     >
                                                         <FiCopy className="w-4 h-4" />
                                                     </motion.button>
@@ -682,7 +678,7 @@ const WhatsAppOoms = () => {
                                                         className="sr-only peer"
                                                         disabled={isLoading}
                                                     />
-                                                    <div className={`w-12 h-6 rounded-full peer ${template.status === '1' ? 'bg-green-600' : 'bg-gray-300'} peer-checked:after:translate-x-6 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:border after:border-gray-300`}>
+                                                    <div className={`w-12 h-6 rounded-full peer ${template.status === '1' ? 'bg-green-600' : 'bg-gray-300'} peer-checked:after:translate-x-6 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:border after:border-slate-200`}>
                                                         {template.status === '1' ? (
                                                             <FiCheck className="absolute left-1 top-0.5 w-3 h-3 text-white z-10" />
                                                         ) : (
@@ -696,8 +692,6 @@ const WhatsAppOoms = () => {
                                                     onClick={() => handleEditTemplate(template)}
                                                     className="p-1 text-green-600 hover:text-green-800 rounded hover:bg-green-50 transition-colors"
                                                     disabled={isLoading}
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
                                                 >
                                                     <FiEdit className="w-4 h-4" />
                                                 </motion.button>
@@ -757,7 +751,7 @@ const WhatsAppOoms = () => {
                                     dynamicTemplates.map((template, index) => (
                                         <motion.tr 
                                             key={template.template_id} 
-                                            className="border-b border-gray-200 hover:bg-gray-50"
+                                            className="border-b border-gray-200 hover:bg-slate-50"
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.05 }}
@@ -775,8 +769,6 @@ const WhatsAppOoms = () => {
                                                         onClick={() => copyToClipboard(template.content)}
                                                         className="ml-2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
                                                         title="Copy to clipboard"
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
                                                     >
                                                         <FiCopy className="w-4 h-4" />
                                                     </motion.button>
@@ -815,7 +807,7 @@ const WhatsAppOoms = () => {
                                                         className="sr-only peer"
                                                         disabled={isLoading}
                                                     />
-                                                    <div className={`w-12 h-6 rounded-full peer ${template.status === '1' ? 'bg-green-600' : 'bg-gray-300'} peer-checked:after:translate-x-6 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:border after:border-gray-300`}>
+                                                    <div className={`w-12 h-6 rounded-full peer ${template.status === '1' ? 'bg-green-600' : 'bg-gray-300'} peer-checked:after:translate-x-6 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:border after:border-slate-200`}>
                                                         {template.status === '1' ? (
                                                             <FiCheck className="absolute left-1 top-0.5 w-3 h-3 text-white z-10" />
                                                         ) : (
@@ -829,8 +821,6 @@ const WhatsAppOoms = () => {
                                                     onClick={() => handleEditTemplate(template)}
                                                     className="p-1 text-green-600 hover:text-green-800 rounded hover:bg-green-50 transition-colors"
                                                     disabled={isLoading}
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
                                                 >
                                                     <FiEdit className="w-4 h-4" />
                                                 </motion.button>
@@ -891,9 +881,7 @@ const WhatsAppOoms = () => {
                                                 <motion.button
                                                     onClick={handleGetQR}
                                                     disabled={loadingStates.config}
-                                                    className="px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded hover:from-green-700 hover:to-green-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.95 }}
+                                                    className="px-4 py-3 bg-green-600 text-white rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                                 >
                                                     <FiPhone className="w-5 h-5" />
                                                     Get QR Code
@@ -901,9 +889,7 @@ const WhatsAppOoms = () => {
                                                 <motion.button
                                                     onClick={handleCheckStatus}
                                                     disabled={loadingStates.config}
-                                                    className="px-4 py-3 bg-gradient-to-r from-yellow-600 to-yellow-700 text-white rounded hover:from-yellow-700 hover:to-yellow-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.95 }}
+                                                    className="px-4 py-3 bg-yellow-600 text-white rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                                 >
                                                     <FiSettings className="w-5 h-5" />
                                                     Check Status
@@ -917,9 +903,7 @@ const WhatsAppOoms = () => {
                                         <motion.button
                                             onClick={handleLogout}
                                             disabled={loadingStates.config}
-                                            className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded hover:from-red-700 hover:to-red-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
+                                            className="w-full px-4 py-3 bg-red-600 text-white rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                         >
                                             <FiX className="w-5 h-5" />
                                             Logout WhatsApp
@@ -1002,8 +986,6 @@ const WhatsAppOoms = () => {
                                 <motion.button
                                     onClick={() => setShowTemplateModal(false)}
                                     className="text-gray-400 hover:text-gray-600 text-2xl"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
                                 >
                                     ×
                                 </motion.button>
@@ -1022,7 +1004,7 @@ const WhatsAppOoms = () => {
                                         </thead>
                                         <tbody>
                                             {availableTemplates.map(template => (
-                                                <tr key={template.template_id} className="border-b border-gray-200 hover:bg-gray-50">
+                                                <tr key={template.template_id} className="border-b border-gray-200 hover:bg-slate-50">
                                                     <td className="p-3 border border-gray-200">
                                                         <input
                                                             name="template_id"
@@ -1045,9 +1027,7 @@ const WhatsAppOoms = () => {
                                 <div className="flex justify-end">
                                     <motion.button
                                         type="submit"
-                                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded hover:from-green-700 hover:to-green-800 transition-colors"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                        className="px-4 py-2 bg-green-600 text-white rounded transition-colors"
                                     >
                                         Add
                                     </motion.button>
@@ -1062,7 +1042,7 @@ const WhatsAppOoms = () => {
 
     if (!hasSend && !hasConfig) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="app-page">
                 <Header
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
@@ -1089,7 +1069,7 @@ const WhatsAppOoms = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1107,7 +1087,7 @@ const WhatsAppOoms = () => {
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="h-full flex flex-col">
                     <motion.div 
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mx-4 sm:mx-6 md:mx-8 my-6"
+                        className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
@@ -1118,7 +1098,7 @@ const WhatsAppOoms = () => {
                                     <h5 className="text-xl font-bold text-gray-800 mb-1">
                                         WhatsApp OOMS Management
                                     </h5>
-                                    <p className="text-gray-500 text-xs">
+                                    <p className="text-slate-500 text-xs mt-0.5">
                                         Manage WhatsApp broadcasting with OOMS
                                     </p>
                                 </div>
@@ -1137,10 +1117,8 @@ const WhatsAppOoms = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                                                     activeTab === 'send'
                                                         ? 'border-green-500 text-green-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200'
                                                 } ${loadingStates.send ? 'opacity-50 cursor-not-allowed' : ''} ${!hasSend ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                whileHover={hasSend ? { scale: 1.05 } : {}}
-                                                whileTap={hasSend ? { scale: 0.95 } : {}}
                                             >
                                                 <FiSend className="w-4 h-4" />
                                                 Send WhatsApp
@@ -1152,10 +1130,8 @@ const WhatsAppOoms = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                                                     activeTab === 'static-template'
                                                         ? 'border-green-500 text-green-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200'
                                                 } ${loadingStates.staticTemplate ? 'opacity-50 cursor-not-allowed' : ''} ${!hasConfig ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                whileHover={hasConfig ? { scale: 1.05 } : {}}
-                                                whileTap={hasConfig ? { scale: 0.95 } : {}}
                                             >
                                                 <FiFileText className="w-4 h-4" />
                                                 Static Templates
@@ -1167,10 +1143,8 @@ const WhatsAppOoms = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                                                     activeTab === 'dynamic-template'
                                                         ? 'border-green-500 text-green-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200'
                                                 } ${loadingStates.dynamicTemplate ? 'opacity-50 cursor-not-allowed' : ''} ${!hasConfig ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                whileHover={hasConfig ? { scale: 1.05 } : {}}
-                                                whileTap={hasConfig ? { scale: 0.95 } : {}}
                                             >
                                                 <FiDatabase className="w-4 h-4" />
                                                 Dynamic Templates
@@ -1182,10 +1156,8 @@ const WhatsAppOoms = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                                                     activeTab === 'configuration'
                                                         ? 'border-green-500 text-green-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200'
                                                 } ${loadingStates.config ? 'opacity-50 cursor-not-allowed' : ''} ${!hasConfig ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                                whileHover={hasConfig ? { scale: 1.05 } : {}}
-                                                whileTap={hasConfig ? { scale: 0.95 } : {}}
                                             >
                                                 <FiSettings className="w-4 h-4" />
                                                 Configuration

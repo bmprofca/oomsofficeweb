@@ -58,7 +58,7 @@ const SearchableDropdown = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`
           w-full flex items-center justify-between px-3 py-2
-          border border-gray-300 rounded-lg
+          border border-slate-200 rounded-lg
           bg-white text-sm cursor-pointer
           ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:border-gray-400'}
           ${isOpen ? 'ring-2 ring-blue-500 border-transparent' : ''}
@@ -75,7 +75,7 @@ const SearchableDropdown = ({
           {selectedValue && (
             <button
               onClick={handleClear}
-              className="p-1 hover:bg-gray-100 rounded-full"
+              className="p-1 hover:bg-slate-100 rounded-full"
               type="button"
             >
               <FiX className="w-3 h-3 text-slate-500" />
@@ -98,7 +98,7 @@ const SearchableDropdown = ({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search..."
-                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
                   autoFocus
                 />
               </div>
@@ -120,7 +120,7 @@ const SearchableDropdown = ({
                     px-3 py-2 text-sm cursor-pointer
                     ${String(item[valueField]) === String(selectedValue)
                       ? 'bg-blue-50 text-blue-700'
-                      : 'hover:bg-gray-50 text-slate-800'
+                      : 'hover:bg-slate-50 text-slate-800'
                     }
                   `}
                 >

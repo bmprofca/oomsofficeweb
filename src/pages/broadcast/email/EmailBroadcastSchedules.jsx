@@ -18,14 +18,14 @@ import { useUserPermissions } from "../../../utils/permission-helper";
 import { emailApi, normalizeList } from "./emailApi";
 
 const TOOLBAR_ROW =
-  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
+  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60";
 const TOOLBAR_BTN = "px-3 py-2 text-sm font-medium rounded-lg";
 const TABLE_HEAD_ROW =
-  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+  "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
 const TABLE_ROW =
-  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors";
+  "border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors";
 const TABLE_TD = "px-3 py-3 min-w-0 text-left align-middle";
 
 const formatHumanTime = (value) => {
@@ -168,7 +168,7 @@ const EmailBroadcastSchedules = () => {
 
   if (!canView) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -184,7 +184,7 @@ const EmailBroadcastSchedules = () => {
         <div
           className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
         >
-          <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+          <div className="text-center p-8 bg-white rounded-xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <FiLock className="w-5 h-5 text-gray-400" />
             </div>
@@ -201,7 +201,7 @@ const EmailBroadcastSchedules = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -218,15 +218,15 @@ const EmailBroadcastSchedules = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
               <div className="flex items-center gap-2 shrink-0 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                   <FiClock className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate m-0">
+                  <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight truncate m-0">
                     Recurring email campaigns
                   </h1>
                   <p className="text-xs text-gray-500 m-0 truncate">
@@ -239,7 +239,7 @@ const EmailBroadcastSchedules = () => {
                 <button
                   type="button"
                   onClick={() => navigate("/broadcast/email/campaigns")}
-                  className={`${TOOLBAR_BTN} border border-gray-300 text-gray-700 hover:bg-gray-100 shrink-0`}
+                  className={`${TOOLBAR_BTN} border border-slate-200 text-gray-700 hover:bg-slate-100 shrink-0`}
                 >
                   Campaign history
                 </button>
@@ -247,7 +247,7 @@ const EmailBroadcastSchedules = () => {
                   type="button"
                   onClick={fetchSchedules}
                   disabled={loading}
-                  className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 shrink-0"
+                  className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-50 shrink-0"
                   title="Refresh"
                 >
                   <FiRefreshCw

@@ -150,7 +150,7 @@ const PerformanceTab = ({ variants, staffUsername }) => {
                     <div className="text-red-500 text-sm mb-2">⚠️ {error}</div>
                     <button 
                         onClick={fetchPerformanceStats}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
                     >
                         Try Again
                     </button>
@@ -281,7 +281,7 @@ const PerformanceTab = ({ variants, staffUsername }) => {
                 <div className="relative">
                     <button
                         onClick={() => setShowDatePicker(!showDatePicker)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-gray-700 hover:bg-slate-50 transition-colors"
                     >
                         <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -298,7 +298,7 @@ const PerformanceTab = ({ variants, staffUsername }) => {
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-10"
+                                className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-pop border border-slate-200 z-10"
                             >
                                 <div className="p-4">
                                     <div className="mb-4">
@@ -308,7 +308,7 @@ const PerformanceTab = ({ variants, staffUsername }) => {
                                                 <button
                                                     key={idx}
                                                     onClick={() => applyQuickRange(range.getRange)}
-                                                    className="text-xs px-2 py-1.5 bg-gray-50 hover:bg-gray-100 rounded text-gray-700 transition-colors text-left"
+                                                    className="text-xs px-2 py-1.5 bg-gray-50 hover:bg-slate-100 rounded text-gray-700 transition-colors text-left"
                                                 >
                                                     {range.label}
                                                 </button>
@@ -324,7 +324,7 @@ const PerformanceTab = ({ variants, staffUsername }) => {
                                                 name="fromDate"
                                                 value={dateRange.fromDate}
                                                 onChange={handleDateChange}
-                                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                             />
                                         </div>
                                         <div>
@@ -333,12 +333,12 @@ const PerformanceTab = ({ variants, staffUsername }) => {
                                                 name="toDate"
                                                 value={dateRange.toDate}
                                                 onChange={handleDateChange}
-                                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                             />
                                         </div>
                                         <button
                                             onClick={() => setShowDatePicker(false)}
-                                            className="w-full px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                                            className="w-full px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
                                         >
                                             Apply
                                         </button>
@@ -351,10 +351,10 @@ const PerformanceTab = ({ variants, staffUsername }) => {
             </div>
 
             {/* Staff Info Card */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                             {currentStaff.staff_info?.name?.charAt(0) || 'S'}
                         </div>
                         <div>

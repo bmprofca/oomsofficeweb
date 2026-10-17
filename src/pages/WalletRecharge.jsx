@@ -597,7 +597,7 @@ const WalletRecharge = () => {
   }, [feeSettings]);
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_45%,#eef2f7_100%)]">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -838,7 +838,7 @@ const WalletRecharge = () => {
             <div className="absolute inset-y-0 left-0 w-1 bg-teal-600 opacity-80 transition group-hover:opacity-100" />
             <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-5 pl-6">
               <div className="flex min-w-0 items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-50 to-teal-100 text-teal-800 ring-1 ring-teal-200/80 transition group-hover:from-teal-100 group-hover:to-teal-200">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-800 ring-1 ring-teal-200/80 transition group- group-">
                   <FiSend className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">

@@ -297,7 +297,7 @@ const BranchSetup = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[680px]">
                             <thead>
-                                <tr className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                                <tr className="border-b border-gray-200 bg-slate-50/60">
                                     <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">
                                         Branch
                                     </th>
@@ -319,7 +319,7 @@ const BranchSetup = () => {
                                 {invitations.map((invitation) => (
                                     <tr
                                         key={invitation.map_id || invitation.invitation_token}
-                                        className="border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors"
+                                        className="border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors"
                                     >
                                         <td className="px-4 py-3 text-sm font-semibold text-gray-800">
                                             {invitation.branch_name || '—'}

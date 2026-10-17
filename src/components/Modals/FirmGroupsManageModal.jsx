@@ -133,7 +133,7 @@ export default function FirmGroupsManageModal({
             open={open && !!firm}
             onClose={() => !saving && onClose?.()}
             maxWidth="max-w-3xl"
-            headerClass="bg-gradient-to-r from-violet-600 to-fuchsia-600"
+            headerClass="bg-violet-600"
             icon={FiLayers}
             title="Manage groups"
             subtitle={firm?.firm_name || 'Assign firm to groups'}
@@ -143,7 +143,7 @@ export default function FirmGroupsManageModal({
                     onCancel={onClose}
                     onConfirm={handleSave}
                     confirmLabel="Update groups"
-                    confirmClass="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 shadow-violet-200"
+                    confirmClass="bg-violet-600 hover:bg-violet-700 shadow-violet-200"
                     loading={saving}
                 />
             }
@@ -201,7 +201,6 @@ export default function FirmGroupsManageModal({
                         onClick={addAllVisible}
                         disabled={saving || availableGroups.length === 0}
                         className="rounded-md bg-indigo-600 p-1.5 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                        whileTap={{ scale: 0.9 }}
                         aria-label="Add all visible groups"
                     >
                         <FiArrowRight className="h-3.5 w-3.5" />
@@ -211,7 +210,6 @@ export default function FirmGroupsManageModal({
                         onClick={removeAll}
                         disabled={saving || selectedGroups.length === 0}
                         className="rounded-md bg-indigo-600 p-1.5 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                        whileTap={{ scale: 0.9 }}
                         aria-label="Remove all groups"
                     >
                         <FiArrowLeft className="h-3.5 w-3.5" />

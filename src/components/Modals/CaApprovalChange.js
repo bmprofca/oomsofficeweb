@@ -88,7 +88,7 @@ export default function CaApprovalChange({
             exit={{ opacity: 0, y: 12 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 bg-gradient-to-r from-violet-600 to-indigo-700 px-4 py-3 text-white">
+            <div className="shrink-0 bg-violet-600 px-4 py-3 text-white">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/20">
@@ -192,7 +192,7 @@ export default function CaApprovalChange({
                   type="button"
                   onClick={onClose}
                   disabled={loading}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-slate-100 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -200,7 +200,7 @@ export default function CaApprovalChange({
                   type="button"
                   onClick={handleConfirm}
                   disabled={isDisabled}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-700 px-3 py-1.5 text-sm font-medium text-white hover:from-violet-700 hover:to-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? (
                     <>

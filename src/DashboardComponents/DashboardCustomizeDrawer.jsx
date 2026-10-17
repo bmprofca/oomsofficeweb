@@ -302,7 +302,7 @@ const DashboardCustomizeDrawer = ({
         className="absolute left-0 top-0 flex h-screen max-h-dvh w-full max-w-[380px] flex-col overflow-hidden border-r border-gray-200 bg-white shadow-2xl pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 border-b border-indigo-500/20 bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 px-4 py-3">
+        <div className="shrink-0 border-b border-indigo-500/20 bg-indigo-600 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <div className="rounded-lg bg-white/20 p-2">

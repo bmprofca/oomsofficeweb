@@ -140,7 +140,7 @@ const TablePagination = ({
 
     return (
         <div
-            className={`border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:py-3.5 sm:px-5 ${className}`.trim()}
+            className={`border-t border-slate-200 bg-slate-50/60 px-4 py-3 sm:py-3.5 sm:px-5 ${className}`.trim()}
         >
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 {(showRange || showRows) && (
@@ -263,7 +263,7 @@ const TablePagination = ({
                                     <button
                                         type="submit"
                                         disabled={!jumpPageCanSubmit}
-                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-white disabled:shadow-none"
+                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-white disabled:shadow-none"
                                         aria-label="Go to page"
                                     >
                                         <FiCornerDownLeft className="h-4 w-4" />

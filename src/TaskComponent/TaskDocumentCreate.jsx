@@ -511,7 +511,7 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
     : "w-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden";
 
   const headerBlock = !embedded && (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-6 sm:py-4">
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:px-6 sm:py-4">
       <h2 className="text-lg font-semibold text-slate-900">
         Register task documents
       </h2>
@@ -521,7 +521,7 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
         disabled={submitting || anyRowUploading}
         whileHover={{ scale: submitting || anyRowUploading ? 1 : 1.05 }}
         whileTap={{ scale: submitting || anyRowUploading ? 1 : 0.95 }}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 text-teal-800 shadow-sm hover:from-teal-100 hover:to-cyan-100 disabled:opacity-50"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-800 shadow-sm disabled:opacity-50"
         aria-label="Add document slot"
       >
         <FiPlus className="h-5 w-5" />
@@ -551,10 +551,10 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
           className={`space-y-6 ${embedded ? "p-0" : "p-4 sm:p-6"}`}
         >
           <label
-            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-teal-300 bg-gradient-to-b from-teal-50/70 to-cyan-50/40 px-4 py-6 text-center transition ${
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-teal-300 bg-teal-50 px-4 py-6 text-center transition ${
               submitting
                 ? "cursor-not-allowed opacity-50"
-                : "cursor-pointer hover:border-teal-400 hover:from-teal-50 hover:to-cyan-50"
+                : "cursor-pointer hover:border-teal-400"
             }`}
           >
             <FiUploadCloud className="h-7 w-7 text-teal-600" />
@@ -587,8 +587,8 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                 transition={{ duration: 0.22 }}
                 className={`relative flex items-start gap-2 rounded-xl border px-3 py-3 pr-10 text-sm shadow-sm ${
                   status.type === "success"
-                    ? "border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-900"
-                    : "border-rose-200/80 bg-gradient-to-r from-rose-50 to-orange-50 text-rose-900"
+                    ? "border-emerald-200/80 bg-emerald-50 text-emerald-900"
+                    : "border-rose-200/80 bg-rose-50 text-rose-900"
                 }`}
               >
                 {status.type === "success" ? (
@@ -678,12 +678,12 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                           className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md shadow-slate-200/50 ring-1 ring-slate-100 transition-shadow hover:shadow-lg hover:shadow-teal-100/60 hover:ring-teal-100"
                         >
                           <div
-                            className={`flex items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-teal-50/40 px-3 py-2.5 ${
+                            className={`flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2.5 ${
                               rows.length > 1 ? "justify-between" : ""
                             }`}
                           >
                             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 text-[10px] font-extrabold text-white shadow-sm">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-teal-500 text-[10px] font-extrabold text-white shadow-sm">
                                 {index + 1}
                               </span>
                               Slot
@@ -693,7 +693,6 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                                 type="button"
                                 onClick={() => removeRow(row.id)}
                                 disabled={submitting || row.uploading}
-                                whileTap={{ scale: 0.92 }}
                                 className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
                                 aria-label={`Remove document ${index + 1}`}
                               >
@@ -717,7 +716,6 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                                   updateRow(row.id, { entryTab: "upload" })
                                 }
                                 disabled={submitting}
-                                whileTap={{ scale: 0.98 }}
                                 className={`relative flex-1 rounded-lg py-1.5 text-center text-xs font-semibold transition sm:text-sm ${
                                   row.entryTab === "upload"
                                     ? "bg-white text-teal-800 shadow-sm ring-1 ring-slate-200/80"
@@ -737,7 +735,6 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                                   updateRow(row.id, { entryTab: "link" })
                                 }
                                 disabled={submitting || row.uploading}
-                                whileTap={{ scale: 0.98 }}
                                 className={`relative flex-1 rounded-lg py-1.5 text-center text-xs font-semibold transition sm:text-sm ${
                                   row.entryTab === "link"
                                     ? "bg-white text-indigo-800 shadow-sm ring-1 ring-slate-200/80"
@@ -802,12 +799,12 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                                   }}
                                   className={`relative flex min-h-[128px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-4 text-center transition ${
                                     row.dragActive
-                                      ? "scale-[1.02] border-teal-500 bg-gradient-to-b from-teal-50 to-cyan-50 shadow-inner"
+                                      ? "scale-[1.02] border-teal-500 bg-teal-50 shadow-inner"
                                       : hasUrl && !row.uploadError
-                                        ? "border-emerald-400/80 bg-gradient-to-b from-emerald-50/90 to-teal-50/50"
+                                        ? "border-emerald-400/80 bg-emerald-50"
                                         : fieldErrors.documents?.[index]?.url
                                           ? "border-rose-300 bg-rose-50/40"
-                                          : "border-slate-300/90 bg-slate-50/30 hover:border-teal-400 hover:bg-gradient-to-b hover:from-teal-50/50 hover:to-cyan-50/30"
+                                          : "border-slate-300/90 bg-slate-50/30 hover:border-teal-400 hover:bg-gradient-to-b"
                                   } ${row.uploading ? "pointer-events-none opacity-90" : ""}`}
                                   onClick={() =>
                                     !row.uploading &&
@@ -822,7 +819,7 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                                       </p>
                                       <div className="mt-3 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-200">
                                         <div
-                                          className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-all duration-150"
+                                          className="h-full rounded-full bg-teal-500 transition-all duration-150"
                                           style={{
                                             width: `${row.uploadProgress}%`,
                                           }}
@@ -971,7 +968,7 @@ const TaskDocumentCreate = forwardRef(function TaskDocumentCreate(
                 disabled={submitting || anyRowUploading}
                 whileHover={{ scale: submitting || anyRowUploading ? 1 : 1.02 }}
                 whileTap={{ scale: submitting || anyRowUploading ? 1 : 0.98 }}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-600/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-600/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? (
                   <>

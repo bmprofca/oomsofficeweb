@@ -170,7 +170,7 @@ function TypeChip({ type }) {
 }
 
 const TableHead = () => (
-  <thead className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+  <thead className="bg-slate-50/60 border-b border-gray-200">
     <tr>
       <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700 w-[6%]">
         #
@@ -564,7 +564,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants,
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-base md:text-lg font-bold text-gray-800 m-0">Salary</h2>
+          <h2 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 m-0">Salary</h2>
           <p className="text-xs text-gray-500 mt-0.5 m-0">
             Fixed or flexible assignments
             {staffName ? ` · ${staffName}` : ''}.
@@ -575,7 +575,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants,
             type="button"
             onClick={() => username && fetchSalaryHistory(username)}
             disabled={!username || loading}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50 disabled:opacity-50"
             title="Refresh"
             aria-label="Refresh"
           >
@@ -608,7 +608,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants,
       )}
 
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-slate-50/60 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <h3 className="text-sm font-semibold text-gray-800 m-0 inline-flex items-center gap-1.5">
             <FiLayers className="w-3.5 h-3.5 text-teal-600" />
             Assignments
@@ -720,7 +720,7 @@ const SalaryTab = ({ username: usernameProp, staffName: staffNameProp, variants,
                           <button
                             type="button"
                             onClick={(e) => toggleActionMenu(e, row)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50"
                             aria-label="Actions"
                             aria-expanded={showActionMenu === key}
                           >

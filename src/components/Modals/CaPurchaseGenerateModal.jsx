@@ -92,7 +92,7 @@ const CaPurchaseGenerateModal = ({
                         className="relative z-[1] pointer-events-auto my-2 sm:my-4 flex w-full max-w-md max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3.5">
+                        <div className="shrink-0 border-b border-slate-100 bg-amber-500 px-5 py-3.5">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3 min-w-0">
                                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20 text-white">
@@ -167,7 +167,7 @@ const CaPurchaseGenerateModal = ({
                                         }}
                                         placeholder="Enter amount"
                                         disabled={submitting}
-                                        className="w-full rounded-xl border border-slate-200 py-2.5 pl-7 pr-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                                        className="w-full rounded-xl border border-slate-200 py-2.5 pl-7 pr-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 disabled:bg-slate-50"
                                     />
                                 </div>
                                 {error ? (
@@ -188,7 +188,7 @@ const CaPurchaseGenerateModal = ({
                                     type="button"
                                     disabled={submitting}
                                     onClick={handleClose}
-                                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-slate-50 disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
@@ -196,7 +196,7 @@ const CaPurchaseGenerateModal = ({
                                     type="button"
                                     disabled={submitting}
                                     onClick={handleSubmit}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-amber-600 hover:to-orange-600 disabled:opacity-60"
+                                    className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
                                 >
                                     {submitting ? (
                                         <>

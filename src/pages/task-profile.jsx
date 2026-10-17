@@ -348,7 +348,7 @@ const TaskProfile = () => {
   const showFullPageSkeleton = initialLoading && !hasLoadedOnce;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
+    <div className="app-page via-white to-blue-50/30">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -372,7 +372,7 @@ const TaskProfile = () => {
           )}
 
           {error && !showFullPageSkeleton && !hasLoadedOnce && (
-            <div className="mb-6 rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-6">
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-6">
               <div className="mb-3 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
                   <FiX className="h-5 w-5 text-red-600" />
@@ -388,7 +388,7 @@ const TaskProfile = () => {
                 <button
                   type="button"
                   onClick={() => fetchTaskData(task_id, { initial: true })}
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:from-blue-700 hover:to-indigo-700"
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all duration-200"
                 >
                   <FiRefreshCw className="h-4 w-4" />
                   Retry
@@ -396,7 +396,7 @@ const TaskProfile = () => {
                 <button
                   type="button"
                   onClick={() => navigate(-1)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-gray-100"
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-slate-100"
                 >
                   Go Back
                 </button>
@@ -467,7 +467,7 @@ const TaskProfile = () => {
                         className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
                           isActive
                             ? "bg-blue-100 text-blue-700"
-                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                            : "text-gray-600 hover:bg-slate-100 hover:text-gray-900"
                         }`}
                       >
                         <Icon className="h-4 w-4 shrink-0" />

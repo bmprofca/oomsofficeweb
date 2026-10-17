@@ -156,7 +156,7 @@ const getDefaultQuickStatsCards = () => [
     title: "Pending Billing",
     value: "pending_billing",
     icon: FiShoppingBag,
-    color: "bg-gradient-to-br from-indigo-500 to-purple-600 text-white",
+    color: "bg-indigo-500 text-white",
     gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     link: "/billing",
     showCount: true,
@@ -168,7 +168,7 @@ const getDefaultQuickStatsCards = () => [
     title: "Creditors",
     value: "creditor",
     icon: FiUsers,
-    color: "bg-gradient-to-br from-cyan-500 to-blue-600 text-white",
+    color: "bg-cyan-500 text-white",
     gradient: "linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)",
     link: "/quick-stats/creditors",
     showCount: true,
@@ -180,7 +180,7 @@ const getDefaultQuickStatsCards = () => [
     title: "Debtors",
     value: "debtor",
     icon: FiShoppingCart,
-    color: "bg-gradient-to-br from-red-500 to-pink-600 text-white",
+    color: "bg-red-500 text-white",
     gradient: "linear-gradient(135deg, #ef4444 0%, #ec4899 100%)",
     link: "/quick-stats/debtors",
     showCount: true,
@@ -192,7 +192,7 @@ const getDefaultQuickStatsCards = () => [
     title: "Today Received",
     value: "today_received",
     icon: TbCurrencyRupee,
-    color: "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
+    color: "bg-green-500 text-white",
     gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
     link: "/finance/voucher/received?today=true",
     showCount: true,
@@ -204,7 +204,7 @@ const getDefaultQuickStatsCards = () => [
     title: "Today Payment",
     value: "today_payment",
     icon: FiCreditCard,
-    color: "bg-gradient-to-br from-orange-500 to-amber-600 text-white",
+    color: "bg-orange-500 text-white",
     gradient: "linear-gradient(135deg, #f97316 0%, #f59e0b 100%)",
     link: "/finance/voucher/payment?today=true",
     showCount: true,
@@ -216,7 +216,7 @@ const getDefaultQuickStatsCards = () => [
     title: "CA Report",
     value: "ca_report",
     icon: FiBriefcase,
-    color: "bg-gradient-to-br from-violet-500 to-indigo-600 text-white",
+    color: "bg-violet-500 text-white",
     gradient: "linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)",
     link: null,
     showCount: false,
@@ -232,7 +232,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Total Clients",
     value: "total_client",
     icon: FiUsers,
-    color: "bg-gradient-to-br from-gray-600 to-gray-700 text-white",
+    color: "bg-gray-600 text-white",
     gradient: "linear-gradient(135deg, #4b5563 0%, #374151 100%)",
     link: "/dashboard/clients/total_client",
     isCurrency: false,
@@ -242,7 +242,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "New Clients",
     value: "new_client",
     icon: FiUserPlus,
-    color: "bg-gradient-to-br from-indigo-500 to-purple-600 text-white",
+    color: "bg-indigo-500 text-white",
     gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     link: "/dashboard/clients/new_client",
     isCurrency: false,
@@ -252,7 +252,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Active Clients",
     value: "active_client",
     icon: FiCheckCircle,
-    color: "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
+    color: "bg-green-500 text-white",
     gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
     link: "/dashboard/clients/active_client",
     isCurrency: false,
@@ -262,7 +262,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Net Profit",
     value: "net_profit",
     icon: FiTrendingUp,
-    color: "bg-gradient-to-br from-emerald-500 to-green-600 text-white",
+    color: "bg-emerald-500 text-white",
     gradient: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
     link: "/finance/report",
     isCurrency: true,
@@ -272,7 +272,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Total Staff",
     value: "total_staff",
     icon: FiUsers,
-    color: "bg-gradient-to-br from-red-500 to-rose-600 text-white",
+    color: "bg-red-500 text-white",
     gradient: "linear-gradient(135deg, #ef4444 0%, #e11d48 100%)",
     link: "/staff/view",
     isCurrency: false,
@@ -282,7 +282,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Tasks Created",
     value: "task_created_today",
     icon: FiPlus,
-    color: "bg-gradient-to-br from-indigo-500 to-blue-600 text-white",
+    color: "bg-indigo-500 text-white",
     gradient: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
     link: "/dashboard/tasks/task_created_today",
     isCurrency: false,
@@ -292,7 +292,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Tasks Completed",
     value: "task_completed_today",
     icon: FiCheckCircle,
-    color: "bg-gradient-to-br from-green-500 to-teal-600 text-white",
+    color: "bg-green-500 text-white",
     gradient: "linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)",
     link: "/dashboard/tasks/task_completed_today",
     isCurrency: false,
@@ -302,7 +302,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Total CA",
     value: "total_ca",
     icon: FiBriefcase,
-    color: "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white",
+    color: "bg-indigo-500 text-white",
     gradient: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
     link: "/staff/office-assistance/ca-list",
     isCurrency: false,
@@ -312,7 +312,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Total Firms",
     value: "total_firms",
     icon: FiHome,
-    color: "bg-gradient-to-br from-orange-500 to-amber-600 text-white",
+    color: "bg-orange-500 text-white",
     gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
     link: "/staff/office-assistance/groups",
     isCurrency: false,
@@ -322,7 +322,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Total Services",
     value: "total_services",
     icon: FiLayers,
-    color: "bg-gradient-to-br from-purple-500 to-violet-600 text-white",
+    color: "bg-purple-500 text-white",
     gradient: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
     link: "/staff/office-assistance/services",
     isCurrency: false,
@@ -333,7 +333,7 @@ const getDefaultAdditionalStatsCards = () => [
     value: "pending_staff_expense",
     secondaryValue: "pending_staff_expense_amount",
     icon: FiClock,
-    color: "bg-gradient-to-br from-amber-500 to-orange-600 text-white",
+    color: "bg-amber-500 text-white",
     gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
     link: "/finance/voucher/staff-expenses",
     isCurrency: false,
@@ -343,7 +343,7 @@ const getDefaultAdditionalStatsCards = () => [
     title: "Today Birthday",
     value: "today_birthday",
     icon: FiGift,
-    color: "bg-gradient-to-br from-purple-500 to-violet-600 text-white",
+    color: "bg-purple-500 text-white",
     gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
     link: "/quick-stats/today-birthday",
     isCurrency: false,
@@ -360,15 +360,32 @@ const formatCurrency = (amount) =>
 
 const formatNumber = (number) => new Intl.NumberFormat("en-IN").format(number);
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  const name = (localStorage.getItem("user_name") || "").trim().split(" ")[0];
+  const part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  return name ? `${part}, ${name}` : part;
+};
+
+const getDateLabel = () =>
+  new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
 /** Stable shell — must live outside Dashboard so sidebar/drawer state does not remount widgets. */
 const WidgetWrapper = React.memo(
   ({ visible, children, className = "", variant = "default" }) => {
     if (!visible) return null;
 
     const shellClassName =
-      variant === "flush"
-        ? "rounded-xl shadow-sm overflow-hidden"
-        : "bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden";
+      variant === "bare"
+        ? ""
+        : variant === "flush"
+          ? "rounded-xl shadow-sm overflow-hidden"
+          : "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden";
 
     return (
       <div className={`relative ${className}`}>
@@ -395,6 +412,8 @@ const Dashboard = () => {
 
   // Customization state
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const dashboardGreeting = useMemo(getGreeting, []);
+  const dashboardDateLabel = useMemo(getDateLabel, []);
 
   // Dashboard Widgets with version control and migration
   const [widgets, setWidgets] = useState(() => {
@@ -719,8 +738,9 @@ const Dashboard = () => {
             <WidgetWrapper
               key={widget.id}
               visible={widgetVisibility["quick-stats"]}
+              variant="bare"
             >
-              <div className="p-4">
+              <div>
                 <QuickStats
                   stats={stats}
                   isCustomizing={false}
@@ -780,6 +800,7 @@ const Dashboard = () => {
             <WidgetWrapper
               key={widget.id}
               visible={widgetVisibility["additional-stats"]}
+              variant="bare"
             >
               <AdditionalStatsComponent
                 isCustomizing={false}
@@ -813,7 +834,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="app-page to-gray-100">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -831,43 +852,51 @@ const Dashboard = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           {hasAnyDashboardPermission && (
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
-                Dashboard
-              </h1>
-              <motion.button
-                onClick={() =>
-                  isCustomizing ? closeCustomization() : startCustomization()
-                }
-                className={`p-2 rounded-lg shadow-sm transition-all duration-200 border ${
-                  isCustomizing
-                    ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-indigo-300"
-                }`}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                title={
-                  isCustomizing ? "Cancel customization" : "Customize dashboard"
-                }
-              >
-                <FiLayout className="w-4 h-4" />
-              </motion.button>
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="ui-eyebrow">{dashboardDateLabel}</p>
+                <h1 className="ui-page-title mt-1">{dashboardGreeting}</h1>
+                <p className="ui-page-subtitle">Here is what is happening across your office today.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    isCustomizing ? closeCustomization() : startCustomization()
+                  }
+                  className={`ui-btn ${isCustomizing ? "ui-btn-primary" : "ui-btn-secondary"}`}
+                  title={isCustomizing ? "Cancel customization" : "Customize dashboard"}
+                >
+                  <FiLayout className="h-4 w-4" />
+                  <span className="hidden sm:inline">{isCustomizing ? "Done" : "Customize"}</span>
+                </button>
+                {check("task_create") ? (
+                  <button
+                    type="button"
+                    onClick={handleCreateTask}
+                    className="ui-btn ui-btn-primary"
+                  >
+                    <FiPlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">New task</span>
+                  </button>
+                ) : null}
+              </div>
             </div>
           )}
 
           {/* Dashboard Widgets Grid */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             {!hasAnyDashboardPermission ? (
               <motion.div
-                className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200 p-12 shadow-xl text-center max-w-xl mx-auto my-12"
+                className="bg-white rounded-2xl border border-slate-200 p-12 shadow-sm text-center max-w-xl mx-auto my-12"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4 }}
               >
-                <div className="inline-flex p-4 bg-red-50 rounded-full mb-4 text-red-500 animate-float">
-                  <FiLock className="w-12 h-12" />
+                <div className="inline-flex p-4 bg-rose-50 rounded-full mb-4 text-rose-500">
+                  <FiLock className="w-10 h-10" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-800 mb-2">
                   Access Denied
@@ -880,7 +909,7 @@ const Dashboard = () => {
                 </div>
               </motion.div>
             ) : visibleWidgets.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 bg-white/50 backdrop-blur-sm rounded-xl border border-dashed border-gray-200">
+              <div className="text-center py-10 text-sm text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">
                 No widgets visible. Use the customize button at the top right to
                 customize your dashboard layout.
               </div>

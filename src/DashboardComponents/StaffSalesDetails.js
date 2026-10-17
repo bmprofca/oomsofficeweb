@@ -86,7 +86,7 @@ const SummaryCard = ({ title, value, icon, color }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2 mb-1">
         <div className={`p-1.5 rounded-lg ${colorClasses[color]}`}>
           {icon}
@@ -278,7 +278,7 @@ const StaffSalesDetails = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -305,7 +305,7 @@ const StaffSalesDetails = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -341,7 +341,7 @@ const StaffSalesDetails = () => {
 
   if (!data || !data.all_staff || data.all_staff.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -403,7 +403,7 @@ const StaffSalesDetails = () => {
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -425,9 +425,7 @@ const StaffSalesDetails = () => {
               <div className="flex items-center gap-3">
                 <motion.button
                   onClick={handleBack}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <FiArrowLeft className="w-5 h-5 text-gray-600" />
                 </motion.button>
@@ -498,7 +496,7 @@ const StaffSalesDetails = () => {
               <motion.div key="chart-view" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Pie Chart */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold text-gray-800 flex items-center gap-2">
                         <FiUsers className="w-4 h-4 text-teal-500" />
@@ -525,7 +523,7 @@ const StaffSalesDetails = () => {
                   </div>
 
                   {/* Bar Chart */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold text-gray-800 flex items-center gap-2">
                         <FiBarChart2 className="w-4 h-4 text-teal-500" />
@@ -559,7 +557,7 @@ const StaffSalesDetails = () => {
 
                 {/* Service Breakdown for Top Performer */}
                 {serviceBreakdownData.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <h3 className="font-semibold text-gray-800 flex items-center gap-2 mb-4">
                       <FiBriefcase className="w-4 h-4 text-teal-500" />
                       Top Performer - Service Breakdown
@@ -586,7 +584,7 @@ const StaffSalesDetails = () => {
 
                 {/* Daily Sales Trend */}
                 {dailyTrendData.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <h3 className="font-semibold text-gray-800 flex items-center gap-2 mb-4">
                       <FiTrendingUp className="w-4 h-4 text-teal-500" />
                       Daily Sales & Tasks Trend
@@ -615,29 +613,29 @@ const StaffSalesDetails = () => {
             ) : (
               <motion.div key="table-view" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
                 {/* Staff Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-100">
                     <h3 className="font-semibold text-gray-800">All Staff Details</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Staff</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Sales</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Fees</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tax</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tasks</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Invoices</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Avg/Task</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Active</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Share</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Staff</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Sales</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Fees</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tax</th>
+                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tasks</th>
+                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Invoices</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Avg/Task</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Last Active</th>
+                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Share</th>
                         </tr>
                       </thead>
                   <tbody className="divide-y divide-gray-100">
   {data.all_staff.map((staff, idx) => (
-    <tr key={staff.username} className="hover:bg-gray-50">
+    <tr key={staff.username} className="hover:bg-slate-50">
       <td className="px-4 py-3">
         <div className="font-medium text-gray-800">{staff.name}</div>
         <div className="text-xs text-gray-500">@{staff.username}</div>
@@ -684,26 +682,26 @@ const StaffSalesDetails = () => {
                 </div>
 
                 {/* Recent Tasks Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-800">Recent Tasks Completed</h3>
                     <span className="text-xs text-gray-400">Last {data.recent_tasks.length} tasks</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Staff</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice ID</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sale Amount</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completion Date</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Task ID</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Staff</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Service</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Invoice ID</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Sale Amount</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completion Date</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {data.recent_tasks.map((task) => (
-                          <tr key={task.task_id} className="hover:bg-gray-50">
+                          <tr key={task.task_id} className="hover:bg-slate-50">
                             <td className="px-4 py-3 font-mono text-xs text-teal-600">{task.task_id.slice(0, 8)}...</td>
                             <td className="px-4 py-3 text-gray-700">{task.staff_name}</td>
                             <td className="px-4 py-3 text-gray-600">{task.service_name}</td>

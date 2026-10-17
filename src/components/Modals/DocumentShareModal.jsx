@@ -349,7 +349,7 @@ const DocumentShareModal = ({
             aria-labelledby="document-share-title"
           >
             {/* Header ~20% taller than previous compact bar (py-2.5 → py-3, icon 7→8) */}
-            <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white px-5 py-3 flex justify-between items-center shrink-0">
+            <div className="bg-teal-600 text-white px-5 py-3 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
                   <FiShare2 className="w-4 h-4" />
@@ -365,8 +365,6 @@ const DocumentShareModal = ({
                 onClick={handleClose}
                 disabled={sending}
                 className="text-white hover:text-teal-200 transition-colors p-1.5 rounded-lg hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
               >
                 <FiX className="w-5 h-5" />
               </motion.button>
@@ -377,7 +375,7 @@ const DocumentShareModal = ({
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {showRecipientFields && (
-                <div className="mb-4 space-y-3 rounded-xl border border-teal-100 bg-gradient-to-br from-teal-50/80 via-white to-sky-50/60 p-3">
+                <div className="mb-4 space-y-3 rounded-xl border border-teal-100 bg-teal-50 p-3">
                   {whatsappAvailable && (
                     <div>
                       <label
@@ -626,9 +624,7 @@ const DocumentShareModal = ({
                 <motion.button
                   onClick={handleClose}
                   disabled={sending}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
                 </motion.button>
@@ -639,12 +635,12 @@ const DocumentShareModal = ({
                     loadingAvailability ||
                     selectedChannels.length === 0
                   }
-                  className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
+                  className={`flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
                     sending ||
                     loadingAvailability ||
                     selectedChannels.length === 0
                       ? "opacity-50 cursor-not-allowed"
-                      : "hover:from-teal-700 hover:to-teal-800"
+                      : ""
                   }`}
                   whileHover={
                     sending ||

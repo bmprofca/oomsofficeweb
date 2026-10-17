@@ -121,16 +121,16 @@ const CellDash = () => <span className="text-sm text-gray-400">—</span>;
 
 /** Task-table typography baseline — see context/typography.md */
 const TABLE_HEAD_ROW =
-  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+  "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
 const TABLE_ROW =
-  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors group";
+  "border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors group";
 const TABLE_TD = "px-3 py-3 min-w-0 text-left align-middle";
 const TOOLBAR_ROW =
   "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50";
 const TOOLBAR_INPUT =
-  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-gray-400";
+  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none placeholder:text-gray-400";
 const FEES_CHIP =
   "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200";
 const CELL_BODY = "text-sm font-medium text-gray-700";
@@ -265,7 +265,7 @@ const ActionMenu = ({ items }) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-slate-100 rounded-lg transition-colors"
         aria-label="Actions"
       >
         <FiMenu className="w-3.5 h-3.5" />
@@ -299,7 +299,7 @@ const ActionMenu = ({ items }) => {
                   className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
                     item.danger
                       ? "text-red-600 hover:bg-red-50"
-                      : "text-gray-700 hover:bg-gray-50"
+                      : "text-gray-700 hover:bg-slate-50"
                   }`}
                 >
                   {item.icon}
@@ -346,7 +346,7 @@ const FeeForm = ({
                 }
               }}
               disabled={loading}
-              className="w-full pl-7 pr-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60"
+              className="w-full pl-7 pr-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none disabled:opacity-60"
               placeholder="0.00"
             />
           </div>
@@ -372,7 +372,7 @@ const FeeForm = ({
             onChange={(e) => onChange("due_date", e.target.value)}
             disabled={loading}
             placeholder="e.g. 10 or -5"
-            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60"
+            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none disabled:opacity-60"
           />
           <p className="text-[10px] text-gray-400 mt-1">{dueMeta.help}</p>
         </div>
@@ -388,7 +388,7 @@ const FeeForm = ({
             onChange={(e) => onChange("remark", e.target.value)}
             disabled={loading}
             rows={2}
-            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none disabled:opacity-60"
+            className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none resize-none disabled:opacity-60"
             placeholder="Optional note…"
           />
         </div>
@@ -412,7 +412,7 @@ const Modal = ({ title, subtitle, icon, onClose, children, footer }) => (
       onClick={(e) => e.stopPropagation()}
     >
       {/* header */}
-      <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600">
+      <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3.5 bg-indigo-600">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white shrink-0">
             {icon}
@@ -478,7 +478,7 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, loading }) => (
         <button
           onClick={onCancel}
           disabled={loading}
-          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
         >
           Cancel
         </button>
@@ -510,7 +510,7 @@ const ViewModal = ({ svc, onClose }) => {
         <div className="flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-slate-100 transition-colors"
           >
             Close
           </button>
@@ -1072,7 +1072,7 @@ const Services = () => {
 
   /* ═════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1089,9 +1089,9 @@ const Services = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between gap-3">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                   <FiLayers className="w-4 h-4 text-indigo-600" />
@@ -1099,7 +1099,7 @@ const Services = () => {
                 <div className="min-w-0">
                   {viewMode === "firms" ? (
                     <>
-                      <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate">
+                      <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight truncate">
                         Assigned Firms
                       </h1>
                       <p className="text-xs text-gray-500 mt-0.5 truncate">
@@ -1108,7 +1108,7 @@ const Services = () => {
                     </>
                   ) : (
                     <>
-                      <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
+                      <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight">
                         Branch Services
                       </h1>
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -1121,7 +1121,7 @@ const Services = () => {
               {viewMode === "firms" && (
                 <button
                   onClick={() => setViewMode("list")}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors shrink-0"
                 >
                   <FiX className="w-3.5 h-3.5" /> Back to Services
                 </button>
@@ -1151,7 +1151,7 @@ const Services = () => {
                           firmsLimit,
                         )
                       }
-                      className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-300 bg-white"
+                      className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-slate-200 bg-white"
                     >
                       <FiRefreshCw
                         className={`w-3.5 h-3.5 ${firmsLoading ? "animate-spin" : ""}`}
@@ -1327,7 +1327,7 @@ const Services = () => {
                       className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-all -mb-px ${
                         serviceCategory === tab.id
                           ? "border-indigo-600 text-indigo-600 bg-indigo-50/50"
-                          : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                          : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-slate-50"
                       }`}
                     >
                       {tab.label}
@@ -1346,7 +1346,7 @@ const Services = () => {
                       className={TOOLBAR_INPUT}
                     />
                   </div>
-                  <label className="flex items-center gap-2 shrink-0 cursor-pointer select-none px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors">
+                  <label className="flex items-center gap-2 shrink-0 cursor-pointer select-none px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
                     <input
                       type="checkbox"
                       checked={showAddedOnly}
@@ -1354,7 +1354,7 @@ const Services = () => {
                         setShowAddedOnly(e.target.checked);
                         setServicePage(1);
                       }}
-                      className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="w-3.5 h-3.5 rounded border-slate-200 text-indigo-600 focus:ring-indigo-500/25"
                     />
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
                       Added only
@@ -1377,7 +1377,7 @@ const Services = () => {
                   <ViewportTooltip label="Refresh">
                     <button
                       onClick={() => refreshServiceList()}
-                      className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-300 bg-white"
+                      className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-slate-200 bg-white"
                     >
                       <FiRefreshCw
                         className={`w-3.5 h-3.5 ${serviceLoading ? "animate-spin" : ""}`}
@@ -1646,7 +1646,7 @@ const Services = () => {
                 <button
                   onClick={() => setEditTarget(null)}
                   disabled={editLoading}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1699,7 +1699,7 @@ const Services = () => {
                 <button
                   onClick={() => setAddTarget(null)}
                   disabled={addLoading}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50 transition-colors"
                 >
                   Cancel
                 </button>

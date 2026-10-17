@@ -53,7 +53,7 @@ const contentInset = (isMinimized) =>
   isMinimized ? "md:pl-20" : "md:pl-[260px]";
 
 const FIELD_INPUT =
-  "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none disabled:opacity-60 bg-white";
+  "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none disabled:opacity-60 bg-white";
 const FIELD_LABEL = "block text-xs font-semibold text-gray-600 mb-1";
 const FIELD_ERROR = "mt-1 text-xs font-medium text-red-600 m-0";
 const FIELD_INPUT_ERROR =
@@ -118,7 +118,7 @@ const AnimatedCheckbox = ({
       className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${
         checked
           ? "bg-emerald-600 border-emerald-600 shadow-sm shadow-emerald-200"
-          : "bg-white border-gray-300 group-hover:border-emerald-400"
+          : "bg-white border-slate-200 group-hover:border-emerald-400"
       }`}
       animate={{ scale: checked ? [1, 1.12, 1] : 1 }}
       transition={{ duration: 0.18 }}
@@ -467,7 +467,7 @@ const HeaderMediaUploadField = ({
       className={`rounded-xl border border-dashed p-3 space-y-2.5 ${
         showError
           ? "border-red-300 bg-red-50/40"
-          : "border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white"
+          : "border-emerald-200 bg-emerald-50"
       }`}
     >
       <div className="flex items-start gap-3">
@@ -525,7 +525,7 @@ const HeaderMediaUploadField = ({
             type="button"
             onClick={clear}
             disabled={disabled || uploading}
-            className="inline-flex items-center justify-center px-2.5 py-2 text-sm rounded-lg text-gray-500 hover:bg-gray-100 border border-gray-200 disabled:opacity-50"
+            className="inline-flex items-center justify-center px-2.5 py-2 text-sm rounded-lg text-gray-500 hover:bg-slate-100 border border-gray-200 disabled:opacity-50"
             title="Clear"
           >
             <FiX className="w-4 h-4" />
@@ -603,7 +603,7 @@ const CampaignConfirmModal = ({
             className="relative z-[1] w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 px-5 py-5 text-white">
+            <div className="bg-emerald-600 px-5 py-5 text-white">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-11 h-11 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
@@ -667,7 +667,7 @@ const CampaignConfirmModal = ({
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-slate-200 text-gray-700 bg-white hover:bg-slate-100 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1148,7 +1148,7 @@ const OneChattingCampaignCreate = () => {
 
   if (!check("broadcast_send")) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -1164,7 +1164,7 @@ const OneChattingCampaignCreate = () => {
         <div
           className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${contentInset(isMinimized)}`}
         >
-          <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+          <div className="text-center p-8 bg-white rounded-xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <FiLock className="w-5 h-5 text-gray-400" />
             </div>
@@ -1181,7 +1181,7 @@ const OneChattingCampaignCreate = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-50 via-gray-50 to-gray-100">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1203,7 +1203,7 @@ const OneChattingCampaignCreate = () => {
             onSubmit={handleRequestCreate}
             className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden"
           >
-            <div className="flex flex-wrap items-center gap-3 px-3 md:px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-white via-emerald-50/40 to-white">
+            <div className="flex flex-wrap items-center gap-3 px-3 md:px-5 py-3.5 border-b border-gray-200 bg-white">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <button
                   type="button"
@@ -1215,7 +1215,7 @@ const OneChattingCampaignCreate = () => {
                 >
                   <FiArrowLeft className="w-4 h-4" />
                 </button>
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-sm shadow-emerald-200">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 shadow-sm shadow-emerald-200">
                   <FiSend className="w-4 h-4 text-white" />
                 </div>
                 <div className="min-w-0">
@@ -1284,7 +1284,7 @@ const OneChattingCampaignCreate = () => {
                               className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
                                 active
                                   ? "bg-emerald-600 border-emerald-600 text-white"
-                                  : "bg-white border-gray-300 text-gray-700 hover:border-emerald-400"
+                                  : "bg-white border-slate-200 text-gray-700 hover:border-emerald-400"
                               }`}
                             >
                               {opt.label}

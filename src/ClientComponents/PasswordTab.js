@@ -102,7 +102,7 @@ const ViewCredentialModal = ({ credential, onClose }) => {
                 className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5 shrink-0">
+                <div className="bg-blue-600 px-5 py-3.5 shrink-0">
                     <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                             <div className="p-2 bg-white/20 rounded-xl">
@@ -290,7 +290,7 @@ const ViewCredentialModal = ({ credential, onClose }) => {
                 <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end shrink-0">
                     <button
                         onClick={onClose}
-                        className="px-6 py-2.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-slate-200 hover:shadow-xl transition-all duration-200"
+                        className="px-6 py-2.5 bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium rounded-xl shadow-lg shadow-slate-200 hover:shadow-xl transition-all duration-200"
                     >
                         Close
                     </button>
@@ -811,10 +811,10 @@ const PasswordTab = ({ clientUsername }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-slate-50 via-white to-slate-50/30 p-4 sm:p-6"
+            className="bg-slate-50 p-4 sm:p-6"
         >
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-5">
+                <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3 sm:px-5">
                     <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
                         <div className="flex min-w-0 items-start justify-between gap-2 lg:block lg:max-w-sm">
                             <div className="min-w-0 flex-1">
@@ -834,7 +834,7 @@ const PasswordTab = ({ clientUsername }) => {
                                                 <button
                                                     type="button"
                                                     onClick={openDeleteBulk}
-                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md transition-all duration-200 hover:from-red-700 hover:to-red-800"
+                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-red-600 text-white shadow-md transition-all duration-200"
                                                 >
                                                     <FiTrash className="h-4 w-4" />
                                                 </button>
@@ -854,14 +854,14 @@ const PasswordTab = ({ clientUsername }) => {
                                         <button
                                             type="button"
                                             onClick={openDeleteBulk}
-                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md transition-all duration-200 hover:from-red-700 hover:to-red-800"
+                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white shadow-md transition-all duration-200"
                                         >
                                             <FiTrash className="h-4 w-4" />
                                         </button>
                                     </ViewportTooltip>
                                 </div>
                             )}
-                            <div className="flex h-10 min-h-[2.5rem] w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 shadow-sm transition-colors focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500 sm:min-w-[12rem] lg:max-w-lg lg:flex-1">
+                            <div className="flex h-10 min-h-[2.5rem] w-full min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 shadow-sm transition-colors focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/25 sm:min-w-[12rem] lg:max-w-lg lg:flex-1">
                                 <FiSearch className="pointer-events-none h-4 w-4 shrink-0 text-slate-400" aria-hidden />
                                 <input
                                     type="search"
@@ -879,9 +879,7 @@ const PasswordTab = ({ clientUsername }) => {
                                 <motion.button
                                     type="button"
                                     onClick={openAdd}
-                                    className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-indigo-700 hover:to-indigo-800 sm:w-auto"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow-md transition-all duration-200 sm:w-auto"
                                 >
                                     <FiPlus className="h-4 w-4 shrink-0" />
                                     Add password
@@ -893,7 +891,7 @@ const PasswordTab = ({ clientUsername }) => {
 
                 <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
                     <table className="w-full min-w-[36rem] sm:min-w-0">
-                        <thead className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+                        <thead className="border-b border-slate-200 bg-slate-50/60">
                             <tr>
                                 <th className="min-w-[5.5rem] px-2 py-2 text-left align-middle sm:min-w-[7.5rem] sm:px-4 sm:py-4">
                                     <div className="flex items-center gap-1.5 sm:gap-2.5">
@@ -1011,7 +1009,7 @@ const PasswordTab = ({ clientUsername }) => {
                                             className={`group transition-all duration-300 ${
                                                 isRowSelected
                                                     ? 'bg-indigo-50/50'
-                                                    : 'hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-blue-50/50'
+                                                    : 'hover:bg-gradient-to-r'
                                             }`}
                                         >
                                             <td className="whitespace-nowrap px-2 py-3 sm:px-4 sm:py-4">
@@ -1028,7 +1026,6 @@ const PasswordTab = ({ clientUsername }) => {
                                                             className={`relative h-3.5 w-7 shrink-0 rounded-full transition-colors duration-300 ${
                                                                 isRowSelected ? 'bg-indigo-600' : 'bg-gray-300'
                                                             }`}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                         <motion.div
                                                             className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow ${
@@ -1233,7 +1230,7 @@ const PasswordTab = ({ clientUsername }) => {
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5 text-white flex justify-between items-center shrink-0">
+                        <div className="bg-blue-600 px-5 py-3.5 text-white flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-base font-bold text-slate-800">Add password</h2>
                             </div>
@@ -1400,7 +1397,7 @@ const PasswordTab = ({ clientUsername }) => {
                                 <button
                                     type="button"
                                     onClick={() => setShowAddModal(false)}
-                                    className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-slate-700 hover:bg-gray-50"
+                                    className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-slate-700 hover:bg-slate-50"
                                 >
                                     Cancel
                                 </button>
@@ -1428,7 +1425,7 @@ const PasswordTab = ({ clientUsername }) => {
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5 text-white flex justify-between items-center shrink-0">
+                        <div className="bg-blue-600 px-5 py-3.5 text-white flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-base font-bold text-slate-800">Edit password</h2>
                                 <p className="text-xs text-blue-100 mt-0.5">{selectedRow.firm?.firm_name || 'Credential'}</p>
@@ -1503,7 +1500,7 @@ const PasswordTab = ({ clientUsername }) => {
                                 <button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
-                                    className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-slate-700 hover:bg-gray-50"
+                                    className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-slate-700 hover:bg-slate-50"
                                 >
                                     Cancel
                                 </button>
@@ -1524,7 +1521,7 @@ const PasswordTab = ({ clientUsername }) => {
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-4 flex items-center gap-3">
+                        <div className="bg-red-500 text-white px-6 py-4 flex items-center gap-3">
                             <FiTrash2 className="w-6 h-6" />
                             <div>
                                 <h2 className="text-base font-bold text-slate-800">
@@ -1613,7 +1610,7 @@ const PasswordTab = ({ clientUsername }) => {
                                 <div className="py-1">
                                     <button
                                         type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-gray-50 transition-colors duration-150"
+                                        className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors duration-150"
                                         onClick={() => {
                                             handleSelectCredential(portalActionsCredId);
                                             closeActionsMenu();
@@ -1638,7 +1635,7 @@ const PasswordTab = ({ clientUsername }) => {
                                             setShowViewModal(true);
                                             closeActionsMenu();
                                         }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200"
+                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r transition-all duration-200"
                                     >
                                         <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
                                             <FiEye className="w-3.5 h-3.5 text-blue-600" />
@@ -1649,7 +1646,7 @@ const PasswordTab = ({ clientUsername }) => {
                                         <button
                                             type="button"
                                             onClick={() => openEdit(activeActionsItem)}
-                                            className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50 transition-all duration-200"
+                                            className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r transition-all duration-200"
                                         >
                                             <div className="p-1.5 bg-amber-100 rounded-lg mr-3">
                                                 <FiEdit className="w-3.5 h-3.5 text-amber-600" />
@@ -1666,7 +1663,7 @@ const PasswordTab = ({ clientUsername }) => {
                                             toast.success('Credential details copied to clipboard');
                                             closeActionsMenu();
                                         }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 transition-all duration-200"
+                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r transition-all duration-200"
                                     >
                                         <div className="p-1.5 bg-purple-100 rounded-lg mr-3">
                                             <FiCopy className="w-3.5 h-3.5 text-purple-600" />

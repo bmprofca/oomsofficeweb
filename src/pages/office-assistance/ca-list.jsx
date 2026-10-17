@@ -208,7 +208,7 @@ const CAList = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -223,16 +223,16 @@ const CAList = () => {
       />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${contentInset(isMinimized)}`}>
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60">
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="p-1.5 bg-indigo-50 rounded-lg shrink-0">
                     <FiUser className="w-4 h-4 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-base md:text-lg font-bold text-gray-800 m-0">Chartered Accountants</h1>
+                    <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 m-0">Chartered Accountants</h1>
                     <p className="text-xs text-gray-500 m-0">Create and manage CAs for this branch</p>
                   </div>
                 </div>
@@ -244,14 +244,14 @@ const CAList = () => {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search name, mobile, email…"
-                      className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={loadCaList}
                     disabled={loading}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-60 shrink-0"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-60 shrink-0"
                   >
                     <FiRefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                     Refresh
@@ -276,7 +276,7 @@ const CAList = () => {
 
             <div className="overflow-x-auto">
               <div className="min-w-[820px]">
-                <div className={`grid ${GRID_COLS} items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10`}>
+                <div className={`grid ${GRID_COLS} items-center border-b border-gray-200 bg-slate-50/60 sticky top-0 z-10`}>
                   {COLUMNS.map((col, i) => (
                     <div
                       key={col}
@@ -310,7 +310,7 @@ const CAList = () => {
                   caRows.map((row, index) => (
                     <div
                       key={rowKey(row) || `row-${index}`}
-                      className={`grid ${GRID_COLS} items-center border-b border-gray-100 bg-white hover:bg-gray-50`}
+                      className={`grid ${GRID_COLS} items-center border-b border-gray-100 bg-white hover:bg-slate-50`}
                     >
                       <div className="p-3 text-[11px] font-bold text-gray-800">
                         {(pagination.page - 1) * pagination.limit + index + 1}
@@ -328,7 +328,7 @@ const CAList = () => {
                               className="w-7 h-7 rounded-lg object-cover border border-gray-200 shrink-0"
                             />
                           ) : (
-                            <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-sm flex items-center justify-center shrink-0">
+                            <div className="w-7 h-7 bg-indigo-500 rounded-lg shadow-sm flex items-center justify-center shrink-0">
                               <FiUser className="w-3.5 h-3.5 text-white" />
                             </div>
                           )}

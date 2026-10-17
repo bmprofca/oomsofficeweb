@@ -112,7 +112,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         value={formData.name}
                                         onChange={handleInputChange}
                                         placeholder="Enter ledger name"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors"
                                         required
                                     />
                                 </div>
@@ -128,7 +128,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         value={formData.pan}
                                         onChange={handleInputChange}
                                         placeholder="Enter PAN number"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors"
                                         maxLength="10"
                                     />
                                 </div>
@@ -144,7 +144,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         value={formData.gst}
                                         onChange={handleInputChange}
                                         placeholder="Enter GST number"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors"
                                     />
                                 </div>
 
@@ -159,7 +159,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         value={formData.mobile}
                                         onChange={handleInputChange}
                                         placeholder="Enter mobile number"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors"
                                     />
                                 </div>
 
@@ -172,7 +172,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         name="group"
                                         value={formData.group}
                                         onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors bg-white"
                                         required
                                     >
                                         <option value="" disabled>Select a group</option>
@@ -199,7 +199,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                     onChange={handleInputChange}
                                     placeholder="Enter complete address"
                                     rows="3"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors resize-none"
                                 />
                             </div>
                         </div>
@@ -218,7 +218,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         name="date"
                                         value={formData.date}
                                         onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors"
                                         required
                                     />
                                 </div>
@@ -235,7 +235,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         placeholder="0.00"
                                         step="0.01"
                                         min="0"
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors"
                                         required
                                     />
                                 </div>
@@ -249,7 +249,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                                         name="balance_type"
                                         value={formData.balance_type}
                                         onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors bg-white"
                                         required
                                     >
                                         <option value="credit">Credit</option>
@@ -283,7 +283,7 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                             type="submit"
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {loading ? (
                                 <>

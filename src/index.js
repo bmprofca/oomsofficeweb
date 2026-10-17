@@ -1,12 +1,17 @@
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
+// Reboot only: Bootstrap's utility classes (.px-3, .mt-5, .gap-3, .border …) carry !important and
+// silently overrode the Tailwind classes of the same name (wrong spacing, grey borders). No Bootstrap
+// components are used, so the base reset is all we need.
+import 'bootstrap/dist/css/bootstrap-reboot.min.css';
+import './styles/theme.css';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
+import { ClientCreateProvider, ClientCreateRoute } from './context/ClientCreateProvider';
 import WhatsappChannelBootstrap from './components/WhatsApp/WhatsappChannelBootstrap';
 import SmsChannelBootstrap from './components/Sms/SmsChannelBootstrap';
 import CallChannelBootstrap from './components/Call/CallChannelBootstrap';
@@ -28,7 +33,6 @@ import {
   BranchSetup,
   InvitationRequest,
   TaskDisplay,
-  CreateClient,
   ViewClients,
   ClientProfile,
   TaskProfile,
@@ -146,9 +150,26 @@ const redirectToSubscription = (upgrade = false) => {
   window.location.href = upgrade ? '/subscription?upgrade=true' : '/subscription';
 };
 
+// Notify the sidebar billing badge after any successful write that can change the
+// pending-bill count (raising bills, marking non-billable, completing tasks).
+let billingUpdateTimer = null;
+const BILLING_WRITE_RE = /\/api\/v1\/(billing|task)\//;
+function notifyBillingMaybeChanged(method, url) {
+  const m = String(method || 'GET').toUpperCase();
+  if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return;
+  if (!BILLING_WRITE_RE.test(String(url || ''))) return;
+  if (billingUpdateTimer) clearTimeout(billingUpdateTimer);
+  billingUpdateTimer = setTimeout(() => {
+    window.dispatchEvent(new Event('ooms:billing-updated'));
+  }, 400);
+}
+
 // Set up global axios interceptor
 axios.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    notifyBillingMaybeChanged(response?.config?.method, response?.config?.url);
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       handleUnauthorizedResponse();
@@ -164,11 +185,50 @@ axios.interceptors.response.use(
   }
 );
 
+// CRA's webpack overlay does `new Error(reason)` for non-Error rejections, which
+// becomes the useless "[object Object]" banner. Normalize / suppress those.
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason;
+  if (reason instanceof Error) {
+    if (reason.message === '[object Object]') {
+      event.preventDefault();
+      console.error('[OOMS] Unhandled rejection (opaque Error):', reason.cause || reason);
+    }
+    return;
+  }
+
+  event.preventDefault();
+
+  let message = 'Unhandled promise rejection';
+  if (typeof reason === 'string' && reason.trim()) {
+    message = reason;
+  } else if (reason && typeof reason === 'object') {
+    const raw = reason.message || reason.msg || reason.error || reason.description;
+    if (typeof raw === 'string' && raw.trim()) {
+      message = raw;
+    } else {
+      try {
+        message = JSON.stringify(reason);
+      } catch (_) {
+        message = Object.prototype.toString.call(reason);
+      }
+    }
+  }
+
+  console.error('[OOMS] Unhandled rejection:', message, reason);
+});
+
 // Set up global fetch interceptor
 const originalFetch = window.fetch.bind(window);
 window.fetch = async function (...args) {
   try {
     const response = await originalFetch(...args);
+    if (response.ok) {
+      const [input, init] = args;
+      const url = typeof input === 'string' ? input : input?.url;
+      const method = init?.method || (typeof input === 'object' && input?.method) || 'GET';
+      notifyBillingMaybeChanged(method, url);
+    }
     if (response.status === 401) {
       handleUnauthorizedResponse();
     } else if (response.status === 403) {
@@ -286,6 +346,7 @@ root.render(
     <BrowserRouter>
       <DocumentTitle />
       <TaskCreateProvider>
+      <ClientCreateProvider>
         {/* Must wrap KeepAliveProvider: KeepAliveHost parks pages as a sibling of
             <Routes>, so contexts inside KeepAlive but around Routes only are invisible
             to kept-alive pages (e.g. /client/view). */}
@@ -294,7 +355,22 @@ root.render(
           <Toaster
             position="top-center"
             containerStyle={{ zIndex: 11000 }}
-            toastOptions={{ duration: 4000 }}
+            toastOptions={{
+              duration: 4000,
+              style: {
+                fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#0f172a',
+                background: '#ffffff',
+                border: '1px solid #e5e9f2',
+                boxShadow: '0 16px 40px -12px rgba(15,23,42,0.22), 0 0 0 1px rgba(15,23,42,0.04)',
+                borderRadius: '12px',
+                padding: '10px 14px',
+              },
+              success: { iconTheme: { primary: '#059669', secondary: '#ffffff' } },
+              error: { iconTheme: { primary: '#e11d48', secondary: '#ffffff' } },
+            }}
           />
           <WhatsappChannelBootstrap />
           <SmsChannelBootstrap />
@@ -437,9 +513,10 @@ root.render(
             } />
 
 
+            {/* Client creation is a modal now; old links open it over the client list. */}
             <Route path="/client/create" element={
-              <ProtectedRoute>
-                <CreateClient />
+              <ProtectedRoute keepAlive={false}>
+                <ClientCreateRoute />
               </ProtectedRoute>
             } />
 
@@ -1089,6 +1166,7 @@ root.render(
           </Suspense>
         </KeepAliveProvider>
         </ClickToCallProvider>
+      </ClientCreateProvider>
       </TaskCreateProvider>
     </BrowserRouter>
 );

@@ -73,7 +73,7 @@ const AnimatedCheckbox = ({
             <motion.span
                 className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${isActive
                     ? 'border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200'
-                    : 'border-gray-300 bg-white group-hover:border-indigo-400'
+                    : 'border-slate-200 bg-white group-hover:border-indigo-400'
                     }`}
                 animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
                 transition={{ duration: 0.18 }}
@@ -118,7 +118,7 @@ const AnimatedCheckbox = ({
 const BirthdayActionMenuItems = ({ client, onClose, navigate, onBirthdayReminder }) => {
     const username = client?.personal_details?.username || client?.username;
     const itemClass =
-        'flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50';
+        'flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-slate-50';
 
     return (
         <div className="py-1">
@@ -161,7 +161,7 @@ const DebtorActionMenuItems = ({ client, onClose, navigate }) => {
     };
 
     const itemClass =
-        'flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50';
+        'flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-slate-50';
 
     return (
         <div className="py-1">
@@ -545,7 +545,7 @@ const QuickStatsDetailsPage = () => {
 
         return (
             <div
-                className="cursor-pointer hover:bg-gray-100 transition-colors text-center p-2 rounded-lg"
+                className="cursor-pointer hover:bg-slate-100 transition-colors text-center p-2 rounded-lg"
                 onClick={() => openFirmsModal(item.firms, item.name)}
             >
                 <div className="font-medium text-gray-800 text-sm mb-1 truncate">{lastFirm?.firm_name || 'N/A'}</div>
@@ -747,9 +747,7 @@ const QuickStatsDetailsPage = () => {
                         e.stopPropagation();
                         toggleRowDropdown(item.username, e);
                     }}
-                    className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-300"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 transition-colors border border-slate-200"
                 >
                     <FiMoreVertical className="w-4 h-4 text-gray-700" />
                 </motion.button>
@@ -797,7 +795,7 @@ const QuickStatsDetailsPage = () => {
                                 ariaLabel={`Select ${item.name || item.username}`}
                             />
                             <div className="font-bold text-gray-800 text-sm w-4">{index + 1}</div>
-                            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                            <div className="w-7 h-7 bg-blue-500 rounded-lg flex items-center justify-center">
                                 <FiUser className="w-3.5 h-3.5 text-white" />
                             </div>
                             <div className="min-w-0">
@@ -853,7 +851,7 @@ const QuickStatsDetailsPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => openClientPaymentReminderModal(item)}
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
                                         title="Send payment reminder"
                                         aria-label={`Send payment reminder to ${item.name || item.username}`}
                                     >
@@ -929,7 +927,7 @@ const QuickStatsDetailsPage = () => {
                             <div className="text-center">
                                 <FiAlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
                                 <p className="text-gray-700 font-medium">{error}</p>
-                                <button onClick={() => fetchDetails()} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Retry</button>
+                                <button onClick={() => fetchDetails()} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm">Retry</button>
                             </div>
                         </div>
                     ) : list.length === 0 ? (
@@ -951,7 +949,7 @@ const QuickStatsDetailsPage = () => {
                             </div>
 
                             <div className="hidden md:block" style={{ minWidth: tableMinWidth }}>
-                                <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10">
+                                <div className="border-b border-gray-200 bg-slate-50/60 sticky top-0 z-10">
                                     <div className="flex items-center bg-white">
                                         <div className="w-12 p-3 flex-shrink-0 flex justify-center">
                                             <AnimatedCheckbox
@@ -983,7 +981,7 @@ const QuickStatsDetailsPage = () => {
                                     return (
                                         <motion.div
                                             key={item.username || index}
-                                            className={`flex items-center border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white ${isSelected ? 'bg-blue-50/40' : ''}`}
+                                            className={`flex items-center border-b border-gray-100 hover:bg-slate-50 transition-colors bg-white ${isSelected ? 'bg-blue-50/40' : ''}`}
                                             initial={{ opacity: 0, y: 5 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.02 }}
@@ -1000,7 +998,7 @@ const QuickStatsDetailsPage = () => {
                                             </div>
                                             <div className="p-3 min-w-0 border-l border-gray-100 flex-shrink-0" style={{ flex: '1.5', minWidth: '180px' }}>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
+                                                    <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
                                                         <FiUser className="w-4 h-4 text-white" />
                                                     </div>
                                                     <div className="min-w-0 flex-1 text-left cursor-pointer hover:text-blue-600" onClick={() => navigate(`/client/profile/${item.username}`)}>
@@ -1046,7 +1044,7 @@ const QuickStatsDetailsPage = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => openClientPaymentReminderModal(item)}
-                                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-md"
+                                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-md"
                                                             title="Send payment reminder"
                                                             aria-label={`Send payment reminder to ${item.name || item.username}`}
                                                         >
@@ -1091,7 +1089,7 @@ const QuickStatsDetailsPage = () => {
         const balanceBadgeClass = isDebtor ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100';
 
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="app-page">
                 <Header
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
@@ -1108,16 +1106,16 @@ const QuickStatsDetailsPage = () => {
                 <div className={`pt-16 transition-all duration-300 ease-in-out min-w-0 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                     <div className="h-full flex flex-col min-w-0">
                         <motion.div
-                            className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col min-h-[calc(100vh-5.5rem)] mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 overflow-hidden"
+                            className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[calc(100vh-5.5rem)] mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5 overflow-hidden"
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
                         >
-                            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+                            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 md:gap-3">
                                     <div className="w-full md:w-auto">
-                                        <h5 className="text-base md:text-lg font-bold text-gray-800 mb-0.5">{pageTitle}</h5>
-                                        <p className="text-gray-500 text-xs">{pageDescription}</p>
+                                        <h5 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 mb-0.5">{pageTitle}</h5>
+                                        <p className="text-slate-500 text-xs mt-0.5">{pageDescription}</p>
                                         <div className="mt-2 flex flex-wrap gap-2">
                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${countBadgeClass}`}>
                                                 {countLabel}: {formatNumber(countValue)}
@@ -1140,7 +1138,7 @@ const QuickStatsDetailsPage = () => {
                                                         setSearchTerm(e.target.value);
                                                         setPagination(prev => ({ ...prev, page_no: 1 }));
                                                     }}
-                                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-gray-700 text-sm bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                                 />
                                             </div>
                                         </div>
@@ -1150,9 +1148,7 @@ const QuickStatsDetailsPage = () => {
                                                 <div className="dropdown-container relative">
                                                     <motion.button
                                                         onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                                                        className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
-                                                        whileHover={{ scale: 1.05 }}
-                                                        whileTap={{ scale: 0.95 }}
+                                                        className="px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
                                                     >
                                                         <FiFilter className="w-4 h-4" />
                                                         <span className="hidden sm:inline">Filter</span>
@@ -1160,7 +1156,7 @@ const QuickStatsDetailsPage = () => {
                                                     <AnimatePresence>
                                                         {showFilterDropdown && (
                                                             <motion.div
-                                                                className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white rounded-lg shadow-xl border border-gray-200 z-[60] p-3"
+                                                                className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-pop border border-slate-200 z-[60] p-3"
                                                                 initial={{ opacity: 0, y: -8, scale: 0.96 }}
                                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                                                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
@@ -1178,12 +1174,12 @@ const QuickStatsDetailsPage = () => {
                                                                         setBalanceAfterInput(e.target.value);
                                                                         setPagination(prev => ({ ...prev, page_no: 1 }));
                                                                     }}
-                                                                    className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                    className="w-full px-2 py-1.5 border border-slate-200 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 text-sm"
                                                                 />
                                                                 <p className="text-[11px] text-gray-500 mt-1">Show debtors with balance equal to or above this amount.</p>
                                                                 <div className="flex justify-between gap-2 mt-3">
-                                                                    <button onClick={handleClearFilters} className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-100">Reset</button>
-                                                                    <button onClick={() => setShowFilterDropdown(false)} className="w-full px-2 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Apply</button>
+                                                                    <button onClick={handleClearFilters} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded hover:bg-slate-100">Reset</button>
+                                                                    <button onClick={() => setShowFilterDropdown(false)} className="w-full px-2 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700">Apply</button>
                                                                 </div>
                                                             </motion.div>
                                                         )}
@@ -1195,8 +1191,6 @@ const QuickStatsDetailsPage = () => {
                                                 <motion.button
                                                     onClick={openBulkReminderModal}
                                                     className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.95 }}
                                                 >
                                                     <FiMailIcon className="w-4 h-4" />
                                                     <span className="hidden sm:inline">Reminder ({selectedDebtorCount})</span>
@@ -1206,9 +1200,7 @@ const QuickStatsDetailsPage = () => {
                                             <motion.button
                                                 onClick={handleRefresh}
                                                 disabled={loading}
-                                                className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-300 hover:bg-gray-100 transition shadow-sm disabled:opacity-50"
-                                                whileHover={{ scale: 1.08 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition shadow-sm disabled:opacity-50"
                                             >
                                                 <FiRefreshCw className={`w-4 h-4 text-gray-700 ${loading ? 'animate-spin' : ''}`} />
                                             </motion.button>
@@ -1374,7 +1366,7 @@ const QuickStatsDetailsPage = () => {
                             });
                             setActiveRowDropdown(username);
                         }}
-                        className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700"
+                        className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 border border-slate-200 text-gray-700"
                         title="Actions"
                         aria-label={`Actions for ${item.name || username}`}
                     >
@@ -1455,7 +1447,7 @@ const QuickStatsDetailsPage = () => {
                                         <span className="text-[11px] font-bold text-gray-800 w-4 shrink-0">
                                             {((pagination.page_no - 1) * pagination.limit) + index + 1}
                                         </span>
-                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shrink-0">
+                                        <div className="w-8 h-8 rounded-lg bg-rose-500 flex items-center justify-center shrink-0">
                                             <FiGift className="w-3.5 h-3.5 text-white" />
                                         </div>
                                         <div className="min-w-0">
@@ -1498,7 +1490,7 @@ const QuickStatsDetailsPage = () => {
 
                 <div className="hidden md:block flex-1 min-h-0 overflow-auto">
                     <div className="min-w-[980px]">
-                        <div className="sticky top-0 z-10 grid grid-cols-[48px_48px_minmax(180px,1.4fr)_minmax(100px,0.8fr)_minmax(120px,1fr)_minmax(160px,1.1fr)_minmax(180px,1.2fr)_72px] items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                        <div className="sticky top-0 z-10 grid grid-cols-[48px_48px_minmax(180px,1.4fr)_minmax(100px,0.8fr)_minmax(120px,1fr)_minmax(160px,1.1fr)_minmax(180px,1.2fr)_72px] items-center border-b border-gray-200 bg-slate-50/60">
                             <div className="px-3 py-3 flex justify-center">
                                 <AnimatedCheckbox
                                     checked={selectAll}
@@ -1527,7 +1519,7 @@ const QuickStatsDetailsPage = () => {
                             return (
                                 <div
                                     key={username || index}
-                                    className={`grid grid-cols-[48px_48px_minmax(180px,1.4fr)_minmax(100px,0.8fr)_minmax(120px,1fr)_minmax(160px,1.1fr)_minmax(180px,1.2fr)_72px] items-center border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors ${isSelected ? 'bg-rose-50/40' : ''}`}
+                                    className={`grid grid-cols-[48px_48px_minmax(180px,1.4fr)_minmax(100px,0.8fr)_minmax(120px,1fr)_minmax(160px,1.1fr)_minmax(180px,1.2fr)_72px] items-center border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors ${isSelected ? 'bg-rose-50/40' : ''}`}
                                 >
                                     <div className="px-3 py-3 flex justify-center">
                                         <AnimatedCheckbox
@@ -1542,7 +1534,7 @@ const QuickStatsDetailsPage = () => {
                                     </div>
                                     <div className="px-3 py-3 min-w-0">
                                         <div className="flex items-center gap-2.5 min-w-0">
-                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shrink-0">
+                                            <div className="w-8 h-8 rounded-lg bg-rose-500 flex items-center justify-center shrink-0">
                                                 <FiGift className="w-3.5 h-3.5 text-white" />
                                             </div>
                                             <div className="min-w-0">
@@ -1692,7 +1684,7 @@ const QuickStatsDetailsPage = () => {
 
                 <div className="hidden md:block flex-1 min-h-0 overflow-auto">
                     <div className="min-w-[960px]">
-                        <div className="sticky top-0 z-10 grid grid-cols-[48px_minmax(160px,1.2fr)_minmax(160px,1.2fr)_minmax(140px,1fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_72px] items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                        <div className="sticky top-0 z-10 grid grid-cols-[48px_minmax(160px,1.2fr)_minmax(160px,1.2fr)_minmax(140px,1fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_72px] items-center border-b border-gray-200 bg-slate-50/60">
                             {['#', 'Client', 'Service', 'Firm', 'Fees', 'Due date', 'Created', ''].map((label) => (
                                 <div
                                     key={label || 'actions'}
@@ -1706,7 +1698,7 @@ const QuickStatsDetailsPage = () => {
                         {list.map((item, index) => (
                             <div
                                 key={item.task_id || index}
-                                className="grid grid-cols-[48px_minmax(160px,1.2fr)_minmax(160px,1.2fr)_minmax(140px,1fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_72px] items-center border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors"
+                                className="grid grid-cols-[48px_minmax(160px,1.2fr)_minmax(160px,1.2fr)_minmax(140px,1fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_minmax(110px,0.8fr)_72px] items-center border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors"
                             >
                                 <div className="px-3 py-3 text-[11px] font-bold text-gray-800">
                                     {((pagination.page_no - 1) * pagination.limit) + index + 1}
@@ -1770,7 +1762,7 @@ const QuickStatsDetailsPage = () => {
                                         <button
                                             type="button"
                                             onClick={() => navigate(`/task/${item.task_id}`)}
-                                            className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700"
+                                            className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 border border-slate-200 text-gray-700"
                                             title="View task"
                                         >
                                             <FiEye className="w-4 h-4" />
@@ -1802,7 +1794,7 @@ const QuickStatsDetailsPage = () => {
               };
 
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="app-page">
                 <Header
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
@@ -1823,18 +1815,18 @@ const QuickStatsDetailsPage = () => {
                 >
                     <div className="h-full flex flex-col min-w-0">
                         <motion.div
-                            className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col min-h-[calc(100vh-5.5rem)] mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 overflow-hidden"
+                            className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[calc(100vh-5.5rem)] mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5 overflow-hidden"
                             initial={{ opacity: 0, y: 12 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.25 }}
                         >
-                            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+                            <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 md:gap-3">
                                     <div className="flex items-start gap-3 min-w-0 w-full md:w-auto">
                                         <button
                                             type="button"
                                             onClick={() => navigate('/dashboard')}
-                                            className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 shrink-0"
+                                            className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 shrink-0"
                                             title="Back to dashboard"
                                         >
                                             <FiArrowLeft className="w-4 h-4" />
@@ -1845,7 +1837,7 @@ const QuickStatsDetailsPage = () => {
                                             {getIcon()}
                                         </div>
                                         <div className="min-w-0">
-                                            <h1 className="text-base md:text-lg font-bold text-gray-800 m-0 leading-tight truncate">
+                                            <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 m-0 leading-tight truncate">
                                                 {getPageTitle()}
                                             </h1>
                                             {!isBirthday ? (
@@ -1873,8 +1865,6 @@ const QuickStatsDetailsPage = () => {
                                                 type="button"
                                                 onClick={openBulkBirthdayReminderModal}
                                                 className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiGift className="w-4 h-4" />
                                                 <span className="hidden sm:inline">
@@ -1887,9 +1877,7 @@ const QuickStatsDetailsPage = () => {
                                             type="button"
                                             onClick={handleRefresh}
                                             disabled={loading}
-                                            className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-300 hover:bg-gray-100 transition shadow-sm disabled:opacity-50"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
+                                            className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition shadow-sm disabled:opacity-50"
                                         >
                                             <FiRefreshCw
                                                 className={`w-4 h-4 text-gray-700 ${loading ? 'animate-spin' : ''}`}

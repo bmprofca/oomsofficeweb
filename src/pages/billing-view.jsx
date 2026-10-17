@@ -108,7 +108,7 @@ const AnimatedCheckbox = ({
         className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${
           isActive
             ? "bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200"
-            : "bg-white border-gray-300 group-hover:border-indigo-400"
+            : "bg-white border-slate-200 group-hover:border-indigo-400"
         }`}
         animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
         transition={{ duration: 0.18 }}
@@ -230,7 +230,7 @@ const DIALOG_CONFIG = {
     iconColor: "text-indigo-600",
     Icon: FiInfo,
     accentGradient: "from-indigo-500 to-violet-500",
-    confirmBtnClass: "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500",
+    confirmBtnClass: "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/25",
   },
   warning: {
     iconBg: "bg-amber-100",
@@ -239,7 +239,7 @@ const DIALOG_CONFIG = {
     Icon: FiAlertCircle,
     accentGradient: "from-amber-500 to-orange-500",
     confirmBtnClass:
-      "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 focus:ring-amber-500",
+      "bg-amber-500 hover:bg-amber-600 focus:ring-amber-500",
   },
   danger: {
     iconBg: "bg-rose-100",
@@ -248,7 +248,7 @@ const DIALOG_CONFIG = {
     Icon: FiAlertCircle,
     accentGradient: "from-rose-500 to-pink-500",
     confirmBtnClass:
-      "bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 focus:ring-rose-500",
+      "bg-rose-600 hover:bg-rose-700 focus:ring-rose-500",
   },
   success: {
     iconBg: "bg-emerald-100",
@@ -257,7 +257,7 @@ const DIALOG_CONFIG = {
     Icon: FiCheckCircle,
     accentGradient: "from-emerald-500 to-teal-500",
     confirmBtnClass:
-      "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 focus:ring-emerald-500",
+      "bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500",
   },
   error: {
     iconBg: "bg-rose-100",
@@ -266,7 +266,7 @@ const DIALOG_CONFIG = {
     Icon: FiXCircle,
     accentGradient: "from-rose-500 to-pink-500",
     confirmBtnClass:
-      "bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 focus:ring-rose-500",
+      "bg-rose-600 hover:bg-rose-700 focus:ring-rose-500",
   },
 };
 
@@ -301,10 +301,6 @@ const AppDialog = ({ dialog, onClose, onConfirm }) => {
             className="relative w-full max-w-[420px] bg-white rounded-2xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Top accent bar */}
-            <div
-              className={`h-1 w-full bg-gradient-to-r ${cfg.accentGradient}`}
-            />
 
             <div className="px-6 pt-5 pb-6">
               {/* Icon + text */}
@@ -334,7 +330,7 @@ const AppDialog = ({ dialog, onClose, onConfirm }) => {
                     type="button"
                     disabled={dialog.loading}
                     onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {dialog.cancelText}
                   </button>
@@ -408,7 +404,7 @@ const BillingDetailsModal = ({ item, onClose }) => {
           className="flex max-h-[min(92vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-white px-4 py-3 sm:px-5">
+          <div className="flex items-center justify-between border-b border-gray-200 bg-indigo-50 px-4 py-3 sm:px-5">
             <div>
               <h3 className="text-base font-bold text-gray-900">Bill Details</h3>
               <p className="text-xs text-gray-500">Task #{item.task_id}</p>
@@ -416,7 +412,7 @@ const BillingDetailsModal = ({ item, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              className="rounded-lg p-2 text-gray-400 transition hover:bg-slate-100 hover:text-gray-700"
               aria-label="Close"
             >
               <FiXCircle className="h-5 w-5" />
@@ -647,18 +643,18 @@ const BillDisplay = () => {
       bgColor: "from-orange-50 to-amber-50",
       borderColor: "border-orange-200",
       textColor: "text-orange-700",
-      hoverColor: "hover:from-orange-100 hover:to-amber-100",
+      hoverColor: "",
       activeColor: "from-orange-500 to-amber-500",
       description: "Awaiting billing",
-      gradient: "bg-gradient-to-r from-orange-500 to-amber-500",
+      gradient: "bg-orange-500",
       cardGradient:
-        "bg-gradient-to-br from-orange-500/5 via-orange-400/3 to-amber-500/5",
+        "bg-orange-500",
       lightGradient:
-        "bg-gradient-to-br from-orange-50/80 via-amber-50/50 to-yellow-50/30",
-      countColor: "bg-gradient-to-r from-orange-500 to-amber-500",
+        "bg-orange-50",
+      countColor: "bg-orange-500",
       chartColor: "#f97316",
       subDescription: "Need action",
-      iconBg: "bg-gradient-to-br from-orange-500/15 to-amber-500/15",
+      iconBg: "bg-orange-500",
     },
     {
       value: "generated",
@@ -668,18 +664,18 @@ const BillDisplay = () => {
       bgColor: "from-emerald-50 to-teal-50",
       borderColor: "border-emerald-200",
       textColor: "text-emerald-700",
-      hoverColor: "hover:from-emerald-100 hover:to-teal-100",
+      hoverColor: "",
       activeColor: "from-emerald-500 to-teal-500",
       description: "Bills created",
-      gradient: "bg-gradient-to-r from-emerald-500 to-teal-500",
+      gradient: "bg-emerald-500",
       cardGradient:
-        "bg-gradient-to-br from-emerald-500/5 via-emerald-400/3 to-teal-500/5",
+        "bg-emerald-500",
       lightGradient:
-        "bg-gradient-to-br from-emerald-50/80 via-teal-50/50 to-cyan-50/30",
-      countColor: "bg-gradient-to-r from-emerald-500 to-teal-500",
+        "bg-emerald-50",
+      countColor: "bg-emerald-500",
       chartColor: "#10b981",
       subDescription: "Ready for payment",
-      iconBg: "bg-gradient-to-br from-emerald-500/15 to-teal-500/15",
+      iconBg: "bg-emerald-500",
     },
     {
       value: "nonbillable",
@@ -689,18 +685,18 @@ const BillDisplay = () => {
       bgColor: "from-rose-50 to-pink-50",
       borderColor: "border-rose-200",
       textColor: "text-rose-700",
-      hoverColor: "hover:from-rose-100 hover:to-pink-100",
+      hoverColor: "",
       activeColor: "from-rose-500 to-pink-500",
       description: "Marked non-billable",
-      gradient: "bg-gradient-to-r from-rose-500 to-pink-500",
+      gradient: "bg-rose-500",
       cardGradient:
-        "bg-gradient-to-br from-rose-500/5 via-rose-400/3 to-pink-500/5",
+        "bg-rose-500",
       lightGradient:
-        "bg-gradient-to-br from-rose-50/80 via-pink-50/50 to-red-50/30",
-      countColor: "bg-gradient-to-r from-rose-500 to-pink-500",
+        "bg-rose-50",
+      countColor: "bg-rose-500",
       chartColor: "#f43f5e",
       subDescription: "Write off",
-      iconBg: "bg-gradient-to-br from-rose-500/15 to-pink-500/15",
+      iconBg: "bg-rose-500",
     },
   ];
 
@@ -1482,7 +1478,7 @@ const BillDisplay = () => {
   const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1504,7 +1500,7 @@ const BillDisplay = () => {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="mx-2 my-3 flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm sm:mx-4 md:mx-8 md:my-4"
+            className="mx-2 my-3 flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:mx-4 md:mx-8 md:my-4"
             style={{
               paddingBottom:
                 selectedBillType === "pending" && selectedItems.length > 0
@@ -1513,7 +1509,7 @@ const BillDisplay = () => {
             }}
           >
             {/* Page title + status tabs */}
-            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 sm:px-4">
+            <div className="border-b border-gray-200 bg-slate-50/60 px-3 py-2.5 sm:px-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="shrink-0 text-base font-bold text-gray-800">
                   Billing
@@ -1632,7 +1628,7 @@ const BillDisplay = () => {
                           requestAnimationFrame(() => setSearchQuery(el.value));
                         }}
                         placeholder="Search…"
-                        className="h-10 w-full rounded-lg border border-gray-300 bg-white py-0 pl-8 pr-3 text-sm text-gray-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                        className="h-10 w-full rounded-lg border border-slate-200 bg-white py-0 pl-8 pr-3 text-sm text-gray-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                       />
                       <FiSearch className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                     </div>
@@ -1641,7 +1637,7 @@ const BillDisplay = () => {
                       onClick={handleRefreshPage}
                       disabled={loading}
                       title="Refresh"
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-gray-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <FiRefreshCw
                         className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -1651,7 +1647,7 @@ const BillDisplay = () => {
                       <button
                         type="button"
                         onClick={handleClearFilters}
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-slate-50"
                       >
                         Clear filters
                       </button>
@@ -1661,8 +1657,8 @@ const BillDisplay = () => {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full table-fixed">
-                  <thead className="bg-gradient-to-r from-gray-50 to-white">
+                <table className="w-full min-w-[880px] table-fixed">
+                  <thead className="bg-slate-50">
                     <tr className="border-b border-gray-200">
                       {showPendingColumns && (
                         <th className="w-9 px-1 py-3 text-center">
@@ -1694,7 +1690,7 @@ const BillDisplay = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-slate-100">
                     {loading ? (
                       Array.from({ length: skeletonRowCount }).map((_, i) => (
                         <tr
@@ -1784,8 +1780,8 @@ const BillDisplay = () => {
                               showPendingColumns && isSelected
                                 ? "bg-indigo-50/60 hover:bg-indigo-50/80"
                                 : index % 2 === 0
-                                  ? "bg-white hover:bg-gray-50"
-                                  : "bg-gray-50/60 hover:bg-gray-100/70"
+                                  ? "bg-white hover:bg-slate-50"
+                                  : "bg-gray-50/60 hover:bg-slate-100/70"
                             }`}
                           >
                             {showPendingColumns && (
@@ -1921,12 +1917,10 @@ const BillDisplay = () => {
                             <td className="px-2 py-3 align-top">
                               <div className="flex items-center justify-center">
                                 <motion.button
-                                  className="cursor-pointer rounded p-1.5 text-gray-400 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700"
+                                  className="cursor-pointer rounded p-1.5 text-gray-400 transition-all duration-150 hover:bg-slate-100 hover:text-gray-700"
                                   onClick={(e) =>
                                     toggleRowDropdown(item.task_id, e)
                                   }
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
                                 >
                                   <FiMoreVertical className="h-4 w-4" />
                                 </motion.button>
@@ -2096,7 +2090,7 @@ const BillDisplay = () => {
                     </>
                   )}
                   <button
-                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 transition-colors duration-150"
                     onClick={() => {
                       setActiveRowDropdown(null);
                       setDetailsItem(activeItem);
@@ -2127,7 +2121,7 @@ const BillDisplay = () => {
             <div className="px-3 py-2 sm:px-4 sm:py-2.5">
               <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex min-w-0 items-start gap-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-bold text-white shadow-sm">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-sm">
                     {selectedItems.length}
                   </div>
                   <div className="min-w-0 pt-0.5">
@@ -2161,9 +2155,9 @@ const BillDisplay = () => {
                         handleGenerateBill();
                       }
                     }}
-                    className={`inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700 sm:px-3.5 sm:text-sm ${
+                    className={`inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition sm:px-3.5 sm:text-sm ${
                       !check("finance_billing_approve_reject")
-                        ? "opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-teal-600"
+                        ? "opacity-60 cursor-not-allowed"
                         : ""
                     }`}
                     whileTap={{ scale: billingActionLoading ? 1 : 0.97 }}
@@ -2187,9 +2181,9 @@ const BillDisplay = () => {
                         handleMarkNonBillable();
                       }
                     }}
-                    className={`inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-pink-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-rose-700 hover:to-pink-700 sm:text-sm ${
+                    className={`inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition sm:text-sm ${
                       !check("finance_billing_approve_reject")
-                        ? "opacity-60 cursor-not-allowed hover:from-rose-600 hover:to-pink-600"
+                        ? "opacity-60 cursor-not-allowed"
                         : ""
                     }`}
                     whileTap={{ scale: billingActionLoading ? 1 : 0.97 }}

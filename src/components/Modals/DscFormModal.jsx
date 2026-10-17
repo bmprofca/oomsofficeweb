@@ -15,9 +15,9 @@ import {
 
 const FIELD_LABEL = "block text-xs font-semibold text-gray-600 mb-1.5";
 const FIELD_INPUT =
-  "w-full h-10 px-3 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white";
+  "w-full h-10 px-3 border border-slate-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white";
 const PICKER_BTN =
-  "w-full h-10 px-3 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 hover:border-indigo-400 focus:outline-none";
+  "w-full h-10 px-3 border border-slate-200 rounded-lg bg-white text-sm text-gray-700 hover:border-indigo-400 focus:outline-none";
 const MODAL_BODY =
   "px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 
@@ -219,7 +219,7 @@ export default function DscFormModal({
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-slate-100 disabled:opacity-50"
               >
                 <FiX className="w-4 h-4" />
               </button>
@@ -365,7 +365,7 @@ export default function DscFormModal({
                   type="button"
                   onClick={onClose}
                   disabled={saving}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-slate-200 rounded-lg hover:bg-white disabled:opacity-50"
                 >
                   Cancel
                 </button>

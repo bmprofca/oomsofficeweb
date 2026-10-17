@@ -72,7 +72,7 @@ export default function SearchablePickField({
                     className={`relative flex items-center w-full border rounded-xl min-h-[42px] ${errorRing} ${
                         locked
                             ? 'bg-gray-50 border-gray-200'
-                            : 'bg-white border-gray-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500'
+                            : 'bg-white border-slate-200 focus-within:ring-2 focus-within:ring-indigo-500/25 focus-within:border-indigo-500'
                     }`}
                 >
                     {Icon && (
@@ -90,7 +90,7 @@ export default function SearchablePickField({
                         <button
                             type="button"
                             onClick={onClear}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-slate-100 rounded-lg transition-colors"
                             title="Clear"
                         >
                             <FiX className="w-4 h-4" />
@@ -104,8 +104,8 @@ export default function SearchablePickField({
                 </div>
             ) : (
                 <div
-                    className={`relative rounded-xl border bg-white focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-visible ${errorRing} ${
-                        hasError ? 'border-red-500' : 'border-gray-300'
+                    className={`relative rounded-xl border bg-white focus-within:ring-2 focus-within:ring-indigo-500/25 focus-within:border-indigo-500 overflow-visible ${errorRing} ${
+                        hasError ? 'border-red-500' : 'border-slate-200'
                     }`}
                 >
                     {Icon && (

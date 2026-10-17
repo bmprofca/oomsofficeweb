@@ -484,7 +484,7 @@ export default function CaCreateModal({ isOpen, onClose, onSuccess }) {
                                         type="checkbox"
                                         checked={form.includeOpeningBalance}
                                         onChange={(e) => setField('includeOpeningBalance', e.target.checked)}
-                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/25"
                                     />
                                     <span className="text-sm font-medium text-slate-800">
                                         Set opening balance (optional)

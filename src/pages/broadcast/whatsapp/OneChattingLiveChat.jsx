@@ -359,7 +359,7 @@ const ChatDocumentFilePreview = ({ url, name, isOutgoing, onClick }) => {
           onClick
             ? isOutgoing
               ? "hover:bg-green-700/30 cursor-pointer"
-              : "hover:bg-gray-100 cursor-pointer"
+              : "hover:bg-slate-100 cursor-pointer"
             : "cursor-default opacity-80"
         }`}
       >
@@ -390,7 +390,7 @@ const ChatDocumentFilePreview = ({ url, name, isOutgoing, onClick }) => {
         className={`relative z-[1] p-2 rounded-full shrink-0 transition-colors ${
           isOutgoing
             ? "text-green-100 hover:bg-green-700/50"
-            : "text-gray-500 hover:bg-gray-100"
+            : "text-gray-500 hover:bg-slate-100"
         }`}
         title="Download"
         aria-label="Download document"
@@ -2199,7 +2199,7 @@ const OneChattingLiveChat = ({
 
   if (!check('broadcast_livechat')) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="app-page via-blue-50 to-indigo-50">
         <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
@@ -2325,7 +2325,7 @@ const OneChattingLiveChat = ({
                     value={searchInput}
                     onChange={handleSearchChange}
                     placeholder="Search by name or number..."
-                    className={`w-full pl-9 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none ${
+                    className={`w-full pl-9 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none ${
                       searchInput ? "pr-9" : "pr-3"
                     }`}
                   />
@@ -2333,7 +2333,7 @@ const OneChattingLiveChat = ({
                     <button
                       type="button"
                       onClick={handleClearSearch}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-slate-100 transition-colors"
                       aria-label="Clear search"
                     >
                       <FiX className="w-4 h-4" />
@@ -2382,7 +2382,7 @@ const OneChattingLiveChat = ({
                           key={contact.number}
                           type="button"
                           onClick={() => handleSelectChat(item)}
-                          className={`w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                          className={`w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-slate-50 transition-colors ${
                             isActive ? "bg-green-50" : ""
                           }`}
                         >
@@ -2515,7 +2515,7 @@ const OneChattingLiveChat = ({
                             ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
                             : isAssignedToMe
                               ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                              : "bg-white border-gray-200 text-gray-600 hover:bg-slate-50"
                         }`}
                         title={
                           assignReason ||
@@ -2604,7 +2604,7 @@ const OneChattingLiveChat = ({
                                       )
                                     }
                                     disabled={assignLoading}
-                                    className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
+                                    className="w-full text-left px-3 py-2 text-xs text-gray-800 hover:bg-slate-50 flex items-center gap-2 disabled:opacity-50"
                                   >
                                     <FiUser className="w-3.5 h-3.5 text-gray-400 shrink-0 self-start mt-0.5" />
                                     <span className="min-w-0 flex-1">
@@ -2650,7 +2650,7 @@ const OneChattingLiveChat = ({
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
                           chatSideView === "messages"
                             ? "bg-green-600 text-white shadow-sm"
-                            : "text-gray-600 hover:bg-gray-50"
+                            : "text-gray-600 hover:bg-slate-50"
                         }`}
                         title="Messages"
                       >
@@ -2663,7 +2663,7 @@ const OneChattingLiveChat = ({
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition ${
                           chatSideView === "media"
                             ? "bg-green-600 text-white shadow-sm"
-                            : "text-gray-600 hover:bg-gray-50"
+                            : "text-gray-600 hover:bg-slate-50"
                         }`}
                         title="Media, docs and audio"
                       >
@@ -2744,7 +2744,7 @@ const OneChattingLiveChat = ({
                         <button
                           type="button"
                           onClick={handleScrollToEnd}
-                          className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-white text-gray-600 shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-white text-gray-600 shadow-md border border-gray-200 flex items-center justify-center hover:bg-slate-50 transition-colors"
                           title="Scroll to latest messages"
                           aria-label="Scroll to latest messages"
                         >
@@ -2778,7 +2778,7 @@ const OneChattingLiveChat = ({
                             <button
                               type="button"
                               onClick={handleClearReply}
-                              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 shrink-0"
+                              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-slate-100 shrink-0"
                               aria-label="Cancel reply"
                             >
                               <FiX className="w-4 h-4" />
@@ -2835,7 +2835,7 @@ const OneChattingLiveChat = ({
                                     key={type}
                                     type="button"
                                     onClick={() => handleOpenAttachOption(type)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-slate-50"
                                   >
                                     <Icon className="w-4 h-4 text-gray-500" />
                                     {label}

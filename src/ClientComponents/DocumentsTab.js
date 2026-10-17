@@ -76,7 +76,7 @@ const AnimatedCheckbox = ({
                 className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${
                     isActive
                         ? "border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200"
-                        : "border-gray-300 bg-white group-hover:border-indigo-400"
+                        : "border-slate-200 bg-white group-hover:border-indigo-400"
                 }`}
                 animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
                 transition={{ duration: 0.18 }}
@@ -1744,8 +1744,6 @@ const DocumentsTab = ({
                 <motion.button
                   onClick={() => setShowGeneralDropdown(!showGeneralDropdown)}
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-slate-800"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   <FiPlus className="w-3.5 h-3.5" />
                   Add New
@@ -1759,7 +1757,7 @@ const DocumentsTab = ({
                         setShowUploadModal(true);
                         setShowGeneralDropdown(false);
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                     >
                       <FiUpload className="w-4 h-4" />
                       Upload Document
@@ -1769,7 +1767,7 @@ const DocumentsTab = ({
                         setShowCreateCategoryModal(true);
                         setShowGeneralDropdown(false);
                       }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                     >
                       <FiPlus className="w-4 h-4" />
                       Create Category
@@ -1782,8 +1780,6 @@ const DocumentsTab = ({
                 <motion.button
                   onClick={() => setShowUploadModal(true)}
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-slate-800"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   <FiPlus className="w-3.5 h-3.5" />
                   Add Document
@@ -1991,7 +1987,7 @@ const DocumentsTab = ({
                 )}
 
                 <div className="flex-1 min-w-[200px]">
-                  <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500">
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500/25">
                     <FiSearch className="h-4 w-4 shrink-0 pointer-events-none text-slate-400" />
                     <input
                       type="text"
@@ -2311,7 +2307,7 @@ const DocumentsTab = ({
                               <button
                                 type="button"
                                 onClick={(e) => handleActionMenuToggle(e, doc.id, getDocumentActionMenuItemCount(doc))}
-                                className="p-1.5 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
                                 aria-label="Actions"
                               >
                                 <FiMoreVertical className="w-4 h-4" />
@@ -2423,7 +2419,7 @@ const DocumentsTab = ({
                             onClick={(e) =>
                               handleActionMenuToggle(e, category.category_id, 2, 'category')
                             }
-                            className="p-1.5 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
                             aria-label="Actions"
                           >
                             <FiMoreVertical className="w-4 h-4" />
@@ -2465,7 +2461,7 @@ const DocumentsTab = ({
                     handleView(activeActionDoc);
                     closeActionMenu();
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                 >
                   <FiEye className="w-4 h-4" />
                   View
@@ -2480,7 +2476,7 @@ const DocumentsTab = ({
                         activeActionDoc.name || activeActionDoc.type || 'document'
                       );
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                   >
                     <FiDownload className="w-4 h-4" />
                     Download
@@ -2490,7 +2486,7 @@ const DocumentsTab = ({
                   <button
                     type="button"
                     onClick={() => handleEditDocument(activeActionDoc)}
-                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                   >
                     <FiEdit2 className="w-4 h-4" />
                     Edit
@@ -2502,7 +2498,7 @@ const DocumentsTab = ({
                     handleSend(activeActionDoc);
                     closeActionMenu();
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                 >
                   <FiSend className="w-4 h-4" />
                   Send
@@ -2528,7 +2524,7 @@ const DocumentsTab = ({
                     openEditCategoryModal(activeActionCategory);
                     closeActionMenu();
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                 >
                   <FiEdit2 className="w-4 h-4" />
                   Edit

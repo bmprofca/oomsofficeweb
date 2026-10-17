@@ -10,34 +10,34 @@ const STATUS_META = {
   'in process': {
     chip: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200/80',
     node: 'bg-orange-500 ring-orange-100',
-    accent: 'border-l-orange-400',
+    accent: 'bg-orange-50 border-orange-100',
   },
   'pending from client': {
     chip: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200/80',
     node: 'bg-purple-500 ring-purple-100',
-    accent: 'border-l-purple-400',
+    accent: 'bg-purple-50 border-purple-100',
   },
   'pending from department': {
     chip: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/80',
     node: 'bg-amber-500 ring-amber-100',
-    accent: 'border-l-amber-400',
+    accent: 'bg-amber-50 border-amber-100',
   },
   complete: {
     chip: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80',
     node: 'bg-emerald-500 ring-emerald-100',
-    accent: 'border-l-emerald-400',
+    accent: 'bg-emerald-50 border-emerald-100',
   },
   cancel: {
     chip: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/80',
     node: 'bg-rose-500 ring-rose-100',
-    accent: 'border-l-rose-400',
+    accent: 'bg-rose-50 border-rose-100',
   },
 };
 
 const DEFAULT_META = {
   chip: 'bg-slate-50 text-slate-700 ring-1 ring-slate-200/80',
   node: 'bg-slate-400 ring-slate-100',
-  accent: 'border-l-slate-300',
+  accent: 'bg-slate-50 border-slate-200',
 };
 
 const STATUS_LABELS = {
@@ -93,7 +93,7 @@ const HistoryListSkeleton = () => (
             <div className="mt-1 w-0.5 flex-1 min-h-[12px] bg-transparent" />
           )}
         </div>
-        <div className="mb-3 min-w-0 flex-1 rounded-lg border border-slate-100 border-l-[3px] border-l-slate-200 bg-white px-2.5 py-2 last:mb-0">
+        <div className="mb-3 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 last:mb-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <SkeletonPulse className="h-5 w-24 rounded-full" />
             {index === 0 ? (
@@ -186,7 +186,7 @@ export default function TaskStatusHistoryModal({
             className="relative z-[1] pointer-events-auto flex h-[min(32rem,calc(100vh-2rem))] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-white px-5 py-3.5">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-indigo-50 px-5 py-3.5">
               <div className="min-w-0">
                 <h2
                   id="task-status-history-title"
@@ -201,7 +201,7 @@ export default function TaskStatusHistoryModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-slate-100 hover:text-gray-700"
               >
                 <FiX className="h-5 w-5" />
               </button>
@@ -267,8 +267,8 @@ export default function TaskStatusHistoryModal({
 
                         {/* Card */}
                         <div
-                          className={`mb-3 min-w-0 flex-1 rounded-lg border border-slate-200/90 border-l-[3px] bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${meta.accent} ${
-                            isLatest ? 'bg-slate-50/50' : ''
+                          className={`mb-3 min-w-0 flex-1 rounded-lg border px-2.5 py-2 ${meta.accent} ${
+                            isLatest ? 'ring-1 ring-indigo-200' : ''
                           } ${isLast ? 'mb-0' : ''}`}
                         >
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -307,7 +307,7 @@ export default function TaskStatusHistoryModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-slate-100"
               >
                 Close
               </button>

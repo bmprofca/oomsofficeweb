@@ -759,7 +759,7 @@ const ViewSales = () => {
 
   // Skeleton Loading Component for full page
   const SkeletonLoader = () => (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="app-page to-gray-100">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -775,7 +775,7 @@ const ViewSales = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
               <div
@@ -832,7 +832,7 @@ const ViewSales = () => {
 
   if (!check("finance_report")) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="app-page to-gray-100">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -865,7 +865,7 @@ const ViewSales = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="app-page to-gray-100">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -882,7 +882,7 @@ const ViewSales = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           {/* Summary stats */}
           <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
             {[
@@ -892,7 +892,7 @@ const ViewSales = () => {
                 value: String(summary.count),
                 icon: FiLayers,
                 cardClass:
-                  "bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 text-white",
+                  "bg-indigo-600 text-white",
               },
               {
                 key: "net",
@@ -900,7 +900,7 @@ const ViewSales = () => {
                 value: `₹${formatCurrency(summary.net)}`,
                 icon: TbCurrencyRupee,
                 cardClass:
-                  "bg-gradient-to-br from-emerald-600 via-teal-500 to-cyan-600 text-white",
+                  "bg-emerald-600 text-white",
               },
               {
                 key: "tax",
@@ -908,7 +908,7 @@ const ViewSales = () => {
                 value: `₹${formatCurrency(summary.tax)}`,
                 icon: FiPercent,
                 cardClass:
-                  "bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white",
+                  "bg-amber-500 text-white",
               },
               {
                 key: "total",
@@ -916,7 +916,7 @@ const ViewSales = () => {
                 value: `₹${formatCurrency(summary.total)}`,
                 icon: TbCurrencyRupee,
                 cardClass:
-                  "bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-600 text-white",
+                  "bg-violet-600 text-white",
               },
             ].map((card, i) => {
               const Icon = card.icon;
@@ -953,7 +953,7 @@ const ViewSales = () => {
             transition={{ duration: 0.25 }}
             className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
           >
-            <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
               <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                 <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                   <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
@@ -964,7 +964,7 @@ const ViewSales = () => {
                     placeholder="Search…"
                     value={searchTerm}
                     onChange={handleSearchChange}
-                    className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
+                    className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
                   />
                   <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
                     <DateRangePickerField
@@ -994,9 +994,7 @@ const ViewSales = () => {
                         e.stopPropagation();
                         setShowAddDropdown(!showAddDropdown);
                       }}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:h-10 sm:px-3"
                     >
                       <PiExportBold className="h-4 w-4 shrink-0" />
                       <span className="whitespace-nowrap">Export</span>
@@ -1080,13 +1078,11 @@ const ViewSales = () => {
                         setSaleFormModal(true);
                       }
                     }}
-                    className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
+                    className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
                       !check("finance_entry")
-                        ? "opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700"
+                        ? "opacity-60 cursor-not-allowed"
                         : ""
                     }`}
-                    whileHover={check("finance_entry") ? { scale: 1.02 } : {}}
-                    whileTap={check("finance_entry") ? { scale: 0.98 } : {}}
                   >
                     {!check("finance_entry") ? (
                       <FiLock className="h-4 w-4 shrink-0" />
@@ -1455,7 +1451,7 @@ const ViewSales = () => {
               className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl"
             >
               <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <PiExportBold className="w-8 h-8 text-blue-600" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-800 mb-2">
@@ -1465,13 +1461,13 @@ const ViewSales = () => {
                   Your {exportModal.type} export is being processed...
                 </p>
                 <div className="flex justify-center space-x-2 mb-6">
-                  <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
                   <div
-                    className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"
+                    className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
                     style={{ animationDelay: "0.1s" }}
                   ></div>
                   <div
-                    className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"
+                    className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
                     style={{ animationDelay: "0.2s" }}
                   ></div>
                 </div>

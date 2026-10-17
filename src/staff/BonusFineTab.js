@@ -70,7 +70,7 @@ const TABLE_HEADERS = [
 
 function TableHead() {
   return (
-    <thead className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+    <thead className="bg-slate-50/60 border-b border-gray-200">
       <tr>
         {TABLE_HEADERS.map((h) => (
           <th
@@ -432,7 +432,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine, readOnly
       className="space-y-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base md:text-lg font-bold text-gray-800 m-0">
+        <h2 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 m-0">
           Bonus / Fine
         </h2>
         <div className="flex items-center gap-2">
@@ -440,7 +440,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine, readOnly
             type="button"
             onClick={fetchList}
             disabled={!username || loading}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50 disabled:opacity-50"
             title="Refresh"
             aria-label="Refresh"
           >
@@ -481,7 +481,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine, readOnly
             className={`h-8 rounded-lg px-3 text-xs font-semibold border transition ${
               filterType === f.id
                 ? "border-teal-300 bg-teal-50 text-teal-800"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                : "border-gray-200 bg-white text-gray-600 hover:bg-slate-50"
             }`}
           >
             {f.label}
@@ -589,7 +589,7 @@ const BonusFineTab = ({ username: usernameProp, variants, setBonusFine, readOnly
                                                     <button
                           type="button"
                           onClick={(e) => toggleActionMenu(e, row)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50"
                           aria-label="Actions"
                           aria-expanded={showActionMenu === row.entry_id}
                         >

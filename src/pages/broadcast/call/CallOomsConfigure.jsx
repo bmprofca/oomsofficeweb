@@ -28,20 +28,20 @@ import {
 import { useUserPermissions } from "../../../utils/permission-helper";
 
 const TABLE_HEAD_ROW =
-  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+  "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
 const TABLE_ROW =
-  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors";
+  "border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors";
 const TABLE_TD = "px-3 py-3 min-w-0 text-left align-middle";
 const CELL_INDEX = "text-[11px] font-bold text-gray-800";
 const CELL_TITLE = "font-semibold text-gray-800 text-sm";
 const CELL_META = "text-xs text-gray-400 uppercase tracking-wide";
 const CELL_BODY = "text-sm font-medium text-gray-700";
 const TOOLBAR_ROW =
-  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
+  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60";
 const TOOLBAR_INPUT =
-  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none placeholder:text-gray-400";
+  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none placeholder:text-gray-400";
 
 const MENU_Z = 99999;
 const MENU_GAP = 8;
@@ -156,7 +156,7 @@ const ActionMenu = ({ items }) => {
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-slate-50"
         aria-label="Actions"
       >
         <FiMoreVertical className="h-4 w-4" />
@@ -182,7 +182,7 @@ const ActionMenu = ({ items }) => {
                   className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm disabled:opacity-50 ${
                     item.danger
                       ? "text-red-600 hover:bg-red-50"
-                      : "text-gray-700 hover:bg-gray-50"
+                      : "text-gray-700 hover:bg-slate-50"
                   }`}
                 >
                   {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" /> : null}
@@ -391,7 +391,7 @@ export default function CallOomsConfigure() {
 
   if (!canEdit) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -409,7 +409,7 @@ export default function CallOomsConfigure() {
             isMinimized ? "md:pl-20" : "md:pl-[260px]"
           }`}
         >
-          <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+          <div className="text-center p-8 bg-white rounded-xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
             <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <FiLock className="w-5 h-5 text-gray-400" />
             </div>
@@ -426,7 +426,7 @@ export default function CallOomsConfigure() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -445,12 +445,12 @@ export default function CallOomsConfigure() {
           isMinimized ? "md:pl-20" : "md:pl-[260px]"
         }`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 space-y-3 md:space-y-4">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5 space-y-3 md:space-y-4">
           {/* Branch API token */}
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+            className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
           >
             <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
               <div className="flex items-center gap-2 shrink-0 min-w-0">
@@ -479,7 +479,7 @@ export default function CallOomsConfigure() {
                     fetchConfig();
                     fetchStaff(page, limit, search);
                   }}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-slate-50"
                   title="Refresh"
                 >
                   <FiRefreshCw
@@ -491,7 +491,7 @@ export default function CallOomsConfigure() {
               </div>
             </div>
 
-            <div className="px-3 md:px-4 py-4 border-t border-gray-100 bg-gradient-to-br from-white to-teal-50/30">
+            <div className="px-3 md:px-4 py-4 border-t border-gray-100 bg-white">
               <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                 <div className="min-w-0 flex-1">
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -506,7 +506,7 @@ export default function CallOomsConfigure() {
                         ? `Saved: ${configMeta.api_key_masked}`
                         : "Paste PBX API key"
                     }
-                    className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                    className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
                     disabled={configLoading || configSaving}
                   />
                 </div>
@@ -537,7 +537,7 @@ export default function CallOomsConfigure() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+            className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
           >
             <div className={`${TOOLBAR_ROW} flex-wrap`}>
               <div className="flex items-center gap-2 shrink-0 min-w-0">
@@ -545,7 +545,7 @@ export default function CallOomsConfigure() {
                   <FiUsers className="w-4 h-4 text-emerald-600" />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate m-0">
+                  <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight truncate m-0">
                     Staff Call Access
                   </h1>
                   <p className="text-xs text-gray-500 truncate m-0 mt-0.5">

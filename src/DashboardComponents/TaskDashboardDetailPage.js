@@ -186,7 +186,7 @@ const TaskDashboardDetailPage = () => {
 
     if (!metric || (metric !== 'task_created_today' && metric !== 'task_completed_today')) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="app-page to-gray-100">
                 <Header
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
@@ -206,7 +206,7 @@ const TaskDashboardDetailPage = () => {
                             <p className="text-gray-500 mb-6">Please select a valid task metric to view details.</p>
                             <button
                                 onClick={() => navigate('/')}
-                                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300"
+                                className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:shadow-lg transition-all duration-300"
                             >
                                 Go Back to Dashboard
                             </button>
@@ -218,7 +218,7 @@ const TaskDashboardDetailPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -247,7 +247,7 @@ const TaskDashboardDetailPage = () => {
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
                                     <div className="flex items-center gap-3 mb-2">
-                                        <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl">
+                                        <div className="p-3 bg-indigo-50 rounded-xl">
                                             <FiCheckCircle className="w-6 h-6 text-indigo-600" />
                                         </div>
                                         <div>
@@ -295,8 +295,6 @@ const TaskDashboardDetailPage = () => {
                                         onClick={handleRefresh}
                                         disabled={loading}
                                         className="p-3 bg-white border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
                                     >
                                         <FiRefreshCw className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
                                     </motion.button>
@@ -317,7 +315,7 @@ const TaskDashboardDetailPage = () => {
                                         setSearch(e.target.value);
                                         setPagination(prev => ({ ...prev, page_no: 1 }));
                                     }}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
                                 />
                             </div>
                             {search && (
@@ -341,43 +339,43 @@ const TaskDashboardDetailPage = () => {
                             <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[1000px]">
-                                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                        <thead className="bg-slate-50 border-b border-slate-200">
                                             <tr>
                                                 <th className="w-10 p-4"></th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     SL No
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Task ID
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Client Name
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Service
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Amount
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Status
                                                 </th>
                                                 {metric === 'task_created_today' && (
-                                                    <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                         Due Date
                                                     </th>
                                                 )}
                                                 {metric === 'task_completed_today' && (
-                                                    <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                         Completed Date
                                                     </th>
                                                 )}
                                                 {metric === 'task_completed_today' && (
-                                                    <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                         Days Diff
                                                     </th>
                                                 )}
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Created Date
                                                 </th>
                                             </tr>
@@ -392,11 +390,11 @@ const TaskDashboardDetailPage = () => {
                                             ) : (
                                                 tasks.map((task, index) => (
                                                     <React.Fragment key={task.task_id || index}>
-                                                        <tr className="hover:bg-gray-50/50 transition-colors">
+                                                        <tr className="hover:bg-slate-50/50 transition-colors">
                                                             <td className="p-4">
                                                                 <button
                                                                     onClick={() => toggleRowExpand(task.task_id)}
-                                                                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                                                    className="p-1 hover:bg-slate-100 rounded transition-colors"
                                                                 >
                                                                     {expandedRows.has(task.task_id) ? 
                                                                         <FiChevronRight className="w-4 h-4 transform rotate-90" /> : 
@@ -525,7 +523,7 @@ const TaskDashboardDetailPage = () => {
                                     <button
                                         onClick={() => handlePageChange(pagination.page_no - 1)}
                                         disabled={!pagination.has_prev}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
+                                        className="px-4 py-2 border border-slate-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors flex items-center gap-2"
                                     >
                                         <FiChevronLeft className="w-4 h-4" />
                                         Previous
@@ -536,7 +534,7 @@ const TaskDashboardDetailPage = () => {
                                     <button
                                         onClick={() => handlePageChange(pagination.page_no + 1)}
                                         disabled={!pagination.has_next}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
+                                        className="px-4 py-2 border border-slate-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors flex items-center gap-2"
                                     >
                                         Next
                                         <FiChevronRight className="w-4 h-4" />

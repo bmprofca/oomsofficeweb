@@ -3,6 +3,20 @@ import { API_BASE_URL_NO_VERSION } from '../utils/api-controller';
 
 const SOCKET_URL = new URL(API_BASE_URL_NO_VERSION, window.location.origin).origin;
 
+/** Socket.io sometimes emits non-Error values; CRA overlays those as "[object Object]". */
+function asError(error, fallback = 'Voice call request failed') {
+  if (error instanceof Error) return error;
+  if (typeof error === 'string' && error.trim()) return new Error(error);
+  if (error && typeof error === 'object') {
+    const raw = error.message || error.description || error.msg || error.error;
+    const message = typeof raw === 'string' && raw.trim() ? raw : fallback;
+    const normalized = new Error(message);
+    normalized.cause = error;
+    return normalized;
+  }
+  return new Error(fallback);
+}
+
 export function getOfficeVoiceCallSessionId() {
   let sessionId = sessionStorage.getItem('ooms_voice_call_session_id');
   if (!sessionId) {
@@ -68,7 +82,7 @@ export function requestOfficeVoiceCallCapability(recipientUsername, recipientPan
       settled = true;
       window.clearTimeout(timer);
       socket.disconnect();
-      if (error) reject(error);
+      if (error) reject(asError(error, 'Could not connect to the voice-call server.'));
       else resolve(response);
     };
     socket.on('connect', () => socket.emit('auth', { username, token, branch }));
@@ -113,15 +127,16 @@ export function watchOfficeVoiceCallCapability(recipientUsername, recipientPanel
       socket.disconnect();
     };
     const fail = (error) => {
+      const normalized = asError(error, 'Could not connect to the voice-call server.');
       if (initialResolved) {
-        onUpdate?.({ success: false, message: error?.message });
+        onUpdate?.({ success: false, message: normalized.message });
         return;
       }
       initialResolved = true;
       active = false;
       window.clearTimeout(timer);
       socket.disconnect();
-      reject(error);
+      reject(normalized);
     };
     const subscribe = () => {
       socket.emit(

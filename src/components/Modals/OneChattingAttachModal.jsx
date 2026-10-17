@@ -269,7 +269,7 @@ const OneChattingAttachModal = ({
                 type="button"
                 onClick={onClose}
                 disabled={isBusy}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-50"
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-gray-500 disabled:opacity-50"
                 aria-label="Close"
               >
                 <FiX className="w-5 h-5" />
@@ -329,7 +329,7 @@ const OneChattingAttachModal = ({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isBusy}
-                  className="w-full flex flex-col items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-green-400 hover:bg-green-50/40 transition-colors disabled:opacity-50"
+                  className="w-full flex flex-col items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-slate-200 rounded-xl text-gray-600 hover:border-green-400 hover:bg-green-50/40 transition-colors disabled:opacity-50"
                 >
                   <FiUpload className="w-6 h-6 text-green-600" />
                   <span className="text-sm font-medium">Choose file</span>
@@ -400,7 +400,7 @@ const OneChattingAttachModal = ({
                 onChange={(e) => setLink(e.target.value)}
                 placeholder="https://example.com/file.jpg"
                 disabled={isBusy}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Must be publicly accessible over HTTPS.
@@ -419,7 +419,7 @@ const OneChattingAttachModal = ({
                 onChange={(e) => setDocumentName(e.target.value)}
                 placeholder="Invoice_March.pdf"
                 disabled={isBusy}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
               />
             </div>
           ) : null}
@@ -435,7 +435,7 @@ const OneChattingAttachModal = ({
                 rows={3}
                 placeholder="Optional caption"
                 disabled={isBusy}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-none disabled:opacity-60"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-none disabled:opacity-60"
               />
             </div>
           ) : null}
@@ -447,7 +447,7 @@ const OneChattingAttachModal = ({
                 checked={isVoice}
                 onChange={(e) => setIsVoice(e.target.checked)}
                 disabled={isBusy}
-                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                className="rounded border-slate-200 text-green-600 focus:ring-green-500"
               />
               Send as voice note
             </label>

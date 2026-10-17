@@ -13,7 +13,7 @@ const ComplianceFirmAssignment = () => {
   }, [isMinimized]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -30,7 +30,7 @@ const ComplianceFirmAssignment = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           <ComplianceFirmAssignmentBoard embedded={false} />
         </div>
       </div>

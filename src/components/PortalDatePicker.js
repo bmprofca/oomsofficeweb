@@ -414,7 +414,7 @@ function Calendar({
         if (mode === 'single') {
             if (sameDay(date, selectedSingle)) return `${interactive}bg-blue-500 text-white rounded-lg font-medium`;
             if (sameDay(date, today)) return `${interactive}bg-blue-100 text-blue-700 rounded-lg font-medium`;
-            return `${interactive}hover:bg-gray-100 rounded-lg text-gray-700`;
+            return `${interactive}hover:bg-slate-100 rounded-lg text-gray-700`;
         }
         const lo = rangeStart && rangeEnd ? (rangeStart <= rangeEnd ? rangeStart : rangeEnd) : rangeStart;
         const hi = rangeStart && rangeEnd ? (rangeStart <= rangeEnd ? rangeEnd : rangeStart)
@@ -433,7 +433,7 @@ function Calendar({
             return `${interactive}bg-blue-100 text-blue-700 rounded-none`;
         }
         if (sameDay(date, today)) return `${interactive}bg-blue-50 text-blue-600 rounded-lg font-medium`;
-        return `${interactive}hover:bg-gray-100 rounded-lg text-gray-700`;
+        return `${interactive}hover:bg-slate-100 rounded-lg text-gray-700`;
     }
 
     const cells = [];
@@ -489,7 +489,7 @@ function Calendar({
                 <button
                     type="button"
                     onClick={() => onViewChange(new Date(y, m - 1, 1))}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-slate-50"
                     aria-label="Previous month"
                 >
                     ‹
@@ -497,7 +497,7 @@ function Calendar({
                 <select
                     value={m}
                     onChange={(e) => onViewChange(new Date(y, Number(e.target.value), 1))}
-                    className="h-8 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-1.5 text-[11px] font-medium text-gray-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 sm:px-2 sm:text-xs"
+                    className="h-8 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-1.5 text-[11px] font-medium text-gray-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 sm:px-2 sm:text-xs"
                     aria-label="Month"
                 >
                     {MONTHS.map((name, i) => (
@@ -507,7 +507,7 @@ function Calendar({
                 <select
                     value={y}
                     onChange={(e) => onViewChange(new Date(Number(e.target.value), m, 1))}
-                    className="h-8 w-[4.5rem] shrink-0 rounded-lg border border-gray-200 bg-white px-1 text-[11px] font-medium text-gray-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 sm:w-24 sm:px-2 sm:text-xs"
+                    className="h-8 w-[4.5rem] shrink-0 rounded-lg border border-gray-200 bg-white px-1 text-[11px] font-medium text-gray-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400 sm:w-24 sm:px-2 sm:text-xs"
                     aria-label="Year"
                 >
                     {yearOptions.map((yr) => (
@@ -518,7 +518,7 @@ function Calendar({
                     type="button"
                     onClick={() => onViewChange(new Date(y, m + 1, 1))}
                     disabled={isAtMaxMonth}
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors ${isAtMaxMonth ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors ${isAtMaxMonth ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50'}`}
                     aria-label="Next month"
                 >
                     ›
@@ -807,7 +807,7 @@ export default function DatePicker({
                                         ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
                                         : quickKey === p.key
                                         ? 'border-blue-300 bg-blue-50'
-                                        : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                                        : 'border-gray-100 hover:border-gray-200 hover:bg-slate-50'
                                     }`}
                             >
                                 <span className={`text-[11px] font-semibold sm:text-xs ${quickKey === p.key ? 'text-blue-700' : 'text-gray-700'}`}>
@@ -868,7 +868,7 @@ export default function DatePicker({
                     <button
                         type="button"
                         onClick={handleReset}
-                        className="inline-flex items-center justify-center px-3 py-2 text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                        className="inline-flex items-center justify-center px-3 py-2 text-gray-500 border border-gray-200 rounded-md hover:bg-slate-50 transition-colors w-full sm:w-auto"
                         title="Reset"
                         aria-label="Reset"
                     >

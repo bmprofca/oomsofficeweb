@@ -6,11 +6,11 @@ import { smsApi, FAST2SMS_ROUTE_OPTIONS } from "../../../services/smsApi";
 import { useUserPermissions } from "../../../utils/permission-helper";
 
 const TOOLBAR_ROW =
-  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
+  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60";
 const FIELD_LABEL =
   "block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5";
 const FIELD_INPUT =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
+  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20";
 
 const Fast2SmsConfigure = () => {
   const { check } = useUserPermissions();
@@ -108,7 +108,7 @@ const Fast2SmsConfigure = () => {
 
   if (!check("broadcast_config_edit")) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -141,7 +141,7 @@ const Fast2SmsConfigure = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -158,15 +158,15 @@ const Fast2SmsConfigure = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}
       >
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className={TOOLBAR_ROW}>
               <div className="flex min-w-0 items-center gap-2">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100">
                   <FiKey className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="m-0 text-base font-bold leading-tight text-gray-800 md:text-lg">
+                  <h1 className="m-0 font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
                     Fast2SMS Configure
                   </h1>
                 </div>
@@ -267,7 +267,7 @@ const Fast2SmsConfigure = () => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                   >
                     {saving ? (
                       <FiLoader className="h-4 w-4 animate-spin" />

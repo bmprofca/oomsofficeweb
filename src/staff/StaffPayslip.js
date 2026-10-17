@@ -252,7 +252,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants, readOnly = 
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-base md:text-lg font-bold text-gray-800 m-0">
+          <h2 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 m-0">
             Payslip
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 m-0">
@@ -266,7 +266,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants, readOnly = 
           type="button"
           onClick={fetchList}
           disabled={!username || loading}
-          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 shrink-0"
+          className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50 disabled:opacity-50 shrink-0"
           title="Refresh"
         >
           <FiRefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -287,7 +287,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants, readOnly = 
 
       {!readOnly ? (
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between gap-2">
+        <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-gray-800 m-0">
             Generate salary
           </h3>
@@ -324,7 +324,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants, readOnly = 
       ) : null}
 
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="px-3 md:px-4 py-2.5 border-b border-gray-200 bg-slate-50/60 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <h3 className="text-sm font-semibold text-gray-800 m-0">
             Generated payslips
           </h3>
@@ -348,7 +348,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants, readOnly = 
           <>
             <div className="overflow-x-auto">
               <table className="min-w-full font-sans">
-                <thead className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                <thead className="bg-slate-50/60 border-b border-gray-200">
                   <tr>
                     <th className="px-3 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-700">
                       Month
@@ -374,7 +374,7 @@ const StaffPayslip = ({ username: usernameProp, staffName, variants, readOnly = 
                   {pagedPayslips.map((row) => (
                     <tr
                       key={row.payslip_id}
-                      className="border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors"
+                      className="border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors"
                     >
                       <td className="px-3 py-2.5 text-sm font-medium text-gray-700">
                         <span className="inline-flex items-center gap-1.5">

@@ -376,19 +376,19 @@ const ViewBranch = () => {
     const getStatusBadge = (status, isHead) => {
         if (isHead) {
             return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-yellow-500 to-yellow-600 text-white border border-yellow-600">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500 text-white border border-yellow-600">
                     <FiStar className="w-3 h-3 mr-1" />
                     Main Branch
                 </span>
             );
         }
         return status === 1 ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-green-500 to-green-600 text-white border border-green-600">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500 text-white border border-green-600">
                 <FiCheckCircle className="w-3 h-3 mr-1" />
                 Active
             </span>
         ) : (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-red-500 to-red-600 text-white border border-red-600">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500 text-white border border-red-600">
                 <FiXCircle className="w-3 h-3 mr-1" />
                 Inactive
             </span>
@@ -450,7 +450,7 @@ const ViewBranch = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -469,7 +469,7 @@ const ViewBranch = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                             {/* Card Header */}
                             <div className="border-b border-gray-200 px-6 py-4">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -477,7 +477,7 @@ const ViewBranch = () => {
                                         <h5 className="text-xl font-bold text-gray-800 mb-1">
                                             Branch Management
                                         </h5>
-                                        <p className="text-gray-500 text-xs">
+                                        <p className="text-slate-500 text-xs mt-0.5">
                                             {filteredBranches.length} of {branchData.length} branches shown
                                         </p>
                                     </div>
@@ -491,7 +491,7 @@ const ViewBranch = () => {
                                                 placeholder="Search by name, mobile, email, or branch ID..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-sm"
+                                                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm text-sm"
                                             />
                                         </div>
 
@@ -500,7 +500,7 @@ const ViewBranch = () => {
                                             <select
                                                 value={selectedStatus}
                                                 onChange={(e) => setSelectedStatus(e.target.value)}
-                                                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-sm"
+                                                className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm text-sm"
                                             >
                                                 <option value="">All Status</option>
                                                 <option value="active">Active</option>
@@ -511,7 +511,7 @@ const ViewBranch = () => {
                                             <select
                                                 value={selectedType}
                                                 onChange={(e) => setSelectedType(e.target.value)}
-                                                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-sm"
+                                                className="px-4 py-2.5 border border-slate-200 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm text-sm"
                                             >
                                                 <option value="">All Types</option>
                                                 <option value="main">Main Branch</option>
@@ -522,16 +522,14 @@ const ViewBranch = () => {
                                             <div className="dropdown-container relative">
                                                 <motion.button
                                                     onClick={() => setShowExportDropdown(!showExportDropdown)}
-                                                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                    whileHover={{ scale: 1.02 }}
-                                                    whileTap={{ scale: 0.98 }}
+                                                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
                                                 >
                                                     <PiExportBold className="w-4 h-4" />
                                                     Export
                                                 </motion.button>
 
                                                 {showExportDropdown && (
-                                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-pop border border-slate-200 z-50 overflow-hidden">
                                                         <div className="py-1">
                                                             <button
                                                                 onClick={() => handleExport('pdf')}
@@ -568,9 +566,7 @@ const ViewBranch = () => {
 
                                             <motion.button
                                                 onClick={openAddModal}
-                                                className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
+                                                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
                                             >
                                                 <FiPlus className="w-4 h-4" />
                                                 Add Branch
@@ -579,8 +575,6 @@ const ViewBranch = () => {
                                             <motion.button
                                                 onClick={() => fetchBranchData()}
                                                 className="px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <FiRefreshCw className="w-4 h-4" />
                                                 Refresh
@@ -593,21 +587,21 @@ const ViewBranch = () => {
                             {/* Table Container */}
                             <div className="flex-1 overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
                                         <tr>
                                             <th className="w-12 p-4">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectAll}
                                                     onChange={handleSelectAll}
-                                                    className="w-4 h-4 text-blue-600 rounded border-gray-400 focus:ring-blue-500"
+                                                    className="w-4 h-4 text-blue-600 rounded border-gray-400 focus:ring-indigo-500/25"
                                                 />
                                             </th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">#</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Branch Details</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Contact Information</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Status</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Admin Credentials</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">#</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Branch Details</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Contact Information</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Status</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Admin Credentials</th>
                                             <th className="text-center p-4 font-semibold text-gray-700 text-sm">Actions</th>
                                         </tr>
                                     </thead>
@@ -626,9 +620,7 @@ const ViewBranch = () => {
                                                         <p className="text-gray-400 text-sm mb-6">Try adjusting your search or add a new branch</p>
                                                         <motion.button
                                                             onClick={openAddModal}
-                                                            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all duration-200 shadow-sm"
-                                                            whileHover={{ scale: 1.02 }}
-                                                            whileTap={{ scale: 0.98 }}
+                                                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 shadow-sm"
                                                         >
                                                             <FiPlus className="w-4 h-4 inline mr-2" />
                                                             Add New Branch
@@ -638,13 +630,13 @@ const ViewBranch = () => {
                                             </tr>
                                         ) : (
                                             filteredBranches.map((branch, index) => (
-                                                <tr key={branch.id} className="hover:bg-gray-50 transition-colors">
+                                                <tr key={branch.id} className="hover:bg-slate-50 transition-colors">
                                                     <td className="p-4">
                                                         <input
                                                             type="checkbox"
                                                             checked={selectedBranches.has(branch.id)}
                                                             onChange={() => handleBranchSelect(branch.id)}
-                                                            className="w-4 h-4 text-blue-600 rounded border-gray-400 focus:ring-blue-500"
+                                                            className="w-4 h-4 text-blue-600 rounded border-gray-400 focus:ring-indigo-500/25"
                                                         />
                                                     </td>
                                                     <td className="p-4 text-sm text-gray-600 font-medium">
@@ -718,8 +710,6 @@ const ViewBranch = () => {
                                                                 className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                                 title="Edit Branch"
                                                                 disabled={branch.is_head === 1}
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
                                                             >
                                                                 <FiEdit className="w-4 h-4" />
                                                             </motion.button>
@@ -731,8 +721,6 @@ const ViewBranch = () => {
                                                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                                 title="Delete Branch"
                                                                 disabled={branch.is_head === 1}
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
                                                             >
                                                                 <FiTrash2 className="w-4 h-4" />
                                                             </motion.button>
@@ -746,7 +734,7 @@ const ViewBranch = () => {
                             </div>
 
                             {/* Table Footer */}
-                            <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+                            <div className="border-t border-gray-200 bg-gray-50">
                                 <div className="p-4">
                                     <div className="flex items-center justify-between">
                                         <span className="font-semibold text-gray-800 text-sm">
@@ -757,27 +745,21 @@ const ViewBranch = () => {
                                                 {selectedBranches.size} branch(es) selected
                                             </div>
                                             <motion.button
-                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                                 disabled={selectedBranches.size === 0}
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <FiMailIcon className="w-4 h-4" />
                                                 Send Message
                                             </motion.button>
                                             <motion.button
-                                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                                 disabled={selectedBranches.size === 0}
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <FiDownload className="w-4 h-4" />
                                                 Export Selected
                                             </motion.button>
                                             <motion.button
                                                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <FiPrinter className="w-4 h-4" />
                                                 Print All
@@ -800,7 +782,7 @@ const ViewBranch = () => {
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.95, opacity: 0 }}
                     >
-                        <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 flex justify-between items-center">
+                        <div className="bg-green-600 text-white px-6 py-4 flex justify-between items-center">
                             <div>
                                 <h2 className="text-xl font-bold">Add New Branch</h2>
                                 <p className="text-green-100 text-sm mt-1">Create a new branch with admin credentials</p>
@@ -825,7 +807,7 @@ const ViewBranch = () => {
                                             type="text"
                                             value={formData.name}
                                             onChange={(e) => handleInputChange('name', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="Enter branch name"
                                             required
                                         />
@@ -839,7 +821,7 @@ const ViewBranch = () => {
                                             type="text"
                                             value={formData.branch_id}
                                             onChange={(e) => handleInputChange('branch_id', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="Ex: BR001"
                                             required
                                         />
@@ -853,7 +835,7 @@ const ViewBranch = () => {
                                             type="tel"
                                             value={formData.mobile}
                                             onChange={(e) => handleInputChange('mobile', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="+91 9876543210"
                                             required
                                         />
@@ -867,7 +849,7 @@ const ViewBranch = () => {
                                             type="email"
                                             value={formData.email}
                                             onChange={(e) => handleInputChange('email', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="branch@company.com"
                                             required
                                         />
@@ -882,7 +864,7 @@ const ViewBranch = () => {
                                     <textarea
                                         value={formData.address}
                                         onChange={(e) => handleInputChange('address', e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                         placeholder="Enter complete address"
                                         rows="3"
                                         required
@@ -961,7 +943,7 @@ const ViewBranch = () => {
                                     </div>
                                 </div>
 
-                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4 mb-6">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                                     <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
                                         <FiKey className="w-4 h-4 text-blue-600" />
                                         Admin Credentials
@@ -975,7 +957,7 @@ const ViewBranch = () => {
                                                 type="text"
                                                 value={formData.admin_login_id}
                                                 onChange={(e) => handleInputChange('admin_login_id', e.target.value)}
-                                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                                 placeholder="admin_branch"
                                                 required
                                             />
@@ -988,7 +970,7 @@ const ViewBranch = () => {
                                                 type="text"
                                                 value={formData.admin_password}
                                                 onChange={(e) => handleInputChange('admin_password', e.target.value)}
-                                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                                 placeholder="password123"
                                                 required
                                             />
@@ -1000,9 +982,7 @@ const ViewBranch = () => {
                                 <motion.button
                                     type="button"
                                     onClick={() => setShowAddModal(false)}
-                                    className="px-6 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="px-6 py-3 text-sm font-medium border border-slate-200 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
                                 >
                                     Cancel
                                 </motion.button>
@@ -1010,8 +990,6 @@ const ViewBranch = () => {
                                     type="submit"
                                     disabled={loading}
                                     className="px-6 py-3 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 flex items-center gap-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     {loading ? 'Adding...' : 'Add Branch'}
@@ -1031,7 +1009,7 @@ const ViewBranch = () => {
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.95, opacity: 0 }}
                     >
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex justify-between items-center">
+                        <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
                             <div>
                                 <h2 className="text-xl font-bold">Edit Branch</h2>
                                 <p className="text-blue-100 text-sm mt-1">Update branch information and settings</p>
@@ -1047,7 +1025,7 @@ const ViewBranch = () => {
                         <form onSubmit={handleEditBranch}>
                             <div className="p-6 overflow-y-auto max-h-[60vh]">
                                 <div className="mb-6">
-                                    <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 rounded-lg border border-blue-200">
                                         <FiHome className="w-5 h-5 text-blue-600" />
                                         <div>
                                             <div className="font-semibold text-gray-800">
@@ -1073,7 +1051,7 @@ const ViewBranch = () => {
                                             type="text"
                                             value={formData.name}
                                             onChange={(e) => handleInputChange('name', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="Enter branch name"
                                             required
                                         />
@@ -1087,7 +1065,7 @@ const ViewBranch = () => {
                                             type="text"
                                             value={formData.branch_id}
                                             onChange={(e) => handleInputChange('branch_id', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             disabled
                                         />
                                     </div>
@@ -1100,7 +1078,7 @@ const ViewBranch = () => {
                                             type="tel"
                                             value={formData.mobile}
                                             onChange={(e) => handleInputChange('mobile', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="+91 9876543210"
                                             required
                                         />
@@ -1114,7 +1092,7 @@ const ViewBranch = () => {
                                             type="email"
                                             value={formData.email}
                                             onChange={(e) => handleInputChange('email', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             placeholder="branch@company.com"
                                             required
                                         />
@@ -1129,7 +1107,7 @@ const ViewBranch = () => {
                                     <textarea
                                         value={formData.address}
                                         onChange={(e) => handleInputChange('address', e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                         placeholder="Enter complete address"
                                         rows="3"
                                         required
@@ -1204,7 +1182,7 @@ const ViewBranch = () => {
                                     </div>
                                 </div>
 
-                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                     <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
                                         <FiKey className="w-4 h-4 text-blue-600" />
                                         Admin Credentials
@@ -1218,7 +1196,7 @@ const ViewBranch = () => {
                                                 type="text"
                                                 value={formData.admin_login_id}
                                                 onChange={(e) => handleInputChange('admin_login_id', e.target.value)}
-                                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                                 required
                                             />
                                         </div>
@@ -1230,7 +1208,7 @@ const ViewBranch = () => {
                                                 type="text"
                                                 value={formData.admin_password}
                                                 onChange={(e) => handleInputChange('admin_password', e.target.value)}
-                                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                                 required
                                             />
                                         </div>
@@ -1241,18 +1219,14 @@ const ViewBranch = () => {
                                 <motion.button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
-                                    className="px-6 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="px-6 py-3 text-sm font-medium border border-slate-200 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
                                 >
                                     Cancel
                                 </motion.button>
                                 <motion.button
                                     type="submit"
                                     disabled={loading}
-                                    className="px-6 py-3 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 flex items-center gap-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 flex items-center gap-2"
                                 >
                                     <FiEdit className="w-4 h-4" />
                                     {loading ? 'Updating...' : 'Update Branch'}

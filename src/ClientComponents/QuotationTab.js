@@ -266,7 +266,7 @@ const QuotationItemsModal = ({ quotation, onClose }) => {
                 className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
+                <div className="bg-blue-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                     <div>
                         <h3 className="text-base font-bold text-white">Quotation Services</h3>
                         <p className="text-xs text-blue-100 mt-1">Created: {formatDateTime(createdAt)}</p>
@@ -378,7 +378,7 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                 className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
+                <div className="bg-indigo-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                         <div>
                         <h3 className="text-base font-bold text-white">Quotation Details</h3>
                         <p className="text-xs text-blue-100 mt-1">
@@ -1457,10 +1457,10 @@ const QuotationTab = ({ clientUsername }) => {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -14 }}
-            className="bg-gradient-to-br from-slate-50 via-white to-slate-50/30 p-4 sm:p-6"
+            className="bg-slate-50 p-4 sm:p-6"
         >
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-5">
+                <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3 sm:px-5">
                     <div>
                         <h2 className="text-base font-bold text-slate-800">Quotation List</h2>
                     </div>
@@ -1530,7 +1530,7 @@ const QuotationTab = ({ clientUsername }) => {
                         <button
                             type="button"
                             onClick={() => setShowCreateModal(true)}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 px-3.5 text-sm font-semibold text-white shadow-sm hover:from-indigo-700 hover:to-indigo-800 md:w-auto"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold text-white shadow-sm md:w-auto"
                         >
                             <FiPlus className="h-4 w-4" />
                             Create
@@ -1785,7 +1785,7 @@ const QuotationTab = ({ clientUsername }) => {
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
+                            <div className="bg-indigo-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                                 <div>
                                     <h3 className="text-base font-bold text-white">Create Quotation</h3>
                                                 </div>
@@ -1929,7 +1929,7 @@ const QuotationTab = ({ clientUsername }) => {
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
+                            <div className="bg-indigo-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                                 <div>
                                     <h3 className="text-base font-bold text-white">Edit Quotation</h3>
                             </div>
@@ -2135,7 +2135,7 @@ const QuotationTab = ({ clientUsername }) => {
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-2 sm:my-4 overflow-hidden flex flex-col"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
+                            <div className="bg-violet-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                         <div>
                                     <h3 className="text-base font-bold text-white">Share Quotation</h3>
                         </div>

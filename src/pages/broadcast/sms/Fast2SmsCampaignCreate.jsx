@@ -35,7 +35,7 @@ import {
 } from "../../../utils/smsMode";
 
 const FIELD_INPUT =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
+  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20";
 const FIELD_LABEL = "block text-xs font-semibold text-gray-600 mb-1";
 const FIELD_ERROR = "mt-1 text-xs font-medium text-red-600 m-0";
 const SECTION_LABEL =
@@ -107,7 +107,7 @@ const AnimatedCheckbox = ({
       className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${
         checked
           ? "bg-blue-600 border-blue-600 shadow-sm shadow-blue-200"
-          : "bg-white border-gray-300 group-hover:border-blue-400"
+          : "bg-white border-slate-200 group-hover:border-blue-400"
       }`}
       animate={{ scale: checked ? [1, 1.12, 1] : 1 }}
       transition={{ duration: 0.18 }}
@@ -966,7 +966,7 @@ const Fast2SmsCampaignCreate = () => {
 
   if (!check("broadcast_send")) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -994,7 +994,7 @@ const Fast2SmsCampaignCreate = () => {
   const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1011,9 +1011,9 @@ const Fast2SmsCampaignCreate = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}
       >
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-4 py-3">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 bg-slate-50/60 px-4 py-3">
               <h1 className="m-0 text-lg font-bold text-gray-800">
                 {duplicateSourceName
                   ? "Duplicate Fast2SMS Campaign"
@@ -1060,8 +1060,8 @@ const Fast2SmsCampaignCreate = () => {
                         onClick={() => setSendMode(opt.id)}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                           active
-                            ? "border-blue-600 bg-blue-600 text-white"
-                            : "border-gray-300 bg-white text-gray-700 hover:border-blue-400"
+                            ? "border-blue-600 bg-indigo-600 text-white"
+                            : "border-slate-200 bg-white text-gray-700 hover:border-blue-400"
                         }`}
                       >
                         {opt.label}
@@ -1133,7 +1133,7 @@ const Fast2SmsCampaignCreate = () => {
                       <FiEye className="h-3.5 w-3.5" aria-hidden />
                       Message preview
                     </p>
-                    <div className="flex flex-1 min-h-[7.5rem] flex-col rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 shadow-sm">
+                    <div className="flex flex-1 min-h-[7.5rem] flex-col rounded-lg border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
                       {messagePreviewSegments.length > 0 ? (
                         <p className="m-0 flex-1 text-xs leading-relaxed whitespace-pre-wrap">
                           <SmsCampaignPreviewContent
@@ -1417,7 +1417,7 @@ const Fast2SmsCampaignCreate = () => {
                 <button
                   type="submit"
                   disabled={saving || duplicateLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {saving ? (
                     <FiLoader className="h-4 w-4 animate-spin" />

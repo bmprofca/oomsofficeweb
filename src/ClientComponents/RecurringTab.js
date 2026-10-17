@@ -45,7 +45,7 @@ const RecurringTab = ({ clientUsername = '', firmId = '' }) => {
               className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 isActive
                   ? 'bg-white text-indigo-700 shadow-sm border border-gray-200'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-slate-50'
               }`}
             >
               <Icon className="w-4 h-4" />

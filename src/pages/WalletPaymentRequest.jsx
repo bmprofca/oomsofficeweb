@@ -355,7 +355,7 @@ const WalletPaymentRequest = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_45%,#eef2f7_100%)]">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -449,7 +449,7 @@ const WalletPaymentRequest = () => {
                         />
 
                         {selectedBank ? (
-                          <div className="overflow-hidden rounded-xl border border-teal-100 bg-gradient-to-br from-teal-50/80 to-white">
+                          <div className="overflow-hidden rounded-xl border border-teal-100 bg-teal-50">
                             <div className="flex items-start gap-2 border-b border-teal-100/80 px-3 py-2">
                               <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-teal-700 text-white">
                                 <FiCreditCard className="h-3.5 w-3.5" />

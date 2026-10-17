@@ -88,7 +88,7 @@ export default function ClientDeleteConfirmModal({
             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-3.5 flex justify-between items-center">
+            <div className="shrink-0 bg-red-600 text-white px-5 py-3.5 flex justify-between items-center">
               <h2
                 id="client-delete-title"
                 className="text-lg font-bold m-0 tracking-tight"
@@ -215,7 +215,7 @@ export default function ClientDeleteConfirmModal({
                   type="button"
                   onClick={handleConfirm}
                   disabled={!canSubmit}
-                  className="px-5 py-2.5 text-sm font-medium bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  className="px-5 py-2.5 text-sm font-medium bg-red-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
                   {confirming || loading ? (
                     <FiLoader className="w-4 h-4 animate-spin" />

@@ -52,7 +52,6 @@ export const Register = lazyWithRetry(() => import('../pages/register'));
 export const BranchSetup = lazyWithRetry(() => import('../pages/branch-setup'));
 export const InvitationRequest = lazyWithRetry(() => import('../pages/public/InvitationRequest'));
 export const TaskDisplay = lazyWithRetry(() => import('../pages/task-display'));
-export const CreateClient = lazyWithRetry(() => import('../pages/client-create'));
 export const ViewClients = lazyWithRetry(() => import('../pages/client-view'));
 export const ClientProfile = lazyWithRetry(() => import('../pages/client-profile'));
 export const TaskProfile = lazyWithRetry(() => import('../pages/task-profile'));

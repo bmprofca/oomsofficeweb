@@ -209,7 +209,7 @@ const DiscountForm = ({
     const formContent = (
         <div className="bg-white rounded-xl shadow-2xl flex flex-col h-full border border-gray-200">
             {/* Compact Header */}
-            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
+            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-blue-600 text-white rounded-t-xl">
                 <div className="flex items-center space-x-3">
                     <div className="p-1.5 bg-white/10 rounded-lg">
                         <TbCurrencyRupee className="w-5 h-5" />
@@ -246,7 +246,7 @@ const DiscountForm = ({
                                 </div>
                                 <div className="relative">
                                     <div
-                                        className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white cursor-pointer hover:border-blue-400 transition-all duration-200 shadow-sm group"
+                                        className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg bg-white cursor-pointer hover:border-blue-400 transition-all duration-200 shadow-sm group"
                                         onClick={() => setShowPartyDropdown(!showPartyDropdown)}
                                     >
                                         {formData.party_id && selectedParty ? (
@@ -287,14 +287,14 @@ const DiscountForm = ({
                                     </div>
 
                                     {showPartyDropdown && (
-                                        <div className="absolute z-40 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-fadeIn">
+                                        <div className="absolute z-40 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-fadeIn">
                                             <div className="p-2 border-b border-gray-200 bg-gray-50 sticky top-0">
                                                 <div className="relative">
                                                     <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                                                     <input
                                                         type="text"
                                                         placeholder="Search clients by name, email, or contact..."
-                                                        className="pl-9 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                                        className="pl-9 w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-200"
                                                         value={searchTerm}
                                                         onChange={(e) => setSearchTerm(e.target.value)}
                                                         autoFocus
@@ -316,9 +316,9 @@ const DiscountForm = ({
                                                     partyOptions.map(party => (
                                                         <div
                                                             key={party.id}
-                                                            className={`px-3 py-2 cursor-pointer hover:bg-gray-50 border-l-2 transition-all duration-200 ${formData.party_id === party.id
-                                                                ? 'bg-blue-50 border-blue-500 text-blue-700'
-                                                                : 'border-transparent hover:border-blue-300'
+                                                            className={`mx-1 my-0.5 rounded-md px-3 py-2 cursor-pointer transition-colors duration-150 ${formData.party_id === party.id
+                                                                ? 'bg-indigo-50 text-indigo-700'
+                                                                : 'hover:bg-slate-50'
                                                                 }`}
                                                             onClick={() => handlePartySelect(party)}
                                                         >
@@ -385,7 +385,7 @@ const DiscountForm = ({
                                     </div>
                                     <input
                                         type="date"
-                                        className="pl-9 w-full pr-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 shadow-sm bg-white text-sm"
+                                        className="pl-9 w-full pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200 shadow-sm bg-white text-sm"
                                         name="transaction_date"
                                         value={formData.transaction_date}
                                         onChange={handleInputChange}
@@ -416,7 +416,7 @@ const DiscountForm = ({
                                     </div>
                                     <input
                                         type="number"
-                                        className="pl-9 w-full pr-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 shadow-sm text-sm"
+                                        className="pl-9 w-full pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200 shadow-sm text-sm"
                                         name="amount"
                                         value={formData.amount}
                                         onChange={handleInputChange}
@@ -437,9 +437,9 @@ const DiscountForm = ({
 
                     {/* Remark Section */}
                     <div className="mb-6">
-                        <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
                             <div className="flex items-center mb-3">
-                                <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
+                                <div className="p-1.5 bg-indigo-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
                                     <FiFileText className="w-4 h-4" />
                                 </div>
                                 <h4 className="text-sm font-bold text-gray-900">Remark / Notes</h4>
@@ -451,7 +451,7 @@ const DiscountForm = ({
                                     </svg>
                                 </div>
                                 <textarea
-                                    className="pl-10 w-full px-3 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    className="pl-10 w-full px-3 py-2.5 text-sm border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-400 transition-all duration-200"
                                     placeholder="Enter remark or notes for this discount payment..."
                                     name="remark"
                                     rows={3}
@@ -466,9 +466,9 @@ const DiscountForm = ({
                     </div>
 
                     {/* Summary Section */}
-                    <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
                         <div className="flex items-center mb-3">
-                            <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
+                            <div className="p-1.5 bg-indigo-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
                                 <FiFileText className="w-4 h-4" />
                             </div>
                             <h4 className="text-sm font-bold text-gray-900">Payment Summary</h4>
@@ -512,7 +512,7 @@ const DiscountForm = ({
                                                 onChange={() => setSendEmail(!sendEmail)}
                                                 className="sr-only"
                                             />
-                                            <div className={`w-4 h-4 border rounded transition-all duration-200 flex items-center justify-center ${sendEmail ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white group-hover:border-blue-400'}`}>
+                                            <div className={`w-4 h-4 border rounded transition-all duration-200 flex items-center justify-center ${sendEmail ? 'bg-blue-600 border-blue-600' : 'border-slate-200 bg-white group-hover:border-blue-400'}`}>
                                                 {sendEmail && (
                                                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -538,7 +538,7 @@ const DiscountForm = ({
                                                 onChange={() => setSendWhatsApp(!sendWhatsApp)}
                                                 className="sr-only"
                                             />
-                                            <div className={`w-4 h-4 border rounded transition-all duration-200 flex items-center justify-center ${sendWhatsApp ? 'bg-green-600 border-green-600' : 'border-gray-300 bg-white group-hover:border-green-400'}`}>
+                                            <div className={`w-4 h-4 border rounded transition-all duration-200 flex items-center justify-center ${sendWhatsApp ? 'bg-green-600 border-green-600' : 'border-slate-200 bg-white group-hover:border-green-400'}`}>
                                                 {sendWhatsApp && (
                                                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -562,12 +562,12 @@ const DiscountForm = ({
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
                         {/* Amount Display */}
                         <div className="hidden lg:flex items-center space-x-4">
-                            <div className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 transition-all duration-200 hover:border-blue-300 hover:shadow-sm">
+                            <div className="px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-200 transition-all duration-200 hover:border-blue-300 hover:shadow-sm">
                                 <div className="text-xs text-blue-700 font-semibold">
                                     Date: <span className="text-sm">{formatDate(formData.transaction_date)}</span>
                                 </div>
                             </div>
-                            <div className="px-3 py-1.5 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200 transition-all duration-200 hover:border-green-300 hover:shadow-sm">
+                            <div className="px-3 py-1.5 bg-green-50 rounded-lg border border-green-200 transition-all duration-200 hover:border-green-300 hover:shadow-sm">
                                 <div className="text-xs text-green-700 font-semibold">
                                     Amount: <span className="text-sm">{formatCurrency(formData.amount)}</span>
                                 </div>
@@ -580,7 +580,7 @@ const DiscountForm = ({
                                     type="button"
                                     onClick={onClose}
                                     disabled={isSubmitting}
-                                    className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 shadow-sm hover:shadow"
+                                    className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 shadow-sm hover:shadow"
                                 >
                                     Cancel
                                 </button>
@@ -589,7 +589,7 @@ const DiscountForm = ({
                                 type="submit"
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || !formData.party_id || !formData.amount || formData.amount <= 0}
-                                className="px-5 py-2 text-xs font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 border border-transparent rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow hover:shadow-md transform hover:-translate-y-0.5 min-w-[140px] flex items-center justify-center"
+                                className="px-5 py-2 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow hover:shadow-md transform hover:-translate-y-0.5 min-w-[140px] flex items-center justify-center"
                             >
                                 {isSubmitting ? (
                                     <>

@@ -72,7 +72,7 @@ const TABLE_HEADERS = [
 
 function TableHead() {
   return (
-    <thead className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+    <thead className="bg-slate-50/60 border-b border-gray-200">
       <tr>
         {TABLE_HEADERS.map((h) => (
           <th
@@ -99,7 +99,7 @@ function PageSkeleton({ rows = 8 }) {
         ))}
       </div>
       <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70" aria-busy="true">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-emerald-50/40 py-2.5 px-3 sm:px-4 space-y-2.5">
+        <div className="border-b border-slate-200 bg-slate-50 py-2.5 px-3 sm:px-4 space-y-2.5">
           <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
             <div className={`${sk} h-5 w-36`} />
             <div className={`${sk} h-9 flex-1 rounded-lg`} />
@@ -420,7 +420,7 @@ export default function StaffExpensesReview() {
       />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 space-y-3">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5 space-y-3">
           {loading && rows.length === 0 && !summary ? (
             <PageSkeleton rows={Math.min(limit, 8)} />
           ) : (
@@ -468,7 +468,7 @@ export default function StaffExpensesReview() {
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
               >
-                <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-emerald-50/40 py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-3 space-y-2.5">
+                <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-3 space-y-2.5">
                   <div className="flex flex-col gap-2 min-w-0 xl:flex-row xl:items-center xl:gap-3">
                     <h5 className="text-sm font-bold tracking-tight text-slate-800 sm:text-base shrink-0 m-0">
                       Staff Expenses
@@ -683,7 +683,7 @@ export default function StaffExpensesReview() {
                                 <td className="px-3 py-2.5 text-right">
                                   {actionItems.length ? (
                                     <EmailActionMenu
-                                      buttonClassName="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                                      buttonClassName="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50"
                                       items={actionItems}
                                     />
                                   ) : (

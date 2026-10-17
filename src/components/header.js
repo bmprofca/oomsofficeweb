@@ -5,9 +5,10 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import {
   FiMenu, FiBriefcase, FiChevronDown, FiCreditCard,
   FiPlus, FiUser, FiSettings, FiHelpCircle,
-  FiLogOut, FiPieChart, FiMessageSquare, FiUsers, FiRepeat,
-  FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiPhone,
-  FiClock, FiMonitor,
+  FiLogOut, FiUsers, FiRepeat,
+  FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiPhone,
+  FiClock, FiMonitor, FiCheckSquare, FiFileText, FiBookOpen,
+  FiRadio, FiMessageCircle, FiSidebar, FiMapPin,
 } from 'react-icons/fi';
 import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
@@ -15,6 +16,7 @@ import API_BASE_URL from '../utils/api-controller';
 import { useWhatsappChannel } from '../hooks/useWhatsappChannel';
 import { useUserPermissions } from '../utils/permission-helper';
 import { useTaskCreate } from '../context/TaskCreateProvider';
+import { useClientCreate } from '../context/ClientCreateProvider';
 import { toast } from 'react-hot-toast';
 import CreateBranch from './Modals/CreateBranch';
 import SwitchBranchModal from './Modals/SwitchBranchModal';
@@ -47,27 +49,40 @@ function isStoredBranchAdmin() {
 }
 
 // ==========================================
-// 1. Constants & Styles (Modern Indigo Theme)
+// 1. Constants & Styles
 // ==========================================
+// Each menu item gets its own colour: a soft tinted chip normally, solid when active.
+// Literal class strings so Tailwind keeps them.
+const ITEM_TONES = {
+  dashboard: { chip: 'bg-indigo-50 text-indigo-600', solid: 'bg-indigo-600 text-white', row: 'bg-indigo-50 text-indigo-900' },
+  tasks: { chip: 'bg-violet-50 text-violet-600', solid: 'bg-violet-600 text-white', row: 'bg-violet-50 text-violet-900' },
+  'recurring-tasks': { chip: 'bg-teal-50 text-teal-600', solid: 'bg-teal-600 text-white', row: 'bg-teal-50 text-teal-900' },
+  clients: { chip: 'bg-sky-50 text-sky-600', solid: 'bg-sky-600 text-white', row: 'bg-sky-50 text-sky-900' },
+  billing: { chip: 'bg-amber-50 text-amber-600', solid: 'bg-amber-500 text-white', row: 'bg-amber-50 text-amber-900' },
+  finance: { chip: 'bg-emerald-50 text-emerald-600', solid: 'bg-emerald-600 text-white', row: 'bg-emerald-50 text-emerald-900' },
+  assistance: { chip: 'bg-orange-50 text-orange-600', solid: 'bg-orange-500 text-white', row: 'bg-orange-50 text-orange-900' },
+  'staff-management': { chip: 'bg-rose-50 text-rose-600', solid: 'bg-rose-600 text-white', row: 'bg-rose-50 text-rose-900' },
+  broadcast: { chip: 'bg-fuchsia-50 text-fuchsia-600', solid: 'bg-fuchsia-600 text-white', row: 'bg-fuchsia-50 text-fuchsia-900' },
+  'voice-call-history': { chip: 'bg-cyan-50 text-cyan-600', solid: 'bg-cyan-600 text-white', row: 'bg-cyan-50 text-cyan-900' },
+  'whatsapp-live-chat': { chip: 'bg-green-50 text-green-600', solid: 'bg-green-600 text-white', row: 'bg-green-50 text-green-900' },
+  settings: { chip: 'bg-slate-100 text-slate-600', solid: 'bg-slate-700 text-white', row: 'bg-slate-100 text-slate-900' },
+  subscription: { chip: 'bg-pink-50 text-pink-600', solid: 'bg-pink-600 text-white', row: 'bg-pink-50 text-pink-900' },
+  'help-support': { chip: 'bg-lime-50 text-lime-700', solid: 'bg-lime-600 text-white', row: 'bg-lime-50 text-lime-900' },
+};
+const DEFAULT_TONE = { chip: 'bg-slate-100 text-slate-600', solid: 'bg-indigo-600 text-white', row: 'bg-indigo-50 text-indigo-900' };
+const toneOf = (key) => ITEM_TONES[key] || DEFAULT_TONE;
+
 const THEME = {
-  active: "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm",
-  inactive: "text-slate-600 hover:bg-indigo-50/50 hover:text-indigo-600 border-transparent",
-  locked: "text-slate-300 cursor-not-allowed hover:bg-transparent",
-  iconActive: "text-indigo-600",
-  iconInactive: "text-slate-400 group-hover:text-indigo-500"
+  active: 'bg-indigo-100 text-indigo-700 font-semibold',
+  inactive: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+  locked: 'text-slate-300 cursor-not-allowed hover:bg-transparent',
+  iconActive: 'text-indigo-600',
+  iconInactive: 'text-slate-400 group-hover:text-slate-600',
 };
 
 // ==========================================
 // 2. MOCK DATA & STORE
 // ==========================================
-// Mock Redux-like state
-const mockState = {
-  project: {
-    walletBalance: 1250.50,
-    status: 'succeeded'
-  }
-};
-
 // Mock database helper
 const mockDbHelper = {
   init: async () => true,
@@ -85,47 +100,9 @@ const mockDbHelper = {
   }
 };
 
-// Mock user data
-const getMockUserData = () => {
-  return {
-    selected_project_id: 'proj_001',
-    projects: {
-      list: [
-        { project_id: 'proj_001', name: 'My First Project' },
-        { project_id: 'proj_002', name: 'Second Project' },
-        { project_id: 'proj_003', name: 'Client Project' }
-      ],
-      project_count: 3
-    },
-    profile: {
-      name: 'John Doe',
-      email: 'john@example.com'
-    }
-  };
-};
-
-// Mock API functions
-const fetchUserProfile = async () => {
-  return {
-    profile: {
-      name: 'John Doe',
-      email: 'john@example.com'
-    }
-  };
-};
-
 // ==========================================
 // 3. Helper Functions
 // ==========================================
-const getUserData = () => {
-  try {
-    const userData = localStorage.getItem('userData');
-    return userData ? JSON.parse(userData) : getMockUserData();
-  } catch (error) {
-    return getMockUserData();
-  }
-};
-
 const requiresProject = (item) => {
   const protectedPaths = ['/live-chat', '/template', '/campaigns'];
   return protectedPaths.includes(item.path) ||
@@ -151,13 +128,41 @@ const isSubmenuItemActive = (submenuPath, currentPath) => {
   return submenuPath && submenuPath !== '#' && (currentPath === submenuPath || currentPath.startsWith(submenuPath + '/'));
 };
 
+const CountPill = ({ value, tone = 'brand' }) => {
+  const tones = {
+    brand: 'bg-indigo-600 text-white',
+    amber: 'bg-amber-500 text-white',
+    green: 'bg-emerald-500 text-white',
+  };
+  return (
+    <span className={`inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums leading-none ${tones[tone] || tones.brand}`}>
+      {value > 99 ? '99+' : value}
+    </span>
+  );
+};
+
+const MiniBadge = ({ value, tone }) => (
+  <span className={`absolute -top-1.5 -right-1.5 ring-2 ring-white rounded-full ${tone === 'amber' ? 'bg-amber-500' : 'bg-emerald-500'} text-white text-[9px] font-bold min-w-[15px] h-[15px] px-1 flex items-center justify-center`}>
+    {value > 9 ? '9+' : value}
+  </span>
+);
+
+const MiniTooltip = ({ children }) => (
+  <div className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg animate-fade-in">
+    {children}
+    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-slate-900" />
+  </div>
+);
+
 // ==========================================
-// 5. NavItem Component (Updated for Billing Badge) - Force rebuild cache
+// 5. NavItem Component
 // ==========================================
 const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, pendingBillingCount, checkPermission }) => {
   const navigate = useNavigate();
   const { openTaskCreate } = useTaskCreate();
+  const { openClientCreate } = useClientCreate();
   const { hasAccess } = useSubscription();
+  const tone = toneOf(item.key);
 
   const getSubscriptionLevel = (key) => {
     if (key === 'whatsapp-live-chat') return 'live-chat';
@@ -190,17 +195,23 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
     e.stopPropagation();
     if (item.key === 'tasks') {
       openTaskCreate({ onNavigateToTaskList: () => navigate('/task/view') });
+    } else if (item.key === 'clients') {
+      openClientCreate();
     } else if (createSubItem?.path) {
       navigate(createSubItem.path);
     }
     if (isMobile) setMobileMenuOpen(false);
   };
 
+  const rowBase = `relative w-full flex items-center rounded-lg text-[13px] font-medium transition-colors duration-150 group select-none ${isMini ? 'h-10 justify-center px-0' : 'h-9 pl-1.5 pr-2 gap-2.5'}`;
+  const activeBar = null;
+
   // Render Submenu Item (Parent)
   if (hasSubmenu) {
     return (
-      <div className="mb-1">
+      <div className="relative">
         <button
+          type="button"
           onClick={() => {
             if (isTaskOrClientMenu) {
               if (item.path) {
@@ -211,23 +222,17 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
             }
             if (!isMini) toggleSubmenu(isMobile ? `mobile-${item.key}` : item.key);
           }}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group border
-            ${isActive ? THEME.active : THEME.inactive}
-            ${isMini ? 'justify-center px-2' : ''}`}
+          className={`${rowBase} ${isActive ? `${tone.row} font-semibold` : THEME.inactive}`}
           onMouseEnter={() => isMini && setHoveredMenu(item.key)}
           onMouseLeave={() => isMini && setHoveredMenu(null)}
+          aria-expanded={!isMini && !isTaskOrClientMenu ? Boolean(isOpen) : undefined}
         >
-          <div className={`flex items-center ${isMini ? 'justify-center w-full' : 'gap-3'}`}>
-            <span className={`${isActive ? THEME.iconActive : THEME.iconInactive} transition-colors relative`}>
-              {item.icon}
-              {isMini && showBillingBadge && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center border-2 border-white">
-                  {pendingBillingCount > 9 ? '9+' : pendingBillingCount}
-                </span>
-              )}
-            </span>
-            {!isMini && <span>{item.title}</span>}
-          </div>
+          {activeBar}
+          <span className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors [&>svg]:h-[15px] [&>svg]:w-[15px] ${isActive ? tone.solid : tone.chip}`}>
+            {item.icon}
+            {isMini && showBillingBadge && <MiniBadge value={pendingBillingCount} tone="amber" />}
+          </span>
+          {!isMini && <span className="flex-1 truncate text-left">{item.title}</span>}
           {!isMini && (
             isTaskOrClientMenu ? (
               <span
@@ -242,36 +247,37 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                     handleQuickCreate(e);
                   }
                 }}
-                className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-indigo-50/50 transition-colors cursor-pointer"
+                className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors ${isActive
+                  ? 'border-white/0 bg-white text-slate-700 shadow-sm hover:text-indigo-600'
+                  : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600'}`}
               >
-                <FiPlus size={16} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
+                <FiPlus size={14} />
               </span>
             ) : (
-              <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
-                <FiChevronRight size={16} className={isActive ? "text-indigo-400" : "text-slate-400"} />
+              <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex items-center">
+                <FiChevronRight size={14} className={isActive ? 'text-indigo-400' : 'text-slate-400'} />
               </motion.span>
             )
           )}
 
-          {/* Tooltip for Mini Mode */}
           {isMini && hoveredMenu === item.key && (
-            <div className="absolute left-16 ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-md shadow-lg z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+            <MiniTooltip>
               {item.title}
-              {showBillingBadge && ` • ${pendingBillingCount} Pending`}
-            </div>
+              {showBillingBadge && ` • ${pendingBillingCount} pending`}
+            </MiniTooltip>
           )}
         </button>
 
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {(!isMini && isOpen && !isTaskOrClientMenu) && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
+              animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
+              transition={{ duration: 0.18, ease: 'easeInOut' }}
               className="overflow-hidden"
             >
-              <div className="ml-5 pl-4 border-l-2 border-indigo-100 my-1 space-y-0.5">
+              <div className="relative ml-[21px] mt-0.5 mb-1 space-y-0.5 border-l border-slate-200 pl-3">
                 {item.submenus.map((sub, idx) => {
                   const isSubActive = isSubmenuItemActive(sub.path, currentPath);
                   const isSubPermissionLocked = sub.permission ? !checkPermission(sub.permission) : false;
@@ -291,18 +297,21 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                         }
                       }}
                       className={
-                        `flex items-center justify-between px-3 py-2 rounded-md text-sm transition-all duration-200 no-underline hover:no-underline ${isSubPermissionLocked
+                        `relative flex h-8 items-center justify-between rounded-md px-2.5 text-[12.5px] transition-colors no-underline hover:no-underline ${isSubPermissionLocked
                           ? 'text-slate-300 cursor-not-allowed hover:bg-transparent'
                           : isSubActive
-                            ? 'text-indigo-700 font-semibold bg-indigo-50'
-                            : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
+                            ? 'bg-indigo-100 font-semibold text-indigo-700'
+                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
                         }`
                       }
                     >
-                      <span>{sub.title}</span>
-                      {isSubLocked && <FiLock size={12} className={isSubSubscriptionLocked ? "text-amber-500" : "text-slate-300/80"} />}
+                      {isSubActive ? (
+                        <span className="absolute -left-[15.5px] top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-indigo-600 ring-2 ring-white" aria-hidden />
+                      ) : null}
+                      <span className="truncate">{sub.title}</span>
+                      {isSubLocked && <FiLock size={11} className={isSubSubscriptionLocked ? 'text-amber-500' : 'text-slate-300'} />}
                     </NavLink>
-                  )
+                  );
                 })}
               </div>
             </motion.div>
@@ -314,7 +323,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
 
   // Render Single Link Item
   return (
-    <div className="mb-1 relative">
+    <div className="relative">
       <NavLink to={isDisabled ? '#' : item.path} onClick={(e) => {
         if (isDisabled) {
           e.preventDefault();
@@ -325,49 +334,31 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
           setMobileMenuOpen(false);
         }
       }}
-        className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group border no-underline hover:no-underline
-          ${isDisabled ? THEME.locked : isActive ? THEME.active : THEME.inactive}
-          ${isMini ? 'justify-center px-2' : ''}`}
+        className={`${rowBase} no-underline hover:no-underline ${isDisabled ? THEME.locked : isActive ? `${tone.row} font-semibold` : THEME.inactive}`}
         onMouseEnter={() => isMini && setHoveredMenu(item.key)}
         onMouseLeave={() => isMini && setHoveredMenu(null)}
       >
-        <span className={`${isMini ? '' : 'mr-3'} ${isDisabled ? 'text-slate-300' : isActive ? THEME.iconActive : THEME.iconInactive} transition-colors relative`}>
+        {activeBar}
+        <span className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors [&>svg]:h-[15px] [&>svg]:w-[15px] ${isDisabled ? 'bg-slate-50 text-slate-300' : isActive ? tone.solid : tone.chip}`}>
           {item.icon}
-          {isMini && showUnreadBadge && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-green-500 text-white text-[10px] font-semibold flex items-center justify-center border-2 border-white">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
-          {isMini && showBillingBadge && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center border-2 border-white">
-              {pendingBillingCount > 9 ? '9+' : pendingBillingCount}
-            </span>
-          )}
+          {isMini && showUnreadBadge && <MiniBadge value={unreadCount} tone="green" />}
+          {isMini && showBillingBadge && <MiniBadge value={pendingBillingCount} tone="amber" />}
         </span>
         {!isMini && (
-          <div className="flex-1 flex items-center justify-between">
-            <span>{item.title}</span>
-            <div className="flex items-center gap-2">
-              {showUnreadBadge && (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-green-500 text-white text-xs font-semibold flex items-center justify-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-              {showBillingBadge && (
-                <div className="flex items-center gap-1.5 bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-200">
-                  <span className="text-xs font-semibold">{pendingBillingCount}</span>
-                  <span className="text-[10px] font-medium">Pending</span>
-                </div>
-              )}
-              {isLocked && <FiLock size={12} className={isSubscriptionLocked ? "text-amber-500" : "text-slate-300"} />}
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <span className="truncate">{item.title}</span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {showUnreadBadge && <CountPill value={unreadCount} tone="green" />}
+              {showBillingBadge && <CountPill value={pendingBillingCount} tone="amber" />}
+              {isLocked && <FiLock size={11} className={isSubscriptionLocked ? 'text-amber-500' : 'text-slate-300'} />}
             </div>
           </div>
         )}
         {isMini && hoveredMenu === item.key && (
-          <div className="absolute left-16 ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-md shadow-lg z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+          <MiniTooltip>
             {item.title} {isLocked && '(Locked)'}
-            {showBillingBadge && ` • ${pendingBillingCount} Pending`}
-          </div>
+            {showBillingBadge && ` • ${pendingBillingCount} pending`}
+          </MiniTooltip>
         )}
       </NavLink>
     </div>
@@ -378,6 +369,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
 // 6. Header Component
 // ==========================================
 export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized }) => {
+  const headerLocation = useLocation();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [switchProjectModalOpen, setSwitchProjectModalOpen] = useState(false);
   const [branchSetupOpen, setBranchSetupOpen] = useState(false);
@@ -396,7 +388,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const [walletBalance, setWalletBalance] = useState(0);
 
   const iconButtonClass =
-    'inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30';
+    'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30';
 
   useEffect(() => {
     const storedProfile = loadUserProfileFromStorage();
@@ -523,7 +515,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
 
   const profileItems = [
     { title: 'My Profile', icon: FiUser, path: '/my-profile' },
-    { title: 'Sessions', icon: FiMonitor, path: '/sessions' },
+    { title: 'Active sessions', icon: FiMonitor, path: '/sessions' },
   ];
 
   const branchLabel = selectedProjectName || selectedCompany?.name || 'Select Branch';
@@ -560,55 +552,87 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     };
   }, [profileDropdownOpen, updateProfilePanelPosition]);
 
+  // Profile menu: close on any outside press (capture phase, touch included),
+  // Escape, a click into an iframe and on navigation.
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      const clickedProfileTrigger = profileTriggerRef.current?.contains(event.target);
-      const clickedProfilePanel = profilePanelRef.current?.contains(event.target);
-
-      if (profileDropdownOpen && !clickedProfileTrigger && !clickedProfilePanel) {
-        setProfileDropdownOpen(false);
-      }
+    if (!profileDropdownOpen) return undefined;
+    const handlePointerDown = (event) => {
+      if (profileTriggerRef.current?.contains(event.target)) return;
+      if (profilePanelRef.current?.contains(event.target)) return;
+      setProfileDropdownOpen(false);
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setProfileDropdownOpen(false);
+    };
+    const handleBlur = () => {
+      if (document.activeElement?.tagName === 'IFRAME') setProfileDropdownOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('touchstart', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('touchstart', handlePointerDown, true);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('blur', handleBlur);
+    };
   }, [profileDropdownOpen]);
 
+  // Close the profile menu when the route changes.
+  useEffect(() => {
+    setProfileDropdownOpen(false);
+  }, [headerLocation.pathname]);
+
   const renderAvatar = (size = 'sm') => {
-    const sizeClass = size === 'lg' ? 'h-8 w-8 text-[11px]' : 'h-7 w-7 text-[10px]';
+    const sizeClass = size === 'lg' ? 'h-10 w-10 text-xs' : 'h-7 w-7 text-[10px]';
     return (
       <div
-        className={`${sizeClass} flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 font-semibold text-white shadow-sm ring-2 ring-white`}
+        className={`${sizeClass} flex items-center justify-center rounded-full bg-indigo-500 font-semibold text-white ring-2 ring-white shadow-sm`}
       >
         {getUserInitials()}
       </div>
     );
   };
 
+  const pillClass =
+    'inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50';
+
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-md supports-[backdrop-filter]:bg-white/85">
-        <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-5 lg:px-6">
+      <header
+        data-app-header
+        className="fixed inset-x-0 top-0 z-50 h-16 border-b border-slate-200 bg-white"
+      >
+        <div className="flex h-full items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
           {/* Left: menu + brand */}
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             <button
               type="button"
               className={iconButtonClass}
               onClick={handleMenuClick}
               aria-label="Toggle navigation"
+              title="Toggle navigation"
             >
-              <FiMenu className="h-4 w-4" />
+              <FiMenu className="h-[18px] w-[18px]" />
             </button>
 
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="group flex h-8 items-center gap-2 rounded-lg px-1 transition-colors hover:bg-slate-50"
+              className="flex h-10 items-center gap-2.5 rounded-lg px-1.5 transition-colors hover:bg-slate-50"
+              aria-label="Go to dashboard"
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 text-xs font-bold text-white shadow-sm ring-1 ring-indigo-500/20">
-                O
-              </div>
-              <span className="hidden text-sm font-bold tracking-tight text-slate-900 sm:block">OOMS</span>
+              <img
+                src="/logo512.png"
+                alt=""
+                className="h-8 w-8 rounded-lg object-contain ring-1 ring-slate-900/5"
+                draggable="false"
+              />
+              <span className="hidden flex-col items-start leading-none sm:flex">
+                <span className="font-display text-[16px] font-extrabold tracking-tight text-slate-900">OOMS</span>
+                <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">ONESAAS CLOUD</span>
+              </span>
             </button>
           </div>
 
@@ -616,28 +640,31 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
           <HeaderGlobalSearch />
 
           {/* Right: branch, wallet, actions */}
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
             <button
               type="button"
               onClick={() => setSwitchProjectModalOpen(true)}
-              className="hidden h-8 max-w-[160px] items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-2 text-xs font-medium text-slate-700 transition-all hover:border-indigo-200 hover:bg-indigo-50/40 hover:text-indigo-700 md:inline-flex"
+              className={`${pillClass} hidden max-w-[190px] md:inline-flex`}
+              title="Switch branch"
             >
-              <FiHome className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+                <FiMapPin className="h-3 w-3" />
+              </span>
               <span className="truncate">{branchLabel}</span>
-              <FiChevronDown className="h-3 w-3 shrink-0 text-slate-400" />
+              <FiChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             </button>
 
             <button
               type="button"
               onClick={() => navigate('/wallet-recharge')}
-              className="hidden h-8 items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-2 text-xs transition-all hover:border-indigo-200 hover:shadow-sm sm:inline-flex"
-              title="Wallet balance"
+              className={`${pillClass} hidden pr-1.5 sm:inline-flex`}
+              title="Wallet balance — tap to recharge"
             >
               <FiCreditCard className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-              <span className="font-semibold text-slate-800 font-mono">
-                ₹{Number(walletBalance).toFixed(2)}
+              <span className="font-mono text-[12.5px] font-semibold tabular-nums text-slate-900">
+                ₹{Number(walletBalance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white">
+              <span className="ml-0.5 flex h-6 w-6 items-center justify-center rounded-md bg-indigo-600 text-white">
                 <FiPlus className="h-3 w-3" />
               </span>
             </button>
@@ -649,15 +676,15 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
               }}
             />
 
-            <div className="hidden h-5 w-px bg-slate-200 sm:block" />
+            <div className="mx-0.5 hidden h-6 w-px bg-slate-200 sm:block" />
 
             <div className="relative">
               <button
                 ref={profileTriggerRef}
                 type="button"
-                className={`flex h-8 max-w-[180px] items-center gap-1.5 rounded-lg border pl-1 pr-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 ${profileDropdownOpen
-                  ? 'border-indigo-200 bg-indigo-50/60'
-                  : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50'
+                className={`flex h-9 max-w-[200px] items-center gap-2 rounded-lg border pl-1 pr-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 ${profileDropdownOpen
+                  ? 'border-indigo-200 bg-indigo-50'
+                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 aria-expanded={profileDropdownOpen}
                 aria-haspopup="true"
@@ -666,11 +693,16 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                 }}
               >
                 {renderAvatar('sm')}
-                <span className="hidden truncate text-xs font-medium text-slate-800 md:block">
-                  {userProfile.name || 'User'}
+                <span className="hidden min-w-0 flex-col items-start leading-tight md:flex">
+                  <span className="max-w-[120px] truncate text-xs font-semibold text-slate-800">
+                    {userProfile.name || 'User'}
+                  </span>
+                  <span className="max-w-[120px] truncate text-[10px] text-slate-500">
+                    {userProfile.roleLabel || 'Member'}
+                  </span>
                 </span>
                 <FiChevronDown
-                  className={`hidden h-3 w-3 shrink-0 text-slate-400 transition-transform md:block ${profileDropdownOpen ? 'rotate-180' : ''
+                  className={`hidden h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform md:block ${profileDropdownOpen ? 'rotate-180' : ''
                     }`}
                 />
               </button>
@@ -684,60 +716,60 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                   />
                   <div
                     ref={profilePanelRef}
-                    className="fixed z-[9999] w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)]"
+                    className="fixed z-[9999] w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-pop animate-fade-in"
                     style={{
                       top: profilePanelStyle.top,
                       right: profilePanelStyle.right,
                     }}
                     role="menu"
                   >
-                    <div className="border-b border-slate-100 bg-gradient-to-br from-indigo-50/50 to-white px-3 py-2">
-                      <div className="flex items-center gap-2.5">
+                    <div className="border-b border-slate-100 px-4 py-3.5">
+                      <div className="flex items-center gap-3">
                         {renderAvatar('lg')}
                         <div className="min-w-0 flex-1">
                           <p className="m-0 truncate text-sm font-semibold leading-5 text-slate-900">
                             {userProfile.name || 'User'}
                           </p>
-                          {userProfile.mobile ? (
-                            <p className="m-0 mt-0.5 flex items-center gap-1 truncate text-xs leading-4 text-slate-500">
-                              <FiPhone className="h-3 w-3 shrink-0 text-slate-400" />
-                              {userProfile.mobile}
-                            </p>
-                          ) : (
-                            <p className="m-0 mt-0.5 text-xs leading-4 text-slate-400">
-                              Mobile not available
-                            </p>
-                          )}
+                          <p className="m-0 mt-1 flex items-center gap-1.5 truncate text-xs leading-4 text-slate-500">
+                            <span className="ui-badge ui-badge-brand !h-[18px] !px-1.5 !text-[10px]">{userProfile.roleLabel || 'Member'}</span>
+                            {userProfile.mobile ? (
+                              <span className="truncate">{userProfile.mobile}</span>
+                            ) : null}
+                          </p>
                         </div>
+                      </div>
+                      <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
+                        <FiMapPin className="h-3 w-3 shrink-0 text-indigo-500" />
+                        <span className="truncate font-medium">{branchLabel}</span>
                       </div>
                     </div>
 
-                    <div className="p-2">
+                    <div className="p-1.5">
                       {showAttendanceMenu ? (
                         <button
                           type="button"
                           role="menuitem"
-                          className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-slate-700 transition-colors hover:bg-slate-100"
                           onClick={() => {
                             setProfileDropdownOpen(false);
                             setAttendanceModalOpen(true);
                           }}
                         >
-                          <FiClock className="h-4 w-4 shrink-0 text-teal-500" />
+                          <FiClock className="h-4 w-4 shrink-0 text-slate-400" />
                           Attendance
                         </button>
                       ) : null}
 
                       <button
                         type="button"
-                        className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700 md:hidden"
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-slate-700 transition-colors hover:bg-slate-100 md:hidden"
                         onClick={() => {
                           setProfileDropdownOpen(false);
                           setSwitchProjectModalOpen(true);
                         }}
                       >
                         <FiHome className="h-4 w-4 shrink-0 text-slate-400" />
-                        Switch Branch
+                        Switch branch
                       </button>
 
                       {profileItems.map((item) => {
@@ -749,9 +781,9 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                             role="menuitem"
                             onClick={() => setProfileDropdownOpen(false)}
                             className={({ isActive }) =>
-                              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors no-underline hover:no-underline ${isActive
+                              `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-colors no-underline hover:no-underline ${isActive
                                 ? 'bg-indigo-50 font-medium text-indigo-700'
-                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                : 'text-slate-700 hover:bg-slate-100'
                               }`
                             }
                           >
@@ -762,12 +794,12 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                       })}
                     </div>
 
-                    <div className="border-t border-slate-100 p-2">
+                    <div className="border-t border-slate-100 p-1.5">
                       <button
                         type="button"
                         role="menuitem"
                         onClick={openLogoutModal}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-rose-600 transition-colors hover:bg-rose-50"
                       >
                         <FiLogOut className="h-4 w-4 shrink-0" />
                         Sign out
@@ -857,6 +889,16 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
 // ==========================================
 // 7. Sidebar Component
 // ==========================================
+const SectionLabel = ({ children, mini }) => (
+  mini ? (
+    <div className="mx-auto my-2 h-px w-6 bg-slate-200 first:hidden" aria-hidden />
+  ) : (
+    <p className="mb-1.5 px-2.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-500">
+      {children}
+    </p>
+  )
+);
+
 export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized }) => {
   const { check } = useUserPermissions();
   const [openSubmenus, setOpenSubmenus] = useState({});
@@ -864,7 +906,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   const [isHovered, setIsHovered] = useState(false);
   const [currentPath, setCurrentPath] = useState('');
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
-  const [pendingBillingCount, setPendingBillingCount] = useState(23); // Mock pending billing count
+  const [pendingBillingCount, setPendingBillingCount] = useState(0);
   const whatsappChannel = useWhatsappChannel();
 
   const hasProjects = useMemo(() => {
@@ -922,23 +964,38 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
     };
   }, []);
 
-  // Mock function to fetch pending billing count (in real app, this would be an API call)
-  useEffect(() => {
-    // Simulate fetching pending billing count
-    const fetchPendingBillingCount = async () => {
-      // In real implementation, you would fetch from API
-      // For now, we'll use mock data
-      const mockPendingCount = 23; // This would come from an API
-      setPendingBillingCount(mockPendingCount);
-    };
-
-    fetchPendingBillingCount();
-
-    // Poll for updates every 30 seconds
-    const interval = setInterval(fetchPendingBillingCount, 30000);
-
-    return () => clearInterval(interval);
+  // Pending billing badge: completed tasks not yet billed (GET /billing/pending-count).
+  // Refreshes on mount, every 60s, on navigation, and when the billing page
+  // dispatches "ooms:billing-updated" after raising or skipping bills.
+  const fetchPendingBillingCount = useCallback(async () => {
+    try {
+      const headers = await getHeaders();
+      if (!headers || !localStorage.getItem('branch_id')) return;
+      const res = await fetch(`${API_BASE_URL}/billing/pending-count`, { headers });
+      if (!res.ok) return;
+      const result = await res.json();
+      if (result?.success) {
+        setPendingBillingCount(Math.max(0, Number(result.data?.pending) || 0));
+      }
+    } catch (error) {
+      // Keep the last known value on network/DB hiccups
+    }
   }, []);
+
+  useEffect(() => {
+    fetchPendingBillingCount();
+    const interval = setInterval(fetchPendingBillingCount, 60000);
+    const onBillingUpdated = () => fetchPendingBillingCount();
+    window.addEventListener('ooms:billing-updated', onBillingUpdated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('ooms:billing-updated', onBillingUpdated);
+    };
+  }, [fetchPendingBillingCount]);
+
+  useEffect(() => {
+    fetchPendingBillingCount();
+  }, [location.pathname, fetchPendingBillingCount]);
 
   const toggleSubmenu = (menuKey) => {
     setOpenSubmenus(prev => ({ ...prev, [menuKey]: !prev[menuKey] }));
@@ -948,129 +1005,119 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
     if (isMinimized) setIsHovered(hoverState);
   };
 
-  const menuItems = useMemo(() => {
-    const items = [
-      { key: 'dashboard', title: 'Dashboard', icon: <FiHome size={18} />, path: '/' },
+  const menuSections = useMemo(() => {
+    const sections = [
       {
-        key: 'tasks', title: 'Tasks', icon: <FiUsers size={18} />,
-        path: '/task/view',
-        permission: 'task_',
-        submenus: [
-          { title: 'New Task', action: 'openTaskCreate', permission: 'task_create' },
-          { title: 'View Task', path: '/task/view', permission: 'task_view' }
-        ]
+        label: 'Overview',
+        items: [
+          { key: 'dashboard', title: 'Dashboard', icon: <FiHome size={17} />, path: '/' },
+        ],
       },
       {
-        key: 'recurring-tasks', title: 'Compliance', icon: <FiRepeat size={18} />,
-        path: '/staff/office-assistance/compliance',
-        permission: 'recurring_task_'
+        label: 'Work',
+        items: [
+          {
+            key: 'tasks', title: 'Tasks', icon: <FiCheckSquare size={17} />,
+            path: '/task/view',
+            permission: 'task_',
+            submenus: [
+              { title: 'New Task', action: 'openTaskCreate', permission: 'task_create' },
+              { title: 'View Task', path: '/task/view', permission: 'task_view' }
+            ]
+          },
+          {
+            key: 'recurring-tasks', title: 'Compliance', icon: <FiRepeat size={17} />,
+            path: '/staff/office-assistance/compliance',
+            permission: 'recurring_task_'
+          },
+          {
+            key: 'clients', title: 'Clients', icon: <FiUsers size={17} />,
+            path: '/client/view',
+            permission: 'client_',
+            submenus: [
+              { title: 'New Client', path: '/client/create', permission: 'client_create' },
+              { title: 'View Client', path: '/client/view', permission: 'client_view' }
+            ]
+          },
+        ],
       },
       {
-        key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,
-        path: '/client/view',
-        permission: 'client_',
-        submenus: [
-          { title: 'New Client', path: '/client/create', permission: 'client_create' },
-          { title: 'View Client', path: '/client/view', permission: 'client_view' }
-        ]
+        label: 'Finance',
+        items: [
+          {
+            key: 'billing',
+            title: 'Billing',
+            icon: <FiFileText size={17} />,
+            path: '/billing',
+            badgeCount: pendingBillingCount,
+            badgeColor: 'bg-amber-500',
+            badgeText: 'Pending',
+            permission: 'finance_'
+          },
+          { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={17} />, path: '/finance/voucher/', permission: 'finance_' },
+        ],
       },
       {
-        key: 'billing',
-        title: 'Billing',
-        icon: <FiBarChart2 size={18} />,
-        path: '/billing',
-        badgeCount: pendingBillingCount,
-        badgeColor: 'bg-amber-500',
-        badgeText: 'Pending',
-        permission: 'finance_'
+        label: 'Office',
+        items: [
+          {
+            key: 'assistance',
+            title: 'Assistance',
+            icon: <FiBriefcase size={17} />,
+            path: '/staff/office-assistance',
+            permission: 'office_assistance_'
+          },
+          {
+            key: 'staff-management', title: 'Staff Management', icon: <FiBookOpen size={17} />,
+            permission: 'staff_',
+            submenus: [
+              { title: 'Attendance', path: '/staff/attendance', permission: 'staff_view' },
+              { title: 'Team Report', path: '/staff/team-report', permission: 'staff_report' },
+              { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
+            ]
+          },
+        ],
       },
-      { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/', permission: 'finance_' },
       {
-        key: 'assistance',
-        title: 'Assistance',
-        icon: <FiBriefcase size={18} />,
-        path: '/staff/office-assistance',
-        permission: 'office_assistance_'
+        label: 'Communication',
+        items: [
+          { key: 'broadcast', title: 'Broadcast', icon: <FiRadio size={17} />, path: '/broadcast/whatsapp', permission: 'broadcast_' },
+          { key: 'voice-call-history', title: 'Call History', icon: <FiPhone size={17} />, path: '/voice-call-history' },
+          ...(whatsappChannel === 'onechatting'
+            ? [{
+              key: 'whatsapp-live-chat',
+              title: 'Live Chat',
+              icon: <FiMessageCircle size={17} />,
+              path: '/broadcast/whatsapp/onechatting/live-chat',
+              permission: 'broadcast_'
+            }]
+            : []),
+        ],
       },
       {
-        key: 'staff-management', title: 'Staff Management', icon: <FiUsers size={18} />,
-        permission: 'staff_',
-        submenus: [
-          { title: 'Attendance', path: '/staff/attendance', permission: 'staff_view' },
-          { title: 'Team Report', path: '/staff/team-report', permission: 'staff_report' },
-          { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
-        ]
+        label: 'System',
+        items: [
+          { key: 'settings', title: 'Settings', icon: <FiSettings size={17} />, path: '/settings', permission: 'setting_' },
+          { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={17} />, path: '/subscription', permission: 'subscription_' },
+          { key: 'help-support', title: 'Help & Support', icon: <FiHelpCircle size={17} />, path: '/help-support' },
+        ],
       },
-      { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast/whatsapp', permission: 'broadcast_' },
-      { key: 'voice-call-history', title: 'Call History', icon: <FiPhone size={18} />, path: '/voice-call-history' },
-      ...(whatsappChannel === 'onechatting'
-        ? [{
-          key: 'whatsapp-live-chat',
-          title: 'Live Chat',
-          icon: <FiMessageSquare size={18} />,
-          path: '/broadcast/whatsapp/onechatting/live-chat',
-          permission: 'broadcast_'
-        }]
-        : []),
-      { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings', permission: 'setting_' },
-      { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription', permission: 'subscription_' },
-      { key: 'help-support', title: 'Help & Support', icon: <FiHelpCircle size={18} />, path: '/help-support' },
     ];
 
-    return items;
+    return sections;
   }, [whatsappChannel, pendingBillingCount]);
 
-  return (
-    <>
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            <motion.div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} />
-            <motion.div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl md:hidden flex flex-col" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: "spring", damping: 30, stiffness: 300 }}>
-              <div className="h-16 flex items-center justify-between px-6 border-b border-indigo-100 bg-indigo-50/30">
-                <span className="text-xl font-bold text-slate-800 font-sans">OOMS</span>
-                <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
-                  <FiX size={20} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
-                {menuItems.map(item => (
-                  <NavItem
-                    key={item.key}
-                    item={item}
-                    isMobile={true}
-                    currentPath={currentPath}
-                    openSubmenus={openSubmenus}
-                    toggleSubmenu={toggleSubmenu}
-                    hasProjects={hasProjects}
-                    setMobileMenuOpen={setMobileMenuOpen}
-                    unreadCount={totalUnreadCount}
-                    pendingBillingCount={pendingBillingCount}
-                    checkPermission={check}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      <motion.div
-        className="hidden md:flex md:flex-col md:fixed md:inset-y-0 bg-white border-r border-indigo-100 z-40 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)]"
-        data-app-sidebar
-        initial={false}
-        animate={{ width: (isMinimized && !isHovered) ? 80 : 260 }}
-        style={{ top: '64px', height: 'calc(100vh - 64px)' }}
-        onMouseEnter={() => handleSidebarHover(true)}
-        onMouseLeave={() => handleSidebarHover(false)}
-      >
-        <div className="flex-1 flex flex-col overflow-y-auto py-6 px-3 scrollbar-hide">
-          <nav className="space-y-1">
-            {menuItems.map(item => (
+  const renderNav = (isMobile) => (
+    <nav className="space-y-0.5" aria-label="Primary">
+      {menuSections.map((section) => (
+        <div key={section.label} className="pt-4 first:pt-0">
+          <SectionLabel mini={!isMobile && isMinimized && !isHovered}>{section.label}</SectionLabel>
+          <div className="space-y-0.5">
+            {section.items.map((item) => (
               <NavItem
                 key={item.key}
                 item={item}
-                isMobile={false}
+                isMobile={isMobile}
                 isMinimized={isMinimized}
                 isHovered={isHovered}
                 currentPath={currentPath}
@@ -1079,27 +1126,73 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
                 setHoveredMenu={setHoveredMenu}
                 hoveredMenu={hoveredMenu}
                 hasProjects={hasProjects}
+                setMobileMenuOpen={setMobileMenuOpen}
                 unreadCount={totalUnreadCount}
                 pendingBillingCount={pendingBillingCount}
                 checkPermission={check}
               />
             ))}
-          </nav>
+          </div>
         </div>
+      ))}
+    </nav>
+  );
 
-        {/* Contact Support section — hidden for now, to be implemented later */}
-        {/* <AnimatePresence>
-          {(!isMinimized || isHovered) && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ delay: 0.1 }} className="p-4 border-t border-indigo-100">
-              <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl p-4 text-xs border border-indigo-100 shadow-sm">
-                <p className="font-semibold text-indigo-900 mb-1">Need help?</p>
-                <p className="text-slate-600 mb-3 leading-relaxed">Check our docs or contact support for assistance.</p>
-                <button className="w-full py-1.5 bg-white border border-indigo-200 text-indigo-600 font-medium rounded-md shadow-sm hover:bg-indigo-50 transition-colors">Contact Support</button>
+  const isMini = isMinimized && !isHovered;
+
+  return (
+    <>
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px] md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} />
+            <motion.div className="fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col bg-white shadow-2xl md:hidden" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', damping: 30, stiffness: 320 }}>
+              <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4">
+                <div className="flex items-center gap-2.5">
+                  <img src="/logo512.png" alt="" className="h-8 w-8 rounded-lg object-contain" />
+                  <div className="flex flex-col leading-none">
+                    <span className="font-display text-[16px] font-extrabold tracking-tight text-slate-900">OOMS</span>
+                    <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">ONESAAS CLOUD</span>
+                  </div>
+                </div>
+                <button onClick={() => setMobileMenuOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900" aria-label="Close menu">
+                  <FiX size={18} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-3 py-4">
+                {renderNav(true)}
               </div>
             </motion.div>
-          )}
-        </AnimatePresence> */}
-      </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <motion.aside
+        className="hidden md:fixed md:inset-y-0 md:z-40 md:flex md:flex-col border-r border-slate-200 bg-white"
+        data-app-sidebar
+        initial={false}
+        animate={{ width: isMini ? 80 : 260 }}
+        transition={{ duration: 0.22, ease: 'easeInOut' }}
+        style={{ top: '64px', height: 'calc(100vh - 64px)' }}
+        onMouseEnter={() => handleSidebarHover(true)}
+        onMouseLeave={() => handleSidebarHover(false)}
+      >
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 scrollbar-hide">
+          {renderNav(false)}
+        </div>
+
+        <div className="shrink-0 border-t border-slate-200 p-2">
+          <button
+            type="button"
+            onClick={() => setIsMinimized && setIsMinimized(!isMinimized)}
+            className={`flex w-full items-center rounded-lg text-[12px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 ${isMini ? 'h-9 justify-center' : 'h-9 gap-2.5 px-2.5'}`}
+            title={isMinimized ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <FiSidebar size={16} className="shrink-0 text-slate-400" />
+            {!isMini && <span>{isMinimized ? 'Expand sidebar' : 'Collapse sidebar'}</span>}
+          </button>
+        </div>
+      </motion.aside>
     </>
   );
 };
@@ -1112,7 +1205,7 @@ const Layout = () => {
   const [isMinimized, setIsMinimized] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="app-page font-sans text-slate-900">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1131,7 +1224,7 @@ const Layout = () => {
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}
       >
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+        <div className="app-content mx-auto max-w-7xl">
           <Outlet />
         </div>
       </main>

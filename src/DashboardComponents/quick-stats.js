@@ -24,38 +24,23 @@ const CARD_ICONS = {
   "ca-report": FiBriefcase,
 };
 
+/** Accent tones: white KPI tiles with a coloured icon chip + top accent line. */
+const TONES = {
+  indigo: { chip: "bg-white text-indigo-600 ring-1 ring-indigo-100", tile: "bg-indigo-50 border-indigo-100", ring: "hover:border-indigo-200" },
+  sky: { chip: "bg-white text-sky-600 ring-1 ring-sky-100", tile: "bg-sky-50 border-sky-100", ring: "hover:border-sky-200" },
+  rose: { chip: "bg-white text-rose-600 ring-1 ring-rose-100", tile: "bg-rose-50 border-rose-100", ring: "hover:border-rose-200" },
+  emerald: { chip: "bg-white text-emerald-600 ring-1 ring-emerald-100", tile: "bg-emerald-50 border-emerald-100", ring: "hover:border-emerald-200" },
+  amber: { chip: "bg-white text-amber-600 ring-1 ring-amber-100", tile: "bg-amber-50 border-amber-100", ring: "hover:border-amber-200" },
+  violet: { chip: "bg-white text-violet-600 ring-1 ring-violet-100", tile: "bg-violet-50 border-violet-100", ring: "hover:border-violet-200" },
+};
+
 const CARD_META = {
-  "pending-billing": {
-    showCount: true,
-    showAmount: true,
-    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-  },
-  creditors: {
-    showCount: true,
-    showAmount: true,
-    gradient: "linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)",
-  },
-  debtors: {
-    showCount: true,
-    showAmount: true,
-    gradient: "linear-gradient(135deg, #ef4444 0%, #ec4899 100%)",
-  },
-  "today-received": {
-    showCount: true,
-    showAmount: true,
-    gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-  },
-  "today-payment": {
-    showCount: true,
-    showAmount: true,
-    gradient: "linear-gradient(135deg, #f97316 0%, #f59e0b 100%)",
-  },
-  "ca-report": {
-    showCount: false,
-    showAmount: false,
-    showCaReport: true,
-    gradient: "linear-gradient(135deg, #8b5cf6 0%, #4f46e5 100%)",
-  },
+  "pending-billing": { showCount: true, showAmount: true, tone: "indigo" },
+  creditors: { showCount: true, showAmount: true, tone: "sky" },
+  debtors: { showCount: true, showAmount: true, tone: "rose" },
+  "today-received": { showCount: true, showAmount: true, tone: "emerald" },
+  "today-payment": { showCount: true, showAmount: true, tone: "amber" },
+  "ca-report": { showCount: false, showAmount: false, showCaReport: true, tone: "violet" },
 };
 
 const DEFAULT_CARDS = [
@@ -117,7 +102,7 @@ const resolveCardMeta = (card) => {
     showCount: card.showCount ?? meta.showCount ?? true,
     showAmount: card.showAmount ?? meta.showAmount ?? false,
     showCaReport: card.showCaReport ?? meta.showCaReport ?? false,
-    gradient: card.gradient || meta.gradient || CARD_META["pending-billing"].gradient,
+    tone: TONES[card.tone] || TONES[meta.tone] || TONES.indigo,
   };
 };
 
@@ -314,21 +299,24 @@ const QuickStats = ({
 
   return (
     <div className="w-full relative">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="p-2 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex-shrink-0">
-          <FiTrendingUp className="w-4 h-4 text-blue-600" />
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 flex-shrink-0">
+          <FiTrendingUp className="w-4 h-4" />
         </div>
-        <h3 className="text-sm font-semibold text-gray-800">Quick Stats</h3>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-slate-900 leading-tight">Quick Stats</h3>
+          <p className="text-[11px] text-slate-500 leading-tight">Live snapshot of money in, money out and pending work</p>
+        </div>
 
         {isCustomizing ? (
-          <div className="ml-auto text-[10px] px-2 py-0.5 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
+          <div className="ml-auto ui-badge ui-badge-brand">
             Drag to reorder
           </div>
         ) : (
           <button
             type="button"
             onClick={handleRefresh}
-            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-indigo-600 shadow-sm hover:bg-indigo-50 disabled:opacity-60 transition-colors"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-60 transition-colors"
             title="Refresh stats"
             aria-label="Refresh quick stats"
             disabled={loading}
@@ -338,7 +326,7 @@ const QuickStats = ({
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 auto-rows-fr relative">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 auto-rows-fr relative">
         {cardsToRender.map((card) => {
           const statData = getStatValue(card.value);
           const count = Number(statData.count) || 0;
@@ -371,51 +359,45 @@ const QuickStats = ({
                     ? "cursor-default"
                     : "cursor-pointer"
               } ${isDragged ? "opacity-50" : ""} ${
-                isDragOver ? "scale-105 transition-transform duration-200" : ""
+                isDragOver ? "ring-2 ring-indigo-400 ring-offset-2 rounded-xl" : ""
               }`}
             >
               {isCustomizing && (
                 <div className="absolute -top-2 -left-2 z-10 pointer-events-none">
-                  <div className="p-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg">
+                  <div className="p-1 bg-indigo-600 rounded-md shadow-md">
                     <FiMove className="w-2.5 h-2.5 text-white" />
                   </div>
                 </div>
               )}
 
               <motion.div
-                className="relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full"
-                style={{ background: meta.gradient }}
-                whileHover={{
-                  scale: isCustomizing || isCaReport ? 1 : 1.005,
-                  transition: { duration: 0.2 },
-                }}
-                whileTap={{ scale: isCaReport ? 1 : 0.98 }}
+                className={`group relative h-full overflow-hidden rounded-xl border ${meta.tone.tile} transition-all duration-200 hover:shadow-md ${meta.tone.ring}`}
               >
-                <div className="p-3">
-                  <div className="flex items-start justify-between mb-2">
+                                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="text-white/80 text-xs font-medium mb-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 truncate">
                         {card.title}
                       </div>
                       {loading ? (
-                        <div className="space-y-1">
-                          <div className="animate-pulse h-4 bg-white/20 rounded w-16" />
-                          <div className="animate-pulse h-3 bg-white/20 rounded w-12" />
+                        <div className="mt-2 space-y-1.5">
+                          <div className="ui-skeleton h-5 w-20" />
+                          <div className="ui-skeleton h-3.5 w-14" />
                         </div>
                       ) : isCaReport ? (
                         <div
-                          className={`space-y-1 ${blurEnabled ? "blur-sm" : ""}`}
+                          className={`mt-2 space-y-1 ${blurEnabled ? "blur-sm" : ""}`}
                         >
                           <button
                             type="button"
                             onClick={(e) => handleCaReportLink(e, "sent")}
                             disabled={isCustomizing}
-                            className="flex w-full items-baseline justify-between gap-2 rounded-md px-0.5 text-left text-white leading-tight transition-colors hover:bg-white/10 disabled:pointer-events-none"
+                            className="flex w-full items-baseline justify-between gap-2 rounded-md px-1 -mx-1 text-left leading-tight transition-colors hover:bg-slate-50 disabled:pointer-events-none"
                           >
-                            <span className="text-white/80 text-[10px] font-medium uppercase tracking-wide">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                               Sent
                             </span>
-                            <span className="text-base font-bold">
+                            <span className="text-base font-bold tabular-nums text-slate-900">
                               {formatNumber(Number(statData.sent) || 0)}
                             </span>
                           </button>
@@ -423,48 +405,54 @@ const QuickStats = ({
                             type="button"
                             onClick={(e) => handleCaReportLink(e, "complete")}
                             disabled={isCustomizing}
-                            className="flex w-full items-baseline justify-between gap-2 rounded-md px-0.5 text-left text-white leading-tight transition-colors hover:bg-white/10 disabled:pointer-events-none"
+                            className="flex w-full items-baseline justify-between gap-2 rounded-md px-1 -mx-1 text-left leading-tight transition-colors hover:bg-slate-50 disabled:pointer-events-none"
                           >
-                            <span className="text-white/80 text-[10px] font-medium uppercase tracking-wide">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                               Complete
                             </span>
-                            <span className="text-base font-bold">
+                            <span className="text-base font-bold tabular-nums text-slate-900">
                               {formatNumber(Number(statData.complete) || 0)}
                             </span>
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-1">
-                          {meta.showCount && (
-                            <div
-                              className={`text-lg font-bold text-white leading-tight ${
-                                blurEnabled ? "blur-sm" : ""
-                              }`}
-                            >
-                              {formatNumber(count)}
-                              <span className="ml-1 text-white/50 text-[10px] font-medium">
-                                entries
-                              </span>
-                            </div>
-                          )}
+                        <div className="mt-1.5">
                           {meta.showAmount && (
                             <div
-                              className={`text-sm font-semibold text-white/90 leading-tight ${
+                              className={`font-mono text-xl font-medium tabular-nums tracking-tight text-slate-900 leading-tight ${
                                 blurEnabled ? "blur-sm" : ""
                               }`}
                             >
                               {formatCurrency(displayAmount)}
                             </div>
                           )}
+                          {meta.showCount && !meta.showAmount && (
+                            <div
+                              className={`font-mono text-xl font-medium tabular-nums tracking-tight text-slate-900 leading-tight ${
+                                blurEnabled ? "blur-sm" : ""
+                              }`}
+                            >
+                              {formatNumber(count)}
+                            </div>
+                          )}
+                          {meta.showCount && meta.showAmount && (
+                            <div
+                              className={`mt-1 text-xs font-medium text-slate-500 leading-tight ${
+                                blurEnabled ? "blur-sm" : ""
+                              }`}
+                            >
+                              <span className="font-semibold tabular-nums text-slate-700">{formatNumber(count)}</span>
+                              <span className="ml-1">{count === 1 ? "entry" : "entries"}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                    <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg flex-shrink-0 ml-2">
-                      <IconComponent className="w-4 h-4 text-white" />
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${meta.tone.chip}`}>
+                      <IconComponent className="w-4 h-4" />
                     </div>
                   </div>
                 </div>
-                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 hover:translate-x-full transition-transform duration-700 pointer-events-none" />
               </motion.div>
             </div>
           );

@@ -419,7 +419,7 @@ const PurchaseForm = ({
     const formContent = (
         <div className="bg-white rounded-xl shadow-2xl flex flex-col h-full border border-gray-200">
             {/* Header with Toggle Buttons */}
-            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-t-xl">
+            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-indigo-600 text-white rounded-t-xl">
                 <div className="flex items-center space-x-3">
                     <div className="p-1.5 bg-white/10 rounded-lg">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -495,7 +495,7 @@ const PurchaseForm = ({
                             </div>
                             <div className="relative">
                                 <div
-                                    className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white cursor-pointer hover:border-indigo-400 transition-all duration-200 shadow-sm text-sm"
+                                    className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg bg-white cursor-pointer hover:border-indigo-400 transition-all duration-200 shadow-sm text-sm"
                                     onClick={() => setShowPartyDropdown(!showPartyDropdown)}
                                 >
                                     {formData.party_id ? (
@@ -538,7 +538,7 @@ const PurchaseForm = ({
                                 </div>
 
                                 {showPartyDropdown && (
-                                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-80 overflow-y-auto text-sm">
+                                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-80 overflow-y-auto text-sm">
                                         {purchaseType === 'user' && (
                                             <div className="p-2 border-b border-gray-200 bg-gray-50 sticky top-0">
                                                 <div className="relative">
@@ -548,7 +548,7 @@ const PurchaseForm = ({
                                                     <input
                                                         type="text"
                                                         placeholder="Search by name, email, or mobile..."
-                                                        className="w-full pl-8 pr-3 py-2 border-2 border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                                                        className="w-full pl-8 pr-3 py-2 border-2 border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                                         value={userSearchTerm}
                                                         onChange={(e) => setUserSearchTerm(e.target.value)}
                                                         autoFocus
@@ -581,10 +581,10 @@ const PurchaseForm = ({
                                             {partyOptions.map(party => (
                                                 <div
                                                     key={party.id}
-                                                    className={`px-3 py-2 cursor-pointer border-l-2 transition-all duration-150 ${
+                                                    className={`mx-1 my-0.5 rounded-md px-3 py-2 cursor-pointer transition-colors duration-150 ${
                                                         formData.party_id === party.id
-                                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                                                            : 'border-transparent hover:bg-gray-50'
+                                                            ? 'bg-indigo-50 text-indigo-700'
+                                                            : 'hover:bg-slate-50'
                                                     }`}
                                                     onClick={() => handlePartySelect(party.id)}
                                                 >
@@ -655,7 +655,7 @@ const PurchaseForm = ({
                                 </div>
                                 <input
                                     type="date"
-                                    className="w-full pl-9 pr-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 hover:border-indigo-400 transition-all duration-200 shadow-sm bg-white text-sm"
+                                    className="w-full pl-9 pr-3 py-2.5 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-indigo-400 transition-all duration-200 shadow-sm bg-white text-sm"
                                     name="purchase_date"
                                     value={formData.purchase_date}
                                     onChange={handleInputChange}
@@ -676,7 +676,7 @@ const PurchaseForm = ({
                                 type="button"
                                 onClick={addItem}
                                 disabled={isLoadingServices}
-                                className="inline-flex items-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 transition-all duration-200 shadow-sm text-sm disabled:opacity-50"
+                                className="inline-flex items-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-1 transition-all duration-200 shadow-sm text-sm disabled:opacity-50"
                             >
                                 <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -685,9 +685,9 @@ const PurchaseForm = ({
                             </button>
                         </div>
 
-                        <div className="overflow-hidden border border-gray-300 rounded-lg shadow-sm text-sm">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                        <div className="overflow-hidden border border-slate-200 rounded-lg shadow-sm text-sm">
+                            <table className="min-w-full divide-y divide-slate-100">
+                                <thead className="bg-slate-50 border-b border-slate-200">
                                     <tr>
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Service/Item</th>
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</th>
@@ -695,12 +695,12 @@ const PurchaseForm = ({
                                         <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-slate-100">
                                     {formData.items.map((item, index) => (
-                                        <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
+                                        <tr key={index} className="hover:bg-slate-50 transition-colors duration-150">
                                             <td className="px-3 py-2.5">
                                                 <select
-                                                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150"
+                                                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-150"
                                                     value={item.service_id}
                                                     onChange={(e) => handleServiceChange(index, e.target.value)}
                                                     required
@@ -719,7 +719,7 @@ const PurchaseForm = ({
                                             <td className="px-3 py-2.5">
                                                 <input
                                                     type="text"
-                                                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150"
+                                                    className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-150"
                                                     placeholder="Description..."
                                                     value={item.description}
                                                     onChange={(e) => handleItemChange(index, 'description', e.target.value)}
@@ -730,7 +730,7 @@ const PurchaseForm = ({
                                                     <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₹</span>
                                                     <input
                                                         type="number"
-                                                        className="w-full pl-7 pr-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 text-right"
+                                                        className="w-full pl-7 pr-2.5 py-1.5 border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-150 text-right"
                                                         placeholder="0"
                                                         value={item.price}
                                                         onChange={(e) => handleItemChange(index, 'price', e.target.value)}
@@ -767,7 +767,7 @@ const PurchaseForm = ({
                                 <h4 className="text-sm font-bold text-gray-900">Notes</h4>
                             </div>
                             <textarea
-                                className="w-full h-28 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 resize-none bg-gray-50 text-sm"
+                                className="w-full h-28 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all duration-150 resize-none bg-gray-50 text-sm"
                                 placeholder="Additional notes or instructions..."
                                 name="notes"
                                 value={formData.notes}
@@ -777,7 +777,7 @@ const PurchaseForm = ({
                     </div>
 
                     {/* Totals Section */}
-                    <div className="bg-gradient-to-br from-indigo-50 to-white p-4 rounded-lg border border-indigo-100 shadow-sm">
+                    <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 shadow-sm">
                         <div className="flex items-center mb-4">
                             <div className="p-1.5 bg-indigo-600 text-white rounded mr-2">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -865,7 +865,7 @@ const PurchaseForm = ({
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
-                        <div className="hidden lg:block px-3 py-1.5 bg-gradient-to-r from-indigo-50 to-indigo-100 rounded border border-indigo-200">
+                        <div className="hidden lg:block px-3 py-1.5 bg-indigo-50 rounded border border-indigo-200">
                             <div className="text-xs text-indigo-700 font-semibold">
                                 Total: <span className="text-sm">{formatCurrency(formData.grand_total)}</span>
                             </div>
@@ -877,7 +877,7 @@ const PurchaseForm = ({
                                     type="button"
                                     onClick={onClose}
                                     disabled={isSubmitting}
-                                    className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-all duration-150 disabled:opacity-50 shadow-sm"
+                                    className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-all duration-150 disabled:opacity-50 shadow-sm"
                                 >
                                     Cancel
                                 </button>
@@ -886,7 +886,7 @@ const PurchaseForm = ({
                                 type="submit"
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || !formData.party_id || formData.items.every(item => !item.service_id)}
-                                className="px-5 py-2 text-xs font-medium text-white bg-gradient-to-r from-indigo-600 to-indigo-700 border border-transparent rounded-lg hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 shadow hover:shadow-md min-w-[140px] flex items-center justify-center"
+                                className="px-5 py-2 text-xs font-medium text-white bg-indigo-600 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 shadow hover:shadow-md min-w-[140px] flex items-center justify-center"
                             >
                                 {isSubmitting ? (
                                     <>

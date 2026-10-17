@@ -46,7 +46,7 @@ const ModalWrapper = memo(({ isOpen, onClose, title, children, size = 'max-w-md'
                     exit={{ opacity: 0, scale: 0.9, y: 10 }}
                     className={`relative w-full ${size} bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}
                 >
-                    <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50 text-slate-800 rounded-t-xl">
+                    <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-slate-200 bg-blue-50 text-slate-800 rounded-t-xl">
                         <h2 className="text-xl font-bold">{title}</h2>
                         <button
                             onClick={onClose}
@@ -95,7 +95,7 @@ const StaffFormModal = memo(({
                 <form onSubmit={handleSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-6 px-6 py-2">Personal Information</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-blue-50 -mx-6 px-6 py-2">Personal Information</h3>
 
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -105,7 +105,7 @@ const StaffFormModal = memo(({
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => handleInputChange('name', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="Enter full name"
                                     required
                                 />
@@ -119,7 +119,7 @@ const StaffFormModal = memo(({
                                     type="text"
                                     value={formData.guardian_name}
                                     onChange={(e) => handleInputChange('guardian_name', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="Enter guardian name"
                                 />
                             </div>
@@ -132,7 +132,7 @@ const StaffFormModal = memo(({
                                     type="text"
                                     value={formData.pan_number}
                                     onChange={(e) => handleInputChange('pan_number', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="ABCDE1234F"
                                     maxLength="10"
                                 />
@@ -140,7 +140,7 @@ const StaffFormModal = memo(({
                         </div>
 
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-6 px-6 py-2">Contact Information</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-blue-50 -mx-6 px-6 py-2">Contact Information</h3>
 
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -150,7 +150,7 @@ const StaffFormModal = memo(({
                                     type="tel"
                                     value={formData.mobile}
                                     onChange={(e) => handleInputChange('mobile', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="+91 9876543210"
                                     required
                                 />
@@ -164,7 +164,7 @@ const StaffFormModal = memo(({
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => handleInputChange('email', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="email@company.com"
                                     required
                                 />
@@ -178,14 +178,14 @@ const StaffFormModal = memo(({
                                     type="tel"
                                     value={formData.emergency_contact}
                                     onChange={(e) => handleInputChange('emergency_contact', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="+91 9876543299"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-6 px-6 py-2">Employment Details</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-blue-50 -mx-6 px-6 py-2">Employment Details</h3>
 
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -194,7 +194,7 @@ const StaffFormModal = memo(({
                                 <select
                                     value={formData.designation}
                                     onChange={(e) => handleInputChange('designation', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     required
                                 >
                                     <option value="">Select Designation</option>
@@ -220,7 +220,7 @@ const StaffFormModal = memo(({
                                     type="number"
                                     value={formData.salary}
                                     onChange={(e) => handleInputChange('salary', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="50000"
                                     required
                                 />
@@ -234,14 +234,14 @@ const StaffFormModal = memo(({
                                     type="date"
                                     value={formData.joining_date}
                                     onChange={(e) => handleInputChange('joining_date', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     required
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-6 px-6 py-2">Additional Information</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 border-b pb-2 bg-blue-50 -mx-6 px-6 py-2">Additional Information</h3>
 
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -251,7 +251,7 @@ const StaffFormModal = memo(({
                                     value={formData.address}
                                     onChange={(e) => handleInputChange('address', e.target.value)}
                                     rows="3"
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="Enter complete address"
                                 />
                             </div>
@@ -264,7 +264,7 @@ const StaffFormModal = memo(({
                                     type="text"
                                     value={formData.bank_account}
                                     onChange={(e) => handleInputChange('bank_account', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="123456789012"
                                 />
                             </div>
@@ -277,7 +277,7 @@ const StaffFormModal = memo(({
                                     type="text"
                                     value={formData.ifsc_code}
                                     onChange={(e) => handleInputChange('ifsc_code', e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 hover:border-blue-300 transition-colors bg-white shadow-sm"
                                     placeholder="HDFC0001234"
                                 />
                             </div>
@@ -286,7 +286,7 @@ const StaffFormModal = memo(({
                 </form>
             </div>
 
-            <div className="flex-shrink-0 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 p-6 rounded-b-xl">
+            <div className="flex-shrink-0 border-t border-slate-200 bg-slate-50 p-6 rounded-b-xl">
                 <div className="flex justify-end gap-3">
                     <button
                         type="button"
@@ -300,7 +300,7 @@ const StaffFormModal = memo(({
                         type="submit"
                         onClick={handleSubmit}
                         disabled={isSubmitting}
-                        className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 border border-emerald-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[120px] justify-center shadow-sm"
+                        className="px-6 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[120px] justify-center shadow-sm"
                     >
                         {isSubmitting ? (
                             <>
@@ -344,7 +344,7 @@ const StaffAvatar = ({ name, image }) => {
     }
 
     return (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-[11px] font-semibold text-white shadow-sm">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-[11px] font-semibold text-white shadow-sm">
             {initials || <FiUser className="h-4 w-4" />}
         </div>
     );
@@ -866,7 +866,7 @@ const ViewStaff = () => {
     // Show skeleton while loading
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -880,7 +880,7 @@ const ViewStaff = () => {
                 setIsMinimized={setIsMinimized}
             />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <div className="border-b border-gray-200 px-4 py-4">
                                 <div className="h-5 w-40 rounded bg-gray-200 animate-pulse mb-2" />
@@ -899,7 +899,7 @@ const ViewStaff = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -914,25 +914,23 @@ const ViewStaff = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
                         <div className="border-b border-gray-200 px-4 py-4 sm:px-5">
                             <div className="flex flex-col gap-3">
                                 <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
                                     <div className="min-w-0 flex-1">
-                                        <h5 className="text-lg sm:text-xl font-bold text-gray-800 mb-0.5">
+                                        <h5 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 mb-0.5">
                                             Staff Members
                                         </h5>
-                                        <p className="text-gray-500 text-xs">
+                                        <p className="text-slate-500 text-xs mt-0.5">
                                             {totalItems} staff member{totalItems === 1 ? '' : 's'} total
                                     </p>
                                 </div>
                                         <motion.button
                                         type="button"
                                             onClick={() => setIsAddStaffModalOpen(true)}
-                                        className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                        className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
                                         >
                                             <FiPlus className="w-4 h-4" />
                                             Add Staff
@@ -946,7 +944,7 @@ const ViewStaff = () => {
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         onKeyDown={handleKeyPress}
                                         placeholder="Search by name, mobile, email..."
-                                        className="w-full min-w-0 rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full min-w-0 rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                                     />
                                 </div>
                             </div>
@@ -954,7 +952,7 @@ const ViewStaff = () => {
 
                         <div className="flex-1 overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                <thead className="bg-slate-50 border-b border-slate-200">
                                     <tr>
                                         <th className={`${tableHeadClass} text-center w-14`}>#</th>
                                         <th className={`${tableHeadClass} text-left`}>Staff</th>
@@ -1014,7 +1012,7 @@ const ViewStaff = () => {
                                             const actualIndex = rowOffset + index;
                                             const isAccepted = staffMember.is_accepted === true;
                                             return (
-                                                <tr key={staffMember.id || staffMember.username} className="hover:bg-gray-50 transition-colors">
+                                                <tr key={staffMember.id || staffMember.username} className="hover:bg-slate-50 transition-colors">
                                                     <td className="p-3 text-center align-middle">
                                                         <span className="text-[11px] font-bold text-gray-800">{actualIndex + 1}</span>
                                                     </td>
@@ -1058,8 +1056,8 @@ const ViewStaff = () => {
                                                     <td className="p-3 text-center align-middle">
                                                         <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg min-w-[80px] border text-xs font-bold ${
                                                             isAccepted
-                                                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-green-200'
-                                                            : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200'
+                                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                                            : 'bg-amber-50 text-amber-700 border-amber-200'
                                                             }`}>
                                                             {isAccepted ? 'Accepted' : 'Pending'}
                                                         </span>
@@ -1067,8 +1065,8 @@ const ViewStaff = () => {
                                                     <td className="p-3 text-center align-middle">
                                                         <span className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg min-w-[80px] border text-xs font-bold ${
                                                             staffMember.is_active
-                                                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-200'
-                                                            : 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200'
+                                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                            : 'bg-red-50 text-red-700 border-red-200'
                                                             }`}>
                                                             <span className={`w-1.5 h-1.5 rounded-full ${staffMember.is_active ? 'bg-blue-500' : 'bg-red-500'}`} />
                                                             {staffMember.is_active ? 'Active' : 'Deactive'}
@@ -1080,7 +1078,7 @@ const ViewStaff = () => {
                                                                 to={`/staff/view/profile/${encodeURIComponent(staffMember.username)}/ledger`}
                                                                 className="inline-block no-underline hover:no-underline"
                                                             >
-                                                                <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 text-xs font-bold px-3 py-1.5 rounded-lg min-w-[80px] border border-green-200">
+                                                                <span className="inline-flex items-center justify-center bg-green-50 text-green-700 text-xs font-bold px-3 py-1.5 rounded-lg min-w-[80px] border border-green-200">
                                                                     ₹{formatCurrency(parseInt(staffMember.balance, 10) || 0)}
                                                                 </span>
                                                             </Link>

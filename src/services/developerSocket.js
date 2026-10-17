@@ -175,7 +175,17 @@ export const createDeveloperSocket = ({
 
         const onConnectError = (error) => {
           cleanup();
-          reject(error);
+          const normalized =
+            error instanceof Error
+              ? error
+              : new Error(
+                  (typeof error?.message === 'string' && error.message) ||
+                    'Developer socket connection failed'
+                );
+          if (!(error instanceof Error) && error && typeof error === 'object') {
+            normalized.cause = error;
+          }
+          reject(normalized);
         };
 
         socket.once('auth_status', onAuthStatus);

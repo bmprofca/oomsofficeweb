@@ -26,13 +26,13 @@ import {
 } from "../services/complianceService";
 
 const TABLE_HEAD_ROW =
-  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+  "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide border-l border-gray-100";
 const TABLE_TH_FIRST =
   "p-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide";
 const TABLE_ROW_BASE =
-  "border-b border-gray-100 transition-colors group bg-white hover:bg-gray-50";
+  "border-b border-gray-100 transition-colors group bg-white hover:bg-slate-50";
 const TABLE_TD = "p-3 min-w-0 text-left align-middle border-l border-gray-100";
 const TABLE_TD_FIRST = "p-3 min-w-0 text-left align-middle";
 const COLUMN_STACK =
@@ -48,7 +48,7 @@ const CellDash = () => <span className="text-sm text-gray-400">—</span>;
 const TOOLBAR_ROW =
   "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50";
 const TOOLBAR_INPUT =
-  "w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none";
+  "w-full px-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none";
 
 const StackedColumnCell = ({ items }) => {
   if (!items?.length) return <CellDash />;
@@ -232,7 +232,7 @@ const StaffAvatarsCell = ({ row, onOpenStaffModal }) => {
             type="button"
             key={staff.username || staffIndex}
             onClick={() => onOpenStaffModal(staffs, serviceLabel)}
-            className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
+            className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
             title={staffName}
           >
             {staffName.charAt(0).toUpperCase()}
@@ -552,7 +552,7 @@ const ComplianceYetNotStarted = () => {
   }, [startWorkingTarget, loadRows]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -569,7 +569,7 @@ const ComplianceYetNotStarted = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-3 md:px-4 py-4 border-b border-gray-100">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -657,7 +657,7 @@ const ComplianceYetNotStarted = () => {
                     type="button"
                     onClick={loadRows}
                     disabled={loading}
-                    className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    className="p-2 rounded-lg border border-slate-200 text-gray-600 hover:bg-slate-50 disabled:opacity-50"
                     title="Refresh"
                   >
                     <FiRefreshCw

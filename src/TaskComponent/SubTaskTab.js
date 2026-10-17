@@ -588,7 +588,7 @@ const SubtaskTab = ({
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div>
@@ -605,13 +605,13 @@ const SubtaskTab = ({
                             placeholder="Search..."
                             value={filters.search}
                             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                            className="pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-40 outline-none transition-all duration-200"
+                            className="pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent w-40 outline-none transition-all duration-200"
                         />
                     </div>
                     <select
                         value={filters.type}
                         onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none transition-all duration-200"
                     >
                         <option value="">All Types</option>
                         <option value="text">Text</option>
@@ -621,7 +621,7 @@ const SubtaskTab = ({
                     <select
                         value={filters.status}
                         onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+                        className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none transition-all duration-200"
                     >
                         <option value="">All Status</option>
                         {statusOptions.map(option => (
@@ -633,16 +633,14 @@ const SubtaskTab = ({
                     {(filters.search || filters.type || filters.status) && (
                         <button
                             onClick={clearFilters}
-                            className="px-3 py-2 text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+                            className="px-3 py-2 text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl text-sm hover:bg-slate-50 transition-colors"
                         >
                             Clear
                         </button>
                     )}
                     <motion.button
                         onClick={openAddModal}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium shadow-sm hover:shadow"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors duration-200 font-medium shadow-sm hover:shadow"
                         disabled={submitting}
                     >
                         <FiPlus className="w-4 h-4" />
@@ -692,7 +690,7 @@ const SubtaskTab = ({
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0 }}
                                             transition={{ delay: index * 0.05 }}
-                                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                                            className="border-b border-gray-100 hover:bg-slate-50 transition-colors"
                                         >
                                             <td className="px-4 py-3">
                                                 {((pagination.page_no - 1) * pagination.limit) + index + 1}
@@ -716,7 +714,7 @@ const SubtaskTab = ({
                                                 <select
                                                     value={normalizeStatus(task.status)}
                                                     onChange={(e) => handleStatusChange(task.subtask_id, e.target.value)}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200 ${getStatusColor(task.status)}`}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border focus:ring-2 focus:ring-indigo-500/25 outline-none transition-all duration-200 ${getStatusColor(task.status)}`}
                                                 >
                                                     {statusOptions.map(option => (
                                                         <option key={option.value} value={option.value}>
@@ -744,9 +742,7 @@ const SubtaskTab = ({
                                                     <motion.button
                                                         type="button"
                                                         onClick={() => setDetailsSubtask(task)}
-                                                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
+                                                        className="p-1.5 text-gray-600 hover:bg-slate-100 rounded-lg transition-colors"
                                                         title="Details"
                                                         disabled={submitting}
                                                     >
@@ -756,8 +752,6 @@ const SubtaskTab = ({
                                                         type="button"
                                                         onClick={() => openEditModal(task)}
                                                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
                                                         title="Edit"
                                                         disabled={submitting}
                                                     >
@@ -767,8 +761,6 @@ const SubtaskTab = ({
                                                         type="button"
                                                         onClick={() => handleDelete(task.subtask_id)}
                                                         className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
                                                         title="Delete"
                                                         disabled={submitting}
                                                     >
@@ -813,8 +805,6 @@ const SubtaskTab = ({
                                                 ? 'text-gray-300 cursor-not-allowed' 
                                                 : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                                         }`}
-                                        whileHover={pagination.page_no !== 1 ? { scale: 1.05 } : {}}
-                                        whileTap={pagination.page_no !== 1 ? { scale: 0.95 } : {}}
                                     >
                                         <FiChevronLeft className="w-4 h-4" />
                                     </motion.button>
@@ -826,8 +816,6 @@ const SubtaskTab = ({
                                                 ? 'text-gray-300 cursor-not-allowed' 
                                                 : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                                         }`}
-                                        whileHover={!pagination.is_last_page ? { scale: 1.05 } : {}}
-                                        whileTap={!pagination.is_last_page ? { scale: 0.95 } : {}}
                                     >
                                         <FiChevronRight className="w-4 h-4" />
                                     </motion.button>
@@ -888,7 +876,7 @@ const SubtaskTab = ({
                                             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-200 ${
                                                 formData.type === 'text'
                                                     ? 'border-blue-600 bg-blue-50 text-blue-600'
-                                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                    : 'border-gray-200 text-gray-600 hover:bg-slate-50'
                                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
                                             <FiType className="w-4 h-4" />
@@ -901,7 +889,7 @@ const SubtaskTab = ({
                                             className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-200 ${
                                                 formData.type === 'service'
                                                     ? 'border-purple-600 bg-purple-50 text-purple-600'
-                                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                    : 'border-gray-200 text-gray-600 hover:bg-slate-50'
                                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
                                             <FiPackage className="w-4 h-4" />
@@ -921,7 +909,7 @@ const SubtaskTab = ({
                                             onChange={(e) => setFormData(prev => ({ ...prev, text: e.target.value }))}
                                             rows={4}
                                             disabled={submitting}
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed resize-none"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed resize-none"
                                             placeholder="Enter subtask description..."
                                         />
                                     </div>
@@ -941,7 +929,7 @@ const SubtaskTab = ({
                                                 }}
                                                 onFocus={() => setShowServiceDropdown(true)}
                                                 disabled={submitting}
-                                                className="w-full pl-9 pr-10 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                                className="w-full pl-9 pr-10 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
                                                 placeholder="Search services..."
                                             />
                                             <FiChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -994,7 +982,7 @@ const SubtaskTab = ({
                                             value={formData.status}
                                             onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
                                             disabled={submitting}
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
                                         >
                                             {statusOptions.map(option => (
                                                 <option key={option.value} value={option.value}>
@@ -1018,9 +1006,7 @@ const SubtaskTab = ({
                                 <motion.button
                                     onClick={editingSubtask ? handleUpdate : handleAdd}
                                     disabled={submitting}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
                                 >
                                     {submitting ? (
                                         <>
@@ -1065,7 +1051,7 @@ const SubtaskTab = ({
                                     type="button"
                                     disabled={submitting}
                                     onClick={() => setBlockingConfirm(null)}
-                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg font-medium disabled:opacity-50"
+                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-slate-100 rounded-lg font-medium disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
@@ -1112,7 +1098,7 @@ const SubtaskTab = ({
                                 <button
                                     type="button"
                                     onClick={() => setDetailsSubtask(null)}
-                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-slate-100 rounded-lg"
                                     aria-label="Close"
                                 >
                                     <FiX className="w-5 h-5" />
@@ -1122,7 +1108,7 @@ const SubtaskTab = ({
                                 <dl className="space-y-3">
                                     {buildSubtaskDetailRows(detailsSubtask).map((row, idx) => (
                                         <div key={`${row.label}-${idx}`} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-                                            <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                            <dt className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider tracking-wide mb-1">
                                                 {row.label}
                                             </dt>
                                             <dd className="text-sm text-gray-900 whitespace-pre-wrap break-words">

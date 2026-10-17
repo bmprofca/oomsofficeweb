@@ -13,14 +13,14 @@ import {
 function NotePanel({ icon: Icon, iconClass, iconBg, title, action, children, className = '' }) {
     return (
         <div
-            className={`flex flex-col w-full h-full min-h-[240px] lg:min-h-[280px] rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm ${className}`}
+            className={`flex h-full w-full min-h-[220px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white lg:min-h-[300px] ${className}`}
         >
-            <div className="shrink-0 px-3 py-2 border-b border-gray-100 flex items-center justify-between gap-2 bg-gray-50/50">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
                 <div className="flex items-center gap-2 min-w-0">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
                         <Icon className={`w-3.5 h-3.5 ${iconClass}`} />
                     </div>
-                    <h3 className="text-xs font-semibold text-gray-900">{title}</h3>
+                    <h3 className="text-[13px] font-semibold text-slate-900">{title}</h3>
                 </div>
                 {action}
             </div>
@@ -30,7 +30,7 @@ function NotePanel({ icon: Icon, iconClass, iconBg, title, action, children, cla
 }
 
 const addBtnClass =
-    'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white shadow-sm';
+    'inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700';
 
 export default function NotesStep({
     form,
@@ -54,8 +54,8 @@ export default function NotesStep({
     removeVoiceNote,
 }) {
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 w-full">
-            <div className="lg:col-span-4 w-full min-w-0 flex flex-col">
+        <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="flex w-full min-w-0 flex-col">
             <NotePanel
                 icon={FiFileText}
                 iconClass="text-indigo-600"
@@ -65,8 +65,7 @@ export default function NotesStep({
                     <motion.button
                         type="button"
                         onClick={addTextNote}
-                        className={`${addBtnClass} bg-indigo-600 hover:bg-indigo-700`}
-                        whileTap={{ scale: 0.98 }}
+                        className={addBtnClass}
                     >
                         <FiPlus className="w-3.5 h-3.5" />
                         Add
@@ -74,7 +73,7 @@ export default function NotesStep({
                 }
             >
                 {(form.text_notes || []).length === 0 ? (
-                    <div className="text-center py-6 text-gray-400 text-xs rounded-lg border border-dashed border-gray-200">
+                    <div className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400">
                         No text notes yet.
                     </div>
                 ) : (
@@ -86,7 +85,7 @@ export default function NotesStep({
                                     onChange={(e) => updateTextNote(index, e.target.value)}
                                     placeholder={`Note ${index + 1}...`}
                                     rows={2}
-                                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none resize-none"
+                                    className="flex-1 resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                                 />
                                 <button
                                     type="button"
@@ -102,7 +101,7 @@ export default function NotesStep({
             </NotePanel>
             </div>
 
-            <div className="lg:col-span-4 w-full min-w-0 flex flex-col">
+            <div className="flex w-full min-w-0 flex-col">
             <NotePanel
                 icon={FiPaperclip}
                 iconClass="text-emerald-600"
@@ -113,8 +112,7 @@ export default function NotesStep({
                         <motion.button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className={`${addBtnClass} bg-emerald-600 hover:bg-emerald-700`}
-                            whileTap={{ scale: 0.98 }}
+                            className={addBtnClass}
                         >
                             <FiPlus className="w-3.5 h-3.5" />
                             Add
@@ -185,14 +183,14 @@ export default function NotesStep({
                         ))}
                     </ul>
                 ) : (
-                    <div className="text-center py-6 text-gray-400 text-xs rounded-lg border border-dashed border-gray-200">
+                    <div className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400">
                         No files attached.
                     </div>
                 )}
             </NotePanel>
             </div>
 
-            <div className="lg:col-span-4 w-full min-w-0 flex flex-col">
+            <div className="flex w-full min-w-0 flex-col">
             <NotePanel
                 icon={FiMic}
                 iconClass="text-violet-600"
@@ -206,10 +204,9 @@ export default function NotesStep({
                             onClick={isRecording ? stopRecording : startRecording}
                             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium shadow-sm ${
                                 isRecording
-                                    ? 'bg-red-500 hover:bg-red-600 text-white'
-                                    : 'bg-violet-600 hover:bg-violet-700 text-white'
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                                    : 'bg-white border border-slate-200 text-slate-700 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700'
                             }`}
-                            whileTap={{ scale: 0.98 }}
                         >
                             {isRecording ? (
                                 <>
@@ -254,7 +251,7 @@ export default function NotesStep({
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-4 text-gray-400 text-xs rounded-lg border border-dashed border-gray-200">
+                        <div className="rounded-lg border border-dashed border-slate-200 py-6 text-center text-xs text-slate-400">
                             No voice notes yet.
                         </div>
                     )}

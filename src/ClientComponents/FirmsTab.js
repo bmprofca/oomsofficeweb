@@ -669,7 +669,7 @@ const FirmsTab = ({ clientUsername }) => {
     const editDistrictOptions = statesAndDistricts.find((item) => item.name === editFirmData.state)?.districts || [];
 
     const FirmsSkeleton = () => (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="space-y-3 p-3 md:hidden">
                 {Array.from({ length: 4 }).map((_, index) => (
                     <div key={index} className="animate-pulse rounded-lg border border-gray-200 bg-white p-3">
@@ -720,7 +720,7 @@ const FirmsTab = ({ clientUsername }) => {
                     </div>
                 ))}
             </div>
-            <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+            <div className="border-t border-slate-200 bg-slate-50/60 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                     <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
                     <div className="h-9 w-40 animate-pulse rounded-lg bg-slate-200" />
@@ -736,11 +736,11 @@ const FirmsTab = ({ clientUsername }) => {
             exit={{ opacity: 0, y: -12 }}
             className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
         >
-            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/40 px-4 py-4 sm:px-5">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2.5">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-sm shadow-indigo-200">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-200">
                                 <FiBriefcase className="h-4 w-4" />
                             </div>
                             <div>
@@ -772,9 +772,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     setShowAddModal(true);
                                     if (branchGroups.length === 0) fetchBranchGroups();
                                 }}
-                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:from-indigo-700 hover:to-blue-700"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-200"
                             >
                                 <FiPlus className="h-4 w-4" />
                                 Add Firm
@@ -802,7 +800,7 @@ const FirmsTab = ({ clientUsername }) => {
                 {loading ? (
                     <FirmsSkeleton />
                 ) : (
-                    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                         {firms.length === 0 ? (
                             <div className="px-4 py-14 text-center">
                                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-200">
@@ -831,7 +829,7 @@ const FirmsTab = ({ clientUsername }) => {
                                         >
                                             <div className="mb-3 flex items-start justify-between gap-3">
                                                 <div className="flex min-w-0 items-start gap-3">
-                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white">
                                                         <FiBriefcase className="h-4 w-4" />
                                                     </div>
                                                     <div className="min-w-0">
@@ -888,7 +886,7 @@ const FirmsTab = ({ clientUsername }) => {
                                                     </td>
                                                     <td className="min-w-0 px-3 py-3 align-middle">
                                                         <div className="flex min-w-0 items-center gap-2.5">
-                                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white">
+                                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white">
                                                                 <FiBriefcase className="h-3.5 w-3.5" />
                                                             </div>
                                                             <div className="min-w-0">
@@ -949,7 +947,7 @@ const FirmsTab = ({ clientUsername }) => {
                 open={showAddModal}
                 onClose={() => setShowAddModal(false)}
                 maxWidth="max-w-5xl"
-                headerClass="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800"
+                headerClass="bg-blue-600"
                 icon={FiPlus}
                 title="Add new firm"
                 subtitle="Register a firm for this client"
@@ -981,7 +979,7 @@ const FirmsTab = ({ clientUsername }) => {
                 open={showEditModal && !!selectedFirm}
                 onClose={() => setShowEditModal(false)}
                 maxWidth="max-w-5xl"
-                headerClass="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600"
+                headerClass="bg-amber-500"
                 icon={FiEdit}
                 title="Edit firm"
                 subtitle={selectedFirm?.firm_name ? `Updating ${selectedFirm.firm_name}` : 'Update firm details'}
@@ -990,7 +988,7 @@ const FirmsTab = ({ clientUsername }) => {
                         onCancel={() => setShowEditModal(false)}
                         onConfirm={handleEditFirm}
                         confirmLabel="Save changes"
-                        confirmClass="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-amber-200"
+                        confirmClass="bg-amber-500 hover:bg-amber-600 shadow-amber-200"
                         loading={savingFirm}
                         disabled={!editFirmData.name?.trim()}
                     />
@@ -1020,7 +1018,7 @@ const FirmsTab = ({ clientUsername }) => {
                 open={showViewModal && !!selectedFirm}
                 onClose={() => setShowViewModal(false)}
                 maxWidth="max-w-5xl"
-                headerClass="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900"
+                headerClass="bg-slate-700"
                 icon={FiEye}
                 title="Firm details"
                 subtitle={selectedFirm?.firm_name || 'View firm information'}
@@ -1033,7 +1031,7 @@ const FirmsTab = ({ clientUsername }) => {
                         } : null}
                         cancelLabel="Close"
                         confirmLabel={canEdit ? 'Edit firm' : null}
-                        confirmClass="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-indigo-200"
+                        confirmClass="bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
                     />
                 }
             >
@@ -1067,7 +1065,7 @@ const FirmsTab = ({ clientUsername }) => {
                 open={showDeleteModal && !!selectedFirm}
                 onClose={() => setShowDeleteModal(false)}
                 maxWidth="max-w-md"
-                headerClass="bg-gradient-to-r from-red-500 to-rose-600"
+                headerClass="bg-red-500"
                 icon={FiTrash2}
                 title="Delete firm"
                 subtitle="This action cannot be undone"
@@ -1076,7 +1074,7 @@ const FirmsTab = ({ clientUsername }) => {
                         onCancel={() => setShowDeleteModal(false)}
                         onConfirm={deleteFirm}
                         confirmLabel="Delete firm"
-                        confirmClass="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-200"
+                        confirmClass="bg-red-500 hover:bg-red-600 shadow-red-200"
                         loading={savingFirm}
                     />
                 }

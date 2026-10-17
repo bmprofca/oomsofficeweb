@@ -110,7 +110,7 @@ const SectionCard = ({ title, icon: Icon, iconClass = 'text-slate-500', children
 const footerBtnSecondary =
     'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 const footerBtnPrimary =
-    'inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-2 text-xs sm:text-sm font-medium text-white transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-blue-600';
+    'inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs sm:text-sm font-medium text-white transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-blue-600';
 
 /**
  * Viewport-safe shell per CLIENT/context/modal.md
@@ -122,7 +122,7 @@ const ViewModalShell = ({
     title,
     subtitle = null,
     titleIcon: TitleIcon = FiFileText,
-    headerClassName = 'border-b border-blue-500/25 bg-gradient-to-r from-blue-500 to-blue-600',
+    headerClassName = 'border-b border-blue-500/25 bg-blue-500',
     maxWidth = 'max-w-2xl',
     footer = null,
     children,
@@ -608,7 +608,7 @@ export const SaleDetailsModal = ({
             )}
         >
             {/* Summary strip */}
-            <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-4 shadow-sm">
+            <div className="rounded-xl border border-blue-200/80 bg-blue-50 p-4 shadow-sm">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${partyTypeBadgeClass(record.sale_type)}`}>
@@ -819,7 +819,7 @@ export const PurchaseDetailsModal = ({
             title="Purchase Details"
             subtitle={record.invoice_no ? `Invoice ${record.invoice_no}` : null}
             titleIcon={FiFileText}
-            headerClassName="border-b border-violet-500/25 bg-gradient-to-r from-violet-500 to-purple-600"
+            headerClassName="border-b border-violet-500/25 bg-violet-500"
             maxWidth="max-w-2xl"
             footer={(
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -861,7 +861,7 @@ export const PurchaseDetailsModal = ({
                 </div>
             )}
         >
-            <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-slate-50 p-4 shadow-sm">
+            <div className="rounded-xl border border-violet-200/80 bg-violet-50 p-4 shadow-sm">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize ${partyTypeBadgeClass(purchaseType)}`}>
                         {getPartyTypeLabel(purchaseType)}

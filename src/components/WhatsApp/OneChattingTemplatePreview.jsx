@@ -13,7 +13,7 @@ const HEADER_MEDIA_CLASS =
 const TemplateActionButton = ({ button, isOutgoing }) => {
   const baseClass = isOutgoing
     ? "flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-medium text-white border-t border-white/20 hover:bg-green-700/40 transition-colors"
-    : "flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-medium text-[#008069] border-t border-gray-200 hover:bg-gray-50 transition-colors";
+    : "flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-medium text-[#008069] border-t border-gray-200 hover:bg-slate-50 transition-colors";
 
   if (button.type === "PHONE_NUMBER" && button.phone_number) {
     return (
@@ -144,7 +144,7 @@ const TemplateHeaderMedia = ({
         className={`flex items-center gap-3 rounded-lg px-3 py-2 ${
           isOutgoing
             ? `bg-green-700/40 ${canOpen ? "hover:bg-green-700/55 cursor-pointer" : ""}`
-            : `border border-gray-200 bg-gray-50 ${canOpen ? "hover:bg-gray-100 cursor-pointer" : ""}`
+            : `border border-gray-200 bg-gray-50 ${canOpen ? "hover:bg-slate-100 cursor-pointer" : ""}`
         }`}
       >
         <div

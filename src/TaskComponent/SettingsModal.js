@@ -183,7 +183,7 @@ const SettingsModal = ({ isOpen, onClose, columnConfig, saveColumnConfig, defaul
                 } ${
                     column.fixed
                         ? 'bg-indigo-50 border-indigo-300 shadow-sm'
-                        : 'bg-white border-gray-200 hover:shadow-md hover:border-gray-300'
+                        : 'bg-white border-gray-200 hover:shadow-md hover:border-slate-200'
                 }`}
             >
                 <div className="mb-2 pb-2 border-b border-gray-100">
@@ -283,14 +283,12 @@ const SettingsModal = ({ isOpen, onClose, columnConfig, saveColumnConfig, defaul
                         exit={{ scale: 0.95, opacity: 0 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3 flex justify-between items-center flex-shrink-0">
+                        <div className="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center flex-shrink-0">
                             <h2 className="text-lg font-bold">Table Column Settings</h2>
                             <motion.button
                                 type="button"
                                 onClick={onClose}
                                 className="text-white hover:text-indigo-200 p-1 rounded-lg hover:bg-indigo-500"
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
                             >
                                 <FiX className="w-5 h-5" />
                             </motion.button>
@@ -335,9 +333,7 @@ const SettingsModal = ({ isOpen, onClose, columnConfig, saveColumnConfig, defaul
                                 <motion.button
                                     type="button"
                                     onClick={resetToDefault}
-                                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 gap-1.5 transition-all"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-slate-200 rounded-lg text-gray-700 hover:bg-gray-200 gap-1.5 transition-all"
                                 >
                                     <FiRefreshCw className="w-3.5 h-3.5" /> Reset to Default
                                 </motion.button>
@@ -345,18 +341,14 @@ const SettingsModal = ({ isOpen, onClose, columnConfig, saveColumnConfig, defaul
                                     <motion.button
                                         type="button"
                                         onClick={onClose}
-                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 transition-all"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-slate-200 rounded-lg text-gray-700 hover:bg-gray-200 transition-all"
                                     >
                                         Cancel
                                     </motion.button>
                                     <motion.button
                                         type="button"
                                         onClick={saveChanges}
-                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 gap-1.5 transition-all"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg gap-1.5 transition-all"
                                     >
                                         <FiSave className="w-3.5 h-3.5" /> Save Changes
                                     </motion.button>

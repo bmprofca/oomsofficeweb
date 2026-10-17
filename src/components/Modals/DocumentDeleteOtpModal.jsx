@@ -85,7 +85,7 @@ export default function DocumentDeleteOtpModal({
             className="relative z-[1] pointer-events-auto flex w-full max-w-md max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-red-600 to-red-700 px-5 py-3.5 text-white">
+            <div className="flex shrink-0 items-center justify-between bg-red-600 px-5 py-3.5 text-white">
               <h2
                 id="document-delete-otp-title"
                 className="m-0 text-lg font-bold tracking-tight"
@@ -214,7 +214,7 @@ export default function DocumentDeleteOtpModal({
                   type="button"
                   onClick={handleConfirm}
                   disabled={!canSubmit}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:from-red-700 hover:to-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {confirming ? (
                     <FiLoader className="h-4 w-4 animate-spin" />
@@ -228,7 +228,7 @@ export default function DocumentDeleteOtpModal({
                   type="button"
                   onClick={onSendOtp}
                   disabled={busy || !onSendOtp}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-red-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:from-red-700 hover:to-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {sending ? (
                     <FiLoader className="h-4 w-4 animate-spin" />

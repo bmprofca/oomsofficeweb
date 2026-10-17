@@ -775,8 +775,6 @@ export default function LedgerTab({
                             type="button"
                             onClick={handleRefresh}
                             className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-all duration-200 hover:shadow"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
                             title="Refresh"
                         >
                             <FiRefreshCw
@@ -807,8 +805,6 @@ export default function LedgerTab({
                                 }}
                                 disabled={!canViewFees || downloadingLedger}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
-                                whileHover={canViewFees ? { scale: 1.02 } : {}}
-                                whileTap={canViewFees ? { scale: 0.98 } : {}}
                                 title="Share / Download"
                             >
                                 {downloadingLedger ? (
@@ -827,9 +823,7 @@ export default function LedgerTab({
                                     e.stopPropagation();
                                     setShowAddMenu((prev) => !prev);
                                 }}
-                                className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 p-2 text-white shadow-sm transition-all duration-200 hover:shadow"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                className="rounded-lg bg-blue-600 p-2 text-white shadow-sm transition-all duration-200 hover:shadow"
                                 title="Add Transaction"
                             >
                                 <FiPlus className="h-5 w-5" />

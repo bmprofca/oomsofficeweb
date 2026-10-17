@@ -29,7 +29,7 @@ export const ShimmerBone = ({ className = '' }) => (
 
 const SectionBlockSkeleton = ({ fieldCount = 4, cols = 'sm:grid-cols-2 lg:grid-cols-3' }) => (
     <section className="rounded-lg border border-gray-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 md:px-4">
+        <div className="flex items-center gap-2 border-b border-gray-200 bg-slate-50/60 px-3 py-2.5 md:px-4">
             <SkeletonBone className="h-7 w-7 shrink-0 rounded-lg" />
             <SkeletonBone className="h-4 w-28" />
         </div>
@@ -49,11 +49,11 @@ const SectionBlockSkeleton = ({ fieldCount = 4, cols = 'sm:grid-cols-2 lg:grid-c
 /** Matches DetailsTab card layout */
 export const DetailsTabSkeleton = () => (
     <div
-        className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+        className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
         aria-busy="true"
         aria-label="Loading task details"
     >
-        <div className="flex flex-col gap-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:flex-row md:items-center md:justify-between md:px-4">
+        <div className="flex flex-col gap-3 border-b border-gray-200 bg-slate-50/60 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-4">
             <div className="flex min-w-0 items-center gap-3">
                 <SkeletonBone className="h-9 w-9 shrink-0 rounded-lg" />
                 <div className="min-w-0 space-y-2">
@@ -80,7 +80,7 @@ export const DetailsTabSkeleton = () => (
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <section className="rounded-lg border border-gray-200 bg-white">
-                    <div className="flex items-center gap-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 md:px-4">
+                    <div className="flex items-center gap-2 border-b border-gray-200 bg-slate-50/60 px-3 py-2.5 md:px-4">
                         <SkeletonBone className="h-7 w-7 rounded-lg" />
                         <SkeletonBone className="h-4 w-16" />
                     </div>
@@ -97,7 +97,7 @@ export const DetailsTabSkeleton = () => (
             </div>
 
             <section className="rounded-lg border border-gray-200 bg-white">
-                <div className="flex items-center gap-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 md:px-4">
+                <div className="flex items-center gap-2 border-b border-gray-200 bg-slate-50/60 px-3 py-2.5 md:px-4">
                     <SkeletonBone className="h-7 w-7 rounded-lg" />
                     <SkeletonBone className="h-4 w-14" />
                 </div>
@@ -143,8 +143,8 @@ export const NotesListSkeleton = ({ rowCount = 5 }) => (
 /** Matches StaffTab table body */
 export const StaffTableSkeleton = ({ rowCount = 6 }) => (
     <div className="overflow-x-auto" aria-busy="true" aria-label="Loading staff">
-        <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                     <th className="w-10 py-3 pl-6 pr-3" />
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">

@@ -31,7 +31,7 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 text-white px-4 py-2.5 shrink-0">
+                        <div className="bg-indigo-600 text-white px-4 py-2.5 shrink-0">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 min-w-0">
                                     <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
@@ -45,15 +45,13 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                                 <motion.button
                                     onClick={onClose}
                                     className="text-white p-1.5 rounded-lg hover:bg-white/15 transition-colors"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
                                 >
                                     <FiX className="w-4 h-4" />
                                 </motion.button>
                             </div>
                         </div>
 
-                        <div className="p-3 pb-2 bg-gradient-to-b from-white to-gray-50/60 border-b border-gray-100 shrink-0">
+                        <div className="p-3 pb-2 bg-white border-b border-gray-100 shrink-0">
                             <div className="relative">
                                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                 <input
@@ -61,13 +59,13 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                                     defaultValue={searchTerm}
                                     onKeyUp={(e) => setSearchTerm(e.currentTarget.value)}
                                     placeholder="Search staff by name, mobile or email"
-                                    className="w-full h-9 pl-9 pr-3 rounded-lg border border-gray-300 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                 />
                             </div>
                         </div>
 
                         <div
-                            className="p-3 flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-white to-gray-50/60 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                            className="p-3 flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-white [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
                             <div className="space-y-2">
@@ -79,7 +77,7 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: index * 0.05 }}
                                     >
-                                        <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow">
+                                        <div className="w-9 h-9 bg-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow">
                                             {(user.name || 'U').charAt(0)}
                                         </div>
                                         <div className="flex-1 min-w-0 space-y-0.5">
@@ -117,9 +115,7 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                                 </div>
                                 <motion.button
                                     onClick={onClose}
-                                    className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-xs shadow-sm"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-medium text-xs shadow-sm"
                                 >
                                     Close
                                 </motion.button>

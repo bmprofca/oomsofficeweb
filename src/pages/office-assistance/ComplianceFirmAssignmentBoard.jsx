@@ -69,7 +69,7 @@ function StaffAvatarsCell({ staffs = [], ca = null, title = '', onOpen }) {
           className="flex items-center justify-start cursor-pointer hover:opacity-80 transition-opacity"
           title={`Click to view ${staffName}'s details`}
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+          <div className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
             {staffName.charAt(0)}
           </div>
         </button>
@@ -88,7 +88,7 @@ function StaffAvatarsCell({ staffs = [], ca = null, title = '', onOpen }) {
                 className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
                 title={`Click to view ${staffName}'s details`}
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+                <div className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
                   {staffName.charAt(0)}
                 </div>
               </button>
@@ -108,7 +108,7 @@ function StaffAvatarsCell({ staffs = [], ca = null, title = '', onOpen }) {
                 type="button"
                 key={staff.username || staffIndex}
                 onClick={open}
-                className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
+                className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
                 title={`Click to view all ${users.length} staff members`}
               >
                 {staffName.charAt(0)}
@@ -118,7 +118,7 @@ function StaffAvatarsCell({ staffs = [], ca = null, title = '', onOpen }) {
           <button
             type="button"
             onClick={open}
-            className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
+            className="w-8 h-8 bg-indigo-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
             title={`Click to view all ${users.length} staff members`}
           >
             +{showMoreCount}
@@ -220,7 +220,7 @@ function RowActionMenu({ items }) {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-slate-100 rounded-lg transition-colors"
         aria-label="Actions"
       >
         <FiMoreVertical className="w-3.5 h-3.5" />
@@ -258,7 +258,7 @@ function RowActionMenu({ items }) {
                     className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
                       item.danger
                         ? 'text-red-600 hover:bg-red-50'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        : 'text-gray-700 hover:bg-slate-50'
                     } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
                     {item.icon}
@@ -339,8 +339,8 @@ export const ComplianceFirmAssignmentBoard = ({
   }, [firmSaving]);
 
   const cardShellClass = embedded
-    ? 'bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col w-full'
-    : 'bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden';
+    ? 'bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200 flex flex-col w-full'
+    : 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden';
 
   const loadServices = useCallback(async () => {
     try {
@@ -505,14 +505,14 @@ export const ComplianceFirmAssignmentBoard = ({
   return (
     <>
       <div className={cardShellClass}>
-        <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+        <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
                 <FiLayers className="w-4 h-4 text-teal-600" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
+                <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight">
                   {isClientScoped ? 'Firm Assigning' : 'Firm Assignment'}
                 </h1>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -560,7 +560,7 @@ export const ComplianceFirmAssignmentBoard = ({
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     placeholder={isClientScoped ? 'Firm, PAN, GST…' : 'Firm, client, PAN, GST…'}
-                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
                   />
                 </div>
               </div>
@@ -577,7 +577,7 @@ export const ComplianceFirmAssignmentBoard = ({
                 type="button"
                 onClick={loadFirms}
                 disabled={loading}
-                className="inline-flex items-center gap-2 p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-white disabled:opacity-50 text-sm bg-white"
+                className="inline-flex items-center gap-2 p-2 rounded-lg border border-slate-200 text-gray-600 hover:bg-white disabled:opacity-50 text-sm bg-white"
                 title="Refresh"
               >
                 <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -588,8 +588,8 @@ export const ComplianceFirmAssignmentBoard = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/60 border-b border-gray-200">
               <tr>
                 <th className="px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide w-12">
                   #
@@ -641,7 +641,7 @@ export const ComplianceFirmAssignmentBoard = ({
                 </tr>
               ) : (
                 rows.map((row, index) => (
-                  <tr key={row.id ?? `${row.firm_id}-${row.service_id}`} className="hover:bg-gray-50 transition-colors">
+                  <tr key={row.id ?? `${row.firm_id}-${row.service_id}`} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-3 text-[11px] font-bold text-gray-800 tabular-nums">
                       {indexOffset + index + 1}
                     </td>

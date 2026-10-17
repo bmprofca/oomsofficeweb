@@ -48,11 +48,11 @@ import {
 
 /** Task-table typography baseline — see CLIENT/context/typography.md */
 const TABLE_HEAD_ROW =
-  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+  "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
 const TABLE_ROW =
-  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors";
+  "border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors";
 const TABLE_TD = "px-3 py-3 min-w-0 text-left align-middle";
 const CELL_INDEX = "text-[11px] font-bold text-gray-800";
 const CELL_TITLE = "font-semibold text-gray-800 text-sm";
@@ -65,9 +65,9 @@ const CELL_LABEL = "text-xs text-gray-400";
 const SECTION_LABEL =
   "text-[11px] font-bold text-gray-700 uppercase tracking-wide";
 const TOOLBAR_ROW =
-  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
+  "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60";
 const TOOLBAR_INPUT =
-  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-gray-400";
+  "w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none placeholder:text-gray-400";
 const TOOLBAR_BTN = "px-3 py-2 text-sm font-medium rounded-lg";
 const EMPTY_WRAP =
   "flex flex-col items-center justify-center py-12 text-gray-500 px-4";
@@ -78,7 +78,7 @@ const EMPTY_SUBTITLE = "text-xs text-gray-400 mt-1";
 const MODAL_BODY_CLASS =
   "px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 const FIELD_INPUT =
-  "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60";
+  "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none disabled:opacity-60";
 
 const MENU_Z = 99999;
 const MENU_GAP = 8;
@@ -276,7 +276,7 @@ const ActionMenu = ({ items }) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-slate-100 rounded-lg transition-colors"
         aria-label="Actions"
       >
         <FiMoreVertical className="w-4 h-4" />
@@ -314,7 +314,7 @@ const ActionMenu = ({ items }) => {
                     className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
                       item.danger
                         ? "text-red-600 hover:bg-red-50"
-                        : "text-gray-700 hover:bg-gray-50"
+                        : "text-gray-700 hover:bg-slate-50"
                     } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
                     {item.icon ? (
@@ -500,7 +500,7 @@ const MappingUrlField = ({ field, value, onChange, disabled }) => {
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={disabled || uploading}
-        className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 text-gray-700 border border-gray-300 hover:bg-gray-100 disabled:opacity-50 shrink-0`}
+        className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 text-gray-700 border border-slate-200 hover:bg-slate-100 disabled:opacity-50 shrink-0`}
         title="Upload file"
       >
         {uploading ? (
@@ -1111,7 +1111,7 @@ const OneChattingTemplates = () => {
                 key={item.template_id}
                 type="button"
                 onClick={() => setSelectedTemplate(item)}
-                className="w-full text-left p-3 space-y-2 hover:bg-gray-50"
+                className="w-full text-left p-3 space-y-2 hover:bg-slate-50"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex gap-2">
@@ -1158,7 +1158,7 @@ const OneChattingTemplates = () => {
 
   if (!check("broadcast_config_edit")) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -1174,7 +1174,7 @@ const OneChattingTemplates = () => {
         <div
           className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
         >
-          <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+          <div className="text-center p-8 bg-white rounded-xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <FiLock className="w-5 h-5 text-gray-400" />
             </div>
@@ -1191,7 +1191,7 @@ const OneChattingTemplates = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1208,8 +1208,8 @@ const OneChattingTemplates = () => {
       <div
         className={`pt-16 transition-all duration-300 ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className={`${TOOLBAR_ROW} flex-wrap gap-y-2`}>
               <div className="flex items-center gap-2 shrink-0 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
@@ -1220,7 +1220,7 @@ const OneChattingTemplates = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate">
+                  <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight truncate">
                     OneChatting Templates
                   </h1>
                 </div>
@@ -1235,7 +1235,7 @@ const OneChattingTemplates = () => {
                     className={`${TOOLBAR_BTN} transition-colors ${
                       activeTab === tab.id
                         ? "bg-green-50 text-green-700"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-slate-100"
                     }`}
                   >
                     {tab.label}
@@ -1300,7 +1300,7 @@ const OneChattingTemplates = () => {
                     disabled={
                       activeTab === "mapping" ? mappingLoading : listLoading
                     }
-                    className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 shrink-0"
+                    className="p-2 rounded-lg border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-50 shrink-0"
                     title="Refresh"
                   >
                     <FiRefreshCw
@@ -1349,7 +1349,7 @@ const OneChattingTemplates = () => {
                   className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-green-600 to-emerald-600 text-white flex items-center justify-between gap-3">
+                  <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-green-600 text-white flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="text-base font-bold m-0 truncate">
                         {selectedTemplate.template_name}
@@ -1404,7 +1404,7 @@ const OneChattingTemplates = () => {
                     <button
                       type="button"
                       onClick={() => setSelectedTemplate(null)}
-                      className={`${TOOLBAR_BTN} text-gray-700 border border-gray-300 hover:bg-gray-100`}
+                      className={`${TOOLBAR_BTN} text-gray-700 border border-slate-200 hover:bg-slate-100`}
                     >
                       Close
                     </button>
@@ -1446,7 +1446,7 @@ const OneChattingTemplates = () => {
                   className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-green-600 to-emerald-600 text-white flex items-center justify-between gap-3">
+                  <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-green-600 text-white flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="text-base font-bold m-0">
                         Set template mapping
@@ -1624,7 +1624,7 @@ const OneChattingTemplates = () => {
                       type="button"
                       onClick={closeSetMappingModal}
                       disabled={Boolean(mappingActionName)}
-                      className={`${TOOLBAR_BTN} text-gray-700 border border-gray-300 hover:bg-gray-100 disabled:opacity-50`}
+                      className={`${TOOLBAR_BTN} text-gray-700 border border-slate-200 hover:bg-slate-100 disabled:opacity-50`}
                     >
                       Cancel
                     </button>

@@ -145,7 +145,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -205,7 +205,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                                 className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
                                     exporting && selectedFormat === option.type
                                         ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-slate-50'
                                 } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
@@ -244,7 +244,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        className="px-4 py-2 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm transition-colors"
                         disabled={exporting}
                     >
                         Cancel
@@ -808,11 +808,11 @@ const ViewPurchase = () => {
 
     // Skeleton Loading Component for full page
     const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2">
                         {[...Array(2)].map((_, i) => (
                             <div key={i} className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]" />
@@ -842,7 +842,7 @@ const ViewPurchase = () => {
 
     if (!check('finance_report')) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="app-page to-gray-100">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
@@ -859,12 +859,12 @@ const ViewPurchase = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     {/* Error Alert */}
                     {error && (
                         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -877,7 +877,7 @@ const ViewPurchase = () => {
 
                     {/* Header Stats */}
                     <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2">
-                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 p-3 text-white sm:p-3.5">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden rounded-xl border border-white/10 bg-indigo-600 p-3 text-white sm:p-3.5">
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">No. of purchases</p>
@@ -887,7 +887,7 @@ const ViewPurchase = () => {
                             </div>
                         </motion.div>
 
-                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.04 }} className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-600 p-3 text-white sm:p-3.5">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.04 }} className="overflow-hidden rounded-xl border border-white/10 bg-violet-600 p-3 text-white sm:p-3.5">
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">Total amount</p>
@@ -900,18 +900,18 @@ const ViewPurchase = () => {
 
                     {/* Purchase register — flat (no card shell) */}
                     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70">
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
                             <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                                     <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">Purchase Register</h5>
-                                    <input type="text" placeholder="Search…" value={searchTerm} onChange={handleSearchInputChange} className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]" />
+                                    <input type="text" placeholder="Search…" value={searchTerm} onChange={handleSearchInputChange} className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]" />
                                     <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
                                         <DateRangePickerField value={{ start: fromDate, end: toDate }} onChange={(range) => { setFromDate(range?.start || ''); setToDate(range?.end || ''); }} placeholder="Select date range" mode="range" initialTab="quick" defaultQuickKey="tm" quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']} showRangeHint={false} showResetButton={false} truncateRangeLabel={false} buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all" wrapperClassName="w-full min-w-0" />
                                     </div>
                                 </div>
                                 <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <div className="dropdown-container relative shrink-0">
-                                        <motion.button type="button" onClick={(e) => { e.stopPropagation(); setShowAddDropdown(!showAddDropdown); }} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                                        <motion.button type="button" onClick={(e) => { e.stopPropagation(); setShowAddDropdown(!showAddDropdown); }} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:h-10 sm:px-3">
                                             <PiExportBold className="h-4 w-4 shrink-0" /><span className="whitespace-nowrap">Export</span><FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
                                         </motion.button>
 
@@ -947,9 +947,9 @@ const ViewPurchase = () => {
                                         } else {
                                             setPurchaseFormModal(true);
                                         }
-                                    }} className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
-                                        !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
-                                    }`} whileHover={check('finance_entry') ? { scale: 1.02 } : {}} whileTap={check('finance_entry') ? { scale: 0.98 } : {}}>
+                                    }} className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
+                                        !check('finance_entry') ? 'opacity-60 cursor-not-allowed' : ''
+                                    }`}>
                                         {!check('finance_entry') ? <FiLock className="h-4 w-4 shrink-0" /> : <FiPlus className="h-4 w-4 shrink-0" />}<span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
@@ -1177,13 +1177,13 @@ const ViewPurchase = () => {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <motion.div initial={{ opacity: 0, scale: 0.9, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 10 }} className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl">
                             <div className="text-center">
-                                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4"><PiExportBold className="w-8 h-8 text-blue-600" /></div>
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4"><PiExportBold className="w-8 h-8 text-blue-600" /></div>
                                 <h3 className="text-lg font-bold text-slate-800 mb-2">Exporting {exportModal.type.toUpperCase()}</h3>
                                 <p className="text-slate-600 mb-6 text-sm">Your {exportModal.type} export is being processed...</p>
                                 <div className="flex justify-center space-x-2 mb-6">
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                 </div>
                                 <div className="text-xs text-slate-500">This will only take a moment...</div>
                             </div>

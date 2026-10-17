@@ -881,13 +881,13 @@ const NotesTab = ({ clientUsername }) => {
     const getPriorityColor = (priority) => {
         switch (priority) {
             case 'High':
-                return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
+                return 'bg-red-50 text-red-800 border border-red-200';
             case 'Medium':
-                return 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border border-yellow-200';
+                return 'bg-yellow-50 text-yellow-800 border border-yellow-200';
             case 'Low':
-                return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
+                return 'bg-green-50 text-green-800 border border-green-200';
             default:
-                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-slate-800 border border-gray-200';
+                return 'bg-gray-50 text-slate-800 border border-gray-200';
         }
     };
 
@@ -896,15 +896,15 @@ const NotesTab = ({ clientUsername }) => {
         switch (statusLower) {
             case 'complete':
             case 'completed':
-                return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
+                return 'bg-green-50 text-green-800 border border-green-200';
             case 'active':
             case 'pending':
-                return 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border border-yellow-200';
+                return 'bg-yellow-50 text-yellow-800 border border-yellow-200';
             case 'cancel':
             case 'cancelled':
-                return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
+                return 'bg-red-50 text-red-800 border border-red-200';
             default:
-                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-slate-800 border border-gray-200';
+                return 'bg-gray-50 text-slate-800 border border-gray-200';
         }
     };
 
@@ -1078,7 +1078,7 @@ const NotesTab = ({ clientUsername }) => {
                 </div>
                 <button
                     onClick={openAddModal}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm hover:shadow"
                 >
                     <FiPlus className="w-4 h-4" />
                     Add Note
@@ -1109,7 +1109,7 @@ const NotesTab = ({ clientUsername }) => {
                         placeholder="Search notes by content, author, or date…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-slate-400 transition-colors"
+                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none placeholder:text-slate-400 transition-colors"
                     />
                     {loading && searchTerm && (
                         <span className="absolute inset-y-0 right-3 flex items-center">
@@ -1240,7 +1240,7 @@ const NotesTab = ({ clientUsername }) => {
                             {notes.length === 0 && (
                                 <button
                                     onClick={openAddModal}
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     Add first note
@@ -1386,9 +1386,9 @@ const NotesTab = ({ clientUsername }) => {
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         >
                             {/* Modal Header */}
-                            <div className={`shrink-0 px-5 py-3.5 ${selectedNote.type === 'text' ? 'bg-gradient-to-r from-blue-600 to-indigo-700' :
-                                selectedNote.type === 'file' ? 'bg-gradient-to-r from-green-600 to-emerald-700' :
-                                    'bg-gradient-to-r from-purple-600 to-pink-700'
+                            <div className={`shrink-0 px-5 py-3.5 ${selectedNote.type === 'text' ? 'bg-blue-600' :
+                                selectedNote.type === 'file' ? 'bg-green-600' :
+                                    'bg-purple-600'
                                 } text-white`}>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -1401,7 +1401,6 @@ const NotesTab = ({ clientUsername }) => {
                                         onClick={() => setShowViewModal(false)}
                                         className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                                         whileHover={{ scale: 1.1, rotate: 90 }}
-                                        whileTap={{ scale: 0.9 }}
                                     >
                                         <FiX className="w-5 h-5 text-white" />
                                     </motion.button>
@@ -1434,12 +1433,12 @@ const NotesTab = ({ clientUsername }) => {
                                     </div>
 
                                     {/* Type Display */}
-                                    <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-6">
+                                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedNote.type === 'text' ? 'bg-gradient-to-r from-blue-100 to-indigo-100' :
-                                                    selectedNote.type === 'file' ? 'bg-gradient-to-r from-green-100 to-emerald-100' :
-                                                        'bg-gradient-to-r from-purple-100 to-pink-100'
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedNote.type === 'text' ? 'bg-blue-50' :
+                                                    selectedNote.type === 'file' ? 'bg-green-50' :
+                                                        'bg-purple-50'
                                                     }`}>
                                                     {getTypeIcon(selectedNote.type)}
                                                 </div>
@@ -1462,10 +1461,10 @@ const NotesTab = ({ clientUsername }) => {
 
                                     {/* Reminder Section */}
                                     {selectedNote.reminder_date && (
-                                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center">
+                                                    <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
                                                         <FiBell className="w-6 h-6 text-white" />
                                                     </div>
                                                     <div>
@@ -1487,7 +1486,7 @@ const NotesTab = ({ clientUsername }) => {
                                             {selectedNote.type === 'voice' ? (
                                                 <div className="space-y-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
+                                                        <div className="w-16 h-16 bg-purple-50 rounded-xl flex items-center justify-center">
                                                             <FiVolume2 className="w-8 h-8 text-purple-600" />
                                                         </div>
                                                         <div>
@@ -1514,9 +1513,7 @@ const NotesTab = ({ clientUsername }) => {
                                                             <div className="flex justify-end gap-3">
                                                                 <motion.button
                                                                     onClick={() => window.open(selectedNote.file, '_blank')}
-                                                                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 text-white rounded-lg hover:shadow-md transition-all duration-200 flex items-center gap-2"
-                                                                    whileHover={{ scale: 1.05 }}
-                                                                    whileTap={{ scale: 0.95 }}
+                                                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:shadow-md transition-all duration-200 flex items-center gap-2"
                                                                 >
                                                                     <FiDownload className="w-4 h-4" />
                                                                     Download Audio
@@ -1528,7 +1525,7 @@ const NotesTab = ({ clientUsername }) => {
                                             ) : selectedNote.type === 'file' ? (
                                                 <div className="space-y-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
+                                                        <div className="w-16 h-16 bg-green-50 rounded-xl flex items-center justify-center">
                                                             <FiFile className="w-8 h-8 text-green-600" />
                                                         </div>
                                                         <div>
@@ -1540,7 +1537,7 @@ const NotesTab = ({ clientUsername }) => {
                                                         <div className="mt-4 p-4 bg-white border border-gray-200 rounded-xl">
                                                             <div className="flex items-center justify-between">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="w-12 h-12 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg flex items-center justify-center">
+                                                                    <div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center">
                                                                         {getFileIcon(selectedNote.file)}
                                                                     </div>
                                                                     <div>
@@ -1554,9 +1551,7 @@ const NotesTab = ({ clientUsername }) => {
                                                                 </div>
                                                                 <motion.button
                                                                     onClick={() => window.open(selectedNote.file, '_blank')}
-                                                                    className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-lg hover:shadow-md transition-all duration-200 flex items-center gap-2"
-                                                                    whileHover={{ scale: 1.05 }}
-                                                                    whileTap={{ scale: 0.95 }}
+                                                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:shadow-md transition-all duration-200 flex items-center gap-2"
                                                                 >
                                                                     <FiDownload className="w-4 h-4" />
                                                                     Download File
@@ -1579,7 +1574,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 Created Information
                                             </h4>
                                             <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-xl">
-                                                <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
                                                     <FiUser className="w-5 h-5 text-blue-600" />
                                                 </div>
                                                 <div>
@@ -1596,7 +1591,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     Last Updated
                                                 </h4>
                                                 <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl">
-                                                    <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                    <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center flex-shrink-0">
                                                         <FiUser className="w-5 h-5 text-green-600" />
                                                     </div>
                                                     <div>
@@ -1614,9 +1609,8 @@ const NotesTab = ({ clientUsername }) => {
                             <div className="shrink-0 border-t px-5 py-3 bg-gray-50 flex justify-end gap-3">
                                 <motion.button
                                     onClick={() => setShowViewModal(false)}
-                                    className="px-4 py-2 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                                    className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2"
                                     whileHover={{ scale: 1.05, y: -2 }}
-                                    whileTap={{ scale: 0.95 }}
                                 >
                                     <FiX className="w-4 h-4" />
                                     Close
@@ -1626,9 +1620,8 @@ const NotesTab = ({ clientUsername }) => {
                                         setShowViewModal(false);
                                         openEditModal(selectedNote);
                                     }}
-                                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-2"
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-2"
                                     whileHover={{ scale: 1.05, y: -2 }}
-                                    whileTap={{ scale: 0.95 }}
                                 >
                                     <FiEdit className="w-4 h-4" />
                                     Edit Note
@@ -1657,7 +1650,7 @@ const NotesTab = ({ clientUsername }) => {
                             className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         >
                             {/* Header */}
-                            <div className="shrink-0 px-5 py-3.5 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-600">
+                            <div className="shrink-0 px-5 py-3.5 flex items-center justify-between bg-blue-600">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                                         <FiPlus className="w-4 h-4 text-white" />
@@ -1694,7 +1687,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 ? item.color === 'blue' ? 'border-blue-500 bg-blue-50'
                                                     : item.color === 'green' ? 'border-green-500 bg-green-50'
                                                         : 'border-purple-500 bg-purple-50'
-                                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                : 'border-gray-200 hover:border-slate-200 hover:bg-slate-50'
                                                 }`}
                                         >
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${createNoteType === item.type
@@ -1774,7 +1767,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 <textarea
                                                     value={text}
                                                     onChange={(e) => updateTextNote(i, e.target.value)}
-                                                    className="flex-1 p-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-h-[120px] resize-none"
+                                                    className="flex-1 p-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none min-h-[120px] resize-none"
                                                     placeholder="Write your note here..."
                                                 />
                                                 {createForm.textNotes.length > 1 && (
@@ -1835,14 +1828,14 @@ const NotesTab = ({ clientUsername }) => {
                                                     value={att.name}
                                                     onChange={(e) => updateAttachmentRow(i, { name: e.target.value })}
                                                     placeholder="File name (optional)"
-                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={att.remark}
                                                     onChange={(e) => updateAttachmentRow(i, { remark: e.target.value })}
                                                     placeholder="Add a remark or description..."
-                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
                                                 />
                                                 {att.url && (
                                                     <a href={att.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">
@@ -1914,7 +1907,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     </button>
                                                     <button
                                                         onClick={cancelCreateRecording}
-                                                        className="px-4 py-2 border border-gray-200 text-slate-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+                                                        className="px-4 py-2 border border-gray-200 text-slate-600 text-sm rounded-lg hover:bg-slate-50 transition-colors"
                                                     >
                                                         Cancel
                                                     </button>
@@ -1973,7 +1966,7 @@ const NotesTab = ({ clientUsername }) => {
                                 <button
                                     onClick={handleAddNote}
                                     disabled={creatingNote || uploadingAttachment || !isCreateFormValid}
-                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+                                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
                                 >
                                     {creatingNote ? (
                                         <>
@@ -2006,7 +1999,7 @@ const NotesTab = ({ clientUsername }) => {
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         >
                             {/* Modal Header */}
-                            <div className="shrink-0 bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5">
+                            <div className="shrink-0 bg-blue-600 px-5 py-3.5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
@@ -2025,7 +2018,6 @@ const NotesTab = ({ clientUsername }) => {
                                         }}
                                         className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                                         whileHover={{ scale: 1.1, rotate: 90 }}
-                                        whileTap={{ scale: 0.9 }}
                                     >
                                         <FiX className="w-5 h-5 text-white" />
                                     </motion.button>
@@ -2046,15 +2038,14 @@ const NotesTab = ({ clientUsername }) => {
                                                 type="button"
                                                 onClick={() => setNewNote(prev => ({ ...prev, type: 'text', file: null }))}
                                                 className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${newNote.type === 'text'
-                                                    ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md'
+                                                    ? 'border-blue-500 bg-blue-50 shadow-md'
                                                     : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
                                                     }`}
                                                 whileHover={{ scale: 1.02, y: -2 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${newNote.type === 'text'
-                                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-700'
-                                                    : 'bg-gradient-to-r from-blue-100 to-indigo-100'
+                                                    ? 'bg-blue-600'
+                                                    : 'bg-blue-50'
                                                     }`}>
                                                     <FiMessageSquare className={`w-8 h-8 ${newNote.type === 'text' ? 'text-white' : 'text-blue-600'}`} />
                                                 </div>
@@ -2073,15 +2064,14 @@ const NotesTab = ({ clientUsername }) => {
                                                 type="button"
                                                 onClick={() => setNewNote(prev => ({ ...prev, type: 'file', file: null }))}
                                                 className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${newNote.type === 'file'
-                                                    ? 'border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 shadow-md'
+                                                    ? 'border-green-500 bg-green-50 shadow-md'
                                                     : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
                                                     }`}
                                                 whileHover={{ scale: 1.02, y: -2 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${newNote.type === 'file'
-                                                    ? 'bg-gradient-to-r from-green-600 to-emerald-700'
-                                                    : 'bg-gradient-to-r from-green-100 to-emerald-100'
+                                                    ? 'bg-green-600'
+                                                    : 'bg-green-50'
                                                     }`}>
                                                     <FiFile className={`w-8 h-8 ${newNote.type === 'file' ? 'text-white' : 'text-green-600'}`} />
                                                 </div>
@@ -2100,15 +2090,14 @@ const NotesTab = ({ clientUsername }) => {
                                                 type="button"
                                                 onClick={() => setNewNote(prev => ({ ...prev, type: 'voice', file: null }))}
                                                 className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${newNote.type === 'voice'
-                                                    ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-md'
+                                                    ? 'border-purple-500 bg-purple-50 shadow-md'
                                                     : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
                                                     }`}
                                                 whileHover={{ scale: 1.02, y: -2 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${newNote.type === 'voice'
-                                                    ? 'bg-gradient-to-r from-purple-600 to-pink-700'
-                                                    : 'bg-gradient-to-r from-purple-100 to-pink-100'
+                                                    ? 'bg-purple-600'
+                                                    : 'bg-purple-50'
                                                     }`}>
                                                     <FiMic className={`w-8 h-8 ${newNote.type === 'voice' ? 'text-white' : 'text-purple-600'}`} />
                                                 </div>
@@ -2136,7 +2125,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 type="text"
                                                 value={newNote.subject}
                                                 onChange={(e) => setNewNote({ ...newNote, subject: e.target.value })}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
+                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent shadow-sm transition-all duration-300"
                                                 placeholder="Enter note subject"
                                             />
                                             {!newNote.subject && (
@@ -2194,7 +2183,7 @@ const NotesTab = ({ clientUsername }) => {
                                             <textarea
                                                 value={newNote.note}
                                                 onChange={(e) => setNewNote({ ...newNote, note: e.target.value })}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[200px] resize-none"
+                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent shadow-sm transition-all duration-300 min-h-[200px] resize-none"
                                                 placeholder="Enter your note content here..."
                                             />
                                             {!newNote.note && (
@@ -2220,7 +2209,7 @@ const NotesTab = ({ clientUsername }) => {
 
                                             {/* File Upload Area */}
                                             {!newNote.file ? (
-                                                <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-green-500 transition-colors cursor-pointer"
+                                                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-green-500 transition-colors cursor-pointer"
                                                     onClick={() => fileInputRef.current?.click()}>
                                                     <input
                                                         type="file"
@@ -2229,7 +2218,7 @@ const NotesTab = ({ clientUsername }) => {
                                                         className="hidden"
                                                         accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.zip,.rar"
                                                     />
-                                                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl flex items-center justify-center">
+                                                    <div className="w-16 h-16 mx-auto mb-4 bg-green-50 rounded-xl flex items-center justify-center">
                                                         <FiUpload className="w-8 h-8 text-green-600" />
                                                     </div>
                                                     <h4 className="font-semibold text-slate-800 mb-2">Click to upload file</h4>
@@ -2238,7 +2227,7 @@ const NotesTab = ({ clientUsername }) => {
                                                         <div className="mt-4">
                                                             <div className="w-full bg-gray-200 rounded-full h-2">
                                                                 <div
-                                                                    className="bg-gradient-to-r from-green-600 to-emerald-700 h-2 rounded-full transition-all duration-300"
+                                                                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
                                                                     style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
                                                                 />
                                                             </div>
@@ -2249,10 +2238,10 @@ const NotesTab = ({ clientUsername }) => {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6">
+                                                <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
+                                                            <div className="w-16 h-16 bg-green-50 rounded-xl flex items-center justify-center">
                                                                 <FiFile className="w-8 h-8 text-green-600" />
                                                             </div>
                                                             <div>
@@ -2266,8 +2255,6 @@ const NotesTab = ({ clientUsername }) => {
                                                             <motion.button
                                                                 onClick={() => window.open(newNote.file, '_blank')}
                                                                 className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
                                                                 title="Preview"
                                                             >
                                                                 <FiEye className="w-4 h-4" />
@@ -2275,8 +2262,6 @@ const NotesTab = ({ clientUsername }) => {
                                                             <motion.button
                                                                 onClick={removeFile}
                                                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
                                                                 title="Remove"
                                                             >
                                                                 <FiX className="w-4 h-4" />
@@ -2295,7 +2280,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 <textarea
                                                     value={newNote.note}
                                                     onChange={(e) => setNewNote({ ...newNote, note: e.target.value })}
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
+                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
                                                     placeholder="Add a description for this file..."
                                                 />
                                             </div>
@@ -2313,17 +2298,16 @@ const NotesTab = ({ clientUsername }) => {
 
                                             {/* Voice Recording Area */}
                                             {!isRecording && !audioURL && !newNote.file ? (
-                                                <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-purple-500 transition-colors">
-                                                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl flex items-center justify-center">
+                                                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-purple-500 transition-colors">
+                                                    <div className="w-16 h-16 mx-auto mb-4 bg-purple-50 rounded-xl flex items-center justify-center">
                                                         <FiMic className="w-8 h-8 text-purple-600" />
                                                     </div>
                                                     <h4 className="font-semibold text-slate-800 mb-2">Record a voice note</h4>
                                                     <p className="text-sm text-slate-600 mb-4">Click the record button to start recording</p>
                                                     <motion.button
                                                         onClick={startRecording}
-                                                        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
+                                                        className="px-8 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
                                                         whileHover={{ scale: 1.05, y: -2 }}
-                                                        whileTap={{ scale: 0.95 }}
                                                     >
                                                         <FiMic className="w-5 h-5" />
                                                         Start Recording
@@ -2333,8 +2317,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     </p>
                                                 </div>
                                             ) : isRecording ? (
-                                                <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
-                                                    <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-r from-red-600 to-pink-700 rounded-full flex items-center justify-center animate-pulse">
+                                                <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+                                                    <div className="w-20 h-20 mx-auto mb-4 bg-red-600 rounded-full flex items-center justify-center animate-pulse">
                                                         <FiMic className="w-10 h-10 text-white" />
                                                     </div>
                                                     <h4 className="font-semibold text-slate-800 mb-2">Recording in progress...</h4>
@@ -2344,28 +2328,26 @@ const NotesTab = ({ clientUsername }) => {
                                                     <div className="flex justify-center gap-4">
                                                         <motion.button
                                                             onClick={stopRecording}
-                                                            className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/25 transition-all duration-300 flex items-center gap-2"
+                                                            className="px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/25 transition-all duration-300 flex items-center gap-2"
                                                             whileHover={{ scale: 1.05, y: -2 }}
-                                                            whileTap={{ scale: 0.95 }}
                                                         >
                                                             <FiCheck className="w-5 h-5" />
                                                             Stop Recording
                                                         </motion.button>
                                                         <motion.button
                                                             onClick={cancelRecording}
-                                                            className="px-6 py-3 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
+                                                            className="px-6 py-3 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-medium transition-all duration-300"
                                                             whileHover={{ scale: 1.05, y: -2 }}
-                                                            whileTap={{ scale: 0.95 }}
                                                         >
                                                             Cancel
                                                         </motion.button>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6">
+                                                <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6">
                                                     <div className="flex items-center justify-between mb-4">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
+                                                            <div className="w-16 h-16 bg-purple-50 rounded-xl flex items-center justify-center">
                                                                 <FiVolume2 className="w-8 h-8 text-purple-600" />
                                                             </div>
                                                             <div>
@@ -2385,8 +2367,6 @@ const NotesTab = ({ clientUsername }) => {
                                                             <motion.button
                                                                 onClick={removeFile}
                                                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
                                                                 title="Re-record"
                                                             >
                                                                 <FiX className="w-4 h-4" />
@@ -2397,7 +2377,7 @@ const NotesTab = ({ clientUsername }) => {
                                                         <div className="mt-4">
                                                             <div className="w-full bg-gray-200 rounded-full h-2">
                                                                 <div
-                                                                    className="bg-gradient-to-r from-purple-600 to-pink-700 h-2 rounded-full transition-all duration-300"
+                                                                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                                                                     style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
                                                                 />
                                                             </div>
@@ -2418,7 +2398,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 <textarea
                                                     value={newNote.note}
                                                     onChange={(e) => setNewNote({ ...newNote, note: e.target.value })}
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
+                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
                                                     placeholder="Add a description for this voice note..."
                                                 />
                                             </div>
@@ -2446,9 +2426,8 @@ const NotesTab = ({ clientUsername }) => {
                                             setAudioBlob(null);
                                             setAudioURL('');
                                         }}
-                                        className="px-6 py-3 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
+                                        className="px-6 py-3 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-medium transition-all duration-300"
                                         whileHover={{ scale: 1.05, y: -2 }}
-                                        whileTap={{ scale: 0.95 }}
                                     >
                                         Cancel
                                     </motion.button>
@@ -2464,7 +2443,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 disabled={isEditDisabled}
                                                 className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${isEditDisabled
                                                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                                    : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:shadow-lg hover:shadow-blue-500/25'
+                                                    : 'bg-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/25'
                                                     }`}
                                                 whileHover={isEditDisabled ? {} : { scale: 1.05, y: -2 }}
                                                 whileTap={isEditDisabled ? {} : { scale: 0.95 }}
@@ -2499,7 +2478,7 @@ const NotesTab = ({ clientUsername }) => {
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
                         >
                             {/* Modal Header */}
-                            <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-8 py-6">
+                            <div className="bg-red-500 text-white px-8 py-6">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
                                         <FiTrash2 className="w-6 h-6" />
@@ -2514,7 +2493,7 @@ const NotesTab = ({ clientUsername }) => {
                             {/* Modal Content */}
                             <div className="p-8">
                                 <div className="text-center space-y-6">
-                                    <div className="w-20 h-20 mx-auto bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center">
+                                    <div className="w-20 h-20 mx-auto bg-red-50 rounded-full flex items-center justify-center">
                                         <FiAlertTriangle className="w-10 h-10 text-red-600" />
                                     </div>
                                     <div className="space-y-4">
@@ -2523,7 +2502,7 @@ const NotesTab = ({ clientUsername }) => {
                                             Are you sure you want to delete the note titled
                                             <span className="font-bold text-red-600"> "{selectedNote.subject}"</span>?
                                         </p>
-                                        <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl text-left">
+                                        <div className="p-4 bg-gray-50 rounded-xl text-left">
                                             <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
                                                 {getTypeIcon(selectedNote.type)}
                                                 <span>Type: {selectedNote.type === 'text' ? 'Text' : selectedNote.type === 'file' ? 'File' : 'Voice'}</span>
@@ -2541,17 +2520,15 @@ const NotesTab = ({ clientUsername }) => {
                             <div className="border-t px-8 py-6 bg-gray-50 flex justify-center gap-4">
                                 <motion.button
                                     onClick={() => setShowDeleteModal(false)}
-                                    className="px-6 py-3 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
+                                    className="px-6 py-3 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl font-medium transition-all duration-300"
                                     whileHover={{ scale: 1.05, y: -2 }}
-                                    whileTap={{ scale: 0.95 }}
                                 >
                                     Cancel
                                 </motion.button>
                                 <motion.button
                                     onClick={deleteNote}
-                                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/25 transition-all duration-300 flex items-center gap-2"
+                                    className="px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/25 transition-all duration-300 flex items-center gap-2"
                                     whileHover={{ scale: 1.05, y: -2 }}
-                                    whileTap={{ scale: 0.95 }}
                                 >
                                     <FiTrash2 className="w-4 h-4" />
                                     Delete Note

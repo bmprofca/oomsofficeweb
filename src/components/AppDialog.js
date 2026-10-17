@@ -10,7 +10,7 @@ const DIALOG_CONFIG = {
         iconColor: 'text-indigo-600',
         Icon: FiInfo,
         accentGradient: 'from-indigo-500 to-violet-500',
-        confirmBtnClass: 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500',
+        confirmBtnClass: 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/25',
     },
     warning: {
         iconBg: 'bg-amber-100',
@@ -19,7 +19,7 @@ const DIALOG_CONFIG = {
         Icon: FiAlertCircle,
         accentGradient: 'from-amber-500 to-orange-500',
         confirmBtnClass:
-            'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 focus:ring-amber-500',
+            'bg-amber-500 hover:bg-amber-600 focus:ring-amber-500',
     },
     danger: {
         iconBg: 'bg-rose-100',
@@ -28,7 +28,7 @@ const DIALOG_CONFIG = {
         Icon: FiAlertCircle,
         accentGradient: 'from-rose-500 to-pink-500',
         confirmBtnClass:
-            'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 focus:ring-rose-500',
+            'bg-rose-600 hover:bg-rose-700 focus:ring-rose-500',
     },
     success: {
         iconBg: 'bg-emerald-100',
@@ -37,7 +37,7 @@ const DIALOG_CONFIG = {
         Icon: FiCheckCircle,
         accentGradient: 'from-emerald-500 to-teal-500',
         confirmBtnClass:
-            'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 focus:ring-emerald-500',
+            'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500',
     },
     error: {
         iconBg: 'bg-rose-100',
@@ -46,7 +46,7 @@ const DIALOG_CONFIG = {
         Icon: FiXCircle,
         accentGradient: 'from-rose-500 to-pink-500',
         confirmBtnClass:
-            'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 focus:ring-rose-500',
+            'bg-rose-600 hover:bg-rose-700 focus:ring-rose-500',
     },
 };
 
@@ -78,7 +78,6 @@ const AppDialog = ({ dialog, onClose, onConfirm }) => {
                         className="relative w-full max-w-[420px] bg-white rounded-2xl shadow-2xl overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className={`h-1 w-full bg-gradient-to-r ${cfg.accentGradient}`} />
                         <div className="px-6 pt-5 pb-6">
                             <div className="flex gap-4">
                                 <div
@@ -102,7 +101,7 @@ const AppDialog = ({ dialog, onClose, onConfirm }) => {
                                         type="button"
                                         disabled={dialog.loading}
                                         onClick={onClose}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         {dialog.cancelText}
                                     </button>

@@ -52,7 +52,7 @@ const TemplateUrlField = ({ field, value, onChange, disabled }) => {
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.example || ''}
         disabled={disabled || uploading}
-        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
+        className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
       />
       <input
         ref={fileInputRef}
@@ -231,7 +231,7 @@ const OneChattingTemplateModal = ({
                 type="button"
                 onClick={onClose}
                 disabled={sending}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-50"
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-gray-500 disabled:opacity-50"
                 aria-label="Close"
               >
                 <FiX className="w-5 h-5" />
@@ -259,7 +259,7 @@ const OneChattingTemplateModal = ({
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search approved templates..."
-                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                        className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                       />
                     </div>
 
@@ -350,7 +350,7 @@ const OneChattingTemplateModal = ({
                                   }
                                   placeholder={field.example || ''}
                                   disabled={sending}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
+                                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
                                 />
                               )}
                             </div>

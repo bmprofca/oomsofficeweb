@@ -317,7 +317,7 @@ const BroadcastReport = () => {
                                 reports.map((report, index) => (
                                     <motion.tr 
                                         key={report.batch_id} 
-                                        className="border-b border-gray-200 hover:bg-gray-50"
+                                        className="border-b border-gray-200 hover:bg-slate-50"
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.05 }}
@@ -338,8 +338,6 @@ const BroadcastReport = () => {
                                             <motion.button
                                                 onClick={() => handleViewDetails(report.batch_id, 0)}
                                                 className="text-yellow-600 hover:text-yellow-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiClock className="w-4 h-4" />
                                                 {report.pending}
@@ -349,8 +347,6 @@ const BroadcastReport = () => {
                                             <motion.button
                                                 onClick={() => handleViewDetails(report.batch_id, 1)}
                                                 className="text-green-600 hover:text-green-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiCheckCircle className="w-4 h-4" />
                                                 {report.success}
@@ -360,8 +356,6 @@ const BroadcastReport = () => {
                                             <motion.button
                                                 onClick={() => handleViewDetails(report.batch_id, 2)}
                                                 className="text-red-600 hover:text-red-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiXCircle className="w-4 h-4" />
                                                 {report.failed}
@@ -371,8 +365,6 @@ const BroadcastReport = () => {
                                             <motion.button
                                                 onClick={() => handleViewDetails(report.batch_id, 3)}
                                                 className="text-blue-600 hover:text-blue-800 font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiPauseCircle className="w-4 h-4" />
                                                 {report.paused}
@@ -401,7 +393,7 @@ const BroadcastReport = () => {
         <AnimatePresence>
             {showBulkActions && (
                 <motion.div 
-                    className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50 min-w-64"
+                    className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-xl shadow-pop border border-slate-200 p-4 z-50 min-w-64"
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 50 }}
@@ -410,9 +402,7 @@ const BroadcastReport = () => {
                         <div className="flex space-x-3">
                             <motion.button
                                 onClick={handleBulkDelete}
-                                className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded hover:from-red-700 hover:to-red-800 transition-colors flex items-center gap-2 text-sm"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                className="px-4 py-2 bg-red-600 text-white rounded transition-colors flex items-center gap-2 text-sm"
                             >
                                 <FiTrash2 className="w-4 h-4" />
                                 Delete ({selectedItems.length})
@@ -434,7 +424,7 @@ const BroadcastReport = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -452,7 +442,7 @@ const BroadcastReport = () => {
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="h-full flex flex-col">
                     <motion.div 
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mx-4 sm:mx-6 md:mx-8 my-6"
+                        className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
@@ -463,7 +453,7 @@ const BroadcastReport = () => {
                                     <h5 className="text-xl font-bold text-gray-800 mb-1">
                                         Broadcast Report
                                     </h5>
-                                    <p className="text-gray-500 text-xs">
+                                    <p className="text-slate-500 text-xs mt-0.5">
                                         View and manage broadcast reports
                                     </p>
                                 </div>
@@ -481,10 +471,8 @@ const BroadcastReport = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                                                     activeTab === 'text-message'
                                                         ? 'border-blue-500 text-blue-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200'
                                                 }`}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiBarChart2 className="w-4 h-4" />
                                                 Message Reports
@@ -494,10 +482,8 @@ const BroadcastReport = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                                                     activeTab === 'whatsapp'
                                                         ? 'border-blue-500 text-blue-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-slate-200'
                                                 }`}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiBarChart2 className="w-4 h-4" />
                                                 WhatsApp Reports

@@ -85,8 +85,8 @@ export default function StaffStatusOtpModal({
             <div
               className={`flex shrink-0 items-center justify-between px-5 py-3.5 text-white ${
                 activating
-                  ? "bg-gradient-to-r from-emerald-600 to-emerald-700"
-                  : "bg-gradient-to-r from-amber-500 to-orange-500"
+                  ? "bg-emerald-600"
+                  : "bg-amber-500"
               }`}
             >
               <h2 className="m-0 text-lg font-bold tracking-tight">
@@ -191,7 +191,7 @@ export default function StaffStatusOtpModal({
                     placeholder="Enter 6-digit OTP"
                     maxLength={6}
                     disabled={busy}
-                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 disabled:bg-slate-50"
                   />
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <p className="m-0 text-xs text-slate-500">OTP expires in 5 minutes.</p>

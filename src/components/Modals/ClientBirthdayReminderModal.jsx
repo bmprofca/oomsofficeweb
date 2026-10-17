@@ -242,7 +242,7 @@ const ClientBirthdayReminderModal = ({
             aria-modal="true"
             aria-labelledby="client-birthday-reminder-title"
           >
-            <div className="bg-gradient-to-r from-rose-600 to-pink-600 text-white px-6 py-4 flex justify-between items-center shrink-0">
+            <div className="bg-rose-600 text-white px-6 py-4 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                   <FiSend className="w-5 h-5" />
@@ -258,8 +258,6 @@ const ClientBirthdayReminderModal = ({
                 onClick={handleClose}
                 disabled={sending}
                 className="text-white hover:text-rose-200 transition-colors p-2 rounded-lg hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
               >
                 <FiX className="w-5 h-5" />
               </motion.button>
@@ -386,9 +384,7 @@ const ClientBirthdayReminderModal = ({
                 <motion.button
                   onClick={handleClose}
                   disabled={sending}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 text-gray-700 rounded-lg hover:bg-slate-100 font-medium text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
                 </motion.button>
@@ -399,12 +395,12 @@ const ClientBirthdayReminderModal = ({
                     loadingAvailability ||
                     selectedChannels.length === 0
                   }
-                  className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
+                  className={`flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
                     sending ||
                     loadingAvailability ||
                     selectedChannels.length === 0
                       ? "opacity-50 cursor-not-allowed"
-                      : "hover:from-rose-700 hover:to-pink-700"
+                      : ""
                   }`}
                   whileHover={
                     sending ||

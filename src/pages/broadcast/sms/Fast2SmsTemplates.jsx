@@ -27,20 +27,20 @@ import {
 } from "../../../services/smsApi";
 
 const TOOLBAR_ROW =
-  "flex flex-wrap items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white";
+  "flex flex-wrap items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60";
 const TABLE_HEAD_ROW =
-  "bg-gradient-to-r from-gray-50 to-white border-b border-gray-200";
+  "bg-slate-50/60 border-b border-gray-200";
 const TABLE_TH =
   "px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap";
 const TABLE_ROW =
-  "border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors";
+  "border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors";
 const CELL_INDEX = "text-[11px] font-bold text-gray-800";
 const FIELD_INPUT =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
+  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20";
 const FIELD_LABEL =
   "block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5";
 const TOOLBAR_SEARCH_INPUT =
-  "w-full pl-9 pr-9 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-gray-400";
+  "w-full pl-9 pr-9 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none placeholder:text-gray-400";
 const CELL_TITLE = "font-semibold text-gray-800 text-sm";
 const CELL_SUB = "text-xs text-gray-400";
 const SECTION_LABEL =
@@ -71,7 +71,7 @@ const SearchField = ({
       <button
         type="button"
         onClick={() => onChange("")}
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-slate-100 hover:text-gray-600"
         aria-label="Clear search"
       >
         <FiX className="h-3.5 w-3.5" />
@@ -158,7 +158,7 @@ const ActionMenu = ({ items }) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-slate-100 hover:text-gray-700"
         aria-label="Actions"
       >
         <FiMoreVertical className="h-4 w-4" />
@@ -196,7 +196,7 @@ const ActionMenu = ({ items }) => {
                     className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
                       item.danger
                         ? "text-red-600 hover:bg-red-50"
-                        : "text-gray-700 hover:bg-gray-50"
+                        : "text-gray-700 hover:bg-slate-50"
                     } disabled:cursor-not-allowed disabled:opacity-40`}
                   >
                     {item.icon ? (
@@ -771,7 +771,7 @@ const Fast2SmsTemplates = () => {
 
   if (!check("broadcast_config_edit")) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -799,7 +799,7 @@ const Fast2SmsTemplates = () => {
   const contentInset = isMinimized ? "md:pl-20" : "md:pl-[260px]";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -816,14 +816,14 @@ const Fast2SmsTemplates = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}
       >
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           {smsChannel !== "fast2sms" ? (
             <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               SMS channel is set to <strong>{smsChannel || "disabled"}</strong>.
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className={`${TOOLBAR_ROW} gap-y-2`}>
               <div className="flex min-w-0 shrink-0 items-center gap-2">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100">
@@ -849,7 +849,7 @@ const Fast2SmsTemplates = () => {
                     className={`${TOOLBAR_BTN} transition-colors ${
                       tab === item.id
                         ? "bg-blue-50 text-blue-700"
-                        : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                        : "text-gray-500 hover:bg-slate-100 hover:text-gray-700"
                     }`}
                   >
                     {item.label}
@@ -870,7 +870,7 @@ const Fast2SmsTemplates = () => {
                   <button
                     type="button"
                     onClick={openCreate}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                   >
                     <FiPlus className="h-4 w-4" />
                     Add template
@@ -880,7 +880,7 @@ const Fast2SmsTemplates = () => {
                   type="button"
                   onClick={() => (tab === "mapping" ? fetchMaps() : fetchTemplates(1))}
                   disabled={mapLoading || listLoading}
-                  className="shrink-0 rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  className="shrink-0 rounded-lg border border-slate-200 p-2 text-gray-600 hover:bg-slate-50 disabled:opacity-50"
                   title="Refresh"
                 >
                   <FiRefreshCw
@@ -1076,7 +1076,7 @@ const Fast2SmsTemplates = () => {
                 className="relative z-[1] pointer-events-auto my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:my-4 sm:max-h-[calc(100vh-2rem)]"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3.5 text-white">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-blue-600 px-5 py-3.5 text-white">
                   <div className="min-w-0">
                     <h2 className="m-0 text-base font-bold">Set template mapping</h2>
                     <p className="m-0 mt-0.5 truncate text-xs capitalize text-white/80">
@@ -1229,7 +1229,7 @@ const Fast2SmsTemplates = () => {
                     type="button"
                     onClick={closePicker}
                     disabled={pickerSaving}
-                    className={`${TOOLBAR_BTN} border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50`}
+                    className={`${TOOLBAR_BTN} border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-50`}
                   >
                     Cancel
                   </button>
@@ -1238,7 +1238,7 @@ const Fast2SmsTemplates = () => {
                       type="button"
                       disabled={pickerSaving}
                       onClick={saveMap}
-                      className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50`}
+                      className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50`}
                     >
                       {pickerSaving ? (
                         <FiLoader className="h-3.5 w-3.5 animate-spin" />
@@ -1270,7 +1270,7 @@ const Fast2SmsTemplates = () => {
                 className="relative z-[1] pointer-events-auto my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:my-4 sm:max-h-[calc(100vh-2rem)]"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3.5 text-white">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-blue-600 px-5 py-3.5 text-white">
                   <h2 className="m-0 text-base font-bold">
                     {form.template_id ? "Edit template" : "New Fast2SMS template"}
                   </h2>
@@ -1386,14 +1386,14 @@ const Fast2SmsTemplates = () => {
                       type="button"
                       onClick={() => setShowForm(false)}
                       disabled={formSaving}
-                      className={`${TOOLBAR_BTN} border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50`}
+                      className={`${TOOLBAR_BTN} border border-slate-200 text-gray-700 hover:bg-slate-100 disabled:opacity-50`}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={formSaving}
-                      className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50`}
+                      className={`${TOOLBAR_BTN} inline-flex items-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50`}
                     >
                       {formSaving ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
                       Save template

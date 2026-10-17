@@ -372,7 +372,7 @@ const EmailBroadcastDetails = () => {
 
   if (!check('broadcast_send') && !check('broadcast_config_edit')) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="app-page via-blue-50 to-indigo-50">
         <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
         <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
@@ -396,7 +396,7 @@ const EmailBroadcastDetails = () => {
         <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
         <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-          <div className="ebd-page mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+          <div className="ebd-page mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
 
             {/* ── Top bar ── */}
             <div className="ebd-topbar">

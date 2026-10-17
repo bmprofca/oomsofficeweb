@@ -729,8 +729,6 @@ export default function LedgerTab({
                             type="button"
                             onClick={handleRefresh}
                             className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-all duration-200 hover:shadow"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
                             title="Refresh"
                         >
                             <FiRefreshCw
@@ -742,8 +740,6 @@ export default function LedgerTab({
                             onClick={() => handleExport('pdf')}
                             disabled={!canViewFees}
                             className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm transition-all duration-200 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
-                            whileHover={canViewFees ? { scale: 1.05 } : {}}
-                            whileTap={canViewFees ? { scale: 0.95 } : {}}
                             title="Export PDF"
                         >
                             <FiDownload className="h-5 w-5 text-slate-600" />
@@ -756,9 +752,7 @@ export default function LedgerTab({
                                     e.stopPropagation();
                                     setShowAddMenu((prev) => !prev);
                                 }}
-                                className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 p-2 text-white shadow-sm transition-all duration-200 hover:shadow"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                className="rounded-lg bg-blue-600 p-2 text-white shadow-sm transition-all duration-200 hover:shadow"
                                 title="Add Transaction"
                             >
                                 <FiPlus className="h-5 w-5" />

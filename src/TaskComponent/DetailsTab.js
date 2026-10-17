@@ -148,7 +148,7 @@ const MetaField = ({ label, children, className = '' }) => (
 
 const SectionBlock = ({ icon: Icon, title, children, action }) => (
     <section className="rounded-lg border border-gray-200 bg-white">
-        <div className="flex items-center justify-between gap-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-2.5 md:px-4">
+        <div className="flex items-center justify-between gap-2 border-b border-gray-200 bg-slate-50/60 px-3 py-2.5 md:px-4">
             <div className="flex items-center gap-2 min-w-0">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
                     <Icon className="h-3.5 w-3.5 text-indigo-600" />
@@ -437,9 +437,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
 
     return (
         <>
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 {/* Header */}
-                <div className="flex flex-col gap-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 md:flex-row md:items-center md:justify-between md:px-4">
+                <div className="flex flex-col gap-3 border-b border-gray-200 bg-slate-50/60 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-4">
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
                             <FiClipboard className="h-4 w-4 text-indigo-600" />
@@ -471,7 +471,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                         <button
                             type="button"
                             onClick={() => setStatusHistoryOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-100"
                         >
                             <FiList className="h-3.5 w-3.5" />
                             Status History
@@ -480,7 +480,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                             type="button"
                             onClick={() => setStatusModalOpen(true)}
                             disabled={isChangingStatus}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
                         >
                             {isChangingStatus ? (
                                 <FiLoader className="h-3.5 w-3.5 animate-spin" />
@@ -524,7 +524,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                             <button
                                 type="button"
                                 onClick={() => setBillingModal('nonbillable')}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-slate-100"
                             >
                                 <FiFileText className="h-3.5 w-3.5" />
                                 Non Billable
@@ -630,7 +630,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         <SectionBlock icon={FiUser} title="Client">
                             <div className="flex items-start gap-3">
-                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-sm">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500 shadow-sm">
                                     <span className="text-xs font-bold text-white">
                                         {(clientName || '?').charAt(0).toUpperCase()}
                                     </span>
@@ -916,7 +916,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                                             type="button"
                                             disabled={isBillingAction}
                                             onClick={() => setBillingModal(null)}
-                                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                                            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-slate-100 disabled:opacity-50"
                                         >
                                             Cancel
                                         </button>
@@ -983,7 +983,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated, loading = f
                     setViewFirm(null);
                 }}
                 maxWidth="max-w-5xl"
-                headerClass="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900"
+                headerClass="bg-slate-700"
                 icon={FiEye}
                 title="Firm details"
                 subtitle={viewFirm?.firm_name || 'View firm information'}

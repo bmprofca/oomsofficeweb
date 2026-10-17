@@ -662,7 +662,7 @@ const CapitalAccounts = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -677,7 +677,7 @@ const CapitalAccounts = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <div className="mb-4 grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {listLoading && accounts.length === 0 ? (
                             <>
@@ -692,7 +692,7 @@ const CapitalAccounts = () => {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-blue-500 to-blue-600 p-3 text-white sm:p-3.5"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-blue-500 p-3 text-white sm:p-3.5"
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0 flex-1">
@@ -709,7 +709,7 @@ const CapitalAccounts = () => {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2, delay: 0.04 }}
-                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 text-white sm:p-3.5"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-indigo-500 p-3 text-white sm:p-3.5"
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0 flex-1">
@@ -726,7 +726,7 @@ const CapitalAccounts = () => {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2, delay: 0.08 }}
-                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 text-white sm:p-3.5"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-emerald-500 p-3 text-white sm:p-3.5"
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0 flex-1">
@@ -743,7 +743,7 @@ const CapitalAccounts = () => {
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2, delay: 0.12 }}
-                                    className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-rose-500 to-rose-600 p-3 text-white sm:p-3.5"
+                                    className="overflow-hidden rounded-xl border border-white/10 bg-rose-500 p-3 text-white sm:p-3.5"
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0 flex-1">
@@ -765,7 +765,7 @@ const CapitalAccounts = () => {
                         transition={{ duration: 0.25 }}
                         className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
                             <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                                     <h5 className="mr-4 shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:mr-6 sm:text-base lg:mr-8">
@@ -778,7 +778,7 @@ const CapitalAccounts = () => {
                                             placeholder="Search…"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
                                         />
                                     </div>
                                 </div>
@@ -788,9 +788,7 @@ const CapitalAccounts = () => {
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:h-10 sm:px-3"
                                         >
                                             <PiExportBold className="h-4 w-4 shrink-0" />
                                             <span className="whitespace-nowrap">Export</span>
@@ -848,9 +846,7 @@ const CapitalAccounts = () => {
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowAddModal(true)}
-                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
                                         <span className="whitespace-nowrap">Create</span>
@@ -897,9 +893,7 @@ const CapitalAccounts = () => {
                                                     <p className="text-slate-500 text-xs mb-4">Start by creating your first capital account</p>
                                                     <motion.button
                                                         onClick={() => setShowAddModal(true)}
-                                                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
+                                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
                                                     >
                                                         Create Your First Capital Account
                                                     </motion.button>
@@ -942,7 +936,7 @@ const CapitalAccounts = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleOpenLedger(account)}
-                                                            className={`inline-flex items-center justify-center font-bold px-3 py-1.5 rounded text-xs transition-colors hover:ring-2 hover:ring-blue-200 ${isNegativeBalance ? 'bg-gradient-to-r from-red-50 to-red-100 text-red-800' : 'bg-gradient-to-r from-green-50 to-green-100 text-green-800'}`}
+                                                            className={`inline-flex items-center justify-center font-bold px-3 py-1.5 rounded text-xs transition-colors hover:ring-2 hover:ring-blue-200 ${isNegativeBalance ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}
                                                             title="View ledger"
                                                         >
                                                             {isNegativeBalance ? '-' : ''}₹{formatCurrency(displayBalance)}
@@ -955,8 +949,6 @@ const CapitalAccounts = () => {
                                                                     type="button"
                                                                     className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
                                                                     onClick={(e) => toggleRowDropdown(account.capital_id, e)}
-                                                                    whileHover={{ scale: 1.05 }}
-                                                                    whileTap={{ scale: 0.95 }}
                                                                     title="Actions"
                                                                     aria-label="Row actions"
                                                                 >
@@ -1104,7 +1096,7 @@ const CapitalAccounts = () => {
                             className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl"
                         >
                             <div className="text-center">
-                                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <PiExportBold className="w-8 h-8 text-blue-600" />
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-800 mb-2">
@@ -1114,9 +1106,9 @@ const CapitalAccounts = () => {
                                     Your {exportModal.type} export is being processed...
                                 </p>
                                 <div className="flex justify-center space-x-2 mb-6">
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                                 </div>
                                 <div className="text-xs text-slate-500">
                                     This will only take a moment...

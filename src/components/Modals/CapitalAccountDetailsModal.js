@@ -78,7 +78,7 @@ const CapitalAccountDetailsModal = ({ isOpen, onClose, account, loading = false,
                     <DetailsSkeleton />
                 ) : (
                     <>
-                        <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-white p-4 shadow-sm">
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 shadow-sm">
                             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                 <span
                                     className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${

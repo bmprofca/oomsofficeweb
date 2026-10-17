@@ -135,7 +135,7 @@ const PasswordField = ({ label, value, onChange, required, disabled }) => {
                     value={value}
                     onChange={onChange}
                     disabled={disabled}
-                    className="w-full pl-3 pr-10 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
+                    className="w-full pl-3 pr-10 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white font-medium"
                     required={required}
                 />
                 <button
@@ -1458,7 +1458,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                 key={emp.username || idx}
                                                                 type="button"
                                                                 onClick={onAvatarClick}
-                                                                className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                className="w-7 h-7 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
                                                                 title={`Click to view details of assigned staff`}
                                                             >
                                                                 {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
@@ -1468,7 +1468,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             <button
                                                                 type="button"
                                                                 onClick={onAvatarClick}
-                                                                className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                className="w-7 h-7 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
                                                                 title="Click to view all assigned staff"
                                                             >
                                                                 +{assignedStaffs.length - 2}
@@ -1500,7 +1500,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             initial={{ opacity: 0, scale: 0.95, y: 5 }}
                                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                                             exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                            className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                            className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-pop border border-slate-200 z-55 overflow-hidden text-left"
                                                         >
                                                             <div className="py-1">
                                                                 {assign.status === 'Sale' && assign.invoice_no ? (
@@ -1711,7 +1711,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             key={emp.username || idx}
                                                             type="button"
                                                             onClick={onAvatarClick}
-                                                            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                            className="w-8 h-8 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
                                                             title={`Click to view details of assigned staff`}
                                                         >
                                                             {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
@@ -1721,7 +1721,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                         <button
                                                             type="button"
                                                             onClick={onAvatarClick}
-                                                            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                            className="w-8 h-8 rounded-full bg-indigo-500 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
                                                             title="Click to view all assigned staff"
                                                         >
                                                             +{assignedStaffs.length - 2}
@@ -1771,7 +1771,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             initial={{ opacity: 0, scale: 0.95, y: 5 }}
                                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                                             exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                            className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                            className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-pop border border-slate-200 z-55 overflow-hidden text-left"
                                                         >
                                                             <div className="py-1">
                                                                 <button
@@ -2043,7 +2043,7 @@ const ComplianceTab = ({ clientUsername }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-200 shadow-xl p-6"
+            className="bg-gray-50 rounded-2xl border border-gray-200 shadow-xl p-6"
         >
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-gray-100 pb-5">
@@ -2052,7 +2052,7 @@ const ComplianceTab = ({ clientUsername }) => {
                         <FiLayers className="w-5 h-5" />
                     </div>
                     <div>
-                        <h3 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+                        <h3 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 leading-tight">
                             Compliance
                         </h3>
                         <p className="text-xs text-slate-500">Track and assign global regulatory filings for this client</p>
@@ -2069,9 +2069,8 @@ const ComplianceTab = ({ clientUsername }) => {
                     {checkPermissionSync('recurring_task_create') && (
                         <motion.button
                             onClick={handleOpenAssignModal}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all text-xs font-semibold"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all text-xs font-semibold"
                             whileHover={{ scale: 1.02, y: -1 }}
-                            whileTap={{ scale: 0.98 }}
                         >
                             <FiPlus className="w-4 h-4" />
                             Assign Compliance
@@ -2306,7 +2305,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
                                                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                                                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-pop border border-slate-200 z-55 overflow-hidden text-left"
                                                                 >
                                                                     <div className="py-1">
                                                                         {hist.status === 'Sale' && hist.invoice_no ? (
@@ -2375,7 +2374,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-indigo-600 text-white shrink-0">
                                 <div className="flex items-center gap-2">
                                     <FiLayers className="w-5 h-5" />
                                     <h3 className="text-sm font-bold">Assign Compliance to Client</h3>
@@ -2458,7 +2457,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                         return { ...prev, firms: updated };
                                                                     });
                                                                 }}
-                                                                className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
+                                                                className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500/25 h-4 w-4"
                                                             />
                                                             {f.firm_name} {f.pan_no ? `(PAN: ${f.pan_no})` : ''}
                                                         </label>
@@ -2518,7 +2517,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 placeholder="0.00"
                                                 value={assignForm.custom_amount}
                                                 onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white"
                                                 required
                                             />
                                         </div>
@@ -2574,7 +2573,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                             return { ...prev, quarters: updated };
                                                                         });
                                                                     }}
-                                                                    className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                                                                    className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500/25 h-4 w-4"
                                                                  />
                                                                 Q{q}
                                                             </label>
@@ -2638,7 +2637,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                 type="text"
                                                                 value={assignForm.custom_fields?.[field.key] || ''}
                                                                 onChange={onChange}
-                                                                className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
+                                                                className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white font-medium"
                                                                 required
                                                             />
                                                         </div>
@@ -2740,7 +2739,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                                     return { ...prev, employee_usernames: updated };
                                                                                 });
                                                                             }}
-                                                                            className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 h-4 w-4 transition-all cursor-pointer"
+                                                                            className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500/25 h-4 w-4 transition-all cursor-pointer"
                                                                         />
                                                                         <span className="font-semibold text-slate-800 group-hover:translate-x-0.5 transition-transform">{s.name}</span>
                                                                         <span className="text-[10px] text-slate-400 font-mono">({s.username})</span>
@@ -2786,7 +2785,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     }}
                                                     onFocus={() => setShowCaDropdown(true)}
                                                     placeholder="Search CA (min 3 chars)…"
-                                                    className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                    className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white"
                                                 />
                                                 {showCaDropdown && caSearchResults.length > 0 && (
                                                     <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
@@ -2865,7 +2864,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
+                                <div className="flex items-center justify-between px-5 py-3.5 bg-indigo-600 text-white shrink-0">
                                     <div className="flex items-center gap-2">
                                         <FiCalendar className="w-5 h-5" />
                                         <h3 className="text-sm font-bold">Update Period Status</h3>
@@ -2965,7 +2964,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     disabled={!isUpdatePermitted}
                                                     onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
                                                     placeholder="0.00"
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
                                                 />
                                             </div>
                                         )}
@@ -3028,7 +3027,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shrink-0">
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-blue-600 text-white shrink-0">
                                 <div className="flex items-center gap-2">
                                     <FiUser className="w-5 h-5" />
                                     <h3 className="text-sm font-bold">Staff Details</h3>
@@ -3098,7 +3097,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 {/* Header */}
-                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
+                                <div className="flex items-center justify-between px-5 py-3.5 bg-violet-600 text-white shrink-0">
                                     <div className="flex items-center gap-2">
                                         <FiEdit2 className="w-5 h-5" />
                                         <h3 className="text-sm font-bold">Edit Assignment</h3>
@@ -3453,7 +3452,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 (!checkPermissionSync('recurring_task_fees_view') ? false : !editForm.custom_amount) ||
                                                 (!editForm.employee_usernames || editForm.employee_usernames.length === 0)
                                             }
-                                            className="flex-1 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                            className="flex-1 py-2.5 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                                         >
                                             {submittingEdit && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                                             Save Changes
@@ -3538,7 +3537,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-indigo-600 text-white">
                                 <div className="flex items-center gap-2">
                                     <FiShare2 className="w-5 h-5" />
                                     <h3 className="text-sm font-bold">Broadcast Compliance Reminder</h3>
@@ -3562,7 +3561,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             value={broadcastPhone}
                                             onChange={(e) => setBroadcastPhone(e.target.value)}
                                             placeholder="+91 9876543210"
-                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white"
                                         />
                                     </div>
                                 </div>
@@ -3575,7 +3574,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             value={broadcastEmail}
                                             onChange={(e) => setBroadcastEmail(e.target.value)}
                                             placeholder="client@example.com"
-                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white"
                                         />
                                     </div>
                                 </div>
@@ -3623,7 +3622,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
+                                <div className="flex items-center justify-between px-6 py-4 bg-indigo-600 text-white shrink-0">
                                     <div className="flex items-center gap-3">
                                         <FiCalendar className="w-5 h-5" />
                                         <div>
@@ -3743,7 +3742,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-violet-600 text-white shrink-0">
                                 <div className="flex items-center gap-2">
                                     <FiLock className="w-5 h-5" />
                                     <h3 className="text-sm font-bold">Update Filing Credentials</h3>
@@ -3798,7 +3797,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                         type="text"
                                                         value={credentialsForm[field.key] || ''}
                                                         onChange={onChange}
-                                                        className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
+                                                        className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none bg-white font-medium"
                                                         required
                                                     />
                                                 </div>

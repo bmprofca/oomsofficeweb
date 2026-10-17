@@ -431,7 +431,7 @@ export default function BillingTab({ caUsername: caUsernameProp } = {}) {
         <div className="w-full">
             <div className="overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
                 {/* Card header */}
-                <div className="border-b border-indigo-100 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-4 py-4 sm:px-5">
+                <div className="border-b border-indigo-100 bg-indigo-600 px-4 py-4 sm:px-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-start gap-3 min-w-0">
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white ring-1 ring-white/30 backdrop-blur-sm">
@@ -538,7 +538,7 @@ export default function BillingTab({ caUsername: caUsernameProp } = {}) {
                             {!loading && rowsForTable.length === 0 ? (
                                 <tr>
                                     <td colSpan={tableColSpan} className="px-6 py-14 text-center">
-                                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100 text-indigo-500">
+                                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500">
                                             <TbReceipt className="h-7 w-7" />
                                         </div>
                                         <h3 className="mb-1 text-sm font-semibold text-slate-800">
@@ -667,8 +667,6 @@ export default function BillingTab({ caUsername: caUsernameProp } = {}) {
                                                             type="button"
                                                             className="ca-billing-tab-dropdown rounded-lg p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
                                                             onClick={(e) => toggleRowDropdown(row.task_id, e)}
-                                                            whileHover={{ scale: 1.08 }}
-                                                            whileTap={{ scale: 0.95 }}
                                                         >
                                                             <FiMoreVertical className="h-4 w-4" />
                                                         </motion.button>

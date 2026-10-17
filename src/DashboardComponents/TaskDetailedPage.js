@@ -1173,7 +1173,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       case 'client_name':
         return (
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
+            <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
               <FiUser className="w-3.5 h-3.5 text-white" />
             </div>
             <button
@@ -1361,8 +1361,6 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                 toggleRowDropdown(task.task_id, e.currentTarget);
               }}
               className="task-row-action-trigger w-8 h-8 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
             >
               <div className="w-1 h-1 rounded-full bg-gray-600" />
               <div className="w-1 h-1 rounded-full bg-gray-600" />
@@ -1385,7 +1383,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1405,7 +1403,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       >
         <div className="mx-2 sm:mx-4 md:mx-6 my-3 space-y-3">
           {/* Compact page header */}
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="px-3 py-2.5 sm:px-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 {staffUsername ? (
@@ -1456,7 +1454,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
 
           {/* Filters + table */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 p-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 p-3 border-b border-gray-100 bg-slate-50/60">
               <div className="xl:col-span-3">
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                   <FiBriefcase className="w-3 h-3" />
@@ -1532,7 +1530,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Client, firm, service, task ID…"
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent outline-none"
                   />
                 </div>
               </div>

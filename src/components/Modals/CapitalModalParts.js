@@ -7,7 +7,7 @@ export const MODAL_BODY_CLASS =
     'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
 export const INPUT_CLASS =
-    'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500';
+    'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500';
 
 export const LABEL_CLASS = 'block text-xs font-medium text-slate-700 mb-1';
 
@@ -16,7 +16,7 @@ export function CapitalModalShell({
     open,
     onClose,
     maxWidth = 'max-w-lg',
-    headerClass = 'bg-gradient-to-r from-blue-600 to-blue-700',
+    headerClass = 'bg-blue-600',
     icon: Icon,
     title,
     subtitle,
@@ -125,7 +125,7 @@ export function CapitalModalFooterActions({
                 form={formId}
                 onClick={confirmType === 'button' ? onConfirm : undefined}
                 disabled={loading}
-                className="inline-flex min-w-[120px] items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-w-[120px] items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 {loading ? 'Please wait…' : confirmLabel}
             </button>

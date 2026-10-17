@@ -87,7 +87,7 @@ const ChannelSwitchPills = ({
   loading = false,
 }) => {
   const accentStyles = {
-    blue: "bg-blue-600 text-white border-blue-600 shadow-blue-100",
+    blue: "bg-indigo-600 text-white border-blue-600 shadow-blue-100",
     green: "bg-emerald-600 text-white border-emerald-600 shadow-emerald-100",
     teal: "bg-teal-600 text-white border-teal-600 shadow-teal-100",
   };
@@ -528,6 +528,18 @@ const Broadcast = () => {
   const renderCallSubTabContent = () =>
     renderCardGrid(callOomsSystemCards, "teal");
 
+  // Soft per-tile palette (literal classes so Tailwind generates them)
+  const TILE_PALETTE = [
+  { tile: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-indigo-200 text-indigo-600" },
+  { tile: "border-emerald-100 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-emerald-200 text-emerald-600" },
+  { tile: "border-violet-100 bg-violet-50 hover:border-violet-300 hover:bg-violet-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-violet-200 text-violet-600" },
+  { tile: "border-amber-100 bg-amber-50 hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-amber-200 text-amber-600" },
+  { tile: "border-sky-100 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-sky-200 text-sky-600" },
+  { tile: "border-rose-100 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-rose-200 text-rose-600" },
+  { tile: "border-teal-100 bg-teal-50 hover:border-teal-300 hover:bg-teal-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-teal-200 text-teal-600" },
+  { tile: "border-orange-100 bg-orange-50 hover:border-orange-300 hover:bg-orange-100/70 hover:shadow-md", chip: "bg-white ring-1 ring-orange-200 text-orange-600" },
+  ];
+
   // Render card grid
   const renderCardGrid = (cards, accent = "green") => (
     <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -545,7 +557,6 @@ const Broadcast = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
             whileHover={hasPermission ? { y: -4 } : {}}
-            whileTap={hasPermission ? { scale: 0.98 } : {}}
             onClick={() => {
               if (!hasPermission) {
                 toast.error(
@@ -558,7 +569,7 @@ const Broadcast = () => {
             className={`group ${hasPermission ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
           >
             <div
-              className={`relative h-full rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 ${ACCENT_CLASS[accent].hover}`}
+              className={`relative h-full rounded-xl border p-3.5 transition-all duration-200 ${TILE_PALETTE[index % TILE_PALETTE.length].tile}`}
             >
               {!hasPermission && (
                 <div className="absolute right-3 top-3 rounded-full bg-slate-100 p-1 text-slate-400">
@@ -567,7 +578,7 @@ const Broadcast = () => {
               )}
               <div className="flex h-full flex-col">
                 <div
-                  className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-md ${card.color}`}
+                  className={`mb-2 inline-flex h-9 w-9 items-center justify-center rounded-lg ${TILE_PALETTE[index % TILE_PALETTE.length].chip}`}
                 >
                   {card.icon}
                 </div>
@@ -790,7 +801,7 @@ const Broadcast = () => {
     !check("broadcast_config_edit")
   ) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -823,7 +834,7 @@ const Broadcast = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -841,7 +852,7 @@ const Broadcast = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+        <div className="mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

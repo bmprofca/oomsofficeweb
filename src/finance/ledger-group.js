@@ -207,7 +207,7 @@ const LedgerGroup = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 overflow-hidden">
+        <div className="app-page overflow-hidden">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -234,7 +234,7 @@ const LedgerGroup = () => {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => setShowAddModal(true)}
-                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors flex items-center gap-2"
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-medium transition-colors flex items-center gap-2"
                                         >
                                             <FiPlus className="w-4 h-4" />
                                             Add Group
@@ -326,7 +326,7 @@ const LedgerGroup = () => {
                                     value={formData.group_name}
                                     onChange={handleInputChange}
                                     placeholder="Enter group name"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                     required
                                 />
                             </div>
@@ -336,7 +336,7 @@ const LedgerGroup = () => {
                                     name="parent_group"
                                     value={formData.parent_group}
                                     onChange={handleInputChange}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white"
                                 >
                                     {parentGroups.map(group => (
                                         <option key={group.value} value={group.value}>
@@ -353,14 +353,14 @@ const LedgerGroup = () => {
                                     value={formData.values}
                                     onChange={handleInputChange}
                                     placeholder="Enter opening value"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                 />
                             </div>
                             <div className="flex gap-2 pt-4 sticky bottom-0 bg-white pb-4">
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
+                                    className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
                                 >
                                     {loading ? 'Creating...' : 'Submit'}
                                 </button>
@@ -400,7 +400,7 @@ const LedgerGroup = () => {
                                     value={editFormData.group_name}
                                     onChange={handleEditInputChange}
                                     placeholder="Enter group name"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                     required
                                 />
                             </div>
@@ -410,7 +410,7 @@ const LedgerGroup = () => {
                                     name="parent_group"
                                     value={editFormData.parent_group}
                                     onChange={handleEditInputChange}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white"
                                 >
                                     {parentGroups.map(group => (
                                         <option key={group.value} value={group.value}>
@@ -427,14 +427,14 @@ const LedgerGroup = () => {
                                     value={editFormData.values}
                                     onChange={handleEditInputChange}
                                     placeholder="Enter current value"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                 />
                             </div>
                             <div className="flex gap-2 pt-4 sticky bottom-0 bg-white pb-4">
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
+                                    className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
                                 >
                                     {loading ? 'Updating...' : 'Submit'}
                                 </button>

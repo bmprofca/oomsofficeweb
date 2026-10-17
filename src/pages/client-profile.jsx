@@ -509,7 +509,7 @@ const BasicDetailsTab = ({
             </div>
           ) : (
             <div className="space-y-3">
-              <section className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/55 via-white to-white p-3.5">
+              <section className="rounded-xl border border-indigo-100 bg-indigo-50 p-3.5">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
@@ -538,7 +538,7 @@ const BasicDetailsTab = ({
                 {renderList(personalFields)}
               </section>
 
-              <section className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/55 via-white to-white p-3.5">
+              <section className="rounded-xl border border-emerald-100 bg-emerald-50 p-3.5">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -910,7 +910,7 @@ const EditModal = ({
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200"
       >
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5">
+        <div className="bg-blue-600 text-white p-5">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold">Edit {field}</h2>
@@ -935,14 +935,14 @@ const EditModal = ({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               rows="4"
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none resize-none transition-all bg-gray-50/50 text-sm"
             />
           ) : (
             <input
               type={type}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
             />
           )}
         </div>
@@ -955,7 +955,7 @@ const EditModal = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
           >
             Save Changes
           </button>
@@ -981,7 +981,7 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }) => {
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200"
       >
-        <div className="bg-gradient-to-r from-red-500 to-rose-600 text-white p-5">
+        <div className="bg-red-500 text-white p-5">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold">{title}</h2>
@@ -1014,7 +1014,7 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }) => {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-rose-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
+            className="px-4 py-2 bg-red-500 text-white rounded-lg font-medium transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
           >
             Delete
           </button>
@@ -1055,7 +1055,7 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200"
       >
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5">
+        <div className="bg-blue-600 text-white p-5">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold">Add New Firm</h2>
@@ -1082,7 +1082,7 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
               placeholder="Enter firm name"
             />
           </div>
@@ -1095,7 +1095,7 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
               onChange={(e) =>
                 setFormData({ ...formData, type: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
             >
               <option value="Proprietorship">Proprietorship</option>
               <option value="Partnership">Partnership</option>
@@ -1113,7 +1113,7 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
               onChange={(e) =>
                 setFormData({ ...formData, pan: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
               placeholder="Enter PAN number"
             />
           </div>
@@ -1127,7 +1127,7 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
               onChange={(e) =>
                 setFormData({ ...formData, gst: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
               placeholder="Enter GST number"
             />
           </div>
@@ -1141,7 +1141,7 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
           >
             Add Firm
           </button>
@@ -1192,7 +1192,7 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200"
       >
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5">
+        <div className="bg-blue-600 text-white p-5">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold">Edit Firm</h2>
@@ -1217,7 +1217,7 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
             />
           </div>
           <div>
@@ -1229,7 +1229,7 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
               onChange={(e) =>
                 setFormData({ ...formData, type: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
             >
               <option value="Proprietorship">Proprietorship</option>
               <option value="Partnership">Partnership</option>
@@ -1247,7 +1247,7 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
               onChange={(e) =>
                 setFormData({ ...formData, pan: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
             />
           </div>
           <div>
@@ -1260,7 +1260,7 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
               onChange={(e) =>
                 setFormData({ ...formData, gst: e.target.value })
               }
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all bg-gray-50/50 text-sm"
             />
           </div>
         </div>
@@ -1273,7 +1273,7 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
           >
             Save Changes
           </button>
@@ -1289,11 +1289,10 @@ const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => {
       onClick={() => onClick(to)}
       className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-200 ${
         isActive
-          ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
-          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200"
+          ? "bg-blue-600 text-white shadow-sm"
+          : "text-gray-600 hover:text-gray-900 hover:bg-slate-50 border border-gray-200"
       }`}
       whileHover={{ scale: 1.03, y: -1 }}
-      whileTap={{ scale: 0.98 }}
     >
       <motion.div
         animate={{
@@ -1320,11 +1319,10 @@ const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => {
       onClick={() => onClick(to)}
       className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-[70px] ${
         isActive
-          ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
-          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200"
+          ? "bg-blue-600 text-white shadow-sm"
+          : "text-gray-600 hover:text-gray-900 hover:bg-slate-50 border border-gray-200"
       }`}
       whileHover={{ scale: 1.05, y: -2 }}
-      whileTap={{ scale: 0.98 }}
     >
       <Icon className="w-4 h-4 mb-1 mx-auto" />
       <span className="text-[10px] font-medium text-center leading-tight w-full">
@@ -1400,7 +1398,7 @@ const ClientProfilePageSkeleton = ({ tabsMinimized = true, tabCount = 12 }) => {
       </section>
 
       {/* Tabs bar — mirrors minimized / expanded chrome */}
-      <div className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between p-3">
           {tabsMinimized ? (
             <>
@@ -1837,7 +1835,7 @@ const ClientProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
+    <div className="app-page via-white to-blue-50/30">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1871,7 +1869,7 @@ const ClientProfile = () => {
 
             {/* Error State */}
             {error && !loading && (
-              <div className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-xl p-6 mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
                     <FiX className="w-5 h-5 text-red-600" />
@@ -1886,14 +1884,14 @@ const ClientProfile = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => fetchClientData(username)}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 text-sm flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium transition-all duration-200 text-sm flex items-center gap-2"
                   >
                     <FiRefreshCw className="w-4 h-4" />
                     Retry
                   </button>
                   <button
                     onClick={() => navigate(-1)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition-all duration-200 text-sm"
+                    className="px-4 py-2 border border-slate-200 text-gray-700 rounded-lg font-medium hover:bg-slate-100 transition-all duration-200 text-sm"
                   >
                     Go Back
                   </button>
@@ -2014,7 +2012,7 @@ const ClientProfile = () => {
                                   ],
                                 })
                               }
-                              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
                               title="Send payment reminder"
                               aria-label={`Send payment reminder to ${clientData.name || username}`}
                             >
@@ -2153,8 +2151,6 @@ const ClientProfile = () => {
                         <motion.button
                           onClick={toggleTabsMinimized}
                           className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ml-1 flex-shrink-0"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
                           title="Show full tabs"
                         >
                           <FiMaximize2 className="w-4 h-4" />
@@ -2182,8 +2178,6 @@ const ClientProfile = () => {
                         <motion.button
                           onClick={toggleTabsMinimized}
                           className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ml-1 flex-shrink-0"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
                           title="Minimize tabs"
                         >
                           <FiMinimize2 className="w-4 h-4" />

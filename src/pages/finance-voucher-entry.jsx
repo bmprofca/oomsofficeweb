@@ -110,7 +110,7 @@ const FinanceEntry = () => {
   const emptySummary = { totalCredit: 0, totalDebit: 0 };
 
   return (
-    <div className="min-h-screen bg-slate-50 overflow-hidden">
+    <div className="app-page overflow-hidden">
       {/* Fixed Header */}
       <Header
         mobileMenuOpen={mobileMenuOpen}
@@ -162,89 +162,89 @@ const FinanceEntry = () => {
                     {
                       name: "Sales Register",
                       path: "./sales",
-                      hoverBg: "hover:bg-cyan-50 hover:border-cyan-200",
-                      iconBg: "bg-cyan-100",
-                      iconColor: "text-cyan-600",
+                      hoverBg: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-indigo-200",
+                      iconColor: "text-indigo-600",
                       svgPath:
                         "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z",
                     },
                     {
                       name: "Purchase Register",
                       path: "./purchase",
-                      hoverBg: "hover:bg-orange-50 hover:border-orange-200",
-                      iconBg: "bg-orange-100",
-                      iconColor: "text-orange-600",
+                      hoverBg: "border-emerald-100 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-emerald-200",
+                      iconColor: "text-emerald-600",
                       svgPath: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z",
                     },
                     {
                       name: "Received Register",
                       path: "./received",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-violet-100 bg-violet-50 hover:border-violet-300 hover:bg-violet-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-violet-200",
+                      iconColor: "text-violet-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
                     {
                       name: "Payment Register",
                       path: "./payment",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-amber-100 bg-amber-50 hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-amber-200",
+                      iconColor: "text-amber-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
                     {
                       name: "Contra Register",
                       path: "./contra",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-sky-100 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-sky-200",
+                      iconColor: "text-sky-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
                     {
                       name: "Journal Register",
                       path: "./journal",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-rose-100 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-rose-200",
+                      iconColor: "text-rose-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
                     {
                       name: "Expense Register",
                       path: "./expense",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-teal-100 bg-teal-50 hover:border-teal-300 hover:bg-teal-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-teal-200",
+                      iconColor: "text-teal-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
                     {
                       name: "Discount Register",
                       path: "./discount",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-orange-100 bg-orange-50 hover:border-orange-300 hover:bg-orange-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-orange-200",
+                      iconColor: "text-orange-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
                     {
                       name: "Cash & Bank",
                       path: "./bank-list",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-fuchsia-100 bg-fuchsia-50 hover:border-fuchsia-300 hover:bg-fuchsia-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-fuchsia-200",
+                      iconColor: "text-fuchsia-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
                     {
                       name: "Capital Account",
                       path: "./capital-account",
-                      hoverBg: "hover:bg-indigo-50 hover:border-indigo-200",
-                      iconBg: "bg-indigo-100",
-                      iconColor: "text-indigo-600",
+                      hoverBg: "border-cyan-100 bg-cyan-50 hover:border-cyan-300 hover:bg-cyan-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-cyan-200",
+                      iconColor: "text-cyan-600",
                       svgPath:
                         "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                     },
@@ -253,10 +253,10 @@ const FinanceEntry = () => {
                     return (
                       <motion.button
                         key={idx}
-                        className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${
+                        className={`flex items-center p-3 rounded-xl border w-full transition-all relative ${
                           isLocked
-                            ? "opacity-60 cursor-not-allowed border-slate-200 hover:bg-transparent"
-                            : `border-slate-200 ${btn.hoverBg}`
+                            ? "opacity-60 cursor-not-allowed border-slate-200 bg-slate-50"
+                            : btn.hoverBg
                         }`}
                         onClick={() => {
                           if (isLocked) {
@@ -265,8 +265,6 @@ const FinanceEntry = () => {
                             navigate(btn.path);
                           }
                         }}
-                        whileHover={!isLocked ? { scale: 1.02 } : {}}
-                        whileTap={!isLocked ? { scale: 0.98 } : {}}
                       >
                         <div
                           className={`w-8 h-8 ${isLocked ? "bg-slate-100 text-slate-400" : btn.iconBg} rounded-lg flex items-center justify-center mr-3 flex-shrink-0`}
@@ -326,55 +324,55 @@ const FinanceEntry = () => {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
                     {
-                      name: "Trail Balance",
-                      hoverBg: "hover:bg-blue-50 hover:border-blue-200",
-                      iconBg: "bg-blue-100",
-                      iconColor: "text-blue-600",
+                      name: "Trial Balance",
+                      hoverBg: "border-lime-100 bg-lime-50 hover:border-lime-300 hover:bg-lime-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-lime-200",
+                      iconColor: "text-lime-600",
                       svgPaths: [
                         "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
                       ],
                     },
                     {
                       name: "Balance Sheet",
-                      hoverBg: "hover:bg-green-50 hover:border-green-200",
-                      iconBg: "bg-green-100",
-                      iconColor: "text-green-600",
+                      hoverBg: "border-pink-100 bg-pink-50 hover:border-pink-300 hover:bg-pink-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-pink-200",
+                      iconColor: "text-pink-600",
                       svgPaths: [
                         "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                       ],
                     },
                     {
                       name: "Profit & Loss A/c",
-                      hoverBg: "hover:bg-purple-50 hover:border-purple-200",
-                      iconBg: "bg-purple-100",
-                      iconColor: "text-purple-600",
+                      hoverBg: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-indigo-200",
+                      iconColor: "text-indigo-600",
                       svgPaths: [
                         "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
                       ],
                     },
                     {
                       name: "Loan & Advances",
-                      hoverBg: "hover:bg-yellow-50 hover:border-yellow-200",
-                      iconBg: "bg-yellow-100",
-                      iconColor: "text-yellow-600",
+                      hoverBg: "border-emerald-100 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-emerald-200",
+                      iconColor: "text-emerald-600",
                       svgPaths: [
                         "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
                       ],
                     },
                     {
                       name: "GST Sales Report",
-                      hoverBg: "hover:bg-red-50 hover:border-red-200",
-                      iconBg: "bg-red-100",
-                      iconColor: "text-red-600",
+                      hoverBg: "border-violet-100 bg-violet-50 hover:border-violet-300 hover:bg-violet-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-violet-200",
+                      iconColor: "text-violet-600",
                       svgPaths: [
                         "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                       ],
                     },
                     {
                       name: "GST Purchase Report",
-                      hoverBg: "hover:bg-pink-50 hover:border-pink-200",
-                      iconBg: "bg-pink-100",
-                      iconColor: "text-pink-600",
+                      hoverBg: "border-amber-100 bg-amber-50 hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-amber-200",
+                      iconColor: "text-amber-600",
                       svgPaths: [
                         "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
                       ],
@@ -384,18 +382,16 @@ const FinanceEntry = () => {
                     return (
                       <motion.button
                         key={idx}
-                        className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${
+                        className={`flex items-center p-3 rounded-xl border w-full transition-all relative ${
                           isLocked
-                            ? "opacity-60 cursor-not-allowed border-slate-200 hover:bg-transparent"
-                            : `border-slate-200 ${btn.hoverBg}`
+                            ? "opacity-60 cursor-not-allowed border-slate-200 bg-slate-50"
+                            : btn.hoverBg
                         }`}
                         onClick={() => {
                           if (isLocked) {
                             toast.error("Need Access Permission");
                           }
                         }}
-                        whileHover={!isLocked ? { scale: 1.02 } : {}}
-                        whileTap={!isLocked ? { scale: 0.98 } : {}}
                       >
                         <div
                           className={`w-8 h-8 ${isLocked ? "bg-slate-100 text-slate-400" : btn.iconBg} rounded-lg flex items-center justify-center mr-3 flex-shrink-0`}
@@ -446,57 +442,65 @@ const FinanceEntry = () => {
                     {
                       name: "Sales",
                       icon: FiTrendingUp,
-                      iconColor: "text-yellow-600",
-                      iconBg: "bg-yellow-100",
+                      iconColor: "text-indigo-600",
+                      iconBg: "bg-white ring-1 ring-indigo-200",
+                      tile: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
                       setOpen: () => setSaleFormModal(true),
                     },
                     {
                       name: "Purchase",
                       icon: FiShoppingCart,
-                      iconColor: "text-red-600",
-                      iconBg: "bg-red-100",
+                      iconColor: "text-emerald-600",
+                      iconBg: "bg-white ring-1 ring-emerald-200",
+                      tile: "border-emerald-100 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md",
                       setOpen: () => setPurchaseFormModal(true),
                     },
                     {
                       name: "Received",
                       icon: FiCreditCard,
-                      iconColor: "text-blue-600",
-                      iconBg: "bg-blue-100",
+                      iconColor: "text-violet-600",
+                      iconBg: "bg-white ring-1 ring-violet-200",
+                      tile: "border-violet-100 bg-violet-50 hover:border-violet-300 hover:bg-violet-100/70 hover:shadow-md",
                       setOpen: () => setPaymentReceivedFormModal(true),
                     },
                     {
                       name: "Payment",
                       icon: TbCurrencyRupee,
-                      iconColor: "text-indigo-600",
-                      iconBg: "bg-indigo-100",
+                      iconColor: "text-amber-600",
+                      iconBg: "bg-white ring-1 ring-amber-200",
+                      tile: "border-amber-100 bg-amber-50 hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-md",
                       setOpen: () => setPaymentSendFormModal(true),
                     },
                     {
                       name: "Contra",
                       icon: FiRepeat,
-                      iconColor: "text-teal-600",
-                      iconBg: "bg-teal-100",
+                      iconColor: "text-sky-600",
+                      iconBg: "bg-white ring-1 ring-sky-200",
+                      tile: "border-sky-100 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/70 hover:shadow-md",
                       setOpen: () => setContraFormModal(true),
                     },
                     {
                       name: "Journal",
                       icon: FiFileText,
-                      iconColor: "text-red-600",
-                      iconBg: "bg-red-100",
+                      iconColor: "text-rose-600",
+                      iconBg: "bg-white ring-1 ring-rose-200",
+                      tile: "border-rose-100 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/70 hover:shadow-md",
                       setOpen: () => setJournalFormModal(true),
                     },
                     {
                       name: "Expenses",
                       icon: FiPieChart,
-                      iconColor: "text-orange-600",
-                      iconBg: "bg-orange-100",
+                      iconColor: "text-teal-600",
+                      iconBg: "bg-white ring-1 ring-teal-200",
+                      tile: "border-teal-100 bg-teal-50 hover:border-teal-300 hover:bg-teal-100/70 hover:shadow-md",
                       setOpen: () => setExpenseFormModal(true),
                     },
                     {
                       name: "Discount",
                       icon: FiPieChart,
                       iconColor: "text-orange-600",
-                      iconBg: "bg-orange-100",
+                      iconBg: "bg-white ring-1 ring-orange-200",
+                      tile: "border-orange-100 bg-orange-50 hover:border-orange-300 hover:bg-orange-100/70 hover:shadow-md",
                       setOpen: () => setDiscountFormModal(true),
                     },
                   ].map((entry, idx) => {
@@ -505,10 +509,10 @@ const FinanceEntry = () => {
                     return (
                       <motion.div
                         key={idx}
-                        className={`block transition-all hover:shadow-sm cursor-pointer relative rounded-lg border border-slate-200 p-3 transition-all duration-200 ${
+                        className={`block cursor-pointer relative rounded-xl border p-3 transition-all duration-200 ${
                           isLocked
-                            ? "opacity-60 cursor-not-allowed hover:bg-transparent"
-                            : "bg-white hover:border-slate-300"
+                            ? "opacity-60 cursor-not-allowed border-slate-200 bg-slate-50"
+                            : entry.tile
                         }`}
                         onClick={() => {
                           if (isLocked) {
@@ -517,8 +521,6 @@ const FinanceEntry = () => {
                             entry.setOpen();
                           }
                         }}
-                        whileHover={!isLocked ? { scale: 1.02 } : {}}
-                        whileTap={!isLocked ? { scale: 0.98 } : {}}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3 min-w-0">
@@ -576,9 +578,9 @@ const FinanceEntry = () => {
                     {
                       name: "Ledger Groups",
                       action: () => navigate("./ledger-group"),
-                      hoverBg: "hover:bg-blue-50 hover:border-blue-200",
-                      iconBg: "bg-blue-100",
-                      iconColor: "text-blue-600",
+                      hoverBg: "border-sky-100 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-sky-200",
+                      iconColor: "text-sky-600",
                       svgPaths: [
                         "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
                       ],
@@ -587,18 +589,18 @@ const FinanceEntry = () => {
                     {
                       name: "Create Ledger",
                       action: () => setCreateLedgerModal(true),
-                      hoverBg: "hover:bg-green-50 hover:border-green-200",
-                      iconBg: "bg-green-100",
-                      iconColor: "text-green-600",
+                      hoverBg: "border-rose-100 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-rose-200",
+                      iconColor: "text-rose-600",
                       svgPaths: ["M12 6v6m0 0v6m0-6h6m-6 0H6"],
                       permission: "finance_entry",
                     },
                     {
                       name: "View Ledger",
                       action: () => {},
-                      hoverBg: "hover:bg-purple-50 hover:border-purple-200",
-                      iconBg: "bg-purple-100",
-                      iconColor: "text-purple-600",
+                      hoverBg: "border-teal-100 bg-teal-50 hover:border-teal-300 hover:bg-teal-100/70 hover:shadow-md",
+                      iconBg: "bg-white ring-1 ring-teal-200",
+                      iconColor: "text-teal-600",
                       svgPaths: [
                         "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
                         "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
@@ -610,10 +612,10 @@ const FinanceEntry = () => {
                     return (
                       <motion.button
                         key={idx}
-                        className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${
+                        className={`flex items-center p-3 rounded-xl border w-full transition-all relative ${
                           isLocked
-                            ? "opacity-60 cursor-not-allowed border-slate-200 hover:bg-transparent"
-                            : `border-slate-200 ${btn.hoverBg}`
+                            ? "opacity-60 cursor-not-allowed border-slate-200 bg-slate-50"
+                            : btn.hoverBg
                         }`}
                         onClick={() => {
                           if (isLocked) {
@@ -622,8 +624,6 @@ const FinanceEntry = () => {
                             btn.action();
                           }
                         }}
-                        whileHover={!isLocked ? { scale: 1.02 } : {}}
-                        whileTap={!isLocked ? { scale: 0.98 } : {}}
                       >
                         <div
                           className={`w-8 h-8 ${isLocked ? "bg-slate-100 text-slate-400" : btn.iconBg} rounded-lg flex items-center justify-center mr-3 flex-shrink-0`}

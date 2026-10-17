@@ -68,7 +68,7 @@ const ConfirmationModal = ({
                 type === 'danger' 
                   ? 'bg-red-600 hover:bg-red-700' 
                   : type === 'info'
-                  ? 'bg-blue-600 hover:bg-blue-700'
+                  ? 'bg-indigo-600 hover:bg-indigo-700'
                   : 'bg-yellow-600 hover:bg-yellow-700'
               }`}
             >
@@ -321,7 +321,7 @@ const GoogleAuthentication = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -340,7 +340,7 @@ const GoogleAuthentication = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                             {/* Card Header */}
                             <div className="border-b border-gray-200 px-6 py-4">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -348,7 +348,7 @@ const GoogleAuthentication = () => {
                                         <h5 className="text-xl font-bold text-gray-800 mb-1">
                                             Google Authentication
                                         </h5>
-                                        <p className="text-gray-500 text-xs">
+                                        <p className="text-slate-500 text-xs mt-0.5">
                                             Set up two-factor authentication for enhanced security
                                         </p>
                                     </div>
@@ -356,17 +356,13 @@ const GoogleAuthentication = () => {
                                     <div className="flex gap-2">
                                         <motion.button
                                             onClick={handleResetAll}
-                                            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            className="px-4 py-2 text-sm text-gray-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                                         >
                                             Reset All
                                         </motion.button>
                                         <motion.button
                                             onClick={handleDisable2FA}
                                             className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
                                         >
                                             Disable 2FA
                                         </motion.button>
@@ -383,9 +379,7 @@ const GoogleAuthentication = () => {
                                             <motion.button
                                                 onClick={generateQRCode}
                                                 disabled={loading}
-                                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
+                                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                             >
                                                 <FiSmartphone className="w-5 h-5" />
                                                 {loading && pendingAction === 'generateQR' ? 'Generating...' : 'Generate QR Code'}
@@ -402,7 +396,7 @@ const GoogleAuthentication = () => {
                                                             type="text"
                                                             value={otp}
                                                             onChange={(e) => setOtp(e.target.value)}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200"
+                                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                                             placeholder="Enter OTP for testing"
                                                             required
                                                             maxLength={6}
@@ -412,8 +406,6 @@ const GoogleAuthentication = () => {
                                                         type="submit"
                                                         disabled={loading}
                                                         className="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
                                                     >
                                                         {loading && pendingAction === 'testOTP' ? 'Checking...' : 'Check OTP'}
                                                     </motion.button>
@@ -451,11 +443,9 @@ const GoogleAuthentication = () => {
                                                                 onClick={() => setActiveTab(step.id)}
                                                                 className={`flex flex-col items-center justify-center p-4 text-sm font-medium transition-colors ${
                                                                     activeTab === step.id
-                                                                        ? 'bg-blue-600 text-white'
-                                                                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                                                                        ? 'bg-indigo-600 text-white'
+                                                                        : 'bg-white text-gray-600 hover:bg-slate-100'
                                                                 }`}
-                                                                whileHover={{ scale: 1.02 }}
-                                                                whileTap={{ scale: 0.98 }}
                                                             >
                                                                 <IconComponent className="w-5 h-5 mb-1" />
                                                                 <span>Step {index + 1}</span>
@@ -547,9 +537,7 @@ const GoogleAuthentication = () => {
                         <div className="border-t border-gray-200 px-6 py-4">
                             <motion.button
                                 onClick={() => setShowQrModal(false)}
-                                className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                                className="w-full px-4 py-2 text-gray-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                             >
                                 Close
                             </motion.button>

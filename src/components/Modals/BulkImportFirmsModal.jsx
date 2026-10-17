@@ -9,7 +9,7 @@ import { PreviewTable } from "../../features/group-firms-bulk-import/components/
 import { ensureXlsxLoaded } from "../../features/group-firms-bulk-import/excelParse";
 
 const btnSecondary =
-  "px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50";
+  "px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50";
 const btnPrimary =
   "px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 inline-flex items-center gap-1.5";
 const btnViolet =
@@ -253,7 +253,7 @@ export default function BulkImportFirmsModal({
         onClose={() => !bulk.busy && setResetConfirmOpen(false)}
         closeDisabled={bulk.busy}
         maxWidth="max-w-sm"
-        headerClass="bg-gradient-to-r from-amber-500 to-orange-500"
+        headerClass="bg-amber-500"
         icon={FiAlertTriangle}
         title="Reset preview?"
         subtitle="Restore deleted rows"

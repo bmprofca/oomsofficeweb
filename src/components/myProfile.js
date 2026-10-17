@@ -105,11 +105,10 @@ const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => (
     onClick={() => onClick(to)}
     className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-200 ${
       isActive
-        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
-        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200"
+        ? "bg-blue-600 text-white shadow-sm"
+        : "text-gray-600 hover:text-gray-900 hover:bg-slate-50 border border-gray-200"
     }`}
     whileHover={{ scale: 1.03, y: -1 }}
-    whileTap={{ scale: 0.98 }}
   >
     <motion.div
       animate={{
@@ -131,11 +130,10 @@ const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => (
     onClick={() => onClick(to)}
     className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-[70px] ${
       isActive
-        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm"
-        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200"
+        ? "bg-blue-600 text-white shadow-sm"
+        : "text-gray-600 hover:text-gray-900 hover:bg-slate-50 border border-gray-200"
     }`}
     whileHover={{ scale: 1.05, y: -2 }}
-    whileTap={{ scale: 0.98 }}
   >
     <Icon className="w-4 h-4 mb-1 mx-auto" />
     <span className="text-[10px] font-medium text-center leading-tight w-full">
@@ -145,7 +143,7 @@ const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => (
 );
 
 const inputClass =
-  "w-full px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg placeholder:text-gray-400 outline-none transition hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500";
+  "w-full px-3 py-2 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg placeholder:text-gray-400 outline-none transition hover:border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 disabled:bg-gray-50 disabled:text-gray-500";
 
 function formatDisplayDate(value) {
   if (!value) return "—";
@@ -744,7 +742,7 @@ export default function MyProfile() {
 
   const ProfileSkeleton = () => (
     <div className="animate-pulse space-y-4" aria-busy="true" aria-label="Loading profile">
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:p-8">
           <div className="h-24 w-24 shrink-0 rounded-full bg-gray-200 ring-4 ring-white" />
           <div className="min-w-0 flex-1 space-y-3">
@@ -783,7 +781,7 @@ export default function MyProfile() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -800,7 +798,7 @@ export default function MyProfile() {
       <main
         className={`pt-16 transition-all duration-300 ease-in-out ${contentInset}`}
       >
-        <div className="mx-2 sm:mx-4 md:mx-8 pb-6 pt-3 md:pt-4">
+        <div className="mx-3 pt-3 pb-6 sm:mx-5 sm:pt-4 lg:mx-8 lg:pt-5">
           {loading ? (
             <ProfileSkeleton />
           ) : (
@@ -808,7 +806,7 @@ export default function MyProfile() {
               <motion.div
                 initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+                className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
                 <div className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:p-8">
                   <div className="relative shrink-0">
@@ -904,7 +902,7 @@ export default function MyProfile() {
                             type="button"
                             disabled={saving}
                             onClick={handleCancel}
-                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 md:flex-none"
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-slate-50 md:flex-none"
                           >
                             <FiX className="h-4 w-4" />
                             Cancel
@@ -917,7 +915,7 @@ export default function MyProfile() {
               </motion.div>
 
               <motion.div
-                className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.1 }}
@@ -945,8 +943,6 @@ export default function MyProfile() {
                         type="button"
                         onClick={toggleTabsMinimized}
                         className="ml-1 flex-shrink-0 rounded-lg p-2 text-gray-500 transition-all duration-200 hover:bg-blue-50 hover:text-blue-600"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
                         title="Show full tabs"
                       >
                         <FiMaximize2 className="h-4 w-4" />
@@ -974,8 +970,6 @@ export default function MyProfile() {
                         type="button"
                         onClick={toggleTabsMinimized}
                         className="ml-1 flex-shrink-0 rounded-lg p-2 text-gray-500 transition-all duration-200 hover:bg-blue-50 hover:text-blue-600"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
                         title="Minimize tabs"
                       >
                         <FiMinimize2 className="h-4 w-4" />
@@ -1098,7 +1092,7 @@ export default function MyProfile() {
                                 initialTab="single"
                                 hideTabs
                                 showResetButton
-                                buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                buttonClassName="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                               />
                             ) : (
                               <ReadOnlyValue
@@ -1412,7 +1406,7 @@ export default function MyProfile() {
                 <button
                   type="button"
                   onClick={closeOtpModal}
-                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  className="rounded-lg p-1 text-gray-400 hover:bg-slate-100 hover:text-gray-600"
                 >
                   <FiX className="h-5 w-5" />
                 </button>
@@ -1428,7 +1422,7 @@ export default function MyProfile() {
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
                     onPaste={handleOtpPaste}
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-center text-lg font-bold text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2.5 text-center text-lg font-bold text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                     maxLength={1}
                     inputMode="numeric"
                   />
@@ -1462,7 +1456,7 @@ export default function MyProfile() {
                   type="button"
                   disabled={otpVerifying || saving}
                   onClick={closeOtpModal}
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-slate-50"
                 >
                   Cancel
                 </button>

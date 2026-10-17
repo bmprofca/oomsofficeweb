@@ -114,7 +114,7 @@ const EmailSelectionModal = ({ isOpen, onClose, onSubmit }) => {
                                     id="email-select"
                                     value={selectedEmail}
                                     onChange={(e) => setSelectedEmail(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors duration-200"
                                 >
                                     <option value="">-- Please select an email --</option>
                                     {emailOptions.map((option) => (
@@ -135,7 +135,7 @@ const EmailSelectionModal = ({ isOpen, onClose, onSubmit }) => {
                                     value={customEmail}
                                     onChange={(e) => setCustomEmail(e.target.value)}
                                     placeholder="example@domain.com"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors duration-200"
                                 />
                                 {customEmail && !isValidEmail(customEmail) && (
                                     <p className="text-red-500 text-xs mt-1">Please enter a valid email address</p>
@@ -148,7 +148,7 @@ const EmailSelectionModal = ({ isOpen, onClose, onSubmit }) => {
                         <button
                             type="button"
                             onClick={handleClose}
-                            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
+                            className="px-4 py-2 text-gray-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors duration-200"
                         >
                             Cancel
                         </button>
@@ -158,7 +158,7 @@ const EmailSelectionModal = ({ isOpen, onClose, onSubmit }) => {
                                 (activeTab === 'predefined' && !selectedEmail) ||
                                 (activeTab === 'custom' && (!customEmail || !isValidEmail(customEmail)))
                             }
-                            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors duration-200"
+                            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors duration-200"
                         >
                             Submit
                         </button>

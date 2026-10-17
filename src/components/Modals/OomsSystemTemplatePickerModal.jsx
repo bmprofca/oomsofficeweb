@@ -161,7 +161,7 @@ const OomsSystemTemplatePickerModal = forwardRef(
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-slate-100 hover:text-gray-700 disabled:opacity-50"
             aria-label="Close"
           >
             <FiX className="h-5 w-5" />

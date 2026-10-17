@@ -253,7 +253,7 @@ const MODAL_ACCENT_STYLES = {
     receive: {
         header: 'bg-blue-50 border-blue-100',
         iconWrap: 'bg-blue-100 text-blue-600',
-        primaryBtn: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500/40',
+        primaryBtn: 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/40',
     },
     sale: {
         header: 'bg-indigo-50 border-indigo-100',
@@ -300,7 +300,7 @@ const getCompactFieldClass = (accent = 'blue') => {
                         ? 'focus:ring-emerald-500/25 focus:border-emerald-400'
                         : accent === 'amber'
                             ? 'focus:ring-amber-500/25 focus:border-amber-400'
-                            : 'focus:ring-blue-500/25 focus:border-blue-400';
+                            : 'focus:ring-indigo-500/25 focus:border-indigo-400';
     return `w-full px-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 ${ring}`;
 };
 
@@ -396,7 +396,7 @@ const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel,
             <motion.span
                 className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${isActive
                     ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200'
-                    : (disabled ? 'bg-slate-100 border-slate-200' : 'bg-white border-gray-300 group-hover:border-indigo-400')
+                    : (disabled ? 'bg-slate-100 border-slate-200' : 'bg-white border-slate-200 group-hover:border-indigo-400')
                     }`}
                 animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
                 transition={{ duration: 0.18 }}
@@ -2862,7 +2862,7 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                             type="button"
                             disabled={loading || !isReceiveFormValid}
                             onClick={submitReceive}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px]"
+                            className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px]"
                         >
                             {loading ? 'Processing…' : (isEditMode ? 'Update Payment' : 'Receive Payment')}
                         </button>
@@ -4262,7 +4262,7 @@ export const SaleForm = ({
                                 hideTabs={true}
                                 showResetButton={false}
                                 placeholder="Select date"
-                                buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm text-left"
+                                buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white text-sm text-left"
                             />
                         </div>
                     )}
@@ -4307,16 +4307,16 @@ export const SaleForm = ({
                             type="button"
                             onClick={addItem}
                             disabled={isLoadingServices}
-                            className={`inline-flex items-center bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 transition-colors disabled:opacity-50 ${isCompactModal ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm shadow-sm'}`}
+                            className={`inline-flex items-center bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-1 transition-colors disabled:opacity-50 ${isCompactModal ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm shadow-sm'}`}
                         >
                             <FiPlus className={`${isCompactModal ? 'w-3 h-3 mr-1' : 'w-3.5 h-3.5 mr-1.5'}`} aria-hidden />
                             Add Service
                         </button>
                     </div>
 
-                    <div className={`overflow-hidden border border-gray-300 rounded-md ${isCompactModal ? '' : 'shadow-sm'} text-sm`}>
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className={isCompactModal ? 'bg-slate-50' : 'bg-gradient-to-r from-gray-50 to-gray-100'}>
+                    <div className={`overflow-hidden border border-slate-200 rounded-md ${isCompactModal ? '' : 'shadow-sm'} text-sm`}>
+                        <table className="min-w-full divide-y divide-slate-100">
+                            <thead className={isCompactModal ? 'bg-slate-50' : 'bg-gray-50'}>
                                 <tr>
                                     <th className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-left text-[11px] font-semibold text-gray-700 uppercase tracking-wider`}>Service</th>
                                     <th className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-left text-[11px] font-semibold text-gray-700 uppercase tracking-wider`}>Description</th>
@@ -4324,9 +4324,9 @@ export const SaleForm = ({
                                     <th className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-center text-[11px] font-semibold text-gray-700 uppercase tracking-wider`}>Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-slate-100">
                                 {formData.items.map((item, index) => (
-                                    <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
+                                    <tr key={index} className="hover:bg-slate-50 transition-colors duration-150">
                                         <td className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} min-w-[180px]`}>
                                             <CustomSelect
                                                 options={serviceSelectOptions}
@@ -4343,7 +4343,7 @@ export const SaleForm = ({
                                         <td className={isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'}>
                                             <input
                                                 type="text"
-                                                className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${isCompactModal ? 'px-2 py-1' : 'px-2.5 py-1.5'}`}
+                                                className={`w-full border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors ${isCompactModal ? 'px-2 py-1' : 'px-2.5 py-1.5'}`}
                                                 placeholder="Description"
                                                 value={item.description}
                                                 onChange={(e) => handleItemChange(index, 'description', e.target.value)}
@@ -4355,7 +4355,7 @@ export const SaleForm = ({
                                                 name={`sale-price-${index}`}
                                                 inputMode="decimal"
                                                 autoComplete="off"
-                                                className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-right ${isCompactModal ? 'px-2 py-1' : 'px-2.5 py-1.5'}`}
+                                                className={`w-full border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-colors text-right ${isCompactModal ? 'px-2 py-1' : 'px-2.5 py-1.5'}`}
                                                 placeholder="0.00"
                                                 value={item.price ?? ''}
                                                 onChange={(e) => handleItemChange(index, 'price', e.target.value)}
@@ -4402,7 +4402,7 @@ export const SaleForm = ({
                                     type="text"
                                     inputMode="decimal"
                                     autoComplete="off"
-                                    className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${isCompactModal ? `${saleFieldClass} py-1.5` : 'px-3 py-1.5'}`}
+                                    className={`w-full border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 ${isCompactModal ? `${saleFieldClass} py-1.5` : 'px-3 py-1.5'}`}
                                     name="additional_charge"
                                     value={formData.additional_charge ?? ''}
                                     onChange={handleInputChange}
@@ -4421,7 +4421,7 @@ export const SaleForm = ({
                                         checked={formData.apply_round_off}
                                         onChange={(e) => setFormData(prev => ({ ...prev, apply_round_off: e.target.checked }))}
                                     />
-                                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                                 </label>
                             </div>
                         </div>
@@ -4441,7 +4441,7 @@ export const SaleForm = ({
                         )}
                         <label className={isCompactModal ? COMPACT_LABEL : 'sr-only'}>Notes</label>
                         <textarea
-                            className={`w-full border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-none text-sm ${isCompactModal ? `${saleFieldClass} h-20 py-1.5` : 'h-28 px-3 py-2 bg-gray-50'}`}
+                            className={`w-full border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 resize-none text-sm ${isCompactModal ? `${saleFieldClass} h-20 py-1.5` : 'h-28 px-3 py-2 bg-gray-50'}`}
                             placeholder="Notes"
                             name="notes"
                             value={formData.notes}
@@ -4469,7 +4469,7 @@ export const SaleForm = ({
                             <div>
                                 <label className={isCompactModal ? COMPACT_LABEL : 'block text-xs font-medium text-gray-700 mb-1.5'}>Discount Type</label>
                                 <select
-                                    className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${isCompactModal ? saleFieldClass : 'px-3 py-1.5'}`}
+                                    className={`w-full border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 ${isCompactModal ? saleFieldClass : 'px-3 py-1.5'}`}
                                     name="discount_type"
                                     value={formData.discount_type}
                                     onChange={handleInputChange}
@@ -4486,7 +4486,7 @@ export const SaleForm = ({
                                     type="text"
                                     inputMode="decimal"
                                     autoComplete="off"
-                                    className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${isCompactModal ? saleFieldClass : 'px-3 py-1.5'}`}
+                                    className={`w-full border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 ${isCompactModal ? saleFieldClass : 'px-3 py-1.5'}`}
                                     name="discount"
                                     value={formData.discount ?? ''}
                                     onChange={handleInputChange}
@@ -4497,7 +4497,7 @@ export const SaleForm = ({
                     </div>
 
                     {/* Totals Section */}
-                    <div className={`lg:col-span-2 rounded-md border ${isCompactModal ? 'p-2.5 border-indigo-100 bg-indigo-50/40' : 'p-4 border-indigo-100 bg-gradient-to-br from-indigo-50 to-white shadow-sm'}`}>
+                    <div className={`lg:col-span-2 rounded-md border ${isCompactModal ? 'p-2.5 border-indigo-100 bg-indigo-50/40' : 'p-4 border-indigo-100 bg-indigo-50 shadow-sm'}`}>
                         {!isCompactModal && (
                             <div className="flex items-center mb-4">
                                 <div className="p-1.5 bg-indigo-600 text-white rounded mr-2">
@@ -4601,7 +4601,7 @@ export const SaleForm = ({
     const formContent = (
         <div className="bg-white rounded-xl shadow-2xl flex flex-col h-full border border-gray-200">
             {/* Header with Toggle Buttons — inline / embedded layout only */}
-            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-t-xl">
+            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-indigo-600 text-white rounded-t-xl">
                 <div className="flex items-center space-x-3">
                     <div className="p-1.5 bg-white/10 rounded-lg">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4638,7 +4638,7 @@ export const SaleForm = ({
                         )}
 
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
-                            <div className="hidden lg:block px-3 py-1.5 bg-gradient-to-r from-indigo-50 to-indigo-100 rounded border border-indigo-200">
+                            <div className="hidden lg:block px-3 py-1.5 bg-indigo-50 rounded border border-indigo-200">
                                 <div className="text-xs text-indigo-700 font-semibold">
                                     Total: <span className="text-sm">{formatMoney(formData.grand_total)}</span>
                                 </div>
@@ -4648,7 +4648,7 @@ export const SaleForm = ({
                                 <button
                                     type="submit"
                                     disabled={isSubmitting || !partyReady || !formData.items.some((item) => item.service_id && parseDecimalValue(item.price) > 0)}
-                                    className="px-5 py-2 text-xs font-medium text-white bg-gradient-to-r from-indigo-600 to-indigo-700 border border-transparent rounded-lg hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 shadow hover:shadow-md min-w-[140px] flex items-center justify-center"
+                                    className="px-5 py-2 text-xs font-medium text-white bg-indigo-600 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 shadow hover:shadow-md min-w-[140px] flex items-center justify-center"
                                 >
                                     {isSubmitting ? (
                                         <>
@@ -5241,8 +5241,8 @@ export const PurchaseForm = ({
                 </div>
 
                 {isCompactModal ? (
-                    <div className="overflow-hidden border border-gray-300 rounded-md text-sm">
-                        <table className="min-w-full divide-y divide-gray-200">
+                    <div className="overflow-hidden border border-slate-200 rounded-md text-sm">
+                        <table className="min-w-full divide-y divide-slate-100">
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-gray-700 uppercase tracking-wider">Service</th>
@@ -5251,9 +5251,9 @@ export const PurchaseForm = ({
                                     <th className="px-2 py-1.5 text-center text-[11px] font-semibold text-gray-700 uppercase tracking-wider">Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-slate-100">
                                 {formData.items.map((item, index) => (
-                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                    <tr key={index} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-2 py-1.5 min-w-[180px]">
                                             <CustomSelect
                                                 options={serviceSelectOptions}
@@ -5272,7 +5272,7 @@ export const PurchaseForm = ({
                                                 value={item.remark}
                                                 onChange={(e) => handleItemChange(index, 'remark', e.target.value)}
                                                 placeholder="Remark"
-                                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                                                className="w-full px-2 py-1 border border-slate-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
                                             />
                                         </td>
                                         <td className="px-2 py-1.5">
@@ -5282,7 +5282,7 @@ export const PurchaseForm = ({
                                                 value={item.fees}
                                                 onChange={(e) => handleItemChange(index, 'fees', e.target.value)}
                                                 placeholder="0.00"
-                                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-right"
+                                                className="w-full px-2 py-1 border border-slate-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-right"
                                             />
                                         </td>
                                         <td className="px-2 py-1.5 text-center">

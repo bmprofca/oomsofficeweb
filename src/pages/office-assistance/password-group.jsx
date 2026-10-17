@@ -44,7 +44,7 @@ const formatDate = (dateString) => {
 
 const FIELD_LABEL = "block text-xs font-semibold text-gray-600 mb-1.5";
 const FIELD_INPUT =
-  "w-full h-10 px-3 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white";
+  "w-full h-10 px-3 border border-slate-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none disabled:opacity-60 bg-white";
 const MODAL_BODY =
   "px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 
@@ -227,7 +227,7 @@ const PasswordGroups = () => {
   );
 
     return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -242,16 +242,16 @@ const PasswordGroups = () => {
             />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${contentInset(isMinimized)}`}>
-        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+        <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-3 md:px-4 py-3 border-b border-gray-200 bg-slate-50/60">
               <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="p-1.5 bg-indigo-50 rounded-lg shrink-0">
                     <FiKey className="w-4 h-4 text-indigo-600" />
                                     </div>
                                     <div className="min-w-0">
-                    <h1 className="text-base md:text-lg font-bold text-gray-800 m-0">Password Groups</h1>
+                    <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 m-0">Password Groups</h1>
                     <p className="text-xs text-gray-500 m-0">Credential groups for your office</p>
                                     </div>
                                 </div>
@@ -263,7 +263,7 @@ const PasswordGroups = () => {
                                             value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search by group name…"
-                      className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
                                         />
                                     </div>
                   <button
@@ -280,7 +280,7 @@ const PasswordGroups = () => {
 
                         <div className="overflow-x-auto">
               <div className="min-w-[820px]">
-                <div className={`grid ${GRID_COLS} items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10`}>
+                <div className={`grid ${GRID_COLS} items-center border-b border-gray-200 bg-slate-50/60 sticky top-0 z-10`}>
                   {COLUMNS.map((col, i) => (
                     <div
                       key={col}
@@ -314,7 +314,7 @@ const PasswordGroups = () => {
                   groups.map((group, index) => (
                     <div
                                                 key={group.group_id}
-                      className={`grid ${GRID_COLS} items-center border-b border-gray-100 bg-white hover:bg-gray-50`}
+                      className={`grid ${GRID_COLS} items-center border-b border-gray-100 bg-white hover:bg-slate-50`}
                     >
                       <div className="p-3 text-[11px] font-bold text-gray-800">
                         {(pagination.page - 1) * pagination.limit + index + 1}
@@ -325,7 +325,7 @@ const PasswordGroups = () => {
                           onClick={() => handleViewGroupFirms(group)}
                           className="flex items-center gap-2 text-left group"
                                                         >
-                          <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-sm flex items-center justify-center shrink-0">
+                          <div className="w-7 h-7 bg-indigo-500 rounded-lg shadow-sm flex items-center justify-center shrink-0">
                             <FiFolder className="w-3.5 h-3.5 text-white" />
                                                             </div>
                           <div className="min-w-0">
@@ -449,7 +449,7 @@ const PasswordGroups = () => {
                                         type="button"
                       onClick={() => setFormOpen(false)}
                       disabled={saving}
-                      className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                      className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-slate-100"
                     >
                       <FiX className="w-4 h-4" />
                                     </button>
@@ -494,7 +494,7 @@ const PasswordGroups = () => {
                                         type="button"
                         onClick={() => setFormOpen(false)}
                         disabled={saving}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-slate-200 rounded-lg hover:bg-white"
                                     >
                                         Cancel
                                     </button>
@@ -545,7 +545,7 @@ const PasswordGroups = () => {
                                     <button
                                         type="button"
                       onClick={() => setDetailsOpen(false)}
-                      className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                      className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-slate-100"
                                     >
                       <FiX className="w-4 h-4" />
                                     </button>
@@ -574,7 +574,7 @@ const PasswordGroups = () => {
                                 <button
                                     type="button"
                       onClick={() => setDetailsOpen(false)}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 border border-slate-200 rounded-lg hover:bg-white"
                                 >
                       Close
                                 </button>

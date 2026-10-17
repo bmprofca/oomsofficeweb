@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiBriefcase, FiEdit, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiBriefcase, FiEdit, FiList, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { SegmentedControl, inputClass } from '../../../components/Modals/WizardModalParts';
 import CustomSelect from '../../../components/CustomSelect';
 import { formatMoney, getServiceAmounts } from '../taskCreateConstants';
 import {
@@ -71,50 +72,40 @@ export default function SubtasksStep({
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <label className="block text-sm font-medium text-gray-700">Sub tasks</label>
-                <motion.button
-                    type="button"
-                    onClick={() => setShowSubTaskForm(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium"
-                    whileTap={{ scale: 0.98 }}
-                >
-                    <FiPlus className="w-4 h-4" />
-                    Add Subtask
-                </motion.button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-slate-600">
+                    {subtasks.length
+                        ? `${subtasks.length} sub task${subtasks.length === 1 ? '' : 's'} will be added to every task.`
+                        : 'No sub tasks yet — this step is optional.'}
+                </p>
+                {!showSubTaskForm && (
+                    <button type="button" onClick={() => setShowSubTaskForm(true)} className="ui-btn ui-btn-secondary ui-btn-sm">
+                        <FiPlus className="h-3.5 w-3.5" />
+                        Add sub task
+                    </button>
+                )}
             </div>
 
-            <AnimatePresence>
+            <AnimatePresence initial={false}>
                 {showSubTaskForm && (
                     <motion.div
-                        className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-white shadow-sm overflow-visible"
-                        initial={{ opacity: 0, y: -8 }}
+                        className="overflow-visible rounded-xl border border-indigo-200 bg-indigo-50/40"
+                        initial={{ opacity: 0, y: -6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
+                        exit={{ opacity: 0, y: -6 }}
                     >
-                        <div className="px-5 pt-4 pb-3 border-b border-indigo-100">
-                            <div className="inline-flex rounded-xl bg-white border border-gray-200 shadow-sm p-1 gap-1">
-                                {[
-                                    { id: 'service', label: 'Service', icon: <FiBriefcase className="w-3.5 h-3.5" /> },
-                                    { id: 'manual', label: 'Manual Text', icon: <FiEdit className="w-3.5 h-3.5" /> },
-                                ].map((tab) => (
-                                    <button
-                                        key={tab.id}
-                                        type="button"
-                                        onClick={() => setSubTaskForm(resetSubTaskFields(tab.id))}
-                                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                            subTaskForm.type === tab.id
-                                                ? 'bg-indigo-600 text-white shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                        }`}
-                                    >
-                                        {tab.icon}
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-900">New sub task</p>
+                            <SegmentedControl
+                                value={subTaskForm.type}
+                                onChange={(v) => setSubTaskForm(resetSubTaskFields(v))}
+                                options={[
+                                    { value: 'service', label: 'From a service', icon: <FiBriefcase className="h-3.5 w-3.5" /> },
+                                    { value: 'manual', label: 'Custom text', icon: <FiEdit className="h-3.5 w-3.5" /> },
+                                ]}
+                            />
                         </div>
-                        <div className="px-5 py-4">
+                        <div className="px-4 py-4">
                             {subTaskForm.type === 'service' ? (
                                 <CustomSelect
                                     loadOptions={loadServiceOptions}
@@ -154,75 +145,77 @@ export default function SubtasksStep({
                                 <input
                                     type="text"
                                     value={subTaskForm.manual_text}
-                                    onChange={(e) =>
-                                        setSubTaskForm((p) => ({ ...p, manual_text: e.target.value }))
-                                    }
-                                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    placeholder="Enter subtask description..."
+                                    onChange={(e) => setSubTaskForm((p) => ({ ...p, manual_text: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            if (subTaskForm.manual_text.trim()) addSubTask();
+                                        }
+                                    }}
+                                    className={inputClass(false)}
+                                    placeholder="e.g. Collect bank statements"
+                                    autoFocus
                                 />
                             )}
                         </div>
-                        <div className="px-5 pb-4 flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowSubTaskForm(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg"
-                            >
+                        <div className="flex justify-end gap-2 px-4 pb-4">
+                            <button type="button" onClick={() => setShowSubTaskForm(false)} className="ui-btn ui-btn-ghost ui-btn-sm">
                                 Cancel
                             </button>
-                            <motion.button
+                            <button
                                 type="button"
                                 onClick={addSubTask}
-                                disabled={
-                                    subTaskForm.type === 'service'
-                                        ? !subTaskForm.service_id
-                                        : !subTaskForm.manual_text.trim()
-                                }
-                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white rounded-lg"
-                                whileTap={{ scale: 0.97 }}
+                                disabled={subTaskForm.type === 'service' ? !subTaskForm.service_id : !subTaskForm.manual_text.trim()}
+                                className="ui-btn ui-btn-primary ui-btn-sm"
                             >
-                                <FiPlus className="w-3.5 h-3.5" />
-                                Add Subtask
-                            </motion.button>
+                                <FiPlus className="h-3.5 w-3.5" />
+                                Add
+                            </button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {subtasks.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
-                    <table className="w-full">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="p-4 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
-                                <th className="p-4 w-16" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {subtasks.map((task) => (
-                                <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                    <td className="p-4 text-sm text-gray-800">
-                                        <div className="flex items-center gap-2">
-                                            <span>{task.description}</span>
-                                            {task.type === 'service' && (
-                                                <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs">Service</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setSubtasks((p) => p.filter((t) => t.id !== task.id))}
-                                            className="text-red-500 hover:text-red-700 p-1"
-                                        >
-                                            <FiTrash2 className="w-4 h-4" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+            {subtasks.length > 0 ? (
+                <ol className="m-0 list-none divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 p-0">
+                    {subtasks.map((task, i) => (
+                        <li key={task.id} className="flex items-center gap-3 bg-white px-4 py-3">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 font-mono text-[11px] font-semibold text-slate-600">
+                                {i + 1}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{task.description}</span>
+                            <span
+                                className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold sm:inline ${
+                                    task.type === 'service' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600'
+                                }`}
+                            >
+                                {task.type === 'service' ? 'Service' : 'Custom'}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setSubtasks((p) => p.filter((t) => t.id !== task.id))}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                                aria-label="Remove sub task"
+                            >
+                                <FiTrash2 className="h-4 w-4" />
+                            </button>
+                        </li>
+                    ))}
+                </ol>
+            ) : (
+                !showSubTaskForm && (
+                    <button
+                        type="button"
+                        onClick={() => setShowSubTaskForm(true)}
+                        className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-10 text-center transition-colors hover:border-indigo-300 hover:bg-indigo-50/40"
+                    >
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                            <FiList className="h-5 w-5" />
+                        </span>
+                        <span className="text-sm font-medium text-slate-700">Add a checklist for this task</span>
+                        <span className="text-xs text-slate-500">Pick a service or type your own sub task</span>
+                    </button>
+                )
             )}
         </div>
     );

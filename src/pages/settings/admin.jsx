@@ -470,7 +470,7 @@ const ViewAdmins = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}

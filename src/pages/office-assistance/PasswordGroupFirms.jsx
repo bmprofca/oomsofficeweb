@@ -159,7 +159,7 @@ const ViewCredentialModal = ({ credential, onClose }) => {
                         <button
                         type="button"
                             onClick={onClose}
-                        className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                        className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-slate-100"
                         >
                         <FiX className="w-4 h-4" />
                         </button>
@@ -323,7 +323,7 @@ const ViewCredentialModal = ({ credential, onClose }) => {
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-slate-200 rounded-lg hover:bg-white"
                     >
                         Close
                     </button>
@@ -703,7 +703,7 @@ const PasswordGroupFirms = () => {
             : selectedCount > 0);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        <div className="app-page via-white to-slate-50">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -722,7 +722,7 @@ const PasswordGroupFirms = () => {
                     <div className="h-full flex flex-col">
                         {/* Credentials table (title + toolbar merged above grid) */}
                         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-                            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-5 overflow-x-hidden">
+                            <div className="border-b border-slate-200 bg-slate-50/60 px-4 py-3 sm:px-5 overflow-x-hidden">
                                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 overflow-x-hidden sm:flex-nowrap sm:gap-4">
                                     <div className="flex min-w-0 max-w-[min(100%,16rem)] items-center gap-3 sm:max-w-xs md:max-w-sm lg:max-w-md">
                                         <button
@@ -750,7 +750,7 @@ const PasswordGroupFirms = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setPendingDelete('bulk')}
-                                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md transition-all duration-200 hover:from-red-700 hover:to-red-800"
+                                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white shadow-md transition-all duration-200"
                                                 title="Delete selected"
                                             >
                                                 <FiTrash className="h-4 w-4" />
@@ -765,7 +765,7 @@ const PasswordGroupFirms = () => {
                                                     setPagination((prev) => ({ ...prev, page: 1 }));
                                                 }}
                                                 placeholder="Search by firm name, username, description, or client details..."
-                                                className="box-border h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm leading-none text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                className="box-border h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm leading-none text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
                                             />
                                             <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         </div>
@@ -813,7 +813,7 @@ const PasswordGroupFirms = () => {
                             )}
                             <div className="overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
+                                    <thead className="bg-slate-50/60 border-b border-slate-200">
                                         <tr>
                                             <th className="w-12 p-3 flex-shrink-0">
                                                 <div className="flex justify-center">
@@ -828,15 +828,15 @@ const PasswordGroupFirms = () => {
                                                 </div>
                                             </th>
                                             <th className="px-4 py-4 text-left align-middle">
-                                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider leading-none">
+                                                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider leading-none">
                                                     #
                                                 </span>
                                             </th>
-                                            <th className="px-4 py-4 text-left align-middle text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm Details</th>
-                                            <th className="px-4 py-4 text-left align-middle text-xs font-semibold text-slate-600 uppercase tracking-wider">Client Details</th>
-                                            <th className="px-4 py-4 text-left align-middle text-xs font-semibold text-slate-600 uppercase tracking-wider">Credentials</th>
-                                            <th className="px-4 py-4 text-left align-middle text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                                            <th className="px-4 py-4 text-right align-middle text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                                            <th className="px-4 py-4 text-left align-middle text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Firm Details</th>
+                                            <th className="px-4 py-4 text-left align-middle text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Client Details</th>
+                                            <th className="px-4 py-4 text-left align-middle text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Credentials</th>
+                                            <th className="px-4 py-4 text-left align-middle text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-4 py-4 text-right align-middle text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
@@ -886,7 +886,7 @@ const PasswordGroupFirms = () => {
                                                         initial={{ opacity: 0 }}
                                                         animate={{ opacity: 1 }}
                                                         transition={{ delay: index * 0.05 }}
-                                                        className="group border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors"
+                                                        className="group border-b border-gray-100 bg-white hover:bg-slate-50 transition-colors"
                                                     >
                                                         <td className="w-12 p-3 flex-shrink-0">
                                                             <div className="flex justify-center">
@@ -1094,7 +1094,7 @@ const PasswordGroupFirms = () => {
                                     <button
                                         type="button"
                                     onClick={() => setShowEditModal(false)}
-                                    className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                                    className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-slate-100"
                                 >
                                     <FiX className="w-4 h-4" />
                                     </button>
@@ -1181,7 +1181,7 @@ const PasswordGroupFirms = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowEditModal(false)}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white"
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 border border-slate-200 rounded-lg hover:bg-white"
                                     >
                                         Cancel
                                     </button>

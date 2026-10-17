@@ -1,9 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { FiChevronLeft, FiChevronRight, FiPhoneCall, FiRefreshCw } from 'react-icons/fi';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  FiPhoneCall,
+  FiPhoneIncoming,
+  FiPhoneOutgoing,
+  FiRefreshCw,
+  FiAlertCircle,
+} from 'react-icons/fi';
 import { Header, Sidebar } from '../components/header';
 import { voiceCallApi } from '../services/voiceCallApi';
+import CustomSelect from '../components/CustomSelect';
+import TablePagination from '../components/TablePagination';
+import { optionByValue } from '../utils/customSelectHelpers';
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
 
 const STATUS_LABELS = {
   ringing: 'Ringing',
@@ -15,54 +24,79 @@ const STATUS_LABELS = {
   failed: 'Failed',
 };
 
-function formatCallDate(value) {
-  if (!value) return 'Date unavailable';
+const DIRECTION_OPTIONS = [
+  { value: '', label: 'All directions' },
+  { value: 'incoming', label: 'Incoming' },
+  { value: 'outgoing', label: 'Outgoing' },
+];
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All outcomes' },
+  ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+];
+
+function parseCallDate(value) {
+  if (!value) return null;
   const date = new Date(String(value).replace(' ', 'T'));
-  if (Number.isNaN(date.getTime())) return 'Date unavailable';
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatCallDay(value) {
+  const date = parseCallDate(value);
+  if (!date) return '—';
+  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+function formatCallTime(value) {
+  const date = parseCallDate(value);
+  if (!date) return '';
+  return new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }).format(date);
 }
 
 function formatDuration(value) {
   if (value == null) return '—';
-  const seconds = Math.max(0, Number(value));
-  return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+  const seconds = Math.max(0, Math.floor(Number(value) || 0));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-function statusStyle(status) {
-  if (status === 'ended' || status === 'accepted') return 'bg-emerald-50 text-emerald-700';
-  if (status === 'missed' || status === 'rejected' || status === 'failed') return 'bg-rose-50 text-rose-700';
-  return 'bg-slate-100 text-slate-600';
+/** Status pill: tint + word, never colour alone. */
+function statusClass(status) {
+  if (status === 'ended') return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  if (status === 'accepted' || status === 'ringing') return 'bg-indigo-50 text-indigo-700 ring-indigo-200';
+  if (status === 'missed' || status === 'rejected' || status === 'failed') return 'bg-rose-50 text-rose-700 ring-rose-200';
+  return 'bg-slate-100 text-slate-600 ring-slate-200';
 }
 
-function CallHistoryRow({ call }) {
-  const incoming = call.direction === 'incoming';
+function initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'U';
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2)).toUpperCase();
+}
+
+const TH = 'px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap';
+const TD = 'px-4 py-3 align-middle';
+
+function SkeletonRow() {
   return (
-    <article className="grid gap-3 border-b border-slate-200 px-4 py-4 last:border-b-0 sm:px-5 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1fr)_90px] md:items-center">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${incoming ? 'bg-teal-50 text-teal-700' : 'bg-blue-50 text-blue-700'}`}>
-          <FiPhoneCall className={`h-4 w-4 ${incoming ? '-rotate-45' : 'rotate-135'}`} />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">{call.other_participant_name || 'OOMS user'}</p>
-          <p className="mt-0.5 truncate text-xs text-slate-500">{call.other_participant_username || 'Unknown user'}</p>
+    <tr className="border-b border-slate-100">
+      <td className={TD}><div className="ui-skeleton h-3 w-5" /></td>
+      <td className={TD}>
+        <div className="flex items-center gap-3">
+          <div className="ui-skeleton h-9 w-9 rounded-full" />
+          <div className="space-y-1.5"><div className="ui-skeleton h-3 w-32" /><div className="ui-skeleton h-2.5 w-24" /></div>
         </div>
-      </div>
-      <div className="min-w-0 pl-[52px] md:pl-0">
-        <p className="truncate text-sm text-slate-700">{call.branch_name || call.branch_id || 'Branch unavailable'}</p>
-        <p className="mt-0.5 text-xs capitalize text-slate-500">{call.direction} call · {formatCallDate(call.create_date)}</p>
-      </div>
-      <div className="flex items-center gap-2 pl-[52px] md:pl-0">
-        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyle(call.status)}`}>
-          {STATUS_LABELS[call.status] || call.status}
-        </span>
-      </div>
-      <div className="pl-[52px] text-xs font-medium text-slate-600 md:pl-0 md:text-right">
-        {formatDuration(call.duration_seconds)}
-      </div>
-    </article>
+      </td>
+      <td className={TD}><div className="ui-skeleton h-5 w-20 rounded-full" /></td>
+      <td className={TD}><div className="ui-skeleton h-3 w-28" /></td>
+      <td className={TD}><div className="space-y-1.5"><div className="ui-skeleton h-3 w-24" /><div className="ui-skeleton h-2.5 w-14" /></div></td>
+      <td className={TD}><div className="ui-skeleton h-5 w-20 rounded-full" /></td>
+      <td className={`${TD} text-right`}><div className="ui-skeleton ml-auto h-3 w-12" /></td>
+    </tr>
   );
 }
 
@@ -76,6 +110,8 @@ export default function VoiceCallHistoryPage() {
     }
   });
   const [items, setItems] = useState([]);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [pagination, setPagination] = useState({ page: 1, total: 0, total_pages: 1 });
   const [status, setStatus] = useState('');
   const [direction, setDirection] = useState('');
@@ -84,26 +120,33 @@ export default function VoiceCallHistoryPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
+    try {
+      localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
+    } catch {
+      /* ignore */
+    }
   }, [isMinimized]);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
-    voiceCallApi.getHistory({
-      page: pagination.page,
-      limit: PAGE_SIZE,
-      status: status || undefined,
-      direction: direction || undefined,
-    })
+    voiceCallApi
+      .getHistory({
+        page,
+        limit,
+        status: status || undefined,
+        direction: direction || undefined,
+      })
       .then((response) => {
         if (!active) return;
         setItems(response?.data?.items || []);
         setPagination(response?.data?.pagination || { page: 1, total: 0, total_pages: 1 });
       })
       .catch((requestError) => {
-        if (active) setError(requestError?.response?.data?.message || requestError.message || 'Could not load call history.');
+        if (active) {
+          setError(requestError?.response?.data?.message || requestError.message || 'Could not load call history.');
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -111,19 +154,15 @@ export default function VoiceCallHistoryPage() {
     return () => {
       active = false;
     };
-  }, [direction, pagination.page, refreshKey, status]);
+  }, [direction, page, limit, refreshKey, status]);
 
-  const changeFilter = (setter) => (event) => {
-    setter(event.target.value);
-    setPagination((current) => ({ ...current, page: 1 }));
-  };
-
-  const pageChange = (nextPage) => {
-    setPagination((current) => ({ ...current, page: nextPage }));
-  };
+  const directionValue = useMemo(() => optionByValue(DIRECTION_OPTIONS, direction), [direction]);
+  const statusValue = useMemo(() => optionByValue(STATUS_OPTIONS, status), [status]);
+  const total = Number(pagination.total) || 0;
+  const rowOffset = (page - 1) * limit;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -136,83 +175,177 @@ export default function VoiceCallHistoryPage() {
         isMinimized={isMinimized}
         setIsMinimized={setIsMinimized}
       />
-      <main className={`min-h-screen pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
-            <div>
-              <p className="text-xs font-semibold uppercase text-teal-700">OOMS voice</p>
-              <h1 className="mt-1 text-2xl font-bold text-slate-900">Call history</h1>
-              <p className="mt-1 text-sm text-slate-500">Calls involving your account in this branch.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setRefreshKey((current) => current + 1)}
-              disabled={loading}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <FiRefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </header>
 
-          <section className="mt-2 flex flex-wrap items-end justify-between gap-4" aria-label="Call history filters">
-            <div className="flex flex-wrap gap-3">
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">
-                Direction
-                <select value={direction} onChange={changeFilter(setDirection)} className="h-10 min-w-36 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-teal-600">
-                  <option value="">All directions</option>
-                  <option value="incoming">Incoming</option>
-                  <option value="outgoing">Outgoing</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold text-slate-600">
-                Outcome
-                <select value={status} onChange={changeFilter(setStatus)} className="h-10 min-w-36 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-teal-600">
-                  <option value="">All outcomes</option>
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <p className="text-sm text-slate-500">{pagination.total} {pagination.total === 1 ? 'call' : 'calls'}</p>
-          </section>
-
-          <section className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Call records">
-            <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1fr)_90px] gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[11px] font-bold uppercase text-slate-500 md:grid">
-              <span>Participant</span><span>Branch and time</span><span>Outcome</span><span className="text-right">Duration</span>
-            </div>
-            {loading ? (
-              <div className="py-16 text-center text-sm text-slate-500" role="status">Loading call history...</div>
-            ) : error ? (
-              <div className="px-5 py-12 text-center" role="alert">
-                <p className="text-sm font-semibold text-rose-700">{error}</p>
-                <button type="button" onClick={() => setRefreshKey((current) => current + 1)} className="mt-3 text-sm font-semibold text-teal-700 hover:underline">Try again</button>
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+        <div className="mx-3 my-3 flex flex-col rounded-xl border border-slate-200 bg-white sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
+          {/* Header */}
+          <div className="border-b border-slate-200 px-4 py-3.5 md:px-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+                  <FiPhoneCall className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="font-display text-lg font-bold tracking-tight text-slate-900 md:text-xl">Call history</h1>
+                  <p className="mt-0.5 text-xs text-slate-500">In-app voice calls involving your account in this branch.</p>
+                </div>
               </div>
-            ) : items.length ? (
-              items.map((call) => <CallHistoryRow key={call.call_id} call={call} />)
-            ) : (
-              <div className="px-5 py-16 text-center">
-                <FiPhoneCall className="mx-auto h-8 w-8 text-slate-400" />
-                <h2 className="mt-3 text-base font-semibold text-slate-800">No calls found</h2>
-                <p className="mt-1 text-sm text-slate-500">Try another outcome or direction filter.</p>
-              </div>
-            )}
-          </section>
 
-          <footer className="mt-4 flex items-center justify-between gap-3">
-            <p className="text-xs text-slate-500">Page {pagination.page} of {pagination.total_pages}</p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => pageChange(pagination.page - 1)} disabled={loading || pagination.page <= 1} aria-label="Previous page" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40">
-                <FiChevronLeft />
-              </button>
-              <button type="button" onClick={() => pageChange(pagination.page + 1)} disabled={loading || pagination.page >= pagination.total_pages} aria-label="Next page" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40">
-                <FiChevronRight />
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-44 min-w-[11rem]">
+                  <CustomSelect
+                    options={DIRECTION_OPTIONS}
+                    value={directionValue}
+                    onChange={(option) => {
+                      setDirection(option?.value || '');
+                      setPage(1);
+                    }}
+                    placeholder="All directions"
+                    isSearchable={false}
+                    isClearable={false}
+                  />
+                </div>
+                <div className="w-44 min-w-[11rem]">
+                  <CustomSelect
+                    options={STATUS_OPTIONS}
+                    value={statusValue}
+                    onChange={(option) => {
+                      setStatus(option?.value || '');
+                      setPage(1);
+                    }}
+                    placeholder="All outcomes"
+                    isSearchable={false}
+                    isClearable={false}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRefreshKey((current) => current + 1)}
+                  disabled={loading}
+                  title="Refresh"
+                  aria-label="Refresh call history"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50"
+                >
+                  <FiRefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
-          </footer>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[880px] border-collapse text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50">
+                <tr>
+                  <th scope="col" className={`${TH} w-12`}>#</th>
+                  <th scope="col" className={TH}>Participant</th>
+                  <th scope="col" className={TH}>Direction</th>
+                  <th scope="col" className={TH}>Branch</th>
+                  <th scope="col" className={TH}>Date &amp; time</th>
+                  <th scope="col" className={TH}>Outcome</th>
+                  <th scope="col" className={`${TH} text-right`}>Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
+                ) : error ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-14 text-center">
+                      <div className="mx-auto flex max-w-sm flex-col items-center" role="alert">
+                        <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+                          <FiAlertCircle className="h-5 w-5" />
+                        </span>
+                        <p className="text-sm font-semibold text-slate-800">Unable to load call history</p>
+                        <p className="mt-1 text-xs text-slate-500">{error}</p>
+                        <button
+                          type="button"
+                          onClick={() => setRefreshKey((current) => current + 1)}
+                          className="ui-btn ui-btn-secondary ui-btn-sm mt-4"
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : items.length ? (
+                  items.map((call, index) => {
+                    const incoming = call.direction === 'incoming';
+                    const name = call.other_participant_name || 'OOMS user';
+                    return (
+                      <tr key={call.call_id} className="border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50">
+                        <td className={`${TD} text-xs font-semibold tabular-nums text-slate-500`}>{rowOffset + index + 1}</td>
+                        <td className={TD}>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[11px] font-bold text-indigo-700 ring-1 ring-indigo-100">
+                              {initials(name)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-slate-900">{name}</p>
+                              <p className="truncate font-mono text-xs text-slate-500">{call.other_participant_username || 'Unknown user'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className={TD}>
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                              incoming ? 'bg-teal-50 text-teal-700 ring-teal-200' : 'bg-sky-50 text-sky-700 ring-sky-200'
+                            }`}
+                          >
+                            {incoming ? <FiPhoneIncoming className="h-3.5 w-3.5" /> : <FiPhoneOutgoing className="h-3.5 w-3.5" />}
+                            {incoming ? 'Incoming' : 'Outgoing'}
+                          </span>
+                        </td>
+                        <td className={`${TD} text-slate-700`}>
+                          <span className="block max-w-[14rem] truncate">{call.branch_name || call.branch_id || '—'}</span>
+                        </td>
+                        <td className={TD}>
+                          <span className="block font-mono text-[13px] text-slate-800">{formatCallDay(call.create_date)}</span>
+                          <span className="block font-mono text-xs text-slate-500">{formatCallTime(call.create_date)}</span>
+                        </td>
+                        <td className={TD}>
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusClass(call.status)}`}>
+                            {STATUS_LABELS[call.status] || call.status}
+                          </span>
+                        </td>
+                        <td className={`${TD} text-right font-mono tabular-nums text-slate-800`}>{formatDuration(call.duration_seconds)}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-16 text-center">
+                      <div className="mx-auto flex max-w-sm flex-col items-center">
+                        <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                          <FiPhoneCall className="h-5 w-5" />
+                        </span>
+                        <p className="text-sm font-semibold text-slate-800">No calls found</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {status || direction ? 'Try another direction or outcome filter.' : 'Calls you make or receive in OOMS will appear here.'}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <TablePagination
+            page={page}
+            limit={limit}
+            total={total}
+            totalPages={Math.max(1, Number(pagination.total_pages) || Math.ceil(total / limit) || 1)}
+            rowOptions={[10, 25, 50, 100]}
+            defaultRows={DEFAULT_PAGE_SIZE}
+            onPageChange={(next) => setPage(next)}
+            onLimitChange={(next) => {
+              setLimit(next);
+              setPage(1);
+            }}
+          />
         </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -323,7 +323,7 @@ const DefaultDaterange = () => {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -342,7 +342,7 @@ const DefaultDaterange = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
                             {/* Card Header */}
                             <div className="border-b border-gray-200 px-6 py-4">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -350,7 +350,7 @@ const DefaultDaterange = () => {
                                         <h5 className="text-xl font-bold text-gray-800 mb-1">
                                             Daterange Settings
                                         </h5>
-                                        <p className="text-gray-500 text-xs">
+                                        <p className="text-slate-500 text-xs mt-0.5">
                                             {filteredDateranges.length} of {daterangeData.length} dateranges shown
                                         </p>
                                     </div>
@@ -364,7 +364,7 @@ const DefaultDaterange = () => {
                                                 placeholder="Search by name, description, or type..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 shadow-sm text-sm"
                                             />
                                         </div>
 
@@ -374,15 +374,13 @@ const DefaultDaterange = () => {
                                                 <motion.button
                                                     onClick={() => setShowExportDropdown(!showExportDropdown)}
                                                     className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                    whileHover={{ scale: 1.02 }}
-                                                    whileTap={{ scale: 0.98 }}
                                                 >
                                                     <PiExportBold className="w-4 h-4" />
                                                     Export
                                                 </motion.button>
 
                                                 {showExportDropdown && (
-                                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-pop border border-slate-200 z-50 overflow-hidden">
                                                         <div className="py-1">
                                                             <button
                                                                 onClick={() => handleExport('pdf')}
@@ -420,8 +418,6 @@ const DefaultDaterange = () => {
                                             <motion.button
                                                 onClick={() => fetchDaterangeData()}
                                                 className="px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 <FiRefreshCw className="w-4 h-4" />
                                                 Refresh
@@ -434,21 +430,21 @@ const DefaultDaterange = () => {
                             {/* Table Container */}
                             <div className="flex-1 overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
                                         <tr>
                                             <th className="w-12 p-4">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectAll}
                                                     onChange={handleSelectAll}
-                                                    className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
+                                                    className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500/25"
                                                 />
                                             </th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">#</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Name</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">From Date</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">To Date</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Status</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">#</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Name</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">From Date</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">To Date</th>
+                                            <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Status</th>
                                             <th className="text-center p-4 font-semibold text-gray-700 text-sm">
                                                 <FiSettings className="w-4 h-4 inline" />
                                             </th>
@@ -476,14 +472,14 @@ const DefaultDaterange = () => {
                                             filteredDateranges.map((item, index) => (
                                                 <tr 
                                                     key={item.id} 
-                                                    className="hover:bg-gray-50 transition-colors"
+                                                    className="hover:bg-slate-50 transition-colors"
                                                 >
                                                     <td className="p-4">
                                                         <input
                                                             type="checkbox"
                                                             checked={selectedDaterange.has(item.id)}
                                                             onChange={() => handleDaterangeSelect(item.id)}
-                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
+                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500/25"
                                                         />
                                                     </td>
                                                     <td className="p-4 text-sm text-gray-600 font-medium">
@@ -491,7 +487,7 @@ const DefaultDaterange = () => {
                                                     </td>
                                                     <td className="p-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+                                                            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center shadow-sm">
                                                                 <FiCalendar className="w-4 h-4 text-white" />
                                                             </div>
                                                             <div>
@@ -541,7 +537,7 @@ const DefaultDaterange = () => {
                             </div>
 
                             {/* Table Footer */}
-                            <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+                            <div className="border-t border-gray-200 bg-gray-50">
                                 <div className="p-4">
                                     <div className="flex items-center justify-between">
                                         <span className="font-semibold text-gray-800 text-sm">
@@ -584,7 +580,7 @@ const DefaultDaterange = () => {
             {showEditModal && selectedDaterangeItem && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-all duration-300">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
+                        <div className="bg-indigo-600 text-white px-6 py-4 flex justify-between items-center">
                             <div>
                                 <h2 className="text-xl font-bold">Update Daterange</h2>
                                 <p className="text-indigo-100 text-sm mt-1">Modify default date range settings</p>
@@ -605,7 +601,7 @@ const DefaultDaterange = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Daterange Type
                                     </label>
-                                    <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-lg border border-indigo-200">
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 rounded-lg border border-indigo-200">
                                         <FiCalendar className="w-5 h-5 text-indigo-600" />
                                         <div>
                                             <div className="font-semibold text-gray-800">
@@ -634,7 +630,7 @@ const DefaultDaterange = () => {
                                             type="date"
                                             value={editForm.value_1}
                                             onChange={(e) => handleInputChange('value_1', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             required
                                         />
                                     </div>
@@ -647,14 +643,14 @@ const DefaultDaterange = () => {
                                             type="date"
                                             value={editForm.value_2}
                                             onChange={(e) => handleInputChange('value_2', e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
+                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all duration-200"
                                             required
                                         />
                                     </div>
                                 </div>
 
                                 {/* Current Values Display */}
-                                <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+                                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                                     <h6 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
                                         <FiClock className="w-4 h-4 text-gray-400" />
                                         Current Values
@@ -685,9 +681,7 @@ const DefaultDaterange = () => {
                                 <motion.button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
-                                    className="px-6 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
+                                    className="px-6 py-3 text-sm font-medium border border-slate-200 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
                                 >
                                     Cancel
                                 </motion.button>
@@ -695,8 +689,6 @@ const DefaultDaterange = () => {
                                     type="submit"
                                     disabled={loading}
                                     className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50 flex items-center gap-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     <FiEdit className="w-4 h-4" />
                                     {loading ? 'Updating...' : 'Update Daterange'}

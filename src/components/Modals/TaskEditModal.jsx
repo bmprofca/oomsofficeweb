@@ -226,7 +226,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                         className="relative z-[1] pointer-events-auto my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:my-4 sm:max-h-[calc(100vh-2rem)]"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5 text-white">
+                        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-indigo-600 px-5 py-3.5 text-white">
                             <div className="flex min-w-0 items-center gap-2.5">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
                                     <FiEdit className="h-4 w-4" />
@@ -287,7 +287,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                                             setEF({ fees: val });
                                                         }
                                                     }}
-                                                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                                                     placeholder="0.00"
                                                 />
                                             </div>
@@ -322,7 +322,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                                     mode="single"
                                                     initialTab="single"
                                                     quickOptionKeys={['td', 'tom', 'n7', 'eom']}
-                                                    buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                    buttonClassName="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                                                 />
                                             </div>
                                         )}
@@ -349,7 +349,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                                     mode="single"
                                                     initialTab="single"
                                                     quickOptionKeys={['td', 'tom', 'n7', 'eom']}
-                                                    buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                    buttonClassName="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                                                 />
                                             </div>
                                         )}
@@ -368,7 +368,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                                         mode="single"
                                                         initialTab="single"
                                                         quickOptionKeys={['td', 'yd', 'n7', 'eom']}
-                                                        buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                        buttonClassName="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
                                                     />
                                                 </div>
                                             ) : (
@@ -409,7 +409,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                                             caOption: next ? form.caOption : null,
                                                         });
                                                     }}
-                                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${form.has_ca ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${form.has_ca ? 'bg-indigo-600' : 'bg-gray-200'}`}
                                                 >
                                                     <span
                                                         className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${form.has_ca ? 'translate-x-4' : 'translate-x-0'}`}
@@ -467,7 +467,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                                 type="button"
                                 onClick={handleClose}
                                 disabled={isSaving}
-                                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-slate-100 disabled:opacity-50"
                             >
                                 Cancel
                             </button>

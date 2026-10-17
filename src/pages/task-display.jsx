@@ -6,17 +6,15 @@ import { useNavigate, useNavigationType, useSearchParams } from 'react-router-do
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    FiUsers, FiBriefcase, FiCalendar, FiUserCheck,
-    FiUserPlus, FiFileText, FiPlus, FiSearch, FiRefreshCw,
-    FiPaperclip, FiX, FiMic, FiStopCircle, FiDownload, FiTrash2,
+    FiCalendar, FiUserCheck,
+    FiPlus, FiSearch, 
+    FiX, FiDownload, FiTrash2,
     FiArrowRight, FiArrowLeft, FiUser, FiLoader, FiCheckCircle,
-    FiXCircle, FiClock, FiMenu, FiEye, FiSettings, FiLock,
-    FiGrid, FiMail, FiPrinter, FiPhone, FiFilter, FiMessageSquare,
-    FiMove, FiSave, FiList, FiChevronDown, FiChevronUp, FiMapPin,
-    FiCreditCard, FiHome, FiMap, FiGlobe
+    FiClock, FiMoreVertical, FiEye, FiSettings, FiLock,
+    FiMail, FiPhone, FiFilter, 
+    
 } from 'react-icons/fi';
-
-import { FaWhatsapp, FaFileCsv } from "react-icons/fa6";
+import { FaFileCsv } from "react-icons/fa6";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import toast from 'react-hot-toast';
 import {
@@ -29,7 +27,6 @@ import {
 
 // Import components
 import TaskTable from '../TaskComponent/TaskTable';
-import TaskCards from '../TaskComponent/TaskCards';
 import SettingsModal from '../TaskComponent/SettingsModal';
 import MultiSelectInput from '../components/MultiSelectInput';
 import CustomSelect from '../components/CustomSelect';
@@ -37,7 +34,7 @@ import { optionByValue } from '../utils/customSelectHelpers';
 import AssignedStaffList from '../components/Modals/AssignedStaffList';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
 import TablePagination from '../components/TablePagination';
-import ExportModal from '../TaskComponent/Export';
+import ExportDialog from '../components/ExportDialog';
 
 // Import other modals
 import DeleteConfirmationModal from '../components/delete-confirmation';
@@ -45,7 +42,7 @@ import DeleteConfirmationModal from '../components/delete-confirmation';
 // Import API utilities
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
-import { useUserPermissions, checkPermissionSync } from '../utils/permission-helper';
+import { useUserPermissions } from '../utils/permission-helper';
 import { taskGetIn, taskGetOut } from '../services/taskService';
 import { getTaskCompliancePeriodLabel } from '../utils/taskCompliancePeriod';
 import {
@@ -54,10 +51,8 @@ import {
 } from '../utils/taskCompleteDate';
 import StaffColumnCell, { formatCaApprovalLabel } from '../TaskComponent/StaffColumnCell';
 import { ClickToCallButton } from '../components/Call/ClickToCall';
-
 const getLoggedInUsername = () =>
     localStorage.getItem('user_username') || localStorage.getItem('username') || '';
-
 const isBranchAdmin = () =>
     localStorage.getItem('branch_owned') === 'true' ||
     getLoggedInUsername().toLowerCase() === 'admin';
@@ -65,7 +60,6 @@ const isBranchAdmin = () =>
 // ============================================
 // CONSTANTS & HELPERS
 // ============================================
-
 const statusOptions = [
     { value: 'unassign', name: 'Unassign' },
     { value: 'in process', name: 'In Process' },
@@ -75,7 +69,6 @@ const statusOptions = [
     { value: 'cancel', name: 'Cancel' }
 ];
 const DEFAULT_SELECTED_STATUSES = ['in process', 'pending from client', 'pending from department'];
-
 const CA_APPROVAL_OPTIONS = [
     { value: 'all', label: 'All CA Approval' },
     { value: 'pending', label: 'Pending' },
@@ -87,7 +80,6 @@ const CA_APPROVAL_OPTIONS = [
 // restores the same page/UI without an immediate API reset.
 const TASK_LIST_STATE_KEY = 'taskListViewState_v2';
 const TASK_LIST_SCROLL_ID = 'task-table-scroll';
-
 const buildTaskListFingerprint = (filters = {}, pagination = {}) =>
     JSON.stringify({
         search: filters.search || '',
@@ -100,11 +92,8 @@ const buildTaskListFingerprint = (filters = {}, pagination = {}) =>
         page_no: Number(pagination.page_no) || 1,
         limit: Number(pagination.limit) || 20,
     });
-
 const loadSavedTaskListState = () => loadListViewCache(TASK_LIST_STATE_KEY);
-
 const STAFF_TABLE_META_FIELD_IDS = new Set(['staff_ca']);
-
 const availableFields = [
     { id: 'task_id', label: 'Task ID', type: 'text' },
     { id: 'client_name', label: 'Client Name', type: 'text' },
@@ -123,7 +112,6 @@ const availableFields = [
     { id: 'create_by', label: 'Created By', type: 'text' },
     { id: 'menu', label: 'Actions', type: 'actions' }
 ];
-
 const defaultColumnConfig = [
     {
         id: '2',
@@ -181,10 +169,8 @@ const defaultColumnConfig = [
         fixed: true
     }
 ];
-
 const normalizeColumnConfig = (columns) => {
     if (!Array.isArray(columns)) return defaultColumnConfig;
-
     return columns.map((col) => {
         let items = (col.items || []).map((item) => {
             if (item.id === 'target_date') {
@@ -192,13 +178,11 @@ const normalizeColumnConfig = (columns) => {
             }
             return item;
         });
-
         if (items.some((item) => item.id === 'staffs')) {
             if (!items.some((item) => item.id === 'staff_ca')) {
                 items = [...items, { id: 'staff_ca', label: 'Show CA' }];
             }
         }
-
         return {
             ...col,
             name: col.name === 'Task Details' ? 'Task' : col.name,
@@ -207,7 +191,6 @@ const normalizeColumnConfig = (columns) => {
         };
     });
 };
-
 const migrateHiddenFields = (hiddenFields, columns) => {
     const next = { ...(hiddenFields || {}) };
     (columns || []).forEach((col) => {
@@ -227,7 +210,6 @@ const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB');
 };
-
 const getDaysLeft = (dueDate) => {
     if (!dueDate) return null;
     const due = new Date(dueDate);
@@ -235,7 +217,6 @@ const getDaysLeft = (dueDate) => {
     const diffTime = due - today;
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
-
 const formatDueDaysLabel = (dueDate) => {
     if (!dueDate) return null;
     const daysLeft = getDaysLeft(dueDate);
@@ -244,7 +225,6 @@ const formatDueDaysLabel = (dueDate) => {
     if (daysLeft === 0) return 'Due today';
     return `Due in ${daysLeft}D`;
 };
-
 const getStatusStyle = (status) => {
     switch (status) {
         case 'unassign': return 'bg-blue-50 text-blue-700 border-blue-200';
@@ -256,7 +236,6 @@ const getStatusStyle = (status) => {
         default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
 };
-
 const getStatusText = (status) => {
     switch (status) {
         case 'unassign': return 'Unassign';
@@ -268,7 +247,6 @@ const getStatusText = (status) => {
         default: return status || '-';
     }
 };
-
 const getStatusHoverTitle = (status) => {
     switch (status) {
         case 'pending from client': return 'Pending from Client';
@@ -276,7 +254,6 @@ const getStatusHoverTitle = (status) => {
         default: return undefined;
     }
 };
-
 const getStatusColor = (status) => {
     switch (status) {
         case 'unassign': return 'bg-blue-100 text-blue-700';
@@ -288,7 +265,6 @@ const getStatusColor = (status) => {
         default: return 'bg-gray-100 text-gray-700';
     }
 };
-
 const formatStatus = (status) => {
     switch (status) {
         case 'unassign': return 'Unassign';
@@ -304,34 +280,8 @@ const formatStatus = (status) => {
 // ============================================
 // SUB-COMPONENTS
 // ============================================
-
-const TableViewSwitch = ({ viewMode, setViewMode }) => (
-    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-        <motion.button
-            onClick={() => setViewMode('table')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600'}`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-        >
-            <FiList className="w-4 h-4" />
-            <span className="text-xs font-medium hidden sm:inline">Table</span>
-        </motion.button>
-
-        <motion.button
-            onClick={() => setViewMode('card')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === 'card' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600'}`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-        >
-            <FiGrid className="w-4 h-4" />
-            <span className="text-xs font-medium hidden sm:inline">Cards</span>
-        </motion.button>
-    </div>
-);
-
 const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearch, onReset, showFilterRow, setShowFilterRow }) => {
     if (!showFilterRow) return null;
-
     return (
         <motion.div
             className="bg-gray-50 border-b border-gray-200 px-4 py-3"
@@ -349,7 +299,7 @@ const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearc
                             placeholder="Search..."
                             value={filters.search}
                             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-indigo-500"
+                            className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-indigo-500/25"
                         />
                     </div>
                 </div>
@@ -409,17 +359,13 @@ const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearc
                     <motion.button
                         onClick={onSearch}
                         className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
                     >
                         <FiFilter className="w-4 h-4" /> Apply
                     </motion.button>
 
                     <motion.button
                         onClick={onReset}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        className="px-4 py-2 border border-slate-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-slate-100"
                     >
                         Reset
                     </motion.button>
@@ -432,7 +378,6 @@ const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearc
 // Client Details Modal
 const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
     if (!isOpen) return null;
-
     return (
         <AnimatePresence>
             {isOpen && (
@@ -450,7 +395,7 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                        <div className="bg-indigo-600 text-white px-6 py-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
@@ -468,8 +413,6 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
                                 <motion.button
                                     onClick={onClose}
                                     className="text-white p-2 rounded-lg hover:bg-white/10"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
                                 >
                                     <FiX className="w-5 h-5" />
                                 </motion.button>
@@ -556,9 +499,7 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
                             <div className="flex justify-end">
                                 <motion.button
                                     onClick={onClose}
-                                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-sm"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm"
                                 >
                                     Close
                                 </motion.button>
@@ -574,14 +515,12 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
 // ============================================
 // MAIN COMPONENT
 // ============================================
-
 const TaskDisplay = () => {
     const { check } = useUserPermissions();
     const navigate = useNavigate();
     const navigationType = useNavigationType();
     const [searchParams] = useSearchParams();
     const { openTaskCreate } = useTaskCreate();
-
     const savedListStateRef = useRef(loadSavedTaskListState());
     const urlCaApproval = String(searchParams.get('ca_approval') || '').trim().toLowerCase();
     const hasUrlCaApproval = ['pending', 'sent', 'complete'].includes(urlCaApproval);
@@ -622,9 +561,6 @@ const TaskDisplay = () => {
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const [deleteModal, setDeleteModal] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
-    const [viewMode, setViewMode] = useState(
-        () => savedListStateRef.current?.viewMode || 'table'
-    );
     const [isMobile, setIsMobile] = useState(false);
     const [statusModal, setStatusModal] = useState({ open: false, taskId: null, taskName: '', currentStatus: '' });
     const [usersModal, setUsersModal] = useState({ open: false, users: [], taskName: '' });
@@ -651,9 +587,7 @@ const TaskDisplay = () => {
     const [getInOutLoadingId, setGetInOutLoadingId] = useState(null);
 
     // Export Modal State
-    const [exportModalOpen, setExportModalOpen] = useState(false);
-    const [exportData, setExportData] = useState([]);
-    const [exportColumns, setExportColumns] = useState([]);
+    const [exportDialog, setExportDialog] = useState({ open: false, format: 'excel' });
 
     // Hidden states for columns and fields
     const [hiddenColumns, setHiddenColumns] = useState({});
@@ -662,7 +596,6 @@ const TaskDisplay = () => {
     // ============================================
     // EFFECTS
     // ============================================
-
     useEffect(() => {
         const savedConfig = localStorage.getItem('taskColumnConfig');
         if (savedConfig) {
@@ -702,18 +635,14 @@ const TaskDisplay = () => {
                 setHiddenFields(event.detail.hiddenFields || {});
             }
         };
-
         window.addEventListener('columnVisibilityChanged', handleVisibilityChange);
-
         return () => {
             window.removeEventListener('columnVisibilityChanged', handleVisibilityChange);
         };
     }, []);
-
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
-
     useEffect(() => {
         const handleOutsideMenuClick = (event) => {
             const clickedInsideDropdown = event.target.closest('.dropdown-container');
@@ -727,13 +656,11 @@ const TaskDisplay = () => {
                 }
             }
         };
-
         document.addEventListener('mousedown', handleOutsideMenuClick);
         return () => {
             document.removeEventListener('mousedown', handleOutsideMenuClick);
         };
     }, [showMoreMenu, activeRowDropdown]);
-
     const getRowDropdownPosition = (button, dropdownHeight = 220) => {
         if (!button) return { top: 8, left: 8 };
         const rect = button.getBoundingClientRect();
@@ -742,12 +669,9 @@ const TaskDisplay = () => {
         const windowWidth = window.innerWidth;
         const spaceBelow = windowHeight - rect.bottom;
         const spaceAbove = rect.top;
-
         let left = rect.right - dropdownWidth;
         left = Math.max(8, Math.min(left, windowWidth - dropdownWidth - 8));
-
         let top = 8;
-
         if (spaceBelow >= dropdownHeight + 8) {
             top = rect.bottom + 4;
         } else if (spaceAbove >= dropdownHeight + 8) {
@@ -757,14 +681,11 @@ const TaskDisplay = () => {
         }
         return { top, left };
     };
-
     useLayoutEffect(() => {
         if (!activeRowDropdown) return undefined;
-
         const syncPosition = () => {
             const dropdownHeight = rowDropdownRef.current?.offsetHeight || 220;
             const dropdownWidth = 224;
-
             if (rowContextPositionRef.current) {
                 let { top, left } = rowContextPositionRef.current;
                 left = Math.max(8, Math.min(left, window.innerWidth - dropdownWidth - 8));
@@ -772,31 +693,26 @@ const TaskDisplay = () => {
                 setRowDropdownPosition({ top, left });
                 return;
             }
-
             const button = rowMenuButtonRefs.current[activeRowDropdown];
             if (button) {
                 setRowDropdownPosition(getRowDropdownPosition(button, dropdownHeight));
             }
         };
-
         syncPosition();
         const raf = requestAnimationFrame(syncPosition);
         window.addEventListener('resize', syncPosition);
         window.addEventListener('scroll', syncPosition, true);
-
         return () => {
             cancelAnimationFrame(raf);
             window.removeEventListener('resize', syncPosition);
             window.removeEventListener('scroll', syncPosition, true);
         };
     }, [activeRowDropdown, tasks, isMinimized]);
-
     useEffect(() => {
         if (activeRowDropdown && !tasks.some((t) => t.task_id === activeRowDropdown)) {
             setActiveRowDropdown(null);
         }
     }, [tasks, activeRowDropdown]);
-
     useEffect(() => {
         fetchServices();
     }, []);
@@ -824,14 +740,12 @@ const TaskDisplay = () => {
                 total: pagination.total,
             },
             showFilterRow,
-            viewMode,
             fingerprint: buildTaskListFingerprint(filters, pagination),
             // Don't wipe cached rows while a fresh fetch is in flight
             ...(loading ? {} : { tasks }),
             scrollTop: getScrollTopById(TASK_LIST_SCROLL_ID),
         });
-    }, [filters, pagination.page_no, pagination.limit, pagination.total, showFilterRow, viewMode, tasks, loading]);
-
+    }, [filters, pagination.page_no, pagination.limit, pagination.total, showFilterRow, tasks, loading]);
     useEffect(() => {
         if (skipNextAutoFetchRef.current) {
             skipNextAutoFetchRef.current = false;
@@ -869,10 +783,8 @@ const TaskDisplay = () => {
     // ============================================
     // HELPER FUNCTIONS
     // ============================================
-
     const getVisibleColumnConfig = () => {
         const visibleColumns = columnConfig.filter(col => !hiddenColumns[col.id]);
-
         return visibleColumns.map(col => {
             let items = (col.items || []).filter(item =>
                 !hiddenFields[`${col.id}_${item.id}`] &&
@@ -886,7 +798,6 @@ const TaskDisplay = () => {
                 col.name === 'Task' ||
                 col.name === 'Task Details' ||
                 items.some((item) => item.id === 'service_name' || item.id === 'fees');
-
             if (isTaskColumn) {
                 const feesIdx = items.findIndex((item) => item.id === 'fees');
                 const serviceIdx = items.findIndex((item) => item.id === 'service_name');
@@ -904,43 +815,34 @@ const TaskDisplay = () => {
                     ];
                 }
             }
-
             return { ...col, items };
         });
     };
-
     const getStaffColumnId = () =>
         columnConfig.find((col) => col.items?.some((item) => item.id === 'staffs'))?.id || '4';
 
     // ============================================
     // DATA FETCHING FUNCTIONS
     // ============================================
-
     const fetchServices = async () => {
         try {
             const headers = getHeaders();
             if (!headers) return;
-
             const collected = [];
             let page = 1;
             let hasMore = true;
-
             while (hasMore) {
                 const response = await fetch(
                     `${API_BASE_URL}/service/list?search=&page_no=${page}&limit=100&added_only=true`,
                     { method: 'GET', headers },
                 );
-
                 if (!response.ok) throw new Error('Failed to fetch services');
-
                 const responseData = await response.json();
                 if (!responseData.success || !Array.isArray(responseData.data)) break;
-
                 collected.push(...responseData.data);
                 hasMore = responseData.pagination?.is_last_page === false;
                 page += 1;
             }
-
             setServiceOptions(
                 collected.map((service) => ({
                     value: service.service_id,
@@ -951,12 +853,10 @@ const TaskDisplay = () => {
             console.error('Error fetching services:', error);
         }
     };
-
     const fetchTasks = async (overrides = {}) => {
         const nextPageNo = overrides.page_no ?? pagination.page_no;
         const nextLimit = overrides.limit ?? pagination.limit;
         const nextFilters = overrides.filters ?? filters;
-
         if (taskListAbortRef.current) {
             taskListAbortRef.current.abort();
         }
@@ -969,7 +869,6 @@ const TaskDisplay = () => {
                 page_no: nextPageNo.toString(),
                 limit: nextLimit.toString()
             });
-
             queryParams.append('search', nextFilters.search || '');
             queryParams.append('username', nextFilters.username || '');
             queryParams.append('firm_id', nextFilters.firm_id || '');
@@ -979,15 +878,12 @@ const TaskDisplay = () => {
             if (nextFilters.ca_approval && nextFilters.ca_approval !== 'all') {
                 queryParams.append('ca_approval', nextFilters.ca_approval);
             }
-
             const response = await fetch(`${API_BASE_URL}/task/list?${queryParams.toString()}`, {
                 method: 'GET',
                 headers,
                 signal: controller.signal
             });
-
             if (!response.ok) throw new Error('Failed to fetch tasks');
-
             const responseData = await response.json();
             if (responseData.success && responseData.data && Array.isArray(responseData.data)) {
                 setTasks(responseData.data);
@@ -1028,16 +924,13 @@ const TaskDisplay = () => {
     // ============================================
     // TASK OPERATION FUNCTIONS
     // ============================================
-
     const saveColumnConfig = (config) => {
         setColumnConfig(config);
         localStorage.setItem('taskColumnConfig', JSON.stringify(config));
     };
-
     const handleBulkStatusChange = async (newStatus) => {
         const taskIds = Array.from(selectedTasks);
         if (taskIds.length === 0) return;
-
         try {
             const headers = await getHeaders();
             const response = await fetch(`${API_BASE_URL}/task/change-status`, {
@@ -1045,12 +938,10 @@ const TaskDisplay = () => {
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task_ids: taskIds, status: newStatus })
             });
-
             const responseData = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(responseData.message || 'Failed to update statuses');
             }
-
             if (responseData.success) {
                 const updatedTaskIds = new Set(responseData.data?.task_ids || taskIds);
                 setTasks(prev => prev.map(task =>
@@ -1076,7 +967,6 @@ const TaskDisplay = () => {
             throw error;
         }
     };
-
     const handleStatusChange = async (taskId, newStatus) => {
         try {
             const headers = await getHeaders();
@@ -1085,12 +975,10 @@ const TaskDisplay = () => {
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task_ids: [taskId], status: newStatus })
             });
-
             const responseData = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(responseData.message || 'Failed to update status');
             }
-
             if (responseData.success) {
                 toast.success(responseData.message || 'Task status updated successfully');
                 setTasks((prev) => {
@@ -1108,13 +996,10 @@ const TaskDisplay = () => {
             toast.error(error.message || 'Failed to update status');
         }
     };
-
     const canForceGetOut = () => isBranchAdmin() || check('task_get_in');
-
     const getTaskInOutState = (task) => {
         const me = getLoggedInUsername();
         const inUser = task?.in_user;
-
         if (!inUser?.username) {
             return {
                 mode: 'free',
@@ -1124,7 +1009,6 @@ const TaskDisplay = () => {
                 inUser: null,
             };
         }
-
         if (inUser.username === me) {
             return {
                 mode: 'self',
@@ -1134,7 +1018,6 @@ const TaskDisplay = () => {
                 inUser,
             };
         }
-
         return {
             mode: 'other',
             showGetIn: false,
@@ -1143,10 +1026,8 @@ const TaskDisplay = () => {
             inUser,
         };
     };
-
     const allTasksSelected = tasks.length > 0 && selectedTasks.size === tasks.length;
     const isSelectionIndeterminate = selectedTasks.size > 0 && selectedTasks.size < tasks.length;
-
     const handleTaskSelect = (taskId) => {
         const newSelected = new Set(selectedTasks);
         if (newSelected.has(taskId)) {
@@ -1156,7 +1037,6 @@ const TaskDisplay = () => {
         }
         setSelectedTasks(newSelected);
     };
-
     const handleSelectAll = () => {
         if (allTasksSelected) {
             setSelectedTasks(new Set());
@@ -1164,18 +1044,14 @@ const TaskDisplay = () => {
             setSelectedTasks(new Set(tasks.map((task) => task.task_id)));
         }
     };
-
     const handleGetInOut = async (taskId, action) => {
         if (!taskId || getInOutLoadingId) return;
-
         setGetInOutLoadingId(taskId);
         setActiveRowDropdown(null);
-
         try {
             const responseData = action === 'in'
                 ? await taskGetIn(taskId)
                 : await taskGetOut(taskId);
-
             if (responseData?.success) {
                 toast.success(responseData.message || (action === 'in' ? 'Get in successful' : 'Get out successful'));
                 setTasks((prev) =>
@@ -1192,7 +1068,6 @@ const TaskDisplay = () => {
                 );
                 return;
             }
-
             if (responseData?.in_user) {
                 setTasks((prev) =>
                     prev.map((task) =>
@@ -1202,7 +1077,6 @@ const TaskDisplay = () => {
                     )
                 );
             }
-
             toast.error(responseData?.message || 'Operation failed');
         } catch (error) {
             const responseData = error.response?.data;
@@ -1221,7 +1095,6 @@ const TaskDisplay = () => {
             setGetInOutLoadingId(null);
         }
     };
-
     const toggleRowDropdown = (taskId, buttonElement) => {
         if (activeRowDropdown === taskId) {
             setActiveRowDropdown(null);
@@ -1234,7 +1107,6 @@ const TaskDisplay = () => {
         }
         setActiveRowDropdown(taskId);
     };
-
     const handleRowContextMenu = (e, taskId) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1242,16 +1114,13 @@ const TaskDisplay = () => {
         rowMenuButtonRefs.current[taskId] = null;
         setActiveRowDropdown(taskId);
     };
-
     const openStatusModal = (taskId, currentStatus, taskName = '') => {
         const derivedTaskName = taskName || tasks.find((task) => task.task_id === taskId)?.service?.name || '';
         setStatusModal({ open: true, taskId, taskName: derivedTaskName, currentStatus });
     };
-
     const closeStatusModal = () => {
         setStatusModal({ open: false, taskId: null, taskName: '', currentStatus: '' });
     };
-
     const openUsersModal = (staffs, taskName) => {
         setUsersModal({
             open: true,
@@ -1265,25 +1134,19 @@ const TaskDisplay = () => {
             taskName
         });
     };
-
     const closeUsersModal = () => {
         setUsersModal({ open: false, users: [], taskName: '' });
     };
-
     const openClientDetailsModal = async (username) => {
         if (!username) return;
-
         setClientModal(prev => ({ ...prev, loading: true, open: true }));
-
         try {
             const headers = await getHeaders();
             const response = await fetch(`${API_BASE_URL}/client/details/profile?username=${username}`, {
                 method: 'GET',
                 headers
             });
-
             if (!response.ok) throw new Error('Failed to fetch client details');
-
             const responseData = await response.json();
             if (responseData.success && responseData.data) {
                 setClientModal(prev => ({ ...prev, clientData: responseData.data, loading: false }));
@@ -1295,15 +1158,12 @@ const TaskDisplay = () => {
             setClientModal(prev => ({ ...prev, clientData: null, loading: false }));
         }
     };
-
     const closeClientDetailsModal = () => {
         setClientModal({ open: false, clientData: null, loading: false });
     };
-
     const handleSearch = () => {
         setPagination(prev => ({ ...prev, page_no: 1 }));
     };
-
     const handleResetFilters = () => {
         const resetFilters = {
             search: '',
@@ -1327,7 +1187,7 @@ const TaskDisplay = () => {
     // ============================================
 
     // Prepare data for export
-    const prepareExportData = () => {
+    const prepareExportData = (sourceTasks = null) => {
         // Get visible columns configuration
         const visibleColumns = getVisibleColumnConfig();
 
@@ -1338,6 +1198,7 @@ const TaskDisplay = () => {
         // Build columns array
         visibleColumns.forEach(col => {
             col.items.forEach(item => {
+                if (item.id === 'menu' || item.type === 'actions') return;
                 exportColumnsConfig.push({
                     header: item.label,
                     key: item.id,
@@ -1346,11 +1207,12 @@ const TaskDisplay = () => {
             });
         });
 
-        // Build data array for selected tasks or all tasks
-        const tasksToExport = selectedTasks.size > 0
-            ? tasks.filter(task => selectedTasks.has(task.task_id))
-            : tasks;
-
+        // Build data array for the given list (defaults: selected tasks, else current page)
+        const tasksToExport = Array.isArray(sourceTasks)
+            ? sourceTasks
+            : selectedTasks.size > 0
+                ? tasks.filter(task => selectedTasks.has(task.task_id))
+                : tasks;
         tasksToExport.forEach(task => {
             const row = {};
             visibleColumns.forEach(col => {
@@ -1434,28 +1296,53 @@ const TaskDisplay = () => {
             });
             exportDataList.push(row);
         });
-
         return { data: exportDataList, columns: exportColumnsConfig };
     };
 
-    // Handle export click
-    const handleExportClick = () => {
-        const { data, columns } = prepareExportData();
+    // Export: open the shared dialog (format optionally preselected)
+    const handleExportClick = (format = 'excel') => {
+        setExportDialog({ open: true, format: typeof format === 'string' ? format : 'excel' });
+    };
 
-        if (data.length === 0) {
-            toast.error('No data to export');
-            return;
+    // Fetch every task matching the current filters, 100 per request
+    const fetchAllTasksForExport = async (onProgress) => {
+        const headers = await getHeaders();
+        const all = [];
+        let page = 1;
+        let total = pagination.total || 0;
+        for (let guard = 0; guard < 500; guard += 1) {
+            const queryParams = new URLSearchParams({ page_no: String(page), limit: '100' });
+            queryParams.append('search', filters.search || '');
+            queryParams.append('username', filters.username || '');
+            queryParams.append('firm_id', filters.firm_id || '');
+            queryParams.append('service_id', filters.service_id || '');
+            (filters.status || []).forEach((st) => queryParams.append('status', st));
+            (filters.service_ids || []).forEach((id) => queryParams.append('service_ids', id));
+            if (filters.ca_approval && filters.ca_approval !== 'all') queryParams.append('ca_approval', filters.ca_approval);
+            const response = await fetch(`${API_BASE_URL}/task/list?${queryParams.toString()}`, { headers });
+            if (!response.ok) throw new Error('Could not load tasks for export');
+            const json = await response.json();
+            const rows = Array.isArray(json?.data) ? json.data : [];
+            total = Number(json?.pagination?.total) || total;
+            all.push(...rows);
+            onProgress?.(all.length, total || all.length);
+            if (!rows.length || json?.pagination?.is_last_page || all.length >= total) break;
+            page += 1;
         }
+        return all;
+    };
 
-        setExportData(data);
-        setExportColumns(columns);
-        setExportModalOpen(true);
+    const buildTaskExportRows = async (scope, onProgress) => {
+        let list;
+        if (scope === 'selected') list = tasks.filter((task) => selectedTasks.has(task.task_id));
+        else if (scope === 'all') list = await fetchAllTasksForExport(onProgress);
+        else list = tasks;
+        return prepareExportData(list);
     };
 
     // ============================================
     // RENDER HELPER FUNCTIONS
     // ============================================
-
     const renderCellContent = (task, fieldId, handleGetInOut, navigate, openStatusModal, openUsersModal, openClientDetailsModal) => {
         const daysLeft = getDaysLeft(task.dates?.due_date);
         const isOverdue = daysLeft < 0;
@@ -1469,7 +1356,6 @@ const TaskDisplay = () => {
             }
             return String(value);
         };
-
         switch (fieldId) {
             case 'task_id':
                 return (
@@ -1481,7 +1367,7 @@ const TaskDisplay = () => {
                 const clientName = task.client?.profile?.name || task.client?.name || '-';
                 return (
                     <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
+                        <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
                             <FiUser className="w-3.5 h-3.5 text-white" />
                         </div>
                         <div>
@@ -1655,14 +1541,12 @@ const TaskDisplay = () => {
                                 task.status === 'complete' ? 'bg-green-100 text-green-700' :
                                     task.status === 'cancel' ? 'bg-red-100 text-red-700' :
                                         'bg-gray-100 text-gray-700';
-
                 const statusText = getStatusText(task.status);
                 const completeDateRaw = getTaskCompleteDateValue(task);
                 const completeDateLabel =
                     isTaskCompleteStatus(task.status) && completeDateRaw
                         ? formatDate(completeDateRaw)
                         : null;
-
                 return (
                     <div className="flex flex-col items-start gap-1">
                         <button
@@ -1715,8 +1599,6 @@ const TaskDisplay = () => {
                                 toggleRowDropdown(task.task_id, e.currentTarget);
                             }}
                             className="task-row-action-trigger w-8 h-8 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
                         >
                             <div className="w-1 h-1 rounded-full bg-gray-600" />
                             <div className="w-1 h-1 rounded-full bg-gray-600" />
@@ -1737,7 +1619,6 @@ const TaskDisplay = () => {
     // ============================================
     // RENDER
     // ============================================
-
     const rowActionTask = activeRowDropdown
         ? tasks.find((t) => t.task_id === activeRowDropdown)
         : null;
@@ -1745,9 +1626,8 @@ const TaskDisplay = () => {
         if (selectedTasks.size === 0) return;
         setBulkStatusModalOpen(true);
     };
-
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="app-page">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1765,37 +1645,26 @@ const TaskDisplay = () => {
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="h-full flex flex-col">
                     <motion.div
-                        className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col h-full mx-2 sm:mx-4 md:mx-8 my-3 md:my-4"
+                        className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200 flex flex-col h-full mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
                     >
                         {/* Header */}
-                        <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+                        <div className="border-b border-slate-200 bg-white px-4 py-3.5 md:px-5">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 md:gap-3">
                                 <div>
-                                    <h5 className="text-base md:text-lg font-bold text-gray-800">Task Management</h5>
-                                    <p className="text-gray-500 text-xs">Manage your tasks efficiently with multiple view options</p>
+                                    <h5 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">Tasks</h5>
+                                    <p className="text-slate-500 text-xs mt-0.5">Every open filing and engagement, by client, owner and due date.</p>
                                 </div>
 
                                 <div className="flex flex-col lg:flex-row gap-2 w-full lg:w-auto">
                                     <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full">
                                         <div className="flex items-center gap-2">
-                                            <div className="md:hidden w-full">
-                                                <TableViewSwitch viewMode={viewMode} setViewMode={setViewMode} />
-                                            </div>
-                                            <div className="hidden md:block">
-                                                <TableViewSwitch viewMode={viewMode} setViewMode={setViewMode} />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
                                             <div className="dropdown-container relative">
                                                 <motion.button
                                                     onClick={() => setShowFilterRow(!showFilterRow)}
-                                                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.95 }}
+                                                    className="px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
                                                 >
                                                     <FiFilter className="w-4 h-4" />
                                                     <span className="hidden sm:inline">Filter</span>
@@ -1811,11 +1680,9 @@ const TaskDisplay = () => {
                                                     })
                                                 }
                                                 className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all duration-200 ${check('task_create')
-                                                    ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
+                                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                                     : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
                                                     }`}
-                                                whileHover={check('task_create') ? { scale: 1.05 } : {}}
-                                                whileTap={check('task_create') ? { scale: 0.95 } : {}}
                                                 title={check('task_create') ? 'Create Task' : 'Locked (No permission)'}
                                             >
                                                 {check('task_create') ? <FiPlus className="w-4 h-4" /> : <FiLock className="w-4 h-4" />}
@@ -1824,68 +1691,79 @@ const TaskDisplay = () => {
                                             {selectedTasks.size > 0 && (
                                                 <motion.button
                                                     onClick={openBulkStatusModal}
-                                                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm"
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.95 }}
+                                                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm"
                                                 >
                                                     <FiCheckCircle className="w-4 h-4" />
                                                     <span className="hidden sm:inline">Change Status ({selectedTasks.size})</span>
                                                 </motion.button>
                                             )}
 
+                                            <button
+                                                type="button"
+                                                onClick={() => handleExportClick('excel')}
+                                                className="ui-btn ui-btn-secondary"
+                                                title="Export tasks to Excel, CSV or PDF"
+                                            >
+                                                <FiDownload className="w-4 h-4" />
+                                                <span className="hidden sm:inline">Export</span>
+                                            </button>
+
                                             <div className="relative dropdown-container">
                                                 <motion.button
                                                     onClick={() => setShowMoreMenu(!showMoreMenu)}
-                                                    className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-300 hover:bg-gray-100 shadow-sm"
-                                                    whileHover={{ scale: 1.08 }}
-                                                    whileTap={{ scale: 0.95 }}
+                                                    className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition shadow-sm"
+                                                    title="More options"
+                                                    aria-label="More options"
                                                 >
-                                                    <FiMenu className="w-4 h-4 text-gray-700" />
+                                                    <FiMoreVertical className="w-4 h-4 text-gray-700" />
                                                 </motion.button>
 
                                                 <AnimatePresence>
                                                     {showMoreMenu && (
                                                         <motion.div
-                                                            className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
+                                                            className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-pop border border-slate-200 z-50 overflow-hidden"
                                                             initial={{ opacity: 0, y: -8 }}
                                                             animate={{ opacity: 1, y: 0 }}
                                                             exit={{ opacity: 0, y: -8 }}
                                                         >
-                                                            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase border-b border-gray-100">Export Options</div>
+                                                            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                                                                Export
+                                                            </div>
+
                                                             <button
-                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }}
-                                                                className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
+                                                                onClick={() => { handleExportClick('pdf'); setShowMoreMenu(false); }}
+                                                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-rose-50"
                                                             >
-                                                                <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 text-green-600" />
-                                                                Export as Excel
-                                                            </button>
-                                                            <button
-                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }}
-                                                                className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                                                            >
-                                                                <FaFileCsv className="w-4 h-4 mr-2 text-blue-600" />
-                                                                Export as CSV
-                                                            </button>
-                                                            <button
-                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }}
-                                                                className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-red-50 transition-colors"
-                                                            >
-                                                                <PiFilePdfDuotone className="w-4 h-4 mr-2 text-red-600" />
+                                                                <PiFilePdfDuotone className="w-4 h-4 mr-2 text-red-500" />
                                                                 Export as PDF
                                                             </button>
+
+                                                            <button
+                                                                onClick={() => { handleExportClick('excel'); setShowMoreMenu(false); }}
+                                                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-emerald-50"
+                                                            >
+                                                                <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 text-green-500" />
+                                                                Export as Excel
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => { handleExportClick('csv'); setShowMoreMenu(false); }}
+                                                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-sky-50"
+                                                            >
+                                                                <FaFileCsv className="w-4 h-4 mr-2 text-blue-500" />
+                                                                Export as CSV
+                                                            </button>
+
                                                             <div className="h-px bg-gray-200 my-1" />
                                                             <button
                                                                 onClick={() => {
-                                                                    if (viewMode === 'table') {
-                                                                        setSettingsModalOpen(true);
-                                                                        setShowMoreMenu(false);
-                                                                    }
+                                                                    setSettingsModalOpen(true);
+                                                                    setShowMoreMenu(false);
                                                                 }}
-                                                                className={`flex items-center w-full px-3 py-2.5 text-sm ${viewMode === 'table' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`}
-                                                                disabled={viewMode !== 'table'}
+                                                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-slate-100"
                                                             >
                                                                 <FiSettings className="w-4 h-4 mr-2" />
-                                                                Settings {viewMode !== 'table' && '(Table view only)'}
+                                                                Column settings
                                                             </button>
                                                         </motion.div>
                                                     )}
@@ -1909,8 +1787,7 @@ const TaskDisplay = () => {
                         />
 
                         <div className="flex-1 flex flex-col overflow-hidden">
-                            {viewMode === 'table' ? (
-                                <TaskTable
+                            <TaskTable
                                     tasks={tasks}
                                     selectedTasks={selectedTasks}
                                     handleTaskSelect={handleTaskSelect}
@@ -1938,29 +1815,6 @@ const TaskDisplay = () => {
                                     animateRows={!canRestoreList}
                                     initialScrollTop={restoredScrollTop}
                                 />
-                            ) : (
-                                <TaskCards
-                                    tasks={tasks}
-                                    selectedTasks={selectedTasks}
-                                    handleTaskSelect={handleTaskSelect}
-                                    columnConfig={getVisibleColumnConfig()}
-                                    renderCellContent={renderCellContent}
-                                    loading={loading}
-                                    toggleRowDropdown={toggleRowDropdown}
-                                    activeRowDropdown={activeRowDropdown}
-                                    handleGetInOut={handleGetInOut}
-                                    getTaskInOutState={getTaskInOutState}
-                                    getInOutLoadingId={getInOutLoadingId}
-                                    setActiveRowDropdown={setActiveRowDropdown}
-                                    navigate={navigate}
-                                    openStatusModal={openStatusModal}
-                                    openClientDetailsModal={openClientDetailsModal}
-                                    formatDate={formatDate}
-                                    getDaysLeft={getDaysLeft}
-                                    getStatusColor={getStatusColor}
-                                    formatStatus={formatStatus}
-                                />
-                            )}
                         </div>
 
                         {/* Footer */}
@@ -1991,9 +1845,7 @@ const TaskDisplay = () => {
                     >
                         <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
                             <motion.button
-                                className="px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                className="px-3 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
                                 onClick={openBulkStatusModal}
                             >
                                 <FiCheckCircle className="w-4 h-4" />
@@ -2002,9 +1854,7 @@ const TaskDisplay = () => {
                             </motion.button>
 
                             <motion.button
-                                className="px-3 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                className="px-3 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
                                 onClick={() => console.log("Send message to:", [...selectedTasks])}
                             >
                                 <FiMail className="w-4 h-4" />
@@ -2013,10 +1863,8 @@ const TaskDisplay = () => {
                             </motion.button>
 
                             <motion.button
-                                className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={handleExportClick}
+                                className="px-3 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
+                                onClick={() => handleExportClick('excel')}
                             >
                                 <FiDownload className="w-4 h-4" />
                                 <span className="hidden sm:inline">Export</span>
@@ -2042,7 +1890,6 @@ const TaskDisplay = () => {
                             {(() => {
                                 const inOutState = getTaskInOutState(rowActionTask);
                                 const isLoading = getInOutLoadingId === rowActionTask.task_id;
-
                                 return (
                                     <>
                                         {inOutState.badge && (
@@ -2210,20 +2057,21 @@ const TaskDisplay = () => {
 
             {deleteModal && <DeleteConfirmationModal title="Task Delete" onConfirm={(res) => { setDeleteModal(false); console.log("Confirmed:", res); }} />}
 
-            {/* Export Modal */}
-            <ExportModal
-                isOpen={exportModalOpen}
-                onClose={() => {
-                    setExportModalOpen(false);
-                    setExportData([]);
-                    setExportColumns([]);
-                }}
-                exportData={exportData}
-                columns={exportColumns}
+            {/* Export dialog */}
+            <ExportDialog
+                isOpen={exportDialog.open}
+                onClose={() => setExportDialog((d) => ({ ...d, open: false }))}
+                title="Export tasks"
+                reportTitle="Task list"
+                entityLabel="tasks"
+                fileStem="Tasks"
                 jobType="task_report"
+                initialFormat={exportDialog.format}
+                counts={{ selected: selectedTasks.size, page: tasks.length, total: pagination.total || tasks.length }}
+                columnsCount={getVisibleColumnConfig().reduce((n, col) => n + (col.items || []).filter((item) => item.id !== 'menu' && item.type !== 'actions').length, 0)}
+                buildRows={buildTaskExportRows}
             />
         </div>
     );
 };
-
 export default TaskDisplay;

@@ -195,7 +195,7 @@ const EXPENSE_TABLE_HEADERS = [
 
 function ExpenseTableHead() {
   return (
-    <thead className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+    <thead className="bg-slate-50/60 border-b border-gray-200">
       <tr>
         {EXPENSE_TABLE_HEADERS.map((h) => (
           <th
@@ -696,7 +696,7 @@ const AddExpenseModal = ({ isOpen, onClose, onAdd, requireStaffSelect = false })
               className={`group w-full rounded-xl border-2 border-dashed px-4 py-5 text-center transition ${
                 isDragOver
                   ? 'border-teal-400 bg-teal-50/80'
-                  : 'border-slate-200 bg-gradient-to-b from-slate-50 to-white hover:border-teal-300 hover:bg-teal-50/40'
+                  : 'border-slate-200 bg-slate-50 hover:border-teal-300 hover:bg-teal-50/40'
               }`}
             >
               <span
@@ -1334,13 +1334,13 @@ const ExpenseTab = ({
     <>
       <motion.div variants={variants} initial="initial" animate="animate" exit="exit" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base md:text-lg font-bold text-gray-800 m-0">Expenses</h2>
+          <h2 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 m-0">Expenses</h2>
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={fetchExpenses}
               disabled={!currentStaffUsername || loading}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50 disabled:opacity-50"
               title="Refresh"
               aria-label="Refresh"
             >
@@ -1499,7 +1499,7 @@ const ExpenseTab = ({
                         </td>
                         <td className="px-3 py-2.5 text-right">
                           <EmailActionMenu
-                            buttonClassName="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                            buttonClassName="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-slate-50"
                             items={buildExpenseActionItems(expense, {
                               canSubmit,
                               canVerify,

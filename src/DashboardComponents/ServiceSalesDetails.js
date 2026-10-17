@@ -81,7 +81,7 @@ const SummaryCard = ({ title, value, icon, color }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2 mb-1">
         <div className={`p-1.5 rounded-lg ${colorClasses[color]}`}>
           {icon}
@@ -258,7 +258,7 @@ const ServiceSalesDetails = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -285,7 +285,7 @@ const ServiceSalesDetails = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -321,7 +321,7 @@ const ServiceSalesDetails = () => {
 
   if (!data || !data.all_services || data.all_services.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -376,7 +376,7 @@ const ServiceSalesDetails = () => {
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -398,9 +398,7 @@ const ServiceSalesDetails = () => {
               <div className="flex items-center gap-3">
                 <motion.button
                   onClick={handleBack}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <FiArrowLeft className="w-5 h-5 text-gray-600" />
                 </motion.button>
@@ -469,7 +467,7 @@ const ServiceSalesDetails = () => {
             {viewMode === 'chart' ? (
               <motion.div key="chart-view" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold text-gray-800 flex items-center gap-2">
                         <FiPieChart className="w-4 h-4 text-indigo-500" />
@@ -495,7 +493,7 @@ const ServiceSalesDetails = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold text-gray-800 flex items-center gap-2">
                         <FiBarChart2 className="w-4 h-4 text-indigo-500" />
@@ -523,7 +521,7 @@ const ServiceSalesDetails = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                   <h3 className="font-semibold text-gray-800 flex items-center gap-2 mb-4">
                     <FiTrendingUp className="w-4 h-4 text-indigo-500" />
                     Recent Sales Trend
@@ -553,29 +551,29 @@ const ServiceSalesDetails = () => {
               </motion.div>
             ) : (
               <motion.div key="table-view" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-100">
                     <h3 className="font-semibold text-gray-800">All Services Details</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Sales</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Fees</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tax</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Invoices</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Items</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Avg/Item</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">GST</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Sale</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Service</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Category</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Sales</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Fees</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tax</th>
+                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Invoices</th>
+                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Items</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Avg/Item</th>
+                          <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider">GST</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Last Sale</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {data.all_services.map((service, idx) => (
-                          <tr key={service.service_id} className="hover:bg-gray-50">
+                          <tr key={service.service_id} className="hover:bg-slate-50">
                             <td className="px-4 py-3 font-medium text-gray-800">
                               {service.service_name}
                               {service.percentage && <span className="ml-2 text-xs text-indigo-600">({parseFloat(service.percentage).toFixed(1)}%)</span>}
@@ -596,27 +594,27 @@ const ServiceSalesDetails = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-800">Recent Sales Transactions</h3>
                     <span className="text-xs text-gray-400">Last {data.recent_sales.length} transactions</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice No</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sale Date</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Fees</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tax</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Invoice Total</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Invoice No</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Service</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Sale Date</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Fees</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tax</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Amount</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Invoice Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {data.recent_sales.map((sale) => (
-                          <tr key={sale.invoice_id} className="hover:bg-gray-50">
+                          <tr key={sale.invoice_id} className="hover:bg-slate-50">
                             <td className="px-4 py-3 font-mono text-xs text-indigo-600">{sale.invoice_no}</td>
                             <td className="px-4 py-3 text-gray-700">{sale.service_name}</td>
                             <td className="px-4 py-3 text-gray-500 text-xs">{formatDateTime(sale.sale_date)}</td>

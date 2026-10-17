@@ -56,7 +56,7 @@ const getStatusLabel = (status) =>
     STATUS_OPTIONS.find((option) => option.value === status)?.label || status || '—';
 
 const SkeletonPulse = ({ className = '' }) => (
-    <div className={`animate-pulse rounded-md bg-gradient-to-r from-slate-200/80 to-slate-100/80 ${className}`} />
+    <div className={`animate-pulse rounded-md bg-slate-200 ${className}`} />
 );
 
 const formatDate = (value) => {
@@ -187,7 +187,7 @@ const ReportTableSkeleton = ({ rowCount = 8 }) => (
     <div className="overflow-x-auto" aria-busy="true" aria-label="Loading report">
         <table className="min-w-full text-sm">
             <thead>
-                <tr className="border-b border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/60">
+                <tr className="border-b border-indigo-100 bg-indigo-50">
                     {['#', 'Service', 'Firm', 'Client', 'Status', 'Completed'].map((col) => (
                         <th key={col} className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wide text-indigo-900/70">
                             {col}
@@ -503,7 +503,7 @@ export default function ReportTab({ caUsername: caUsernameProp } = {}) {
         <>
             <input
                 type="checkbox"
-                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-200 text-indigo-600 focus:ring-indigo-500/25"
                 checked={isSelected}
                 readOnly
                 tabIndex={-1}
@@ -557,7 +557,7 @@ export default function ReportTab({ caUsername: caUsernameProp } = {}) {
     return (
         <div className="overflow-hidden rounded-2xl border border-indigo-100/80 bg-white shadow-lg shadow-indigo-100/40">
             {/* Header */}
-            <div className="relative overflow-hidden border-b border-indigo-100 bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 px-4 py-5 sm:px-6">
+            <div className="relative overflow-hidden border-b border-indigo-100 bg-indigo-600 px-4 py-5 sm:px-6">
                 <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10" />
                 <div className="pointer-events-none absolute -bottom-12 left-1/3 h-32 w-32 rounded-full bg-white/5" />
                 <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -820,7 +820,7 @@ export default function ReportTab({ caUsername: caUsernameProp } = {}) {
                     <ReportTableSkeleton rowCount={limit} />
                 ) : rows.length === 0 ? (
                     <div className="py-20 text-center">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100">
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
                             <FiBriefcase className="h-6 w-6 text-indigo-500" />
                         </div>
                         <p className="text-base font-semibold text-slate-800">No matching tasks found</p>
@@ -833,7 +833,7 @@ export default function ReportTab({ caUsername: caUsernameProp } = {}) {
                         <div className="overflow-x-auto">
                             <table className="w-full table-fixed text-sm text-slate-700">
                                 <thead>
-                                    <tr className="border-b border-indigo-100 bg-gradient-to-r from-indigo-50/90 to-violet-50/70">
+                                    <tr className="border-b border-indigo-100 bg-indigo-50">
                                         <th className="w-10 px-3 py-3.5 text-left text-xs font-bold uppercase tracking-wide text-indigo-900/70">#</th>
                                         <th className="w-[22%] px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wide text-indigo-900/70">Service</th>
                                         <th className="w-[24%] px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wide text-indigo-900/70">Firm</th>

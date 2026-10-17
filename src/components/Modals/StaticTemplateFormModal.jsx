@@ -474,7 +474,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
       onClick={onClick}
       title={title}
       className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-        active ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+        active ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-slate-100'
       }`}
     >
       {children}
@@ -494,7 +494,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                   </p>
                 )}
               </div>
-              <button type="button" onClick={onHide} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500">
+              <button type="button" onClick={onHide} className="p-1.5 hover:bg-slate-100 rounded-lg text-gray-500">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -523,7 +523,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                   value={formData.subject}
                   onChange={handleChange}
                   placeholder="Email subject line"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-2"
+                  className="mt-1 block w-full rounded-md border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500/25 sm:text-sm border px-3 py-2"
                   required
                 />
               </div>
@@ -571,7 +571,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                   <div className="lg:col-span-2 space-y-4">
                     {editor && (
-                      <div className="border border-gray-300 rounded-md p-2 bg-gray-50 flex flex-wrap gap-1">
+                      <div className="border border-slate-200 rounded-md p-2 bg-gray-50 flex flex-wrap gap-1">
                         <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>B</ToolbarButton>
                         <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}>I</ToolbarButton>
                         <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')}>S</ToolbarButton>
@@ -594,7 +594,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                       </div>
                     )}
                     
-                    <div className="border border-gray-300 rounded-md overflow-hidden">
+                    <div className="border border-slate-200 rounded-md overflow-hidden">
                       <EditorContent editor={editor} className="tiptap min-h-[500px] p-4" />
                     </div>
                   </div>
@@ -615,7 +615,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                             key={variable.name}
                             type="button"
                             onClick={() => insertVariable(variable.name)}
-                            className="w-full text-left px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-blue-50 hover:border-blue-300"
+                            className="w-full text-left px-3 py-2 text-sm bg-white border border-slate-200 rounded-md hover:bg-blue-50 hover:border-blue-300"
                           >
                             <code className="text-blue-600 font-mono">{`{{${variable.name}}}`}</code>
                             <p className="text-xs text-gray-700 mt-0.5">{variable.label}</p>
@@ -657,7 +657,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                       value={htmlCode}
                       onChange={(e) => handleHtmlCodeChange(e.target.value)}
                       rows={25}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-2 font-mono text-sm"
+                      className="mt-1 block w-full rounded-md border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500/25 sm:text-sm border px-3 py-2 font-mono text-sm"
                       placeholder="<div>Your HTML code here...</div>"
                     />
                     <p className="mt-2 text-sm text-gray-500">Use {'{{variable_name}}'} syntax for dynamic content</p>
@@ -673,7 +673,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                           key={variable.name}
                           type="button"
                           onClick={() => insertVariable(variable.name)}
-                          className="w-full text-left px-3 py-2 text-sm bg-white border border-gray-300 rounded-md mb-2 hover:bg-blue-50"
+                          className="w-full text-left px-3 py-2 text-sm bg-white border border-slate-200 rounded-md mb-2 hover:bg-blue-50"
                         >
                           <code className="text-blue-600">{`{{${variable.name}}}`}</code>
                           <p className="text-xs text-gray-700 mt-0.5">{variable.label}</p>
@@ -697,7 +697,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                         onClick={() => setPreviewMode('desktop')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           previewMode === 'desktop' 
-                            ? 'bg-blue-600 text-white' 
+                            ? 'bg-indigo-600 text-white' 
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
@@ -708,7 +708,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                         onClick={() => setPreviewMode('mobile')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           previewMode === 'mobile' 
-                            ? 'bg-blue-600 text-white' 
+                            ? 'bg-indigo-600 text-white' 
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
@@ -747,7 +747,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                               value={previewData[varName] || ''}
                               onChange={(e) => handleVariableChange(varName, e.target.value)}
                               placeholder={`Enter ${varName}`}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm border px-3 py-1.5"
+                              className="block w-full rounded-md border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500/25 text-sm border px-3 py-1.5"
                             />
                           </div>
                         ))}
@@ -804,7 +804,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                       onChange={handleChange}
                       rows={6}
                       placeholder="Enter plain text version for email clients that don't support HTML"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border px-3 py-2 font-mono"
+                      className="mt-1 block w-full rounded-md border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500/25 sm:text-sm border px-3 py-2 font-mono"
                     />
                   </div>
                 </details>
@@ -816,7 +816,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
             <button
               type="button"
               onClick={onHide}
-              className="px-3.5 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-3.5 py-1.5 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
             >
               Cancel
             </button>

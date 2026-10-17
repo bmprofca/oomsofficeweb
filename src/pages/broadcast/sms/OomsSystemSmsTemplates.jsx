@@ -149,7 +149,7 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+              className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-slate-100 hover:text-gray-700 disabled:opacity-50"
               aria-label="Close"
             >
               <FiX className="h-5 w-5" />
@@ -166,7 +166,7 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
                     value={listSearch}
                     onChange={(e) => setListSearch(e.target.value)}
                     placeholder="Search templates…"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
               </div>
@@ -196,7 +196,7 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
                         type="button"
                         onClick={() => setSelectedId(item.template_id)}
                         className={`flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors ${
-                          selectedRow ? "bg-blue-50" : "hover:bg-gray-50"
+                          selectedRow ? "bg-blue-50" : "hover:bg-slate-50"
                         }`}
                       >
                         <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-[11px] font-bold tabular-nums text-gray-800">
@@ -205,8 +205,8 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
                         <span
                           className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                             selectedRow
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-gray-300 bg-white"
+                              ? "border-blue-600 bg-indigo-600 text-white"
+                              : "border-slate-200 bg-white"
                           }`}
                         >
                           {selectedRow ? <FiCheck size={11} /> : null}
@@ -294,7 +294,7 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -302,7 +302,7 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
               type="button"
               disabled={saving || !selectedId || isAlreadyMapped}
               onClick={handleSave}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
             >
               {saving ? <FiLoader className="animate-spin" /> : null}
               {isAlreadyMapped ? "Already mapped" : "Save mapping"}
@@ -406,7 +406,7 @@ const OomsSystemSmsTemplates = () => {
 
   if (!check("broadcast_config_edit") && !check("broadcast_send")) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="app-page">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -439,7 +439,7 @@ const OomsSystemSmsTemplates = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-page">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -458,7 +458,7 @@ const OomsSystemSmsTemplates = () => {
       >
         <div className="mx-2 my-3 flex h-full flex-col sm:mx-4 md:mx-8 md:my-4">
           <div className="mb-3">
-            <h1 className="m-0 text-base font-bold text-gray-800 md:text-lg">
+            <h1 className="font-display text-lg md:text-xl font-bold tracking-tight text-slate-900">
               OOMS System SMS Templates
             </h1>
             <p className="m-0 mt-0.5 text-xs text-gray-500">
@@ -480,8 +480,8 @@ const OomsSystemSmsTemplates = () => {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between md:px-4">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-gray-200 bg-slate-50/60 px-3 py-3 sm:flex-row sm:items-center sm:justify-between md:px-4">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100">
                   <FiFileText className="h-4 w-4 text-blue-600" />
@@ -507,14 +507,14 @@ const OomsSystemSmsTemplates = () => {
                       setPage(1);
                     }}
                     placeholder="Search types…"
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={fetchMappings}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-slate-100 disabled:opacity-50"
                 >
                   <FiRefreshCw
                     className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -526,7 +526,7 @@ const OomsSystemSmsTemplates = () => {
 
             <div className="overflow-x-auto">
               <table className="min-w-full">
-                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-slate-50/60">
                   <tr>
                     <th className={`${TABLE_TH} w-14`}>#</th>
                     <th className={TABLE_TH}>Type</th>
@@ -564,7 +564,7 @@ const OomsSystemSmsTemplates = () => {
                     pagedRows.map((item, index) => (
                       <tr
                         key={item.type}
-                        className="border-b border-gray-100 bg-white transition-colors hover:bg-gray-50"
+                        className="border-b border-gray-100 bg-white transition-colors hover:bg-slate-50"
                       >
                         <td
                           className={`${TABLE_TD} text-[11px] font-bold tabular-nums text-gray-800`}

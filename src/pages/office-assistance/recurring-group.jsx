@@ -424,7 +424,7 @@ const RecurringGroups = () => {
                                 type="text"
                                 value={isEdit ? editForm.create_date_1 : createForm.create_date_1}
                                 onChange={(e) => handleChange('create_date_1', e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                 placeholder="e.g., 15th"
                                 required
                             />
@@ -437,7 +437,7 @@ const RecurringGroups = () => {
                                 type="text"
                                 value={isEdit ? editForm.due_date_1 : createForm.due_date_1}
                                 onChange={(e) => handleChange('due_date_1', e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                 placeholder="e.g., 20th"
                                 required
                             />
@@ -458,7 +458,7 @@ const RecurringGroups = () => {
                                         type="text"
                                         value={isEdit ? editForm[`create_date_${num}`] : createForm[`create_date_${num}`]}
                                         onChange={(e) => handleChange(`create_date_${num}`, e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                         placeholder={`e.g., 25th ${['Jul', 'Oct', 'Jan', 'May'][num-1]}`}
                                         required
                                     />
@@ -471,7 +471,7 @@ const RecurringGroups = () => {
                                         type="text"
                                         value={isEdit ? editForm[`due_date_${num}`] : createForm[`due_date_${num}`]}
                                         onChange={(e) => handleChange(`due_date_${num}`, e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                         placeholder={`e.g., 31st ${['Jul', 'Oct', 'Jan', 'May'][num-1]}`}
                                         required
                                     />
@@ -494,7 +494,7 @@ const RecurringGroups = () => {
                                         type="text"
                                         value={isEdit ? editForm[`create_date_${num}`] : createForm[`create_date_${num}`]}
                                         onChange={(e) => handleChange(`create_date_${num}`, e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                         placeholder={`e.g., 25th ${['Sep', 'Mar'][num-1]}`}
                                         required
                                     />
@@ -507,7 +507,7 @@ const RecurringGroups = () => {
                                         type="text"
                                         value={isEdit ? editForm[`due_date_${num}`] : createForm[`due_date_${num}`]}
                                         onChange={(e) => handleChange(`due_date_${num}`, e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                         placeholder={`e.g., 30th ${['Sep', 'Mar'][num-1]}`}
                                         required
                                     />
@@ -528,7 +528,7 @@ const RecurringGroups = () => {
                                 type="text"
                                 value={isEdit ? editForm.create_date_1 : createForm.create_date_1}
                                 onChange={(e) => handleChange('create_date_1', e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                 placeholder="e.g., 25th Jul"
                                 required
                             />
@@ -541,7 +541,7 @@ const RecurringGroups = () => {
                                 type="text"
                                 value={isEdit ? editForm.due_date_1 : createForm.due_date_1}
                                 onChange={(e) => handleChange('due_date_1', e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                 placeholder="e.g., 31st Jul"
                                 required
                             />
@@ -609,40 +609,40 @@ const RecurringGroups = () => {
     const SkeletonRow = () => (
         <tr className="border-b border-gray-100 animate-pulse">
             <td className="p-4 text-center">
-                <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-6 mx-auto"></div>
+                <div className="h-5 bg-gray-200 rounded w-6 mx-auto"></div>
             </td>
             <td className="p-4">
                 <div className="space-y-1.5">
-                    <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-32"></div>
-                    <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-20"></div>
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                    <div className="h-3 bg-gray-200 rounded w-20"></div>
                 </div>
             </td>
             <td className="p-4">
                 <div className="space-y-1">
-                    <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-24"></div>
-                    <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-16"></div>
+                    <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    <div className="h-3 bg-gray-200 rounded w-16"></div>
                 </div>
             </td>
             <td className="p-4">
                 <div className="space-y-1">
-                    <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-20"></div>
-                    <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-16"></div>
+                    <div className="h-3 bg-gray-200 rounded w-20"></div>
+                    <div className="h-3 bg-gray-200 rounded w-16"></div>
                 </div>
             </td>
             <td className="p-4 text-center">
-                <div className="h-6 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-12 mx-auto"></div>
+                <div className="h-6 bg-gray-200 rounded w-12 mx-auto"></div>
             </td>
             <td className="p-4 text-center">
-                <div className="h-6 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-16 mx-auto"></div>
+                <div className="h-6 bg-gray-200 rounded w-16 mx-auto"></div>
             </td>
             <td className="p-4 text-center">
-                <div className="h-6 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-8 mx-auto"></div>
+                <div className="h-6 bg-gray-200 rounded w-8 mx-auto"></div>
             </td>
         </tr>
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-blue-50">
+        <div className="app-page via-gray-50 to-blue-50">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -674,9 +674,8 @@ const RecurringGroups = () => {
 
                                 <motion.button
                                     onClick={() => setShowCreateModal(true)}
-                                    className="px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-600/40"
+                                    className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-600/40"
                                     whileHover={{ scale: 1.02, y: -2 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     <FiPlus className="w-4 h-4" />
                                     Add New Group
@@ -735,7 +734,7 @@ const RecurringGroups = () => {
                         {/* Main Card */}
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full overflow-hidden">
                             {/* Filters Bar */}
-                            <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                            <div className="px-5 py-4 border-b border-gray-100 bg-slate-50/60">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
                                     {/* Search Input */}
                                     <div className="relative flex-1 min-w-0">
@@ -745,7 +744,7 @@ const RecurringGroups = () => {
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             placeholder="Search groups by name or service"
-                                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all text-sm"
+                                            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all text-sm"
                                         />
                                     </div>
                                     
@@ -754,7 +753,7 @@ const RecurringGroups = () => {
                                         <select 
                                             value={selectedService}
                                             onChange={(e) => setSelectedService(e.target.value)}
-                                            className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all text-sm min-w-[160px]"
+                                            className="px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all text-sm min-w-[160px]"
                                         >
                                             <option value="">All Services</option>
                                             {services.map(service => (
@@ -765,7 +764,7 @@ const RecurringGroups = () => {
                                         </select>
 
                                         {/* Date Filter */}
-                                        <div className="flex items-center gap-2 px-3 py-2.5 border border-gray-300 rounded-lg bg-white min-w-[140px]">
+                                        <div className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-lg bg-white min-w-[140px]">
                                             <FiCalendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
                                             <DateFilter 
                                                 onChange={handleDateFilterChange}
@@ -784,7 +783,7 @@ const RecurringGroups = () => {
                             {/* Table Container */}
                             <div className="flex-1 flex flex-col overflow-hidden">
                                 {/* Table Header */}
-                                <div className="bg-gradient-to-r from-gray-50 to-indigo-50">
+                                <div className="bg-gray-50">
                                     <div className="grid grid-cols-12 gap-2 px-5 py-3 border-b border-gray-200">
                                         <div className="col-span-1">
                                             <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider text-center">
@@ -848,9 +847,7 @@ const RecurringGroups = () => {
                                                 </p>
                                                 <motion.button
                                                     onClick={() => setShowCreateModal(true)}
-                                                    className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm"
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.95 }}
+                                                    className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium transition-all shadow-sm"
                                                 >
                                                     Create Your First Group
                                                 </motion.button>
@@ -867,7 +864,7 @@ const RecurringGroups = () => {
                                                         initial={{ opacity: 0, y: 10 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         transition={{ duration: 0.2 }}
-                                                        className="grid grid-cols-12 gap-2 py-3 border-b border-gray-100 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-200 group"
+                                                        className="grid grid-cols-12 gap-2 py-3 border-b border-gray-100 hover:bg-gradient-to-r transition-all duration-200 group"
                                                     >
                                                         {/* # Column */}
                                                         <div className="col-span-1 flex items-center justify-center">
@@ -891,7 +888,7 @@ const RecurringGroups = () => {
                                                                     {group.period.toUpperCase()}
                                                                 </span>
                                                             </div>
-                                                            <div className="text-gray-500 text-xs">
+                                                            <div className="text-slate-500 text-xs mt-0.5">
                                                                 Created: {formatDate(group.created_date)}
                                                             </div>
                                                         </div>
@@ -901,7 +898,7 @@ const RecurringGroups = () => {
                                                             <div className="text-gray-800 font-medium text-sm mb-1">
                                                                 {group.service_name}
                                                             </div>
-                                                            <div className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 font-bold text-xs px-2 py-1 rounded-lg border border-green-100">
+                                                            <div className="inline-flex items-center justify-center bg-green-50 text-green-700 font-bold text-xs px-2 py-1 rounded-lg border border-green-100">
                                                                 <TbCurrencyRupee className="w-2 h-2 mr-1" />
                                                                 {group.fees}
                                                             </div>
@@ -918,7 +915,7 @@ const RecurringGroups = () => {
                                                         <div className="col-span-1 flex items-center justify-center">
                                                             <a
                                                                 href={`/view-recurring-group-firms?group_id=${group.group_id}`}
-                                                                className="inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-700 font-semibold text-sm rounded-lg border border-indigo-200 hover:from-indigo-100 hover:to-blue-100 transition-all min-w-[60px] shadow-sm"
+                                                                className="inline-flex items-center justify-center px-3 py-2 bg-indigo-50 text-indigo-700 font-semibold text-sm rounded-lg border border-indigo-200 transition-all min-w-[60px] shadow-sm"
                                                             >
                                                                 <FiUsers className="w-3 h-3 mr-1" />
                                                                 {group.count}
@@ -934,7 +931,7 @@ const RecurringGroups = () => {
                                                                     onChange={() => handleStatusChange(group)}
                                                                     className="sr-only peer"
                                                                 />
-                                                                <div className={`w-14 h-7 rounded-full peer ${group.status === 1 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-gray-300 to-gray-400'} peer-checked:after:translate-x-7 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all after:border after:border-gray-300 after:shadow-sm`}></div>
+                                                                <div className={`w-14 h-7 rounded-full peer ${group.status === 1 ? 'bg-green-500' : 'bg-gray-300'} peer-checked:after:translate-x-7 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all after:border after:border-slate-200 after:shadow-sm`}></div>
                                                             </div>
                                                         </div>
 
@@ -944,8 +941,6 @@ const RecurringGroups = () => {
                                                                 <motion.button
                                                                     className="p-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all duration-200 group-hover:bg-indigo-100/50"
                                                                     onClick={() => toggleDropdown(group.group_id)}
-                                                                    whileHover={{ scale: 1.1 }}
-                                                                    whileTap={{ scale: 0.9 }}
                                                                 >
                                                                     <FiMoreVertical className="w-5 h-5" />
                                                                 </motion.button>
@@ -980,7 +975,7 @@ const RecurringGroups = () => {
                                 </div>
 
                                 {/* Table Footer */}
-                                <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+                                <div className="border-t border-gray-200 bg-gray-50">
                                     <div className="px-5 py-3">
                                         <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
                                             <div className="text-sm text-gray-600">
@@ -1027,7 +1022,7 @@ const RecurringGroups = () => {
                                 </div>
                                 <button
                                     onClick={() => setShowCreateModal(false)}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                                 >
                                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1046,7 +1041,7 @@ const RecurringGroups = () => {
                                             type="text"
                                             value={createForm.name}
                                             onChange={(e) => handleCreateChange('name', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                             placeholder="e.g., GST Filing - Monthly"
                                             required
                                         />
@@ -1058,7 +1053,7 @@ const RecurringGroups = () => {
                                         <select
                                             value={createForm.service_id}
                                             onChange={(e) => handleCreateChange('service_id', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                             required
                                         >
                                             <option value="">Select Service</option>
@@ -1076,7 +1071,7 @@ const RecurringGroups = () => {
                                         <select
                                             value={createForm.period}
                                             onChange={(e) => handleCreateChange('period', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                             required
                                         >
                                             <option value="monthly">Monthly</option>
@@ -1096,17 +1091,14 @@ const RecurringGroups = () => {
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
-                                        className="px-5 py-2.5 text-gray-600 hover:text-gray-800 rounded-xl text-sm font-medium transition-colors border border-gray-300 hover:bg-gray-50"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="px-5 py-2.5 text-gray-600 hover:text-gray-800 rounded-xl text-sm font-medium transition-colors border border-slate-200 hover:bg-slate-50"
                                     >
                                         Cancel
                                     </motion.button>
                                     <motion.button
                                         type="submit"
-                                        className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all text-sm font-medium flex items-center gap-2 shadow-md"
+                                        className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl transition-all text-sm font-medium flex items-center gap-2 shadow-md"
                                         whileHover={{ scale: 1.02, y: -1 }}
-                                        whileTap={{ scale: 0.98 }}
                                     >
                                         <FiPlus className="w-4 h-4" />
                                         Create Group
@@ -1135,7 +1127,7 @@ const RecurringGroups = () => {
                                 </div>
                                 <button
                                     onClick={() => setShowEditModal(false)}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                                 >
                                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1155,7 +1147,7 @@ const RecurringGroups = () => {
                                             type="text"
                                             value={editForm.name}
                                             onChange={(e) => handleEditChange('name', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -1166,7 +1158,7 @@ const RecurringGroups = () => {
                                         <select
                                             value={editForm.service_id}
                                             onChange={(e) => handleEditChange('service_id', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                             required
                                         >
                                             <option value="">Select Service</option>
@@ -1184,7 +1176,7 @@ const RecurringGroups = () => {
                                         <select
                                             value={editForm.period}
                                             onChange={(e) => handleEditChange('period', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                             required
                                         >
                                             <option value="monthly">Monthly</option>
@@ -1200,7 +1192,7 @@ const RecurringGroups = () => {
                                         <select
                                             value={editForm.status}
                                             onChange={(e) => handleEditChange('status', e.target.value)}
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white outline-none transition-all"
                                             required
                                         >
                                             <option value="1">Active</option>
@@ -1218,17 +1210,14 @@ const RecurringGroups = () => {
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowEditModal(false)}
-                                        className="px-5 py-2.5 text-gray-600 hover:text-gray-800 rounded-xl text-sm font-medium transition-colors border border-gray-300 hover:bg-gray-50"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                                        className="px-5 py-2.5 text-gray-600 hover:text-gray-800 rounded-xl text-sm font-medium transition-colors border border-slate-200 hover:bg-slate-50"
                                     >
                                         Cancel
                                     </motion.button>
                                     <motion.button
                                         type="submit"
-                                        className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all text-sm font-medium shadow-md"
+                                        className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl transition-all text-sm font-medium shadow-md"
                                         whileHover={{ scale: 1.02, y: -1 }}
-                                        whileTap={{ scale: 0.98 }}
                                     >
                                         Update Group
                                     </motion.button>

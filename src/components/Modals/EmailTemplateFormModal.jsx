@@ -69,7 +69,7 @@ const RichTextEditor = ({ value, onChange, placeholder, id, onVariableInsert }) 
   return (
     <div className="relative">
       <div className="border border-blue-200 rounded-xl overflow-hidden bg-white">
-        <div className="bg-gradient-to-r from-blue-50 to-white p-2 border-b border-blue-200 flex flex-wrap gap-1">
+        <div className="bg-blue-50 p-2 border-b border-blue-200 flex flex-wrap gap-1">
           <button type="button" onClick={() => execCommand('bold')} className="p-1.5 hover:bg-blue-100 rounded transition-colors text-blue-600" title="Bold"><FaBold size={12} /></button>
           <button type="button" onClick={() => execCommand('italic')} className="p-1.5 hover:bg-blue-100 rounded transition-colors text-blue-600" title="Italic"><FaItalic size={12} /></button>
           <button type="button" onClick={() => execCommand('underline')} className="p-1.5 hover:bg-blue-100 rounded transition-colors text-blue-600" title="Underline"><FaUnderline size={12} /></button>
@@ -88,7 +88,7 @@ const RichTextEditor = ({ value, onChange, placeholder, id, onVariableInsert }) 
             <button
               type="button"
               onClick={() => setShowVariableDropdown(!showVariableDropdown)}
-              className="p-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-1 text-xs"
+              className="p-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-1 text-xs"
             >
               <FaCode size={12} />
               Variables
@@ -96,7 +96,7 @@ const RichTextEditor = ({ value, onChange, placeholder, id, onVariableInsert }) 
             </button>
             {showVariableDropdown && (
               <div ref={dropdownRef} className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-blue-200 z-50 overflow-hidden">
-                <div className="p-3 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-white">
+                <div className="p-3 border-b border-blue-100 bg-blue-50">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-blue-700 flex items-center gap-2">
                       <FaCode /> Insert Variable
@@ -199,12 +199,12 @@ const TextInputWithVariables = ({ value, onChange, placeholder, label, required,
           onChange={onChange}
           onFocus={() => setShowDropdown(true)}
           placeholder={placeholder}
-          className="w-full px-4 py-2.5 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+          className="w-full px-4 py-2.5 border border-blue-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent transition-all bg-white"
         />
         <button
           type="button"
           onClick={() => setShowDropdown(!showDropdown)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg transition-colors"
         >
           <FaCode size={12} />
         </button>
@@ -212,7 +212,7 @@ const TextInputWithVariables = ({ value, onChange, placeholder, label, required,
       
       {showDropdown && (
         <div ref={dropdownRef} className="absolute z-50 mt-2 w-full bg-white rounded-xl shadow-2xl border border-blue-200 overflow-hidden">
-          <div className="p-3 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-white">
+          <div className="p-3 border-b border-blue-100 bg-blue-50">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-blue-700 flex items-center gap-2">
                 <FaCode /> Insert Variable
@@ -226,7 +226,7 @@ const TextInputWithVariables = ({ value, onChange, placeholder, label, required,
               placeholder="Search variables..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2 w-full px-3 py-1.5 text-xs border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="mt-2 w-full px-3 py-1.5 text-xs border border-blue-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent"
             />
           </div>
           <div className="max-h-64 overflow-y-auto">
@@ -598,7 +598,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
               </h2>
               <p className="text-xs text-gray-500">Configure type, content, and variables</p>
             </div>
-            <button type="button" onClick={onHide} className="p-1.5 hover:bg-gray-100 rounded-lg">
+            <button type="button" onClick={onHide} className="p-1.5 hover:bg-slate-100 rounded-lg">
               <FaTimes className="text-gray-500" size={14} />
             </button>
           </div>
@@ -618,7 +618,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                   </div>
                   <button
                     onClick={() => setShowPredefined(!showPredefined)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
                   >
                     <FaStar size={14} />
                     Predefined Templates
@@ -685,7 +685,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                       value={form.template_name}
                       onChange={onChange}
                       placeholder="e.g., Birthday Greeting, Welcome Email"
-                      className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent transition-all"
                     />
                   </div>
                 </div>
@@ -847,7 +847,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                     value={form.text_body}
                     onChange={onChange}
                     placeholder="Plain text version for email clients that don't support HTML"
-                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono text-sm"
+                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent transition-all font-mono text-sm"
                   />
                 </div>
               </div>
@@ -866,7 +866,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                     value={form.preview_variables_json}
                     onChange={onChange}
                     placeholder='{"name": "John Doe", "company": "ACME Corp", "discount": "50"}'
-                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono text-sm"
+                    className="w-full px-4 py-2.5 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent transition-all font-mono text-sm"
                   />
                   <p className="text-xs text-slate-500 mt-1">
                     Enter sample values to preview your email
@@ -876,7 +876,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                 <button
                   onClick={handlePreview}
                   disabled={previewing}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all mb-4 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all mb-4 disabled:opacity-50"
                 >
                   {previewing ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -888,7 +888,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
 
                 {preview && (
                   <div className="bg-white rounded-xl border-2 border-blue-200 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-50 to-white p-3 border-b border-blue-200">
+                    <div className="bg-blue-50 p-3 border-b border-blue-200">
                       <strong className="text-sm text-blue-700">📧 Email Preview</strong>
                     </div>
                     <div className="p-4">
@@ -922,7 +922,7 @@ const EmailTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
             <button
               type="button"
               onClick={onHide}
-              className="px-3.5 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-3.5 py-1.5 text-sm text-gray-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
             >
               Cancel
             </button>

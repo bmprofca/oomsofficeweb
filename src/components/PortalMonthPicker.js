@@ -226,7 +226,7 @@ function MonthPickerPanel({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl shadow-slate-900/10">
-      <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-slate-50 px-3 py-2.5">
         <p className="text-sm font-semibold text-slate-800">Select month</p>
         {onRequestClose ? (
           <button
@@ -295,7 +295,7 @@ function MonthPickerPanel({
                 type="button"
                 onClick={() => setViewYear((y) => clampYear(y - 1))}
                 disabled={viewYear <= minYear}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
                 aria-label="Previous year"
               >
                 <FiChevronLeft className="h-4 w-4" />
@@ -307,7 +307,7 @@ function MonthPickerPanel({
                 type="button"
                 onClick={() => setViewYear((y) => clampYear(y + 1))}
                 disabled={viewYear >= maxYear}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
                 aria-label="Next year"
               >
                 <FiChevronRight className="h-4 w-4" />

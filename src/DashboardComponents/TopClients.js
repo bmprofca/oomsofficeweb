@@ -117,7 +117,7 @@ const TopClients = () => {
   return (
     <div className="p-4">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <div className="p-2 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg flex-shrink-0">
+        <div className="p-2 bg-amber-50 rounded-lg flex-shrink-0">
           <FiAward className="w-4 h-4 text-amber-600" />
         </div>
         <div className="min-w-0 flex-1">
@@ -226,7 +226,7 @@ const TopClients = () => {
                 return (
                   <tr
                     key={username || index}
-                    className="hover:bg-gray-50/70 transition-colors"
+                    className="hover:bg-slate-50/70 transition-colors"
                   >
                     <td className="px-3 py-2.5">
                       <div

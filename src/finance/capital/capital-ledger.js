@@ -440,7 +440,7 @@ const CapitalLedger = () => {
     const formatCurrency = formatLedgerCurrency;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="app-page to-slate-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -462,7 +462,7 @@ const CapitalLedger = () => {
                         transition={{ delay: 0.1 }}
                         className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
                     >
-                        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 sm:px-5 py-4">
+                        <div className="border-b border-slate-200 bg-slate-50/60 px-4 sm:px-5 py-4">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                 <div className="flex min-w-0 items-center gap-3">
                                     <button
@@ -520,8 +520,6 @@ const CapitalLedger = () => {
                                         type="button"
                                         onClick={handleRefresh}
                                         className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:shadow"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
                                         title="Refresh"
                                     >
                                         <FiRefreshCw className="h-5 w-5 text-slate-600" />

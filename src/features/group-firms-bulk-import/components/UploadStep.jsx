@@ -15,7 +15,7 @@ export function UploadStep({ file, busy, error, onFile, onDownloadSample }) {
         type="button"
         onClick={openPicker}
         disabled={busy}
-        className="w-full border-2 border-dashed border-gray-300 hover:border-indigo-400 rounded-xl p-6 text-center bg-gray-50/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+        className="w-full border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-6 text-center bg-gray-50/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
       >
         <FiUpload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
         <p className="text-sm font-semibold text-gray-700 mb-1">
@@ -25,7 +25,7 @@ export function UploadStep({ file, busy, error, onFile, onDownloadSample }) {
           Click anywhere in this area to browse. First row = headers; first sheet
           only.
         </p>
-        <span className="inline-flex px-4 py-2 bg-white border border-gray-300 text-gray-700 text-xs font-semibold rounded-lg pointer-events-none">
+        <span className="inline-flex px-4 py-2 bg-white border border-slate-200 text-gray-700 text-xs font-semibold rounded-lg pointer-events-none">
           Choose File
         </span>
         {file ? (

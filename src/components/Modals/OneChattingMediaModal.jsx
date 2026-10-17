@@ -265,7 +265,7 @@ const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+            className="p-2 rounded-lg text-gray-600 hover:bg-slate-100 transition-colors shrink-0"
             aria-label="Close preview"
           >
             <FiX className="w-5 h-5" />
@@ -322,7 +322,7 @@ const MediaPreviewContent = ({ media, onClose, onSaveToDocuments }) => {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
           >
             <FiX className="w-4 h-4" />
             Close

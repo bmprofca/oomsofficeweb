@@ -373,7 +373,7 @@ const StaffWiseSales = ({
   return (
     <div className={`p-4 ${className}`.trim()}>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <div className="p-2 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-lg flex-shrink-0">
+        <div className="p-2 bg-teal-50 rounded-lg flex-shrink-0">
           <FiUsers className="w-4 h-4 text-teal-600" />
         </div>
         <div className="min-w-0 flex-1">

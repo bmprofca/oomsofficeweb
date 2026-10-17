@@ -186,7 +186,7 @@ const ExpenseEntryModalShell = ({ isOpen, onClose, title, subtitle, icon: Icon, 
                         className="relative z-[1] pointer-events-auto flex w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-emerald-500/25 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 px-5 py-3.5 text-white">
+                        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-emerald-500/25 bg-emerald-600 px-5 py-3.5 text-white">
                             <div className="flex min-w-0 items-center gap-3">
                                 {Icon ? (
                                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
@@ -294,7 +294,7 @@ const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency, on
                     <p className="py-8 text-center text-sm text-slate-500">No expense data available.</p>
                 ) : (
                     <div className="space-y-4">
-                        <div className="rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50 p-4 shadow-sm">
                             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                 <span
                                     className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${getExpenseItemTypeBadgeClass(itemType)}`}
@@ -763,11 +763,11 @@ const ViewExpenses = () => {
     );
 
     const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70">
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="h-10 bg-gray-200 rounded w-full max-w-2xl" />
@@ -789,7 +789,7 @@ const ViewExpenses = () => {
 
     if (!check('finance_report')) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="app-page to-gray-100">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
@@ -806,19 +806,19 @@ const ViewExpenses = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                <div className="h-full flex flex-col mx-3 my-3 sm:mx-5 sm:my-4 lg:mx-8 lg:my-5">
                     <motion.div
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25 }}
                         className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/70"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-100/90 via-white to-indigo-50/40 py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-3 space-y-2.5">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-3 space-y-2.5">
                             {/* Row 1 — title, search, actions */}
                             <div className="flex flex-col gap-2 min-w-0 xl:flex-row xl:items-center xl:gap-3">
                                 <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
@@ -838,8 +838,6 @@ const ViewExpenses = () => {
                                     <Link to="/finance/voucher/staff-expenses" className="shrink-0">
                                         <motion.span
                                             className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 text-xs font-semibold text-amber-800 shadow-sm transition-all hover:bg-amber-50 sm:h-10 sm:px-3"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
                                         >
                                             <FiFileText className="h-4 w-4 shrink-0" />
                                             <span className="whitespace-nowrap">Staff Expenses</span>
@@ -849,8 +847,6 @@ const ViewExpenses = () => {
                                     <Link to="/finance/voucher/expense-items" className="shrink-0">
                                         <motion.span
                                             className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 text-xs font-semibold text-emerald-700 shadow-sm transition-all hover:bg-emerald-50 sm:h-10 sm:px-3"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
                                         >
                                             <FiPackage className="h-4 w-4 shrink-0" />
                                             <span className="whitespace-nowrap">Manage Items</span>
@@ -866,10 +862,8 @@ const ViewExpenses = () => {
                                                 setShowCreateExpenseModal(true);
                                             }
                                         }}
-                                        className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-0 sm:h-10 sm:px-3 ${!check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
+                                        className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow sm:mr-0 sm:h-10 sm:px-3 ${!check('finance_entry') ? 'opacity-60 cursor-not-allowed' : ''
                                             }`}
-                                        whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
-                                        whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
                                     >
                                         {!check('finance_entry') ? <FiLock className="h-4 w-4 shrink-0" /> : <FiPlus className="h-4 w-4 shrink-0" />}
                                         <span className="whitespace-nowrap">Create</span>
@@ -1001,7 +995,7 @@ const ViewExpenses = () => {
                                                         </div>
                                                     </td>
                                                     <td className="p-3 text-center align-middle">
-                                                        <span className="inline-flex items-center justify-center rounded border border-slate-300/50 bg-gradient-to-r from-slate-100 to-slate-200 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-xs">
+                                                        <span className="inline-flex items-center justify-center rounded border border-slate-300/50 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-xs">
                                                             {expense.invoice_no || '—'}
                                                         </span>
                                                     </td>
@@ -1014,7 +1008,7 @@ const ViewExpenses = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => openExpenseDetails(expense)}
-                                                            className="inline-flex min-w-[90px] items-center justify-center rounded bg-gradient-to-r from-emerald-50 to-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800 shadow-xs transition-all hover:shadow"
+                                                            className="inline-flex min-w-[90px] items-center justify-center rounded bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 shadow-xs transition-all hover:shadow"
                                                         >
                                                             ₹{formatCurrency(expense.amount)}
                                                         </button>

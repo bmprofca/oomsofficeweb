@@ -189,7 +189,7 @@ const ServiceWiseSales = ({ refreshTrigger }) => {
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    <div className="p-2 bg-gradient-to-br from-violet-100 to-purple-100 rounded-lg">
+                    <div className="p-2 bg-violet-50 rounded-lg">
                         <FiPieChart className="w-4 h-4 text-violet-600" />
                     </div>
                     <h3 className="text-base font-semibold text-gray-800">Service Wise Sales</h3>
@@ -201,14 +201,13 @@ const ServiceWiseSales = ({ refreshTrigger }) => {
                         <motion.button
                             onClick={() => setShowDatePicker(!showDatePicker)}
                             className="flex items-center gap-1 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs hover:shadow-md"
-                            whileHover={{ scale: 1.02 }}
                         >
                             <FiCalendar className="w-3 h-3" />
                             <span>Date</span>
                         </motion.button>
                         
                         {showDatePicker && (
-                            <div className="absolute right-0 mt-2 p-3 bg-white rounded-lg shadow-xl border border-gray-200 z-10 min-w-[240px]">
+                            <div className="absolute right-0 mt-2 p-3 bg-white rounded-xl shadow-pop border border-slate-200 z-10 min-w-[240px]">
                                 <div className="space-y-2">
                                     <input
                                         type="date"
@@ -237,7 +236,6 @@ const ServiceWiseSales = ({ refreshTrigger }) => {
                     <motion.button
                         onClick={handleViewDetails}
                         className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100"
-                        whileHover={{ scale: 1.05 }}
                         disabled={salesData.length === 0}
                     >
                         <FiArrowUpRight className="w-3.5 h-3.5" />
@@ -253,12 +251,12 @@ const ServiceWiseSales = ({ refreshTrigger }) => {
                 <>
                     {/* Summary Stats */}
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-3 rounded-lg">
+                        <div className="bg-indigo-50 p-3 rounded-lg">
                             <p className="text-xs text-gray-500">Total Sales</p>
                             <p className="text-lg font-bold text-indigo-600">{formatCurrency(totalSales)}</p>
                         </div>
                         {topService && (
-                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-lg">
+                            <div className="bg-amber-50 p-3 rounded-lg">
                                 <p className="text-xs text-gray-500">Top Service</p>
                                 <p className="text-sm font-semibold text-amber-800 truncate" title={topService.name}>
                                     {topService.name}

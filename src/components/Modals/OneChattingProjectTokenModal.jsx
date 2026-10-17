@@ -71,7 +71,7 @@ const OneChattingProjectTokenModal = ({
             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-indigo-600 to-blue-600 text-white flex items-center justify-between gap-3">
+            <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-indigo-600 text-white flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
                   <FiKey className="w-4 h-4" />
@@ -119,7 +119,7 @@ const OneChattingProjectTokenModal = ({
                     placeholder="Enter OneChatting project developer token"
                     disabled={saving}
                     autoFocus
-                    className="w-full px-3 py-2.5 text-sm text-gray-800 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60 placeholder:text-gray-400 font-mono"
+                    className="w-full px-3 py-2.5 text-sm text-gray-800 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none disabled:opacity-60 placeholder:text-gray-400 font-mono"
                   />
                   <p className="text-xs text-gray-500 mt-2 leading-relaxed m-0">
                     Used for branch-level OneChatting APIs such as template list
@@ -135,7 +135,7 @@ const OneChattingProjectTokenModal = ({
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100 disabled:opacity-50"
               >
                 Cancel
               </button>

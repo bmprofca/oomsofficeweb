@@ -193,7 +193,7 @@ export default function Timepicker({
                   style={{ width: panelPos.width }}
                   className="pointer-events-auto flex max-h-[calc(100vh-16px)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10"
                 >
-                <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
                       <FiClock className="h-3.5 w-3.5" />

@@ -110,7 +110,7 @@ const GroupDetailsModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100"
+            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-slate-100"
           >
             Close
           </button>
@@ -122,11 +122,11 @@ const GroupDetailsModal = ({
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-4 mb-4">
+        <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50 p-4 mb-4">
           <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-indigo-100/60" />
           <div className="absolute -right-2 bottom-0 w-16 h-16 rounded-full bg-violet-100/50" />
           <div className="relative flex items-start gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-200 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500 flex items-center justify-center shadow-md shadow-indigo-200 shrink-0">
               <FiFolder className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
@@ -175,7 +175,7 @@ const GroupDetailsModal = ({
             <AuditPersonCard
               title="Created"
               accentClass="bg-emerald-50/80"
-              iconBgClass="bg-gradient-to-br from-emerald-500 to-teal-600"
+              iconBgClass="bg-emerald-500"
               person={group.create_by}
               date={group.create_date}
               emptyLabel="No create info"
@@ -183,7 +183,7 @@ const GroupDetailsModal = ({
             <AuditPersonCard
               title="Last modified"
               accentClass="bg-amber-50/80"
-              iconBgClass="bg-gradient-to-br from-amber-500 to-orange-600"
+              iconBgClass="bg-amber-500"
               person={group.modify_by}
               date={group.modify_date}
               emptyLabel="Not modified yet"

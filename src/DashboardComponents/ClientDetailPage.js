@@ -232,7 +232,7 @@ const ClientDetailPage = () => {
                             onClick={(e) => e.stopPropagation()}
                         >
                             {/* Header */}
-                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                            <div className="bg-indigo-600 text-white px-6 py-4">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
@@ -246,8 +246,6 @@ const ClientDetailPage = () => {
                                     <motion.button
                                         onClick={onClose}
                                         className="text-white hover:text-indigo-200 transition-colors p-2 rounded-lg hover:bg-white/10"
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
                                     >
                                         <FiX className="w-5 h-5" />
                                     </motion.button>
@@ -260,14 +258,14 @@ const ClientDetailPage = () => {
                                     {firms.map((firm, index) => (
                                         <motion.div
                                             key={firm.firm_id || index}
-                                            className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl overflow-hidden"
+                                            className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden"
                                             initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: index * 0.05 }}
                                         >
                                             <div className="p-4">
                                                 <div className="flex items-start gap-4 mb-3">
-                                                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+                                                    <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
                                                         <FiBriefcase className="w-6 h-6 text-white" />
                                                     </div>
                                                     <div className="flex-1">
@@ -329,9 +327,7 @@ const ClientDetailPage = () => {
                                 </div>
                                 <motion.button
                                     onClick={onClose}
-                                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-sm"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm"
                                 >
                                     Close
                                 </motion.button>
@@ -345,7 +341,7 @@ const ClientDetailPage = () => {
 
     if (!metric || (metric !== 'total_client' && metric !== 'new_client' && metric !== 'active_client')) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="app-page to-gray-100">
                 <Header
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
@@ -365,7 +361,7 @@ const ClientDetailPage = () => {
                             <p className="text-gray-500 mb-6">Please select a valid client metric to view details.</p>
                             <button
                                 onClick={() => navigate('/')}
-                                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all duration-300"
+                                className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:shadow-lg transition-all duration-300"
                             >
                                 Go Back to Dashboard
                             </button>
@@ -377,7 +373,7 @@ const ClientDetailPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="app-page to-gray-100">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -406,7 +402,7 @@ const ClientDetailPage = () => {
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
                                     <div className="flex items-center gap-3 mb-2">
-                                        <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl">
+                                        <div className="p-3 bg-indigo-50 rounded-xl">
                                             <FiUsers className="w-6 h-6 text-indigo-600" />
                                         </div>
                                         <div>
@@ -444,8 +440,6 @@ const ClientDetailPage = () => {
                                         onClick={handleRefresh}
                                         disabled={loading}
                                         className="p-3 bg-white border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
                                     >
                                         <FiRefreshCw className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
                                     </motion.button>
@@ -466,7 +460,7 @@ const ClientDetailPage = () => {
                                         setSearch(e.target.value);
                                         setPagination(prev => ({ ...prev, page_no: 1 }));
                                     }}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
                                 />
                             </div>
                             {search && (
@@ -490,45 +484,45 @@ const ClientDetailPage = () => {
                             <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[800px]">
-                                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                        <thead className="bg-slate-50 border-b border-slate-200">
                                             <tr>
                                                 <th className="w-10 p-4"></th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     SL No
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Client Details
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Contact
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Address
                                                 </th>
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Status
                                                 </th>
                                                 {metric === 'total_client' && (
-                                                    <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                         Total Tasks
                                                     </th>
                                                 )}
                                                 {metric === 'total_client' && (
-                                                    <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                         Total Revenue
                                                     </th>
                                                 )}
                                                 {metric === 'active_client' && (
-                                                    <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                         Active Tasks
                                                     </th>
                                                 )}
                                                 {metric === 'active_client' && (
-                                                    <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                         Latest Due Date
                                                     </th>
                                                 )}
-                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">
+                                                <th className="text-left px-4 py-3 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
                                                     Created Date
                                                 </th>
                                             </tr>
@@ -543,11 +537,11 @@ const ClientDetailPage = () => {
                                             ) : (
                                                 clients.map((client, index) => (
                                                     <React.Fragment key={client.client_id || index}>
-                                                        <tr className="hover:bg-gray-50/50 transition-colors">
+                                                        <tr className="hover:bg-slate-50/50 transition-colors">
                                                             <td className="p-4">
                                                                 <button
                                                                     onClick={() => toggleRowExpand(client.client_id)}
-                                                                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                                                    className="p-1 hover:bg-slate-100 rounded transition-colors"
                                                                 >
                                                                     {expandedRows.has(client.client_id) ? 
                                                                         <FiChevronRight className="w-4 h-4 transform rotate-90" /> : 
@@ -675,7 +669,7 @@ const ClientDetailPage = () => {
                                     <button
                                         onClick={() => handlePageChange(pagination.page_no - 1)}
                                         disabled={!pagination.has_prev}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
+                                        className="px-4 py-2 border border-slate-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors flex items-center gap-2"
                                     >
                                         <FiChevronLeft className="w-4 h-4" />
                                         Previous
@@ -686,7 +680,7 @@ const ClientDetailPage = () => {
                                     <button
                                         onClick={() => handlePageChange(pagination.page_no + 1)}
                                         disabled={!pagination.has_next}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
+                                        className="px-4 py-2 border border-slate-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors flex items-center gap-2"
                                     >
                                         Next
                                         <FiChevronRight className="w-4 h-4" />

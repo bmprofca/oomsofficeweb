@@ -21,7 +21,7 @@ export const GateContentHeader = ({ title, subtitle, onBack, backLabel = 'Back',
                 {backLabel}
             </button>
         ) : null}
-        <h2 className={`${onBack ? 'mt-2' : ''} text-base md:text-lg font-bold text-gray-800 tracking-tight`}>
+        <h2 className={`${onBack ? 'mt-2' : ''} font-display text-lg md:text-xl font-bold tracking-tight text-slate-900 tracking-tight`}>
             {title}
         </h2>
         {subtitle ? (
@@ -34,19 +34,19 @@ export const GateContentHeader = ({ title, subtitle, onBack, backLabel = 'Back',
 
 const ICON_TONES = {
     indigo: {
-        wrap: 'bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-sm shadow-indigo-200/50',
+        wrap: 'bg-indigo-500 shadow-sm shadow-indigo-200/50',
         icon: 'text-white',
         hover: 'hover:border-indigo-200 hover:bg-indigo-50/50',
         active: 'border-indigo-200 bg-indigo-50/70 ring-1 ring-indigo-100',
     },
     emerald: {
-        wrap: 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm shadow-emerald-200/50',
+        wrap: 'bg-emerald-500 shadow-sm shadow-emerald-200/50',
         icon: 'text-white',
         hover: 'hover:border-emerald-200 hover:bg-emerald-50/50',
         active: 'border-emerald-200 bg-emerald-50/70 ring-1 ring-emerald-100',
     },
     violet: {
-        wrap: 'bg-gradient-to-br from-violet-500 to-violet-600 shadow-sm shadow-violet-200/50',
+        wrap: 'bg-violet-500 shadow-sm shadow-violet-200/50',
         icon: 'text-white',
         hover: 'hover:border-violet-200 hover:bg-violet-50/50',
         active: 'border-violet-200 bg-violet-50/70 ring-1 ring-violet-100',
@@ -191,7 +191,7 @@ const GateScreenLayout = ({ leftPanel, children, loading = false, loadingMessage
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+        <div className="app-page flex flex-col font-sans">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -207,9 +207,6 @@ const GateScreenLayout = ({ leftPanel, children, loading = false, loadingMessage
 
             <div className={`pt-16 flex-1 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#eef2ff_0%,_transparent_55%),_radial-gradient(ellipse_at_bottom_right,_#f5f3ff_0%,_transparent_50%)] pointer-events-none" />
-                    <div className="absolute top-8 right-8 w-56 h-56 rounded-full bg-indigo-200/25 blur-3xl pointer-events-none" />
-                    <div className="absolute bottom-8 left-8 w-48 h-48 rounded-full bg-violet-200/20 blur-3xl pointer-events-none" />
 
                     <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
                         <motion.div
@@ -220,7 +217,7 @@ const GateScreenLayout = ({ leftPanel, children, loading = false, loadingMessage
                         >
                             <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
                                 {leftPanel}
-                                <div className="p-4 sm:p-5 lg:p-6 flex flex-col justify-start min-w-0 bg-gradient-to-b from-white to-gray-50/40">
+                                <div className="p-4 sm:p-5 lg:p-6 flex flex-col justify-start min-w-0 bg-white">
                                     {children}
                                 </div>
                             </div>

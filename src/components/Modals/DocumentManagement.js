@@ -33,7 +33,7 @@ const BODY_SCROLL =
   'flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
 const INPUT_CLASS =
-  'w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 disabled:bg-slate-50';
+  'w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/25 focus:border-transparent disabled:opacity-60 disabled:bg-slate-50';
 
 const LABEL_CLASS = 'block text-xs font-semibold text-slate-600 mb-1.5';
 
@@ -105,7 +105,7 @@ function ModalShell({
                 type="button"
                 onClick={onClose}
                 disabled={disableClose}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
                 aria-label="Close"
               >
                 <FiX className="w-5 h-5 text-slate-500" />
@@ -195,7 +195,7 @@ export function DocumentViewModal({ isOpen, document: doc, onClose }) {
               <button
                 type="button"
                 onClick={handleDownload}
-                className="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 text-sm"
+                className="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2 text-sm"
               >
                 <FiDownload className="w-4 h-4" />
                 Download
@@ -229,7 +229,7 @@ export function DocumentViewModal({ isOpen, document: doc, onClose }) {
                 <button
                   type="button"
                   onClick={handleViewInNewTab}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
                 >
                   <FiExternalLink className="w-4 h-4" />
                   View in New Tab
@@ -306,7 +306,7 @@ export function DocumentCreateCategoryModal({ isOpen, onClose, onCreate, loading
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-5 py-2.5 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm"
+            className="flex-1 px-5 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-medium text-sm"
             disabled={loading}
           >
             Cancel
@@ -315,7 +315,7 @@ export function DocumentCreateCategoryModal({ isOpen, onClose, onCreate, loading
             type="button"
             onClick={handleSubmit}
             disabled={loading || !name.trim()}
-            className="flex-1 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+            className="flex-1 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
           >
             {loading ? (
               <>
@@ -394,7 +394,7 @@ export function DocumentEditCategoryModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-5 py-2.5 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm"
+            className="flex-1 px-5 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-medium text-sm"
             disabled={loading}
           >
             Cancel
@@ -403,7 +403,7 @@ export function DocumentEditCategoryModal({
             type="button"
             onClick={handleSubmit}
             disabled={loading || !name.trim()}
-            className="flex-1 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+            className="flex-1 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
           >
             {loading ? (
               <>
@@ -707,7 +707,7 @@ export function DocumentUploadModal({
               type="button"
               onClick={onClose}
               disabled={uploadLoading || anyFileUploading}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
@@ -721,7 +721,7 @@ export function DocumentUploadModal({
                 uploadLoading ||
                 documents.some((d) => d.uploadStatus !== 'done' || !d.file_url)
               }
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {uploadLoading ? (
                 <>
@@ -833,7 +833,7 @@ export function DocumentUploadModal({
                   <div
                     className={`relative overflow-hidden rounded-lg border px-2 py-1.5 transition-colors ${
                       doc.uploadStatus === 'done'
-                        ? 'border-emerald-300/80 bg-gradient-to-r from-emerald-50 via-white to-teal-50'
+                        ? 'border-emerald-300/80 bg-emerald-50'
                         : doc.uploadStatus === 'error'
                           ? 'border-red-200 bg-red-50/80'
                           : doc.uploadStatus === 'uploading'
@@ -929,7 +929,7 @@ export function DocumentUploadModal({
                     {doc.uploadStatus === 'uploading' ? (
                       <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-indigo-100">
                         <motion.div
-                          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"
+                          className="h-full rounded-full bg-indigo-500"
                           initial={{ width: 0 }}
                           animate={{ width: `${doc.uploadProgress || 0}%` }}
                           transition={{ duration: 0.2 }}
@@ -942,7 +942,7 @@ export function DocumentUploadModal({
                         initial={{ scaleX: 0, opacity: 0.4 }}
                         animate={{ scaleX: 1, opacity: 1 }}
                         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400"
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left bg-emerald-400"
                       />
                     ) : null}
                   </div>
@@ -1016,7 +1016,7 @@ export function DocumentUploadModal({
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                         value={doc.name || ''}
                         onChange={(e) =>
                           patchDocument(doc.id, { name: e.target.value })
@@ -1052,7 +1052,7 @@ export function DocumentUploadModal({
                   </label>
                   <textarea
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[4.5rem]"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 resize-y min-h-[4.5rem]"
                     value={doc.remark || ''}
                     onChange={(e) =>
                       patchDocument(doc.id, { remark: e.target.value })
@@ -1331,7 +1331,7 @@ export function DocumentEditModal({
             type="button"
             onClick={onClose}
             disabled={loading || fileUploading}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1339,7 +1339,7 @@ export function DocumentEditModal({
             type="button"
             onClick={handleSubmit}
             disabled={loading || fileUploading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {loading ? (
               <>
