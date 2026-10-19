@@ -3,6 +3,9 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import AiAssistantSetting from '../ai-assistant-setting';
 import {
+  createMcpConnector,
+  getMcpConnectors,
+  rotateMcpConnector,
   createAiConnection,
   deleteAiConnection,
   getAiSettings,
@@ -22,6 +25,11 @@ jest.mock('../../../utils/ai-api', () => ({
   deleteAiConnection: jest.fn(),
   reorderAiConnections: jest.fn(),
   testSavedAiConnection: jest.fn(),
+  getMcpConnectors: jest.fn(),
+  createMcpConnector: jest.fn(),
+  updateMcpConnector: jest.fn(),
+  rotateMcpConnector: jest.fn(),
+  deleteMcpConnector: jest.fn(),
 }));
 
 const providers = [
@@ -44,9 +52,15 @@ const payload = (overrides = {}) => ({
   ...overrides,
 });
 
+const mcpMembers = [{ username: 'usr_BOSS000001', name: 'Office Boss', role: 'admin' }, { username: 'usr_STAFF00001', name: 'Staff One', role: 'staff', designation: 'Accountant' }];
+const mcpPayload = (connectors = []) => ({ connectors, members: mcpMembers, endpoint: 'https://server.ooms.in/api/v1/mcp', public: true, limits: { max_connectors: 20 } });
+const SECRET_URL = 'https://server.ooms.in/api/v1/mcp/ooms_mcp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_abcde';
+
 beforeEach(() => {
   jest.clearAllMocks();
   getAiSettings.mockResolvedValue(payload());
+  getMcpConnectors.mockResolvedValue(mcpPayload());
+  Object.assign(navigator, { clipboard: { writeText: jest.fn().mockResolvedValue() } });
 });
 
 const renderPage = () => render(<MemoryRouter><AiAssistantSetting /></MemoryRouter>);
@@ -136,4 +150,44 @@ test('empty state invites adding the first connection; the assistant cannot be s
   expect(await screen.findByText('No AI connections yet')).toBeInTheDocument();
   expect(screen.getByRole('switch', { name: /AI Assistant for this branch/ })).toBeDisabled();
   expect(screen.getByRole('button', { name: /Add your first connection/ })).toBeInTheDocument();
+});
+
+test('Claude connector: create with a member, URL shown once with copy and setup steps, regenerate', async () => {
+  const saved = { id: 'm1', label: 'Claude — Sourav', token_hint: '…bcde', run_as: 'usr_STAFF00001', run_as_name: 'Staff One', enabled: true, last_used_at: null };
+  createMcpConnector.mockResolvedValue({ ...mcpPayload([saved]), id: 'm1', url: SECRET_URL });
+  rotateMcpConnector.mockResolvedValue({ ...mcpPayload([saved]), id: 'm1', url: `${SECRET_URL}X` });
+  renderPage();
+  const card = (await screen.findByRole('heading', { name: /Claude connector/ })).closest('section');
+  expect(await within(card).findByText(/No connectors yet/)).toBeInTheDocument();
+
+  fireEvent.click(within(card).getByRole('button', { name: /Create connector/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Create Claude connector' });
+  fireEvent.change(within(dialog).getByLabelText(/^Name/), { target: { value: 'Claude — Sourav' } });
+  fireEvent.change(within(dialog).getByLabelText('Access level of'), { target: { value: 'usr_STAFF00001' } });
+  expect(within(dialog).queryByText(/usr_/)).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Create connector' }));
+  await waitFor(() => expect(createMcpConnector).toHaveBeenCalledWith({ label: 'Claude — Sourav', runAs: 'usr_STAFF00001' }));
+
+  const urlDialog = await screen.findByRole('dialog', { name: 'Your connector URL' });
+  expect(within(urlDialog).getByLabelText('Connector URL')).toHaveValue(SECRET_URL);
+  expect(urlDialog).toHaveTextContent(/Add custom connector/);
+  fireEvent.click(within(urlDialog).getByRole('button', { name: /Copy/ }));
+  await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(SECRET_URL));
+  fireEvent.click(within(urlDialog).getByRole('button', { name: 'Done' }));
+
+  expect(await within(card).findByText('Claude — Sourav')).toBeInTheDocument();
+  expect(within(card).getByText('Staff One')).toBeInTheDocument();
+  expect(card.textContent).not.toMatch(/ooms_mcp_[A-Za-z0-9]{10}/);
+
+  fireEvent.click(within(card).getByRole('button', { name: /Regenerate URL/ }));
+  const confirm = await screen.findByRole('dialog', { name: 'Regenerate connector URL?' });
+  fireEvent.click(within(confirm).getByRole('button', { name: 'Regenerate' }));
+  await waitFor(() => expect(rotateMcpConnector).toHaveBeenCalledWith('m1'));
+  expect(await screen.findByDisplayValue(`${SECRET_URL}X`)).toBeInTheDocument();
+});
+
+test('Claude connector warns when the server is not reachable from the internet', async () => {
+  getMcpConnectors.mockResolvedValue({ ...mcpPayload(), endpoint: 'http://localhost:8877/api/v1/mcp', public: false });
+  renderPage();
+  expect(await screen.findByText(/not reachable from the internet/)).toBeInTheDocument();
 });

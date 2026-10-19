@@ -16,6 +16,7 @@ import {
 import { Header, Sidebar } from '../../components/header';
 import AiConnectionDialog from '../../components/ai/settings/AiConnectionDialog';
 import AiConnectionList from '../../components/ai/settings/AiConnectionList';
+import AiMcpConnectorsCard from '../../components/ai/settings/AiMcpConnectorsCard';
 import AiSettingsModal from '../../components/ai/settings/AiSettingsModal';
 import { connectionStatus, isFailing } from '../../components/ai/settings/aiProviderMeta';
 import {
@@ -352,6 +353,9 @@ export default function AiAssistantSetting() {
                   </div>
                 </section>
 
+                {/* Remote MCP connectors (Claude custom connector) */}
+                <AiMcpConnectorsCard />
+
                 {/* Usage limits */}
                 <section className="ui-card">
                   <div className="ui-card-header">
@@ -393,6 +397,7 @@ export default function AiAssistantSetting() {
                       <li>The assistant only reads data and respects each user’s permissions.</li>
                       <li>API keys are stored encrypted and never shown again. Only branch admins can manage this page.</li>
                       <li>Questions and the data needed to answer them are sent to the provider that answers.</li>
+                      <li>Claude connectors are read-only, use one team member’s permissions, and can be switched off or given a new URL at any time.</li>
                     </ul>
                   </div>
                 </div>

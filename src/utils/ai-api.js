@@ -219,3 +219,35 @@ export async function testSavedAiConnection(id) {
   const res = await axios.post(`${API_BASE_URL}/ai/connections/${encodeURIComponent(id)}/test`, {}, { headers: getHeaders() });
   return res.data?.data;
 }
+
+/* Remote MCP connectors (Claude → Settings → Connectors → Add custom connector). */
+
+export async function getMcpConnectors() {
+  const res = await axios.get(`${API_BASE_URL}/ai/mcp-connectors`, { headers: getHeaders() });
+  return res.data?.data;
+}
+
+/** Returns `{ url, ...list }` — the secret URL is only ever returned here and by rotate. */
+export async function createMcpConnector({ label, runAs }) {
+  const res = await axios.post(`${API_BASE_URL}/ai/mcp-connectors`, { ...(label ? { label } : {}), run_as: runAs }, { headers: getHeaders() });
+  return res.data?.data;
+}
+
+export async function updateMcpConnector(id, { label, enabled, runAs }) {
+  const body = {};
+  if (label !== undefined) body.label = label;
+  if (enabled !== undefined) body.enabled = enabled;
+  if (runAs !== undefined) body.run_as = runAs;
+  const res = await axios.patch(`${API_BASE_URL}/ai/mcp-connectors/${encodeURIComponent(id)}`, body, { headers: getHeaders() });
+  return res.data?.data;
+}
+
+export async function rotateMcpConnector(id) {
+  const res = await axios.post(`${API_BASE_URL}/ai/mcp-connectors/${encodeURIComponent(id)}/rotate`, {}, { headers: getHeaders() });
+  return res.data?.data;
+}
+
+export async function deleteMcpConnector(id) {
+  const res = await axios.delete(`${API_BASE_URL}/ai/mcp-connectors/${encodeURIComponent(id)}`, { headers: getHeaders() });
+  return res.data?.data;
+}
