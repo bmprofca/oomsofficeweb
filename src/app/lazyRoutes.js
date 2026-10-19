@@ -140,6 +140,8 @@ export const MyProfile = lazyWithRetry(() => import('../components/myProfile'));
 export const PasswordGroupFirms = lazyWithRetry(() => import('../pages/office-assistance/PasswordGroupFirms'));
 export const TransactionHistory = lazyWithRetry(() => import('../finance/bank/transaction-history'));
 export const WalletRecharge = lazyWithRetry(() => import('../pages/WalletRecharge'));
+export const AiAssistant = lazyWithRetry(() => import('../pages/ai-assistant'));
+export const AiAssistantSetting = lazyWithRetry(() => import('../pages/settings/ai-assistant-setting'));
 export const WalletPaymentRequest = lazyWithRetry(() => import('../pages/WalletPaymentRequest'));
 export const HelpSupport = lazyWithRetry(() => import('../pages/HelpSupport'));
 export const Sessions = lazyWithRetry(() => import('../pages/Sessions'));

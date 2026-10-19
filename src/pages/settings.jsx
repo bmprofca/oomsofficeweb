@@ -11,6 +11,7 @@ import {
   FiShield,
   FiUserCheck,
   FiUsers,
+  FiZap,
 } from "react-icons/fi";
 import { Header, Sidebar } from "../components/header";
 import { useUserPermissions } from "../utils/permission-helper";
@@ -75,6 +76,16 @@ const SETTINGS_MODULES = [
     iconColor: "text-rose-600",
     hover: "border-rose-100 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/70 hover:shadow-md",
     permission: "setting_view_edit",
+  },
+  {
+    title: "AI Assistant",
+    description: "Enable AI chat and set the API key",
+    icon: FiZap,
+    link: "/settings/ai-assistant",
+    iconBg: "bg-white ring-1 ring-indigo-200",
+    iconColor: "text-indigo-600",
+    hover: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
+    adminOnly: true,
   },
 ];
 
@@ -182,6 +193,10 @@ const Settings = () => {
   }, [mobileMenuOpen]);
 
   const isModuleLocked = (mod) => {
+    // Branch-admin-only modules (also enforced by the server).
+    if (mod.adminOnly) {
+      return !(localStorage.getItem("branch_owned") === "true" || localStorage.getItem("branch_role") === "admin");
+    }
     if (!mod.permission) return false;
     if (Array.isArray(mod.permission)) {
       return !mod.permission.some((p) => check(p));

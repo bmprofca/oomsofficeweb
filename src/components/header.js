@@ -30,6 +30,7 @@ import BranchSwitchOverlay from './BranchSwitchOverlay';
 import HeaderGlobalSearch from './HeaderGlobalSearch';
 import { clearNavValueCache, useNavCachedState } from '../utils/navValueCache';
 import HeaderNotifications from './HeaderNotifications';
+import AiHeaderButton from './ai/AiHeaderButton';
 import ConfirmActionModal from './ConfirmActionModal';
 
 function isStoredBranchAdmin() {
@@ -670,6 +671,8 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                 <FiPlus className="h-3 w-3" />
               </span>
             </button>
+
+            <AiHeaderButton />
 
             <HeaderNotifications
               iconButtonClass={iconButtonClass}

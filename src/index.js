@@ -121,6 +121,8 @@ import {
   PasswordGroupFirms,
   TransactionHistory,
   WalletRecharge,
+  AiAssistant,
+  AiAssistantSetting,
   WalletPaymentRequest,
   HelpSupport,
   Sessions,
@@ -1025,6 +1027,12 @@ root.render(
               </ProtectedRoute>
             } />
 
+            <Route path="/settings/ai-assistant" element={
+              <ProtectedRoute>
+                <AiAssistantSetting />
+              </ProtectedRoute>
+            } />
+
             <Route path="/settings/permissions" element={
               <ProtectedRoute>
                 <PermissionList />
@@ -1106,6 +1114,12 @@ root.render(
             <Route path="/wallet-recharge" element={
               <ProtectedRoute>
                 <WalletRecharge />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/ai-assistant" element={
+              <ProtectedRoute>
+                <AiAssistant />
               </ProtectedRoute>
             } />
 

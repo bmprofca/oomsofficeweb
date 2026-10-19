@@ -33,6 +33,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`help-support.md`](./help-support.md) | Help & Support page, sidebar entry, contacts + FAQs |
 | [`sessions.md`](./sessions.md) | Sessions table, profile Sessions link, sign-out ConfirmActionModal |
 | [`wallet.md`](./wallet.md) | Wallet recharge + payment-request pages |
+| [`ai-assistant.md`](./ai-assistant.md) | Ask AI header button, assistant drawer + page, chat block renderers |
 
 ## Other files
 

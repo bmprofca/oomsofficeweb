@@ -100,6 +100,8 @@ const EXACT_TITLES = {
   '/settings/daterange-setting': 'Date Range Settings',
   '/settings/google-auth': 'Google Authentication',
   '/settings/gateway-setting': 'Gateway Settings',
+  '/settings/ai-assistant': 'AI Assistant Settings',
+  '/ai-assistant': 'AI Assistant',
   '/settings/branch': 'Branches',
   '/settings/admin': 'Admins',
   '/settings/website': 'Website Settings',

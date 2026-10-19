@@ -119,6 +119,8 @@ export const SOFTWARE_MODULES = [
   { title: "Date Range Settings", path: "/settings/daterange-setting", group: "Settings", keywords: "daterange" },
   { title: "Google Authentication", path: "/settings/google-auth", group: "Settings", keywords: "google oauth 2fa" },
   { title: "Gateway Settings", path: "/settings/gateway-setting", group: "Settings", keywords: "payment" },
+  { title: "AI Assistant Settings", path: "/settings/ai-assistant", group: "Settings", keywords: "ai claude anthropic api key chat assistant" },
+  { title: "AI Assistant", path: "/ai-assistant", group: "Tools", keywords: "ai chat ask question assistant" },
   { title: "Website Settings", path: "/settings/website", group: "Settings", keywords: "site" },
   { title: "Widget Settings", path: "/settings/widget", group: "Settings", keywords: "widget" },
 
