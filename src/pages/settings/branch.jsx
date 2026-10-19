@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Header, Sidebar } from '../../components/header';
 import {
@@ -774,8 +774,16 @@ const ViewBranch = () => {
             </div>
 
             {/* Add Branch Modal */}
+            <AnimatePresence>
             {showAddModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <motion.div
+                    key="add-branch-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                >
                     <motion.div
                         className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
                         initial={{ scale: 0.95, opacity: 0 }}
@@ -997,12 +1005,21 @@ const ViewBranch = () => {
                             </div>
                         </form>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Edit Branch Modal */}
+            <AnimatePresence>
             {showEditModal && selectedBranch && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <motion.div
+                    key="edit-branch-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                >
                     <motion.div
                         className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
                         initial={{ scale: 0.95, opacity: 0 }}
@@ -1234,13 +1251,28 @@ const ViewBranch = () => {
                             </div>
                         </form>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Export Confirmation Modal */}
+            <AnimatePresence>
             {exportModal.open && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto transform transition-all duration-300">
+                <motion.div
+                    key="export-confirm-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto transform transition-all duration-300"
+                    >
                         <div className="text-center">
                             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <PiExportBold className="w-8 h-8 text-green-600" />
@@ -1257,12 +1289,15 @@ const ViewBranch = () => {
                                 <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
+            <AnimatePresence>
             {deleteModal && selectedBranch && (
                 <DeleteConfirmationModal
+                    key="delete-branch-modal"
                     title={`Delete ${selectedBranch.name}`}
                     message={`Are you sure you want to delete the "${selectedBranch.name}" branch? This action will remove all associated data and cannot be undone.`}
                     onConfirm={(res) => {
@@ -1273,6 +1308,7 @@ const ViewBranch = () => {
                     }}
                 />
             )}
+            </AnimatePresence>
         </div>
     );
 };

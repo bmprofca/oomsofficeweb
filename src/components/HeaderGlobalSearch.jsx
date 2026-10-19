@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FiSearch,
   FiUsers,
@@ -140,6 +141,20 @@ export default function HeaderGlobalSearch() {
   // `openRef` mirrors `open` so the single global key handler never reads a stale value.
   const openRef = useRef(false);
   const restoreFocusRef = useRef(null);
+
+  // Keep the portal mounted just long enough for the close animation. The closing layer
+  // never takes clicks, and a fallback timeout drops it even if animation frames are paused.
+  const [portalMounted, setPortalMounted] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setPortalMounted(true);
+      return undefined;
+    }
+    const t = window.setTimeout(() => {
+      if (!openRef.current) setPortalMounted(false);
+    }, 320);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
   const openPalette = useCallback(() => {
     if (openRef.current) return;
@@ -428,24 +443,41 @@ export default function HeaderGlobalSearch() {
         </span>
       </button>
 
-      {/* No exit animation on purpose: the overlay unmounts the instant `open` is false,
-          so a stalled animation can never leave an invisible layer blocking the page. */}
-      {open && typeof document !== "undefined"
+      {portalMounted && typeof document !== "undefined"
         ? createPortal(
+            <div className={open ? undefined : "pointer-events-none"}>
+            <AnimatePresence
+              onExitComplete={() => {
+                if (!openRef.current) setPortalMounted(false);
+              }}
+            >
+            {open ? (
               <div
+                key="global-search"
                 className="fixed inset-0 z-[99998] flex items-start justify-center px-3 pt-[10vh] sm:px-4"
                 onMouseDown={(e) => {
                   // Click anywhere outside the panel closes it
                   if (!e.target.closest("[data-global-search-panel]")) close();
                 }}
               >
-                <div className="gs-backdrop absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" aria-hidden="true" />
-                <div
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+                  aria-hidden="true"
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.97, y: -8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, y: -8 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
                   role="dialog"
                   aria-modal="true"
                   aria-label="Global search"
                   data-global-search-panel
-                  className="gs-panel relative flex max-h-[min(72vh,600px)] w-full max-w-[680px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                  className="relative flex max-h-[min(72vh,600px)] w-full max-w-[680px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
                 >
                   {/* Input */}
                   <div className="flex items-center gap-3 border-b border-slate-200 px-4">
@@ -597,10 +629,13 @@ export default function HeaderGlobalSearch() {
                       to toggle
                     </span>
                   </div>
-                </div>
-              </div>,
-              document.body,
-            )
+                </motion.div>
+              </div>
+            ) : null}
+            </AnimatePresence>
+            </div>,
+            document.body,
+          )
         : null}
     </div>
   );

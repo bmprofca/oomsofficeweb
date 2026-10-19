@@ -1,3 +1,4 @@
+import { clearNavValueCache } from './navValueCache';
 import { clearUserSessionFromStorage } from './user-profile-storage';
 
 const PUBLIC_PATH_PREFIXES = ['/login', '/register', '/branch-setup', '/invitation'];
@@ -15,6 +16,7 @@ export function handleUnauthorizedResponse() {
     }
 
     clearUserSessionFromStorage();
+    clearNavValueCache();
     localStorage.removeItem('token');
     localStorage.removeItem('username');
 

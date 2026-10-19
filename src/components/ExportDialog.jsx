@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   FiX,
@@ -254,24 +255,35 @@ export default function ExportDialog({
     }
   };
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   const progressPct = progress.total > 0 ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : 0;
   const actionLabel = delivery === 'download' ? `Download ${selectedFormat.label}` : `Email ${selectedFormat.label}`;
 
   return createPortal(
-    <div
+    <AnimatePresence>
+    {isOpen && (
+    <motion.div
+      key="export-dialog"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 z-[10060] flex items-start justify-center overflow-y-auto p-3 sm:items-center sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) requestClose();
       }}
     >
-      <div className="gs-backdrop fixed inset-0 bg-slate-900/45 backdrop-blur-[2px]" aria-hidden="true" />
-      <div
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-slate-900/45 backdrop-blur-[2px]" aria-hidden="true" />
+      <motion.div
         role="dialog"
         aria-modal="true"
         aria-labelledby="export-dialog-title"
-        className="gs-panel relative my-4 flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="relative my-4 flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
@@ -439,8 +451,10 @@ export default function ExportDialog({
             </button>
           </div>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>,
     document.body,
   );
 }

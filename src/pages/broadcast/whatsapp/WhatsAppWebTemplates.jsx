@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -602,8 +603,6 @@ const TemplateFormModal = ({
     [form.message, form.url, form.caption, form.filename],
   );
 
-  if (!isOpen) return null;
-
   const handleTypeChange = (nextType) => {
     setForm((prev) => ({
       ...prev,
@@ -626,9 +625,11 @@ const TemplateFormModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6">
-      <div className="absolute inset-0 bg-black/50" onClick={saving ? undefined : onClose} />
-      <div className="relative w-full max-w-lg max-h-[92vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
+    <AnimatePresence>
+    {isOpen && (
+    <motion.div key="wa-web-template-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-black/50" onClick={saving ? undefined : onClose} />
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="relative w-full max-w-lg max-h-[92vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
           <h3 className="text-base font-semibold text-gray-800 m-0">
             {mode === 'create' ? 'Create template' : 'Edit template'}
@@ -727,8 +728,10 @@ const TemplateFormModal = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 };
 
@@ -739,9 +742,9 @@ const TemplateDetailsModal = ({ template, loading, onClose, onEdit }) => {
   const content = normalizeContent(template);
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
           <h3 className="text-base font-semibold text-gray-800 m-0 truncate">
             {template?.template_name || 'Template details'}
@@ -835,8 +838,8 @@ const TemplateDetailsModal = ({ template, loading, onClose, onEdit }) => {
             </button>
           </div>
         ) : null}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -1795,8 +1798,10 @@ const WhatsAppWebTemplates = () => {
         onSubmit={formModal?.mode === 'edit' ? handleEdit : handleCreate}
       />
 
+      <AnimatePresence>
       {(detailsTemplate || detailsLoading) && (
         <TemplateDetailsModal
+          key="wa-web-template-details"
           template={detailsTemplate}
           loading={detailsLoading}
           onClose={() => {
@@ -1809,6 +1814,7 @@ const WhatsAppWebTemplates = () => {
           }}
         />
       )}
+      </AnimatePresence>
     </div>
   );
 };

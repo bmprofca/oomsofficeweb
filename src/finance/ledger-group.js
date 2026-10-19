@@ -7,6 +7,7 @@ import {
     FiTrash2,
     FiSettings
 } from 'react-icons/fi';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const LedgerGroup = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -305,9 +306,10 @@ const LedgerGroup = () => {
             </div>
 
             {/* Add Ledger Group Modal */}
+            <AnimatePresence>
             {showAddModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+                <motion.div key="add-ledger-group-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
                             <h3 className="text-lg font-semibold text-slate-800">Add New Ledger Group</h3>
                             <button
@@ -373,14 +375,16 @@ const LedgerGroup = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Edit Ledger Group Modal */}
+            <AnimatePresence>
             {showEditModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+                <motion.div key="edit-ledger-group-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
                             <h3 className="text-lg font-semibold text-slate-800">Edit Ledger Group</h3>
                             <button
@@ -447,14 +451,16 @@ const LedgerGroup = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Delete Confirmation Modal */}
+            <AnimatePresence>
             {showDeleteModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+                <motion.div key="delete-ledger-group-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
                         <div className="flex justify-between items-center p-4 border-b">
                             <h3 className="text-lg font-semibold text-slate-800">Confirm Delete</h3>
                             <button
@@ -490,9 +496,10 @@ const LedgerGroup = () => {
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

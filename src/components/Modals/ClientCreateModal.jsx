@@ -26,7 +26,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { FaCheckCircle, FaTimesCircle } from "react-icons/fa";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { DatePickerField } from "../PortalDatePicker";
@@ -1565,15 +1565,24 @@ function ClientCreateForm({ onClose, onCreated, onOpenBulk }) {
       </form>
 
       {/* Existing client with the same PAN */}
+      <AnimatePresence>
       {showExistingPanModal && panDuplicateClient && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setShowExistingPanModal(false)} aria-hidden />
+        <motion.div
+          key="existing-pan-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+        >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-slate-900/50" onClick={() => setShowExistingPanModal(false)} aria-hidden />
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-labelledby="existing-pan-modal-title"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
             className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-pop"
           >
             <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
@@ -1645,18 +1654,28 @@ function ClientCreateForm({ onClose, onCreated, onOpenBulk }) {
               </button>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Created */}
+      <AnimatePresence>
       {showCreateSuccessModal && clientCreateSuccess && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/50" aria-hidden />
+        <motion.div
+          key="create-success-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+        >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-slate-900/50" aria-hidden />
           <motion.div
             role="dialog"
             aria-modal="true"
             initial={{ opacity: 0, scale: 0.97, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 10 }}
             transition={{ duration: 0.18 }}
             className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-pop"
           >
@@ -1722,8 +1741,9 @@ function ClientCreateForm({ onClose, onCreated, onOpenBulk }) {
               </button>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </>
   );
 }

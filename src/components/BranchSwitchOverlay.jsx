@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Building2, Loader2 } from 'lucide-react';
 import { getBranchSwitchState, subscribeBranchSwitch } from '../utils/branchSwitch';
 
@@ -12,18 +13,30 @@ export default function BranchSwitchOverlay() {
 
     useEffect(() => subscribeBranchSwitch(setState), []);
 
-    if (!state.switching || typeof document === 'undefined') {
+    if (typeof document === 'undefined') {
         return null;
     }
 
     return createPortal(
-        <div
+        <AnimatePresence>
+        {state.switching && (
+        <motion.div
+            key="branch-switch-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm"
             role="status"
             aria-live="polite"
             aria-busy="true"
         >
-            <div className="mx-4 w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="mx-4 w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
                 <div className="flex flex-col items-center text-center">
                     <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                         <Building2 size={26} />
@@ -45,8 +58,10 @@ export default function BranchSwitchOverlay() {
                         Refreshing data for this branch
                     </p>
                 </div>
-            </div>
-        </div>,
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>,
         document.body
     );
 }

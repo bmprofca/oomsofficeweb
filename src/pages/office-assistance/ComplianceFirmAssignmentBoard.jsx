@@ -756,13 +756,27 @@ export const ComplianceFirmAssignmentBoard = ({
         taskName={staffModal.title}
       />
 
+      <AnimatePresence>
       {deleteTarget ? (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
-          <div
+        <motion.div
+          key="delete-firm-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-[1100] flex items-center justify-center p-4"
+        >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             className="absolute inset-0 bg-black/50"
             onClick={deleteLoading ? undefined : () => setDeleteTarget(null)}
           />
-          <div className="relative w-full max-w-md bg-white rounded-xl shadow-xl border border-gray-200 p-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="relative w-full max-w-md bg-white rounded-xl shadow-xl border border-gray-200 p-6"
+          >
             <h3 className="text-base font-semibold text-gray-800 m-0">Delete compliance firm?</h3>
             <p className="text-sm text-gray-600 mt-2 m-0">
               Remove <strong>{deleteTarget.firm_name || deleteTarget.firm_id}</strong> from{' '}
@@ -788,9 +802,10 @@ export const ComplianceFirmAssignmentBoard = ({
                 Delete
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
     </>
   );
 };

@@ -27,11 +27,11 @@ import EmailActionMenu from './broadcast/email/EmailActionMenu';
 
 // Memoized ModalWrapper component to prevent re-renders
 const ModalWrapper = memo(({ isOpen, onClose, title, children, size = 'max-w-md' }) => {
-    if (!isOpen) return null;
-
     return (
         <AnimatePresence>
+            {isOpen && (
             <motion.div
+                key="staff-modal-wrapper"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -60,6 +60,7 @@ const ModalWrapper = memo(({ isOpen, onClose, title, children, size = 'max-w-md'
                     {children}
                 </motion.div>
             </motion.div>
+            )}
         </AnimatePresence>
     );
 });

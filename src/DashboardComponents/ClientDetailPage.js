@@ -198,8 +198,6 @@ const ClientDetailPage = () => {
 
     // Firms Details Modal Component
     const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
-        if (!isOpen || !firms || firms.length === 0) return null;
-
         const formatAddress = (address) => {
             if (!address) return 'N/A';
             const parts = [
@@ -215,8 +213,9 @@ const ClientDetailPage = () => {
 
         return (
             <AnimatePresence>
-                {isOpen && (
+                {isOpen && firms && firms.length > 0 && (
                     <motion.div
+                        key="firms-details-modal"
                         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -692,12 +691,14 @@ const ClientDetailPage = () => {
                 </div>
             </div>
 
-            <FirmsDetailsModal
-                isOpen={firmsModal.open}
-                onClose={closeFirmsModal}
-                firms={firmsModal.firms}
-                clientName={firmsModal.clientName}
-            />
+            {/* Called as a function (not <FirmsDetailsModal />) because it is defined inside this
+                component; a JSX element would get a new type every render and unmount before its exit animation. */}
+            {FirmsDetailsModal({
+                isOpen: firmsModal.open,
+                onClose: closeFirmsModal,
+                firms: firmsModal.firms,
+                clientName: firmsModal.clientName,
+            })}
         </div>
     );
 };

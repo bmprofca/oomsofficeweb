@@ -24,7 +24,7 @@ import {
   FiZoomOut,
   FiArrowLeft,
 } from "react-icons/fi";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { Header, Sidebar } from "../../components/header";
 import CustomSelect from "../../components/CustomSelect";
@@ -1206,9 +1206,23 @@ const InvoiceSettings = () => {
       </div>
 
       {/* Create Invoice Prefix Modal */}
+      <AnimatePresence>
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-all duration-300">
+        <motion.div
+          key="create-invoice-prefix-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform transition-all duration-300"
+          >
             <div className="bg-indigo-600 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold">Add Invoice Prefix</h2>
@@ -1333,14 +1347,29 @@ const InvoiceSettings = () => {
                 </motion.button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
+      <AnimatePresence>
       {deleteModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-all duration-300">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300">
+        <motion.div
+          key="delete-invoice-prefix-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-all duration-300"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300"
+          >
             <div className="bg-red-600 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
               <h2 className="text-xl font-bold">Delete Invoice Prefix</h2>
               <button
@@ -1407,13 +1436,22 @@ const InvoiceSettings = () => {
                 {deleteLoading ? "Deleting..." : "Confirm Delete"}
               </button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Full Screen PDF Preview Modal — custom pdf.js-powered viewer, no native browser plugin UI */}
+      <AnimatePresence>
       {showPreviewModal && selectedFormatSample && (
-        <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
+        <motion.div
+          key="pdf-preview-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col"
+        >
           {/* Modal Header */}
           <div className="bg-indigo-600 text-white px-6 py-2 flex justify-between items-center shadow-lg">
             <div className="flex items-center gap-3">
@@ -1574,8 +1612,9 @@ const InvoiceSettings = () => {
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 };

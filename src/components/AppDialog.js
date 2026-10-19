@@ -65,7 +65,7 @@ const AppDialog = ({ dialog, onClose, onConfirm }) => {
                     transition={{ duration: 0.18 }}
                     className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
                 >
-                    <div
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                         className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
                         onClick={!dialog.loading ? onClose : undefined}
                     />

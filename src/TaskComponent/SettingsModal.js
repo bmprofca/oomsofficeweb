@@ -262,14 +262,13 @@ const SettingsModal = ({ isOpen, onClose, columnConfig, saveColumnConfig, defaul
         );
     };
 
-    if (!isOpen) return null;
-
-    const activeColumn = localColumnConfig.find((col) => col.id === localActiveDragId);
+    const activeColumn = localColumnConfig?.find((col) => col.id === localActiveDragId);
 
     return (
         <AnimatePresence>
             {isOpen && (
                 <motion.div
+                    key="task-settings-modal"
                     className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

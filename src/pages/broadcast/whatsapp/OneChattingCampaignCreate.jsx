@@ -586,7 +586,7 @@ const CampaignConfirmModal = ({
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[210] flex items-center justify-center p-3 sm:p-4"
         >
-          <button
+          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             type="button"
             className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
             aria-label="Close"

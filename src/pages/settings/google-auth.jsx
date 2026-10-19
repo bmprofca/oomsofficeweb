@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
 import { FiSmartphone, FiCamera, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 
@@ -13,8 +13,6 @@ const ConfirmationModal = ({
   cancelText = "Cancel",
   type = "warning"
 }) => {
-  if (!isOpen) return null;
-
   const typeClasses = {
     warning: "bg-yellow-50 border-yellow-200",
     danger: "bg-red-50 border-red-200",
@@ -28,7 +26,16 @@ const ConfirmationModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <AnimatePresence>
+      {isOpen && (
+    <motion.div
+      key="confirmation-modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
       {/* Fade overlay */}
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
@@ -38,7 +45,11 @@ const ConfirmationModal = ({
       />
       
       {/* Modal */}
-      <div 
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         className={`relative bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all duration-300 ${
           isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
@@ -76,8 +87,10 @@ const ConfirmationModal = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
@@ -508,9 +521,23 @@ const GoogleAuthentication = () => {
             </div>
 
             {/* QR Code Modal */}
+            <AnimatePresence>
             {showQrModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
+                <motion.div
+                    key="qr-code-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="bg-white rounded-lg shadow-xl w-full max-w-sm"
+                    >
                         <div className="border-b border-gray-200 px-6 py-4">
                             <div className="flex justify-between items-center">
                                 <h5 className="text-lg font-semibold text-gray-800">Scan the QR Code</h5>
@@ -542,9 +569,10 @@ const GoogleAuthentication = () => {
                                 Close
                             </motion.button>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Confirmation Modals */}
             <ConfirmationModal

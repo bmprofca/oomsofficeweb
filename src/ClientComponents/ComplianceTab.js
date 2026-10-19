@@ -2363,7 +2363,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {showAssignModal && (
                     <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                             onClick={() => setShowAssignModal(false)}
                         />
@@ -2853,7 +2853,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
                     return (
                         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                            <div
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                                 className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                                 onClick={() => setShowStatusModal(false)}
                             />
@@ -3016,7 +3016,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {selectedStaffDetails && (
                     <div className="fixed inset-0 z-[210] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                             onClick={() => setSelectedStaffDetails(null)}
                         />
@@ -3085,7 +3085,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
                     return (
                         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                            <div
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                                 className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                                 onClick={() => setShowEditModal(false)}
                             />
@@ -3469,7 +3469,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {confirmDeleteId && (
                     <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -3529,7 +3529,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {broadcastModal.open && broadcastModal.assign && (
                     <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setBroadcastModal({ open: false, assign: null })} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setBroadcastModal({ open: false, assign: null })} />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -3614,7 +3614,7 @@ const ComplianceTab = ({ clientUsername }) => {
                     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
                     return (
                         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-none">
-                            <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} />
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
@@ -3728,7 +3728,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {showCredentialsModal && credentialsAssignment && (
                     <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                             onClick={() => {
                                 setShowCredentialsModal(false);

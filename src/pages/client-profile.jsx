@@ -895,10 +895,11 @@ const EditModal = ({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
+    <AnimatePresence>
+    {isOpen && (
     <motion.div
+      key="client-edit-modal"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -962,14 +963,17 @@ const EditModal = ({
         </div>
       </motion.div>
     </motion.div>
+    )}
+    </AnimatePresence>
   );
 };
 
 const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }) => {
-  if (!isOpen) return null;
-
   return (
+    <AnimatePresence>
+    {isOpen && (
     <motion.div
+      key="client-delete-modal"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -1021,6 +1025,8 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }) => {
         </div>
       </motion.div>
     </motion.div>
+    )}
+    </AnimatePresence>
   );
 };
 
@@ -1040,10 +1046,11 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
     }
   };
 
-  if (!isOpen) return null;
-
   return (
+    <AnimatePresence>
+    {isOpen && (
     <motion.div
+      key="client-add-firm-modal"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -1148,6 +1155,8 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
         </div>
       </motion.div>
     </motion.div>
+    )}
+    </AnimatePresence>
   );
 };
 
@@ -1177,10 +1186,11 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
     }
   };
 
-  if (!isOpen || !firm) return null;
-
   return (
+    <AnimatePresence>
+    {isOpen && firm && (
     <motion.div
+      key="client-edit-firm-modal"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -1280,6 +1290,8 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
         </div>
       </motion.div>
     </motion.div>
+    )}
+    </AnimatePresence>
   );
 };
 // TabLink Component - Add this near other components

@@ -399,7 +399,7 @@ const FeeForm = ({
 
 /* ─── modal shell ────────────────────────────────────────────────── */
 const Modal = ({ title, subtitle, icon, onClose, children, footer }) => (
-  <div
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
     className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-[200] backdrop-blur-sm overflow-y-auto"
     onClick={onClose}
   >
@@ -448,12 +448,12 @@ const Modal = ({ title, subtitle, icon, onClose, children, footer }) => (
         </div>
       )}
     </motion.div>
-  </div>
+  </motion.div>
 );
 
 /* ─── confirm dialog ────────────────────────────────────────────── */
 const ConfirmModal = ({ title, message, onConfirm, onCancel, loading }) => (
-  <div
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
     className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-[210] backdrop-blur-sm overflow-y-auto"
     onClick={onCancel}
   >
@@ -494,7 +494,7 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, loading }) => (
         </button>
       </div>
     </motion.div>
-  </div>
+  </motion.div>
 );
 
 /* ─── view details modal ────────────────────────────────────────── */

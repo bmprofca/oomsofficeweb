@@ -194,11 +194,10 @@ const RecurringTaskDetailedPage = () => {
 
   // Users List Modal Component
   const UsersListModal = ({ isOpen, onClose, users, serviceName }) => {
-    if (!isOpen) return null;
     return (
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-[200] p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} key="users-list-modal" className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-[200] p-4">
             <motion.div
               className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-auto overflow-hidden flex flex-col max-h-[85vh]"
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
@@ -262,7 +261,7 @@ const RecurringTaskDetailedPage = () => {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     );
@@ -576,18 +575,20 @@ const RecurringTaskDetailedPage = () => {
         </div>
       </div>
 
-      <UsersListModal
-        isOpen={usersModal.open}
-        onClose={() => setUsersModal({ open: false, users: [], serviceName: '' })}
-        users={usersModal.users}
-        serviceName={usersModal.serviceName}
-      />
+      {/* Called as a function (not <UsersListModal />) because it is defined inside this
+          component; a JSX element would get a new type every render and unmount before its exit animation. */}
+      {UsersListModal({
+        isOpen: usersModal.open,
+        onClose: () => setUsersModal({ open: false, users: [], serviceName: '' }),
+        users: usersModal.users,
+        serviceName: usersModal.serviceName,
+      })}
 
       {/* Modal: Delete Assignment Confirmation */}
       <AnimatePresence>
         {confirmDeleteId && (
           <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

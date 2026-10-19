@@ -1,5 +1,6 @@
 import { FiX, FiTrash2, FiLoader } from "react-icons/fi";
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 
 export default function DeleteConfirmationModal({
     title = "Delete",
@@ -31,8 +32,8 @@ export default function DeleteConfirmationModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-all duration-300">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95 animate-fade-in">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: "easeOut" }} className="bg-white rounded-xl shadow-2xl w-full max-w-md scale-95">
                 <div className="bg-red-600 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
                     <div>
                         <h2 className="text-xl font-bold">{title}</h2>
@@ -129,7 +130,7 @@ export default function DeleteConfirmationModal({
                         {confirming ? "Deleting…" : "Confirm Delete"}
                     </button>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 }

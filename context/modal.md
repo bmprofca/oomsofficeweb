@@ -11,7 +11,11 @@ Viewport-safe wrapper
 - Use `pointer-events-none` on the root and **`pointer-events-auto`** on (1) a full **`absolute inset-0`** backdrop and (2) the dialog panel with **`relative z-[1]`**, so backdrop still receives outside clicks.
 - Align modal near top for small screens: `items-start` (bank forms); **centered dialogs** (firm shell, confirmations, reminders) use `items-center justify-center`.
 - Avoid `min-h-screen` / inner scroll wrappers that move the dialog (can cause subtle vertical shift).
-- Prefer fade-only modal transition (avoid `scale` / `y` translate for stable position).
+- Animate open **and** close with framer-motion `AnimatePresence` (never `if (!isOpen) return null`, which skips the exit):
+  - Backdrop: fade — `initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}`, `duration: 0.2`.
+  - Panel: fade + slight scale/rise — `initial={{ opacity: 0, scale: 0.96, y: 8 }}` → `{{ opacity: 1, scale: 1, y: 0 }}`, same values on `exit`, `duration: 0.2, ease: "easeOut"`. framer-motion drops the transform at rest, so the settled position is unchanged.
+  - Portal modals: keep `AnimatePresence` inside `createPortal` and render the portal even while closed.
+  - No CSS `transition-*` / `animate-*` classes on motion elements (they fight the inline animation).
 
 Example root + backdrop + panel:
 - Root (centered): `fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`
@@ -101,7 +105,7 @@ See [`finance-registers.md`](./finance-registers.md) for shell, actions, and `pa
 | `AttendanceModal` | Header profile → Attendance | Punch/break timeline, branch banner, swipe-to-confirm |
 | `AttendanceMarkModal` | Staff Attendance page manage icon | Absent / Present / Half Day / Leave; Present uses `Timepicker` |
 
-- Pattern: centered shell, fade-only, fixed header/footer, scrollable body (same checklist below).
+- Pattern: centered shell, animated open/close, fixed header/footer, scrollable body (same checklist below).
 - **No backdrop close** — X or ESC only (ESC cancels pending swipe confirm first on personal modal).
 - Manage mark: [`AttendanceMarkModal`](../src/components/Modals/AttendanceMarkModal.jsx); times: [`Timepicker`](../src/components/Timepicker.js).
 - `Timepicker` is a centered focus modal with blurred backdrop, AM/PM toggle, smooth `Now` auto-scroll, and fixed footer actions (`Now`, `Clear`, `Apply`).
@@ -114,7 +118,7 @@ See [`finance-registers.md`](./finance-registers.md) for shell, actions, and `pa
 | `PayslipPreviewModal` | Staff profile → Payslip tab | Preview payable amount; confirm generate / regenerate ledger |
 | `BonusFineModal` | Staff profile → Bonus/Fine tab | Create / edit / delete month-scoped bonus or fine |
 
-- Centered shell, fade-only, fixed header/footer, scrollable body.
+- Centered shell, animated open/close, fixed header/footer, scrollable body.
 - Backdrop click + ESC close (blocked while generating/saving).
 - Files: [`PayslipPreviewModal.jsx`](../src/components/Modals/PayslipPreviewModal.jsx), [`BonusFineModal.jsx`](../src/components/Modals/BonusFineModal.jsx). See [`salary.md`](./salary.md).
 

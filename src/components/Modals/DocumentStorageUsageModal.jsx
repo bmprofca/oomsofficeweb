@@ -143,17 +143,19 @@ const DocumentStorageUsageModal = ({
   const barColor =
     usedPercent >= 90 ? "bg-rose-500" : usedPercent >= 70 ? "bg-amber-500" : "bg-emerald-500";
 
-  if (!open) return null;
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <AnimatePresence>
+      {open && (
       <motion.div
+        key="document-storage-usage-modal"
         className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        <button
+        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
           type="button"
           aria-label="Close storage usage modal"
           className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
@@ -344,6 +346,7 @@ const DocumentStorageUsageModal = ({
           </div>
         </motion.div>
       </motion.div>
+      )}
     </AnimatePresence>,
     document.body
   );

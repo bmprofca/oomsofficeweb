@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { FiBarChart2, FiX } from 'react-icons/fi';
 import { DatePickerField } from './PortalDatePicker';
 
@@ -14,8 +14,6 @@ const OpeningBalanceModal = ({
     onSubmit,
     formatCurrency,
 }) => {
-    if (!isOpen) return null;
-
     const sanitizeAmountInput = (value) => {
         const normalized = String(value ?? '').replace(/,/g, '.').replace(/[^\d.]/g, '');
         const [whole = '', ...rest] = normalized.split('.');
@@ -25,7 +23,14 @@ const OpeningBalanceModal = ({
     };
 
     return (
-        <div
+        <AnimatePresence>
+            {isOpen && (
+        <motion.div
+            key="opening-balance-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-start justify-center p-3 sm:p-4 overflow-y-auto"
             onMouseDown={(e) => {
                 if (e.target === e.currentTarget) onClose?.();
@@ -34,6 +39,8 @@ const OpeningBalanceModal = ({
             <motion.div
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
                 className="relative w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -148,7 +155,9 @@ const OpeningBalanceModal = ({
                     </form>
                 )}
             </motion.div>
-        </div>
+        </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
 

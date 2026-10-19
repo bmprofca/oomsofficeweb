@@ -244,7 +244,9 @@ const StatusChangeModal = ({
   statusOptions,
 }) => {
   const [selectedStatus, setSelectedStatus] = useState(currentStatus);
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) setSelectedStatus(currentStatus);
+  }, [isOpen, currentStatus]);
   const getStatusColor = (status) => {
     switch (status) {
       case "ACTIVE":
@@ -1978,7 +1980,7 @@ const ViewClients = () => {
       );
     });
     return (
-      <AnimatePresence>
+      <AnimatePresence propagate>
         {settingsModalOpen && (
           <motion.div
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -2562,7 +2564,9 @@ const ViewClients = () => {
         )}
 
       {/* Modals */}
-      <SettingsModal />
+      <AnimatePresence>
+        {settingsModalOpen && <SettingsModal key="settings-modal" />}
+      </AnimatePresence>
       <ClientPaymentReminderModal
         isOpen={clientPaymentReminder.open}
         onClose={closeClientPaymentReminderModal}

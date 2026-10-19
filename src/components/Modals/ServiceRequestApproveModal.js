@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { FiArrowRight, FiSearch, FiX } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import API_BASE_URL from '../../utils/api-controller';
@@ -127,27 +127,30 @@ export default function ServiceRequestApproveModal({ isOpen, request, onClose, o
         }
     };
 
-    if (!isOpen || !request) return null;
-
-    const client = request.client || {};
-    const firm = request.firm || {};
-    const service = request.service || {};
+    const client = request?.client || {};
+    const firm = request?.firm || {};
+    const service = request?.service || {};
 
     return (
+        <AnimatePresence>
+            {isOpen && request && (
         <motion.div
+            key="service-request-approve-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[70] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
         >
-            <div
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                 onClick={() => !submitting && onClose?.()}
             />
             <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
                 className="relative z-[1] pointer-events-auto w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -330,5 +333,7 @@ export default function ServiceRequestApproveModal({ isOpen, request, onClose, o
                 </form>
             </motion.div>
         </motion.div>
+            )}
+        </AnimatePresence>
     );
 }

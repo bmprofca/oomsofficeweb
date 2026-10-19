@@ -1716,6 +1716,7 @@ const QuotationTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {statusConfirmState.open && (
                     <motion.div
+                        key="quotation-reject-confirm"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -1762,6 +1763,7 @@ const QuotationTab = ({ clientUsername }) => {
                     </motion.div>
                 )}
                 <QuotationApproveModal
+                    key="quotation-approve-modal"
                     isOpen={approveModalState.open}
                     quotation={approveModalState.quotation}
                     onClose={() => setApproveModalState({ open: false, quotation: null })}
@@ -1769,6 +1771,7 @@ const QuotationTab = ({ clientUsername }) => {
                 />
                 {showCreateModal && (
                     <motion.div
+                        key="quotation-create-modal"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -1912,6 +1915,7 @@ const QuotationTab = ({ clientUsername }) => {
                 )}
                 {showEditModal && (
                     <motion.div
+                        key="quotation-edit-modal"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -2100,6 +2104,7 @@ const QuotationTab = ({ clientUsername }) => {
                 )}
                 {showDetailsModal && activeQuotation && (
                     <QuotationDetailsModal
+                        key="quotation-details-modal"
                         quotation={activeQuotation}
                         onClose={() => {
                             setShowDetailsModal(false);
@@ -2109,6 +2114,7 @@ const QuotationTab = ({ clientUsername }) => {
                 )}
                 {showItemsModal && activeQuotation && (
                     <QuotationItemsModal
+                        key="quotation-items-modal"
                         quotation={activeQuotation}
                         onClose={() => {
                             setShowItemsModal(false);
@@ -2118,6 +2124,7 @@ const QuotationTab = ({ clientUsername }) => {
                 )}
                 {showShareModal && activeQuotation && (
                     <motion.div
+                        key="quotation-share-modal"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}

@@ -1219,14 +1219,22 @@ const PasswordTab = ({ clientUsername }) => {
                 )}
             </div>
 
+            <AnimatePresence>
             {showAddModal && (
-                <div
+                <motion.div
+                    key="add-password-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                     className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
                     onClick={() => setShowAddModal(false)}
                 >
                                         <motion.div
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -1411,17 +1419,26 @@ const PasswordTab = ({ clientUsername }) => {
                             </div>
                         </form>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
+            <AnimatePresence>
             {showEditModal && selectedRow && (
-                <div
+                <motion.div
+                    key="edit-password-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                     className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
                     onClick={() => setShowEditModal(false)}
                 >
                     <motion.div
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -1510,14 +1527,26 @@ const PasswordTab = ({ clientUsername }) => {
                         </div>
                         </form>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
+            <AnimatePresence>
             {deleteConfirmOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeDeleteModal}>
+                <motion.div
+                    key="delete-password-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+                    onClick={closeDeleteModal}
+                >
                     <motion.div
                         initial={{ scale: 0.95, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -1564,8 +1593,9 @@ const PasswordTab = ({ clientUsername }) => {
                             </button>
                         </div>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             <AnimatePresence>
                 {showViewModal && viewModalCredential && (

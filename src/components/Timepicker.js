@@ -186,10 +186,10 @@ export default function Timepicker({
                   key="timepicker-panel"
                   ref={panelRef}
                   data-timepicker-portal="true"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
                   style={{ width: panelPos.width }}
                   className="pointer-events-auto flex max-h-[calc(100vh-16px)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10"
                 >

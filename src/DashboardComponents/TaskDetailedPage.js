@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   FiAlertCircle,
   FiArrowLeft,
@@ -1607,12 +1607,15 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
         statusOptions={STATUS_OPTIONS}
       />
 
-      {deleteModal ? (
-        <DeleteConfirmationModal
-          title="Task Delete"
-          onConfirm={() => setDeleteModal(false)}
-        />
-      ) : null}
+      <AnimatePresence>
+        {deleteModal ? (
+          <DeleteConfirmationModal
+            key="task-delete-modal"
+            title="Task Delete"
+            onConfirm={() => setDeleteModal(false)}
+          />
+        ) : null}
+      </AnimatePresence>
 
       {rowActionTask &&
         typeof document !== 'undefined' &&

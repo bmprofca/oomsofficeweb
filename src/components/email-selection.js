@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const EmailSelectionModal = ({ isOpen, onClose, onSubmit }) => {
     const [activeTab, setActiveTab] = useState('predefined');
@@ -59,14 +60,14 @@ const EmailSelectionModal = ({ isOpen, onClose, onSubmit }) => {
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div
+        <AnimatePresence>
+        {isOpen && (
+        <motion.div key="email-selection-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
             onClick={handleOverlayClick}
         >
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden">
                 <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
                     <h2 className="text-xl font-semibold text-gray-800">Select Email</h2>
                     <button
@@ -164,8 +165,10 @@ const EmailSelectionModal = ({ isOpen, onClose, onSubmit }) => {
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 

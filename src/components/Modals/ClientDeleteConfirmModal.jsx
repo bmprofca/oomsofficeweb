@@ -69,7 +69,7 @@ export default function ClientDeleteConfirmModal({
           transition={{ duration: 0.15 }}
           className="fixed inset-0 z-[210] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
         >
-          <button
+          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             type="button"
             className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
             aria-label="Close"
@@ -81,10 +81,10 @@ export default function ClientDeleteConfirmModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="client-delete-title"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
             className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >

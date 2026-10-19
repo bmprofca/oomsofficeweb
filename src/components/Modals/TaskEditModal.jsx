@@ -208,7 +208,7 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                 >
-                    <button
+                    <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                         type="button"
                         aria-label="Close dialog"
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
@@ -219,10 +219,10 @@ export default function TaskEditModal({ isOpen, onClose, taskId, taskData, onSav
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="task-edit-modal-title"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
+                        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                         className="relative z-[1] pointer-events-auto my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:my-4 sm:max-h-[calc(100vh-2rem)]"
                         onClick={(e) => e.stopPropagation()}
                     >

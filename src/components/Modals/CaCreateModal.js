@@ -194,11 +194,10 @@ export default function CaCreateModal({ isOpen, onClose, onSuccess }) {
         }
     };
 
-    if (!isOpen) return null;
-
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[10050] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+            {isOpen && (
+            <div key="ca-create-modal" className="fixed inset-0 z-[10050] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -207,9 +206,10 @@ export default function CaCreateModal({ isOpen, onClose, onSuccess }) {
                     onClick={handleClose}
                 />
                 <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96, y: 8 }}
                     className="relative z-[1] pointer-events-auto bg-white rounded-xl shadow-xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col border border-slate-200"
                     onClick={(e) => e.stopPropagation()}
                 >
@@ -567,6 +567,7 @@ export default function CaCreateModal({ isOpen, onClose, onSuccess }) {
                     </form>
                 </motion.div>
             </div>
+            )}
         </AnimatePresence>
     );
 }

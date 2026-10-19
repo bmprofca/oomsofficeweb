@@ -1061,16 +1061,17 @@ const Fast2SmsTemplates = () => {
 
       {typeof document !== "undefined" &&
         createPortal(
-          setMappingItem ? (
-            <div className="fixed inset-0 z-[210] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-              <button
+          <AnimatePresence>
+          {setMappingItem ? (
+            <motion.div key="sms-template-mapping" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[210] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+              <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                 type="button"
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                 aria-label="Close"
                 onClick={pickerSaving ? undefined : closePicker}
                 disabled={pickerSaving}
               />
-              <div
+              <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: "easeOut" }}
                 role="dialog"
                 aria-modal="true"
                 className="relative z-[1] pointer-events-auto my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:my-4 sm:max-h-[calc(100vh-2rem)]"
@@ -1247,24 +1248,26 @@ const Fast2SmsTemplates = () => {
                     </button>
                   ) : null}
                 </div>
-              </div>
-            </div>
-          ) : null,
+              </motion.div>
+            </motion.div>
+          ) : null}
+          </AnimatePresence>,
           document.body,
         )}
 
       {typeof document !== "undefined" &&
         createPortal(
-          showForm ? (
-            <div className="fixed inset-0 z-[210] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-              <button
+          <AnimatePresence>
+          {showForm ? (
+            <motion.div key="sms-template-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[210] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+              <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                 type="button"
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                 aria-label="Close"
                 onClick={formSaving ? undefined : () => setShowForm(false)}
                 disabled={formSaving}
               />
-              <div
+              <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: "easeOut" }}
                 role="dialog"
                 aria-modal="true"
                 className="relative z-[1] pointer-events-auto my-2 flex max-h-[calc(100vh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:my-4 sm:max-h-[calc(100vh-2rem)]"
@@ -1400,9 +1403,10 @@ const Fast2SmsTemplates = () => {
                     </button>
                   </div>
                 </form>
-              </div>
-            </div>
-          ) : null,
+              </motion.div>
+            </motion.div>
+          ) : null}
+          </AnimatePresence>,
           document.body,
         )}
     </div>

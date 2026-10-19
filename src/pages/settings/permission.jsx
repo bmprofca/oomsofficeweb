@@ -19,7 +19,7 @@ import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
@@ -729,16 +729,30 @@ const PermissionList = () => {
             </div>
 
             {/* Create Permission Modal */}
+            <AnimatePresence>
             {showCreateModal && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                <motion.div
+                    key="create-permission-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
+                >
                     {/* Backdrop */}
-                    <div 
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} 
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                         onClick={() => setShowCreateModal(false)}
                     />
                     
                     {/* Modal Panel */}
-                    <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                    >
                         <div className="bg-indigo-600 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold">Create New Permission</h2>
@@ -904,21 +918,36 @@ const PermissionList = () => {
                                 </motion.button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Edit Permission Modal */}
+            <AnimatePresence>
             {showEditModal && selectedPermission && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                <motion.div
+                    key="edit-permission-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
+                >
                     {/* Backdrop */}
-                    <div 
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} 
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                         onClick={() => setShowEditModal(false)}
                     />
                     
                     {/* Modal Panel */}
-                    <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                    >
                         <div className="bg-indigo-600 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold">Edit Permission</h2>
@@ -1084,14 +1113,29 @@ const PermissionList = () => {
                                 </motion.button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Export Confirmation Modal */}
+            <AnimatePresence>
             {exportModal.open && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto transform transition-all duration-300">
+                <motion.div
+                    key="export-confirm-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto transform transition-all duration-300"
+                    >
                         <div className="text-center">
                             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <PiExportBold className="w-8 h-8 text-green-600" />
@@ -1108,12 +1152,15 @@ const PermissionList = () => {
                                 <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
+            <AnimatePresence>
             {deleteModal && selectedPermission && (
                 <DeleteConfirmationModal
+                    key="delete-permission-modal"
                     title={`Delete ${selectedPermission.name}`}
                     message={`Are you sure you want to delete the "${selectedPermission.name}" permission? This action cannot be undone and may affect users with this permission level.`}
                     onConfirm={(res) => {
@@ -1124,6 +1171,7 @@ const PermissionList = () => {
                     }}
                 />
             )}
+            </AnimatePresence>
         </div>
     );
 };

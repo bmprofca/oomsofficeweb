@@ -377,11 +377,11 @@ const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearc
 
 // Client Details Modal
 const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
-    if (!isOpen) return null;
     return (
         <AnimatePresence>
             {isOpen && (
                 <motion.div
+                    key="client-details-modal"
                     className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -2055,7 +2055,9 @@ const TaskDisplay = () => {
                 loading={clientModal.loading}
             />
 
-            {deleteModal && <DeleteConfirmationModal title="Task Delete" onConfirm={(res) => { setDeleteModal(false); console.log("Confirmed:", res); }} />}
+            <AnimatePresence>
+                {deleteModal && <DeleteConfirmationModal key="task-delete-modal" title="Task Delete" onConfirm={(res) => { setDeleteModal(false); console.log("Confirmed:", res); }} />}
+            </AnimatePresence>
 
             {/* Export dialog */}
             <ExportDialog

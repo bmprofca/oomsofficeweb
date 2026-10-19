@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { FiPhone, FiPhoneCall } from "react-icons/fi";
 import toast from "react-hot-toast";
 import ConfirmActionModal from "../ConfirmActionModal";
@@ -186,9 +187,16 @@ export function ClientListCallButton({
         <FiPhoneCall className="h-3.5 w-3.5" />
       </button>
 
-      {chooserOpen
+      {typeof document !== "undefined"
         ? createPortal(
-            <div
+            <AnimatePresence>
+            {chooserOpen && (
+            <motion.div
+              key="click-to-call-chooser"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/50 p-4"
               role="presentation"
               onMouseDown={(event) => {
@@ -198,7 +206,11 @@ export function ClientListCallButton({
                 if (event.key === "Escape") closeChooser();
               }}
             >
-              <section
+              <motion.section
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
                 className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
                 role="dialog"
                 aria-modal="true"
@@ -274,8 +286,10 @@ export function ClientListCallButton({
                     Cancel
                   </button>
                 </div>
-              </section>
-            </div>,
+              </motion.section>
+            </motion.div>
+            )}
+            </AnimatePresence>,
             document.body,
           )
         : null}

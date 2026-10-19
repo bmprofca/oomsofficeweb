@@ -87,7 +87,7 @@ function ExpenseModalFrame({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <AnimatePresence>
+    <AnimatePresence propagate>
       {isOpen ? (
         <motion.div
           key={titleId}
@@ -1549,10 +1549,11 @@ const ExpenseTab = ({
       ) : null}
       <AnimatePresence>
         {canVerify && showVerifyModal ? (
-          <AdminVerifyModal expense={showVerifyModal} onClose={() => setShowVerifyModal(null)} onVerify={handleVerifyExpense} />
+          <AdminVerifyModal key="verify-expense-modal" expense={showVerifyModal} onClose={() => setShowVerifyModal(null)} onVerify={handleVerifyExpense} />
         ) : null}
         {showViewModal ? (
           <ViewExpenseModal
+            key="view-expense-modal"
             expense={showViewModal}
             onClose={() => setShowViewModal(null)}
             onOpenAttachment={(data) => {
@@ -1563,6 +1564,7 @@ const ExpenseTab = ({
         ) : null}
         {showPreviewModal ? (
           <PreviewAttachmentModal
+            key="preview-attachment-modal"
             url={previewData.url}
             base64={previewData.base64}
             onClose={() => setShowPreviewModal(false)}

@@ -699,8 +699,6 @@ const ConfirmModal = ({
   onConfirm,
   onCancel,
 }) => {
-  if (!open) return null;
-
   const tones = {
     danger: {
       wrap: "bg-red-100",
@@ -726,7 +724,14 @@ const ConfirmModal = ({
   const palette = tones[tone] || tones.indigo;
 
   return createPortal(
-    <div
+    <AnimatePresence>
+      {open && (
+    <motion.div
+      key="auto-reminder-confirm-modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 z-[10090] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
       onClick={onCancel}
     >
@@ -775,7 +780,9 @@ const ConfirmModal = ({
           </button>
         </div>
       </motion.div>
-    </div>,
+    </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 };
@@ -1895,14 +1902,15 @@ const AutoReminder = () => {
             exit={{ opacity: 0 }}
             className="pointer-events-none fixed inset-0 z-[10080] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4"
           >
-            <div
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
               className="pointer-events-auto absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => !saving && setShowAddModal(false)}
             />
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
               className="pointer-events-auto relative z-[1] flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100vh-2rem)]"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2137,14 +2145,15 @@ const AutoReminder = () => {
             exit={{ opacity: 0 }}
             className="pointer-events-none fixed inset-0 z-[10080] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4"
           >
-            <div
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
               className="pointer-events-auto absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => !saving && setShowEditModal(false)}
             />
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
               className="pointer-events-auto relative z-[1] flex max-h-[calc(100vh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >

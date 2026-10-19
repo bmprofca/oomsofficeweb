@@ -47,8 +47,7 @@ const DetailsSkeleton = () => (
 );
 
 const CapitalAccountDetailsModal = ({ isOpen, onClose, account, loading = false, formatCurrency }) => {
-    if (!isOpen) return null;
-
+    // No early return when closed: CapitalModalShell needs to stay mounted to animate out.
     const balance = Number(account?.balance) || 0;
     const isNegativeBalance = balance < 0;
     const displayBalance = Math.abs(balance);

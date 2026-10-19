@@ -38,7 +38,7 @@ export default function DscDetailsModal({ open, dsc, onClose, onEdit }) {
           transition={{ duration: 0.15 }}
           className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
         >
-          <button
+          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             type="button"
             className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
             aria-label="Close"

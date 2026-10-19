@@ -196,11 +196,11 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
         { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
     ];
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+        <AnimatePresence>
+        {isOpen && (
+        <motion.div key="inline-export-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
                 {/* Header */}
                 <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
@@ -306,8 +306,10 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                         Cancel
                     </button>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 
@@ -439,9 +441,10 @@ const ModalContent = React.memo(({
 
             {/* Modal panel: fixed stacking; scrolling only inside body */}
             <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
                 role="dialog"
                 aria-modal="true"
                 className="relative z-[1] pointer-events-auto w-full max-w-4xl my-2 sm:my-4 flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] overscroll-none"
@@ -710,9 +713,10 @@ const DeleteModal = React.memo(({ isOpen, onClose, onConfirm, bank, loading }) =
             />
 
             <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
                 className="relative z-[1] pointer-events-auto w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 overscroll-none"
                 role="dialog"
                 aria-modal="true"
@@ -1767,6 +1771,7 @@ const BankList = () => {
             <AnimatePresence>
                 {showAddModal && (
                     <ModalContent
+                        key="add-bank-modal"
                         isOpen={showAddModal}
                         onClose={() => setShowAddModal(false)}
                         onSubmit={handleCreateBank}
@@ -1783,6 +1788,7 @@ const BankList = () => {
 
                 {showEditModal && (
                     <ModalContent
+                        key="edit-bank-modal"
                         isOpen={showEditModal}
                         onClose={() => setShowEditModal(false)}
                         onSubmit={handleEditBank}
@@ -1799,6 +1805,7 @@ const BankList = () => {
 
                 {showDeleteModal && (
                     <DeleteModal
+                        key="delete-bank-modal"
                         isOpen={showDeleteModal}
                         onClose={() => {
                             setShowDeleteModal(false);
@@ -1812,6 +1819,7 @@ const BankList = () => {
 
                 {/* Inline Export Modal */}
                 <InlineExportModal
+                    key="bank-export-modal"
                     isOpen={exportModalOpen}
                     onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
                     exportData={exportData}
@@ -1822,6 +1830,7 @@ const BankList = () => {
                 {/* Export Confirmation Modal */}
                 {exportModal.open && (
                     <motion.div
+                        key="bank-export-progress"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}

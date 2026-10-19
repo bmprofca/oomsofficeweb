@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { FiCheck, FiPlus, FiSearch, FiX } from 'react-icons/fi';
 
 /**
@@ -28,30 +28,58 @@ export function WizardModal({ isOpen, onClose, labelledBy, children, maxWidth = 
         return () => window.removeEventListener('keydown', onKey);
     }, [isOpen, closeOnEsc, onClose]);
 
-    // Enter animation only: closing is instant, so the modal can never get stuck
-    // half-closed if animation frames are paused (background tab, hidden pane).
-    if (!isOpen) return null;
+    // Animated open and close. A closing layer never takes clicks, and the portal is
+    // dropped after a fallback timeout even if animation frames are paused (background
+    // tab, hidden pane), so the modal can never get stuck half-closed over the page.
+    const [portalMounted, setPortalMounted] = useState(Boolean(isOpen));
+    const isOpenRef = useRef(isOpen);
+    isOpenRef.current = isOpen;
+
+    useEffect(() => {
+        if (isOpen) {
+            setPortalMounted(true);
+            return undefined;
+        }
+        const t = window.setTimeout(() => {
+            if (!isOpenRef.current) setPortalMounted(false);
+        }, 320);
+        return () => window.clearTimeout(t);
+    }, [isOpen]);
+
+    if (!portalMounted || typeof document === 'undefined') return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[220] flex items-stretch justify-center sm:items-center sm:p-4 lg:p-6">
-            <motion.div
-                className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.18 }}
-                aria-hidden
-            />
-            <motion.div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={labelledBy}
-                className={`relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-pop sm:h-[min(92vh,900px)] sm:rounded-2xl sm:border sm:border-slate-200 ${maxWidth}`}
-                initial={{ opacity: 0, y: 18, scale: 0.99 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-                {children}
-            </motion.div>
+        <div className={isOpen ? undefined : 'pointer-events-none'}>
+        <AnimatePresence
+            onExitComplete={() => {
+                if (!isOpenRef.current) setPortalMounted(false);
+            }}
+        >
+            {isOpen ? (
+                <div key="wizard-modal" className="fixed inset-0 z-[220] flex items-stretch justify-center sm:items-center sm:p-4 lg:p-6">
+                    <motion.div
+                        className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        aria-hidden
+                    />
+                    <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={labelledBy}
+                        className={`relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-pop sm:h-[min(92vh,900px)] sm:rounded-2xl sm:border sm:border-slate-200 ${maxWidth}`}
+                        initial={{ opacity: 0, y: 18, scale: 0.99 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 18, scale: 0.99 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                    >
+                        {children}
+                    </motion.div>
+                </div>
+            ) : null}
+        </AnimatePresence>
         </div>,
         document.body
     );

@@ -918,11 +918,11 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
         </>
     );
 
-    if (!isOpen) return null;
-
     return (
         <AnimatePresence>
+            {isOpen && (
             <motion.div
+                key="branch-setup-modal"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -966,6 +966,7 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                     {mode === 'accept' && renderAcceptInvitation()}
                 </motion.div>
             </motion.div>
+            )}
         </AnimatePresence>
     );
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, usePresence } from 'framer-motion';
 import {
     FiBriefcase,
     FiDownload,
@@ -128,29 +128,36 @@ const ViewModalShell = ({
     children,
     zIndexClass = 'z-[10050]',
 }) => {
-    const [portalMounted, setPortalMounted] = useState(Boolean(isOpen));
-    const isOpenRef = useRef(isOpen);
-    isOpenRef.current = isOpen;
+    // When a parent unmounts this shell inside its own <AnimatePresence>, treat that as a close
+    // so the exit animation still runs before the parent removes it.
+    const [isPresent, safeToRemove] = usePresence();
+    const open = Boolean(isOpen) && isPresent;
+    const [portalMounted, setPortalMounted] = useState(open);
+    const isOpenRef = useRef(open);
+    isOpenRef.current = open;
 
     useEffect(() => {
-        if (isOpen) {
+        if (open) {
             setPortalMounted(true);
             return undefined;
         }
         const t = window.setTimeout(() => {
-            if (!isOpenRef.current) setPortalMounted(false);
+            if (!isOpenRef.current) {
+                setPortalMounted(false);
+                if (!isPresent) safeToRemove?.();
+            }
         }, 320);
         return () => window.clearTimeout(t);
-    }, [isOpen]);
+    }, [open, isPresent, safeToRemove]);
 
     useEffect(() => {
-        if (!isOpen) return undefined;
+        if (!open) return undefined;
         const onKey = (e) => {
             if (e.key === 'Escape') onClose?.();
         };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [isOpen, onClose]);
+    }, [open, onClose]);
 
     if (!portalMounted || typeof document === 'undefined') return null;
 
@@ -158,9 +165,10 @@ const ViewModalShell = ({
         <AnimatePresence
             onExitComplete={() => {
                 if (!isOpenRef.current) setPortalMounted(false);
+                if (!isPresent) safeToRemove?.();
             }}
         >
-            {isOpen ? (
+            {open ? (
                 <motion.div
                     key="view-tx-overlay"
                     initial={{ opacity: 0 }}
@@ -169,16 +177,16 @@ const ViewModalShell = ({
                     transition={{ duration: 0.15 }}
                     className={`fixed inset-0 ${zIndexClass} flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`}
                 >
-                    <div
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                         className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm pointer-events-auto"
                         onClick={onClose}
                         aria-hidden
                     />
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
+                        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                         role="dialog"
                         aria-modal="true"
                         aria-label={typeof title === 'string' ? title : 'Details'}
@@ -528,7 +536,7 @@ export const isTaskOriginSale = (sale) =>
  */
 export const SaleDetailsModal = ({
     isOpen,
-    record,
+    record: recordProp,
     onClose,
     formatCurrency: formatCurrencyProp,
     onEdit,
@@ -537,7 +545,11 @@ export const SaleDetailsModal = ({
     onShare,
     isDownloading = false,
 }) => {
-    if (!isOpen || !record) return null;
+    // Keep the last record so the shell can play its exit animation after the parent clears it.
+    const lastRecordRef = useRef(recordProp);
+    if (recordProp) lastRecordRef.current = recordProp;
+    const record = recordProp || lastRecordRef.current;
+    if (!record) return null;
 
     const formatMoney = formatCurrencyProp || defaultFormatCurrency;
     const partyDetails = getSalePartyDetails(record);
@@ -561,7 +573,7 @@ export const SaleDetailsModal = ({
 
     return (
         <ViewModalShell
-            isOpen={isOpen}
+            isOpen={Boolean(isOpen && recordProp)}
             onClose={onClose}
             title="Sale Details"
             subtitle={record.invoice_no ? `Invoice ${record.invoice_no}` : null}
@@ -759,7 +771,7 @@ export const resolvePurchaseTaskId = (purchase) => {
 
 export const PurchaseDetailsModal = ({
     isOpen,
-    record,
+    record: recordProp,
     onClose,
     formatCurrency: formatCurrencyProp,
     onEdit,
@@ -768,7 +780,11 @@ export const PurchaseDetailsModal = ({
     onShare,
     isDownloading = false,
 }) => {
-    if (!isOpen || !record) return null;
+    // Keep the last record so the shell can play its exit animation after the parent clears it.
+    const lastRecordRef = useRef(recordProp);
+    if (recordProp) lastRecordRef.current = recordProp;
+    const record = recordProp || lastRecordRef.current;
+    if (!record) return null;
 
     const formatMoney = formatCurrencyProp || defaultFormatCurrency;
     const calculation = record.calculation || {};
@@ -814,7 +830,7 @@ export const PurchaseDetailsModal = ({
 
     return (
         <ViewModalShell
-            isOpen={isOpen}
+            isOpen={Boolean(isOpen && recordProp)}
             onClose={onClose}
             title="Purchase Details"
             subtitle={record.invoice_no ? `Invoice ${record.invoice_no}` : null}
@@ -987,7 +1003,8 @@ export const ViewTransactionModalManager = ({
     const typeKey = String(modalType || '').trim().toUpperCase();
 
     if (typeKey) {
-        if (!isOpen || !record) return null;
+        // SALE / PURCHASE stay mounted while closed so their exit animation can run.
+        if ((!isOpen || !record) && typeKey !== 'SALE' && typeKey !== 'PURCHASE') return null;
 
         switch (typeKey) {
             case 'SALE':

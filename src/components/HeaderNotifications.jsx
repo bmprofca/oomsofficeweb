@@ -16,6 +16,7 @@ import {
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import ConfirmActionModal from "./ConfirmActionModal";
+import { useNavCachedState } from "../utils/navValueCache";
 
 const POLL_MS = 60000;
 const RELATIVE_TIME_TICK_MS = 30000;
@@ -74,9 +75,10 @@ export default function HeaderNotifications({
   const [busyId, setBusyId] = useState(null);
   const [markingAll, setMarkingAll] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [items, setItems] = useState([]);
+  // Cached per user + branch: badge and list paint instantly, then the live fetch replaces them.
+  const [unreadCount, setUnreadCount] = useNavCachedState("notifications_unread", 0);
+  const [total, setTotal] = useNavCachedState("notifications_total", 0);
+  const [items, setItems] = useNavCachedState("notifications_items", []);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [confirmState, setConfirmState] = useState(null);

@@ -238,15 +238,16 @@ const PaymentDetailsModal = ({ isOpen, record, onClose, formatCurrency, onEdit, 
                     exit={{ opacity: 0 }}
                     className="fixed inset-0 z-[10050] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
                 >
-                    <div
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
                         onClick={onClose}
                         aria-hidden
                     />
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: 8 }}
                         role="dialog"
                         aria-modal="true"
                         className="relative z-[1] pointer-events-auto my-2 flex w-full max-w-lg max-h-[min(calc(100vh-1.5rem),100dvh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:my-4 sm:max-h-[min(calc(100vh-2rem),100dvh)]"
@@ -480,11 +481,24 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
         { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
     ];
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    key="inline-export-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4"
+                >
+            <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden"
+            >
                 <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -584,8 +598,10 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                         Cancel
                     </button>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
 

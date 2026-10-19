@@ -725,10 +725,10 @@ const AttendanceModal = ({ isOpen, onClose, branchName, branchId }) => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="attendance-modal-title"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
             className="relative z-[1] pointer-events-auto flex w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
           >
             <header className="shrink-0 border-b border-slate-100 px-5 py-3.5">

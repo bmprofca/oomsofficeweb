@@ -529,13 +529,15 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
         }
     };
 
-    if (!isOpen || !quotation) return null;
-
     return (
+        <AnimatePresence>
+            {isOpen && quotation && (
         <motion.div
+            key="quotation-approve-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 bg-black/50 flex items-start justify-center p-2 sm:p-3 z-[60] backdrop-blur-sm overflow-y-auto"
             onClick={() => {
                 if (submitting) return;
@@ -1009,6 +1011,8 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                 </form>
             </motion.div>
         </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
 

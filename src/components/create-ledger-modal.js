@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiPlus, FiX } from 'react-icons/fi';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
     const [formData, setFormData] = useState({
@@ -75,11 +76,11 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
         onClose();
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col" style={{ height: '90vh' }}>
+        <AnimatePresence>
+        {isOpen && (
+        <motion.div key="create-ledger-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col" style={{ height: '90vh' }}>
                 {/* Header - Fixed */}
                 <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-white flex-shrink-0 rounded-t-xl">
                     <div>
@@ -299,8 +300,10 @@ const CreateLedgerModal = ({ isOpen, onClose, onSave }) => {
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 

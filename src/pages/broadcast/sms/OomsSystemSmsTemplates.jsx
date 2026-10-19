@@ -111,7 +111,7 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
   };
 
   return createPortal(
-    <AnimatePresence>
+    <AnimatePresence propagate>
       <motion.div
         key="sms-system-picker"
         initial={{ opacity: 0 }}
@@ -120,7 +120,7 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
         transition={{ duration: 0.18 }}
         className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
       >
-        <button
+        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
           type="button"
           className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
           aria-label="Close"
@@ -130,10 +130,10 @@ function SmsSystemPickerModal({ activityType, currentId, onClose, onSaved }) {
         <motion.div
           role="dialog"
           aria-modal="true"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 8 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
           className="relative z-[1] pointer-events-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
           onClick={(e) => e.stopPropagation()}
         >
@@ -622,6 +622,7 @@ const OomsSystemSmsTemplates = () => {
       <AnimatePresence>
         {pickerType ? (
           <SmsSystemPickerModal
+            key="sms-system-picker-modal"
             activityType={pickerType}
             currentId={
               rows.find((r) => r.type === pickerType)?.sms_template_id || ""

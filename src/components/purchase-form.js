@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { IoTrash } from "react-icons/io5";
+import { AnimatePresence, motion } from 'framer-motion';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 
@@ -913,19 +914,23 @@ const PurchaseForm = ({
     );
 
     if (mode === 'modal') {
-        return isOpen ? (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
+        return (
+            <AnimatePresence>
+            {isOpen && (
+            <motion.div key="purchase-form-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-50 overflow-y-auto">
                 <div className="flex items-center justify-center min-h-screen p-2 sm:p-4">
-                    <div
-                        className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity"
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+                        className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm"
                         onClick={onClose}
                     />
-                    <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col transform transition-all duration-300 scale-100">
+                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col scale-100">
                         {formContent}
-                    </div>
+                    </motion.div>
                 </div>
-            </div>
-        ) : null;
+            </motion.div>
+            )}
+            </AnimatePresence>
+        );
     }
 
     return formContent;

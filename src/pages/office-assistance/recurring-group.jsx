@@ -1006,8 +1006,16 @@ const RecurringGroups = () => {
             </div>
 
             {/* Create Group Modal */}
+            <AnimatePresence>
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <motion.div
+                    key="create-group-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -1107,12 +1115,21 @@ const RecurringGroups = () => {
                             </form>
                         </div>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Edit Group Modal */}
+            <AnimatePresence>
             {showEditModal && selectedGroup && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <motion.div
+                    key="edit-group-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -1225,8 +1242,9 @@ const RecurringGroups = () => {
                             </form>
                         </div>
                     </motion.div>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
         </div>
     );
 };

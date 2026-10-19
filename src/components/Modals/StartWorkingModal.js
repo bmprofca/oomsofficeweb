@@ -137,7 +137,7 @@ const StartWorkingModal = ({
           className="fixed inset-0 z-[1100] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
         >
           {/* Static backdrop — no blur / opacity motion (avoids GPU + scroll-lock flicker) */}
-          <div
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             className="absolute inset-0 bg-slate-900/55 pointer-events-auto"
             onClick={handleOverlayClick}
             aria-hidden="true"

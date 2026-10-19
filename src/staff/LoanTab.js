@@ -59,7 +59,12 @@ const SkeletonRow = () => (
 const DetailsModal = ({ entry, onClose }) => {
     if (!entry) return null;
     return (
-        <div
+        <motion.div
+            key="loan-details-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
             onClick={onClose}
         >
@@ -152,7 +157,7 @@ const DetailsModal = ({ entry, onClose }) => {
                     </button>
                 </div>
             </motion.div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -232,7 +237,12 @@ const EditModal = ({ entry, username, onClose, onSuccess }) => {
     };
 
     return (
-        <div
+        <motion.div
+            key="edit-loan-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
             onClick={onClose}
         >
@@ -345,7 +355,7 @@ const EditModal = ({ entry, username, onClose, onSuccess }) => {
                     </div>
                 </form>
             </motion.div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -399,7 +409,12 @@ const CreateEntryModal = ({ loanType, username, onClose, onSuccess }) => {
     };
 
     return (
-        <div
+        <motion.div
+            key="create-entry-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[10050] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
             onClick={onClose}
         >
@@ -502,7 +517,7 @@ const CreateEntryModal = ({ loanType, username, onClose, onSuccess }) => {
                     </div>
                 </form>
             </motion.div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -1015,27 +1030,35 @@ const LoanTab = ({ username, readOnly = false }) => {
             </motion.div>
 
             {/* Details modal */}
-            {activeEntry && <DetailsModal entry={activeEntry} onClose={() => setActiveEntry(null)} />}
+            <AnimatePresence>
+                {activeEntry && <DetailsModal key="loan-details-modal" entry={activeEntry} onClose={() => setActiveEntry(null)} />}
+            </AnimatePresence>
 
             {/* Edit modal */}
+            <AnimatePresence>
             {!readOnly && editEntry && (
                 <EditModal
+                    key="edit-loan-modal"
                     entry={editEntry}
                     username={username}
                     onClose={() => setEditEntry(null)}
                     onSuccess={handleEditSuccess}
                 />
             )}
+            </AnimatePresence>
 
             {/* Create entry modal */}
+            <AnimatePresence>
             {!readOnly && createLoanType && username && (
                 <CreateEntryModal
+                    key="create-entry-modal"
                     loanType={createLoanType}
                     username={username}
                     onClose={() => setCreateLoanType(null)}
                     onSuccess={handleCreateSuccess}
                 />
             )}
+            </AnimatePresence>
 
             {/* Plus menu — portal (smart up/down) */}
             {!readOnly && createPortal(

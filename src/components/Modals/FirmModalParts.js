@@ -76,7 +76,7 @@ export function FirmModalShell({
                     transition={{ duration: 0.2 }}
                     className={`fixed inset-0 ${zClass} flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`}
                 >
-                    <button
+                    <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                         type="button"
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                         aria-label="Close dialog"
@@ -86,10 +86,10 @@ export function FirmModalShell({
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="firm-modal-title"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
+                        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                         className={`relative z-[1] pointer-events-auto flex w-full ${maxWidth} max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/80`}
                         onClick={(e) => e.stopPropagation()}
                     >

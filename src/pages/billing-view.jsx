@@ -286,7 +286,7 @@ const AppDialog = ({ dialog, onClose, onConfirm }) => {
           className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
         >
           {/* Backdrop */}
-          <div
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
             onClick={!dialog.loading ? onClose : undefined}
           />
@@ -381,13 +381,12 @@ const formatDateDisplay = (dateString) => {
 };
 
 const BillingDetailsModal = ({ item, onClose }) => {
-  if (!item) return null;
-
-  const raw = item._raw || {};
-  const guardianLine = formatGuardianLine(item.care_of, item.guardian_name);
+  const raw = item?._raw || {};
+  const guardianLine = formatGuardianLine(item?.care_of, item?.guardian_name);
 
   return createPortal(
     <AnimatePresence>
+      {item && (
       <motion.div
         key="billing-details-backdrop"
         initial={{ opacity: 0 }}
@@ -605,6 +604,7 @@ const BillingDetailsModal = ({ item, onClose }) => {
           </div>
         </motion.div>
       </motion.div>
+      )}
     </AnimatePresence>,
     document.body,
   );

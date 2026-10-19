@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Reorder, motion } from "framer-motion";
+import { AnimatePresence, Reorder, motion } from "framer-motion";
 import {
   FiEye,
   FiEyeOff,
@@ -278,14 +278,21 @@ const DashboardCustomizeDrawer = ({
     setOrderedItems(newOrder);
   }, []);
 
-  if (typeof document === "undefined" || !isOpen) return null;
+  if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div
+    <AnimatePresence>
+      {isOpen && (
+    <motion.div
+      key="dashboard-customize-drawer"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 z-[10000] overflow-hidden overscroll-none pointer-events-none"
       role="presentation"
     >
-      <button
+      <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
         type="button"
         className="absolute inset-0 bg-slate-900/40 pointer-events-auto cursor-default"
         onClick={onClose}
@@ -298,6 +305,7 @@ const DashboardCustomizeDrawer = ({
         aria-labelledby="dashboard-customize-title"
         initial={{ x: "-100%" }}
         animate={{ x: 0 }}
+        exit={{ x: "-100%" }}
         transition={{ type: "spring", stiffness: 380, damping: 36 }}
         className="absolute left-0 top-0 flex h-screen max-h-dvh w-full max-w-[380px] flex-col overflow-hidden border-r border-gray-200 bg-white shadow-2xl pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
@@ -409,7 +417,9 @@ const DashboardCustomizeDrawer = ({
           ) : null}
         </div>
       </motion.aside>
-    </div>,
+    </motion.div>
+      )}
+    </AnimatePresence>,
     document.body,
   );
 };

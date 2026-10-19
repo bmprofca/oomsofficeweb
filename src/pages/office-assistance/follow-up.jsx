@@ -320,7 +320,7 @@ function AssignModal({
           transition={{ duration: 0.18 }}
           className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
         >
-          <button
+          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             type="button"
             className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
             aria-label="Close"
@@ -330,10 +330,10 @@ function AssignModal({
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
             className="relative z-[1] pointer-events-auto flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
             onClick={(e) => e.stopPropagation()}
           >
@@ -619,7 +619,7 @@ function NotesModal({ open, client, onClose, canEdit, onChanged }) {
               transition={{ duration: 0.18 }}
               className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
             >
-              <button
+              <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                 type="button"
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
                 aria-label="Close"
@@ -628,10 +628,10 @@ function NotesModal({ open, client, onClose, canEdit, onChanged }) {
               <motion.div
                 role="dialog"
                 aria-modal="true"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 className="relative z-[1] pointer-events-auto flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                 onClick={(e) => e.stopPropagation()}
               >

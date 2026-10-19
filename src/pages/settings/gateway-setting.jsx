@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
 import { FiCreditCard, FiPhone, FiMail, FiShield, FiAlertTriangle, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 
@@ -13,8 +13,6 @@ const Modal = ({
   showCloseButton = true,
   className = ''
 }) => {
-  if (!isOpen) return null;
-
   const typeClasses = {
     default: 'border-gray-200',
     warning: 'bg-yellow-50 border-yellow-200',
@@ -40,7 +38,16 @@ const Modal = ({
   }[type];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <AnimatePresence>
+      {isOpen && (
+    <motion.div
+      key="gateway-modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
       {/* Fade overlay */}
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
@@ -50,7 +57,11 @@ const Modal = ({
       />
       
       {/* Modal */}
-      <div 
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         className={`relative bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all duration-300 ${
           isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         } ${className}`}
@@ -75,8 +86,10 @@ const Modal = ({
         <div className="p-6">
           {children}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

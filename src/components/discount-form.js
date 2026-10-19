@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FiX, FiCalendar, FiFileText, FiArrowRight, FiCreditCard, FiHash, FiPlus, FiUser, FiTrash2, FiChevronDown, FiMail, FiMessageSquare, FiSearch } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
+import { AnimatePresence, motion } from 'framer-motion';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 
@@ -615,24 +616,28 @@ const DiscountForm = ({
 
     // Render as modal or standalone component
     if (mode === 'modal') {
-        return isOpen ? (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
+        return (
+            <AnimatePresence>
+            {isOpen && (
+            <motion.div key="discount-form-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-50 overflow-y-auto">
                 <div className="flex items-center justify-center min-h-screen p-2 sm:p-4">
                     {/* Overlay */}
-                    <div
-                        className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity duration-300"
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+                        className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm"
                         onClick={() => {
                             setShowPartyDropdown(false);
                             onClose();
                         }}
                     />
                     {/* Compact Modal panel */}
-                    <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col transform transition-all duration-300 scale-100 animate-fadeIn">
+                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col scale-100">
                         {formContent}
-                    </div>
+                    </motion.div>
                 </div>
-            </div>
-        ) : null;
+            </motion.div>
+            )}
+            </AnimatePresence>
+        );
     }
 
     // Render as standalone page component

@@ -142,11 +142,11 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
         { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
     ];
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+        <AnimatePresence>
+        {isOpen && (
+        <motion.div key="inline-export-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+            <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
                 {/* Header */}
                 <div className="bg-indigo-600 text-white px-6 py-4">
                     <div className="flex items-center justify-between">
@@ -253,8 +253,10 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                         Cancel
                     </button>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+        )}
+        </AnimatePresence>
     );
 };
 

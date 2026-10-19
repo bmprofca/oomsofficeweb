@@ -28,6 +28,7 @@ import { performBranchSwitch } from '../utils/branchSwitch';
 import { clearKeepAliveCache } from '../app/KeepAlive';
 import BranchSwitchOverlay from './BranchSwitchOverlay';
 import HeaderGlobalSearch from './HeaderGlobalSearch';
+import { clearNavValueCache, useNavCachedState } from '../utils/navValueCache';
 import HeaderNotifications from './HeaderNotifications';
 import ConfirmActionModal from './ConfirmActionModal';
 
@@ -385,7 +386,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const [logoutSubmitting, setLogoutSubmitting] = useState(false);
 
   const navigate = useNavigate();
-  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletBalance, setWalletBalance] = useNavCachedState('wallet_balance', 0);
 
   const iconButtonClass =
     'inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30';
@@ -468,6 +469,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     localStorage.removeItem('user_mobile');
     localStorage.removeItem('user_profile');
     localStorage.removeItem('userData');
+    clearNavValueCache();
     clearKeepAliveCache();
     navigate('/login');
   };
@@ -905,7 +907,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   const [hoveredMenu, setHoveredMenu] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
-  const [pendingBillingCount, setPendingBillingCount] = useState(0);
+  const [pendingBillingCount, setPendingBillingCount] = useNavCachedState('pending_billing_count', 0);
   const whatsappChannel = useWhatsappChannel();
 
   const hasProjects = useMemo(() => {
