@@ -8,6 +8,7 @@
 |-------|------|
 | Branch admin setup: assistant switch, **AI connections** (several keys, same or mixed providers, max 10), drag or arrow priority (failover order), per-connection on/off, test, edit, delete, health badges, usage limits | [`pages/settings/ai-assistant-setting.jsx`](../src/pages/settings/ai-assistant-setting.jsx) at `/settings/ai-assistant`. Parts in [`components/ai/settings/`](../src/components/ai/settings/): `AiConnectionList` (dnd-kit), `AiConnectionDialog` (add/edit), `AiSettingsModal` (modal shell per `modal.md`), `aiProviderMeta` (badges, status wording, Primary/Backup roles). Card in `pages/settings.jsx` (`adminOnly`) |
 | Claude connector (MCP): create secret connector URLs (shown once, copy + Claude setup steps), member whose access it uses, on/off, regenerate, delete; warns when the server isn't publicly reachable | [`components/ai/settings/AiMcpConnectorsCard.jsx`](../src/components/ai/settings/AiMcpConnectorsCard.jsx), on the AI Assistant settings page |
+| Read-write mode: **Assistant access** (Read-only by default / Read & write) on the settings page, with confirmation dialog [`AiWriteModeDialog`](../src/components/ai/settings/AiWriteModeDialog.jsx) (also used per connector). Chat confirmation card [`blocks/AiActionBlock.jsx`](../src/components/ai/blocks/AiActionBlock.jsx): Confirm & send / Cancel, then shows Sent / Partly sent / Not sent / Cancelled / Expired | `pages/settings/ai-assistant-setting.jsx`, `components/ai/settings/AiMcpConnectorsCard.jsx` |
 | Header **Ask AI** button (every page; hidden on `/ai-assistant`) | [`components/ai/AiHeaderButton.jsx`](../src/components/ai/AiHeaderButton.jsx), mounted in `components/header.js` before `HeaderNotifications` |
 | Right drawer (portal, Esc / backdrop closes, "open full page") | [`components/ai/AiAssistantDrawer.jsx`](../src/components/ai/AiAssistantDrawer.jsx) |
 | Full page with history list, delete and `?c=<conversation_id>` | [`pages/ai-assistant.jsx`](../src/pages/ai-assistant.jsx) (route in `src/index.js`, lazy import in `app/lazyRoutes.js`) |
@@ -32,6 +33,7 @@
 { type: "kpi", title?, items: [{ label, value, format }] }
 { type: "chart", title, kind: "bar" | "line" | "pie", xKey, series: [{ key, label }], data }
 { type: "clarification", question, options: [string] }
+{ type: "action", action_id, action_type, title, fields: [{ label, value }], body?, items?, expires_minutes, state? }   // read-write mode; state added when a conversation is reopened
 // type / format: "text" | "number" | "money" | "date" | "status"
 ```
 

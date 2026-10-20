@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { FiAlertTriangle, FiCheck, FiCopy, FiEdit2, FiLink, FiPlus, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
 import AiSettingsModal from './AiSettingsModal';
+import AiWriteModeDialog from './AiWriteModeDialog';
 import { relativeTime } from './aiProviderMeta';
 import {
   createMcpConnector,
@@ -174,6 +175,20 @@ export default function AiMcpConnectorsCard() {
   const [reveal, setReveal] = useState({ open: false, url: '' });
   const [confirm, setConfirm] = useState(null); // { kind: 'delete' | 'rotate', connector }
   const [busyId, setBusyId] = useState(null);
+  const [writeTarget, setWriteTarget] = useState(null);
+
+  const setMode = async (c, mode) => {
+    setBusyId(c.id);
+    try {
+      setData(await updateMcpConnector(c.id, { accessMode: mode, acknowledgeWrite: mode === 'read_write' }));
+      setWriteTarget(null);
+      toast.success(mode === 'read_write' ? `${nameOf(c)} can now send after approval in Claude` : `${nameOf(c)} is read-only again`);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not change the connector access'));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -273,6 +288,9 @@ export default function AiMcpConnectorsCard() {
                         <span className={c.enabled ? (c.last_used_at ? 'ui-badge ui-badge-success' : 'ui-badge ui-badge-neutral') : 'ui-badge ui-badge-neutral'}>
                           {!c.enabled ? 'Off' : c.last_used_at ? 'Connected' : 'Not used yet'}
                         </span>
+                        <span className={c.access_mode === 'read_write' ? 'ui-badge ui-badge-warning' : 'ui-badge ui-badge-neutral'}>
+                          {c.access_mode === 'read_write' ? 'Read & write' : 'Read-only'}
+                        </span>
                       </div>
                       <p className="mt-0.5 truncate text-[12.5px] text-slate-500">
                         Access of <span className="font-medium text-slate-700">{c.run_as_name || 'a team member'}</span>
@@ -282,7 +300,15 @@ export default function AiMcpConnectorsCard() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn-ghost ui-btn-sm"
+                      onClick={() => (c.access_mode === 'read_write' ? setMode(c, 'read') : setWriteTarget(c))}
+                      disabled={busyId === c.id}
+                    >
+                      {c.access_mode === 'read_write' ? 'Make read-only' : 'Allow read & write'}
+                    </button>
                     <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setConfirm({ kind: 'rotate', connector: c })} disabled={busyId === c.id}>
                       <FiRefreshCw className="h-3.5 w-3.5" /> Regenerate URL
                     </button>
@@ -313,6 +339,14 @@ export default function AiMcpConnectorsCard() {
         members={members}
         onClose={() => setDialog({ open: false, connector: null })}
         onSaved={onSaved}
+      />
+      <AiWriteModeDialog
+        open={Boolean(writeTarget)}
+        busy={Boolean(writeTarget) && busyId === writeTarget?.id}
+        connector
+        target={writeTarget ? `The connector “${nameOf(writeTarget)}”` : 'This connector'}
+        onClose={() => setWriteTarget(null)}
+        onConfirm={() => setMode(writeTarget, 'read_write')}
       />
       <UrlDialog open={reveal.open} url={reveal.url} isPublic={Boolean(data?.public)} onClose={() => setReveal({ open: false, url: '' })} />
       <AiSettingsModal

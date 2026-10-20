@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import AiAssistantSetting from '../ai-assistant-setting';
 import {
+  saveAiSettings,
   createMcpConnector,
   getMcpConnectors,
   rotateMcpConnector,
@@ -190,4 +191,36 @@ test('Claude connector warns when the server is not reachable from the internet'
   getMcpConnectors.mockResolvedValue({ ...mcpPayload(), endpoint: 'http://localhost:8877/api/v1/mcp', public: false });
   renderPage();
   expect(await screen.findByText(/not reachable from the internet/)).toBeInTheDocument();
+});
+
+test('read & write needs the confirmation dialog; read-only is restored directly', async () => {
+  saveAiSettings.mockImplementation(async (body) => payload({ settings: { enabled: true, rate_per_min: 6, rate_per_day: 200, access_mode: body.access_mode } }));
+  renderPage();
+  const group = await screen.findByRole('radiogroup', { name: 'Assistant access' });
+  expect(within(group).getByRole('radio', { name: /Read-only/ })).toHaveAttribute('aria-checked', 'true');
+
+  fireEvent.click(within(group).getByRole('radio', { name: /Read & write/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Turn on read & write?' });
+  expect(dialog).toHaveTextContent(/Send WhatsApp messages/);
+  expect(dialog).toHaveTextContent(/clicks Confirm/);
+  const enable = within(dialog).getByRole('button', { name: 'Turn on read & write' });
+  expect(enable).toBeDisabled();
+  expect(saveAiSettings).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole('checkbox'));
+  fireEvent.click(enable);
+  await waitFor(() => expect(saveAiSettings).toHaveBeenCalledWith(expect.objectContaining({ access_mode: 'read_write', acknowledge_write: true })));
+  await waitFor(() => expect(within(group).getByRole('radio', { name: /Read & write/ })).toHaveAttribute('aria-checked', 'true'));
+
+  fireEvent.click(within(group).getByRole('radio', { name: /Read-only/ }));
+  await waitFor(() => expect(saveAiSettings).toHaveBeenLastCalledWith(expect.objectContaining({ access_mode: 'read', acknowledge_write: false })));
+});
+
+test('cancelling the dialog keeps the assistant read-only', async () => {
+  renderPage();
+  const group = await screen.findByRole('radiogroup', { name: 'Assistant access' });
+  fireEvent.click(within(group).getByRole('radio', { name: /Read & write/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Turn on read & write?' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Keep read-only' }));
+  expect(saveAiSettings).not.toHaveBeenCalled();
+  expect(within(group).getByRole('radio', { name: /Read-only/ })).toHaveAttribute('aria-checked', 'true');
 });

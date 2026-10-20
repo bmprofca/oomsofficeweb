@@ -2,6 +2,7 @@ import React from 'react';
 import AiTableBlock from './AiTableBlock';
 import AiKpiBlock from './AiKpiBlock';
 import AiChartBlock from './AiChartBlock';
+import AiActionBlock from './AiActionBlock';
 
 /**
  * Renders structured blocks from the server (built from real tool rows).
@@ -14,6 +15,7 @@ function isValid(block) {
   if (block.type === 'kpi') return Array.isArray(block.items);
   if (block.type === 'chart') return Array.isArray(block.series) && Array.isArray(block.data) && typeof block.xKey === 'string';
   if (block.type === 'clarification') return typeof block.question === 'string';
+  if (block.type === 'action') return typeof block.action_id === 'string' && typeof block.title === 'string' && Array.isArray(block.fields);
   return false;
 }
 
@@ -26,6 +28,8 @@ export default function BlockRenderer({ block, onOption, disabled }) {
       return <AiKpiBlock block={block} />;
     case 'chart':
       return <AiChartBlock block={block} />;
+    case 'action':
+      return <AiActionBlock block={block} />;
     case 'clarification':
       return (
         <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">

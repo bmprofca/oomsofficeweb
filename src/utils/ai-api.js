@@ -163,9 +163,15 @@ export async function getAiSettings() {
   return res.data?.data;
 }
 
-/** Branch switch + rate limits. Returns the full settings payload (settings, connections, …). */
-export async function saveAiSettings({ enabled, rate_per_min, rate_per_day }) {
-  const res = await axios.put(`${API_BASE_URL}/ai/settings`, { enabled, rate_per_min, rate_per_day }, { headers: getHeaders() });
+/**
+ * Branch switch, rate limits and (optionally) access mode. Switching to read_write must send
+ * acknowledge_write: true (after the confirmation dialog). Returns the full settings payload.
+ */
+export async function saveAiSettings({ enabled, rate_per_min, rate_per_day, access_mode, acknowledge_write }) {
+  const body = { enabled, rate_per_min, rate_per_day };
+  if (access_mode) body.access_mode = access_mode;
+  if (acknowledge_write) body.acknowledge_write = true;
+  const res = await axios.put(`${API_BASE_URL}/ai/settings`, body, { headers: getHeaders() });
   invalidateAiStatus();
   return res.data?.data;
 }
@@ -233,8 +239,10 @@ export async function createMcpConnector({ label, runAs }) {
   return res.data?.data;
 }
 
-export async function updateMcpConnector(id, { label, enabled, runAs }) {
+export async function updateMcpConnector(id, { label, enabled, runAs, accessMode, acknowledgeWrite }) {
   const body = {};
+  if (accessMode !== undefined) body.access_mode = accessMode;
+  if (acknowledgeWrite) body.acknowledge_write = true;
   if (label !== undefined) body.label = label;
   if (enabled !== undefined) body.enabled = enabled;
   if (runAs !== undefined) body.run_as = runAs;
@@ -249,5 +257,17 @@ export async function rotateMcpConnector(id) {
 
 export async function deleteMcpConnector(id) {
   const res = await axios.delete(`${API_BASE_URL}/ai/mcp-connectors/${encodeURIComponent(id)}`, { headers: getHeaders() });
+  return res.data?.data;
+}
+
+/* Write actions proposed by the assistant in read-write mode. Nothing is sent until confirmed. */
+
+export async function confirmAiAction(id) {
+  const res = await axios.post(`${API_BASE_URL}/ai/actions/${encodeURIComponent(id)}/confirm`, {}, { headers: getHeaders() });
+  return res.data?.data;
+}
+
+export async function cancelAiAction(id) {
+  const res = await axios.post(`${API_BASE_URL}/ai/actions/${encodeURIComponent(id)}/cancel`, {}, { headers: getHeaders() });
   return res.data?.data;
 }

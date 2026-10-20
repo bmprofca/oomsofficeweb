@@ -6,6 +6,8 @@ import {
   FiAlertTriangle,
   FiArrowLeft,
   FiCpu,
+  FiEdit3,
+  FiEye,
   FiInfo,
   FiLock,
   FiPlus,
@@ -17,6 +19,7 @@ import { Header, Sidebar } from '../../components/header';
 import AiConnectionDialog from '../../components/ai/settings/AiConnectionDialog';
 import AiConnectionList from '../../components/ai/settings/AiConnectionList';
 import AiMcpConnectorsCard from '../../components/ai/settings/AiMcpConnectorsCard';
+import AiWriteModeDialog from '../../components/ai/settings/AiWriteModeDialog';
 import AiSettingsModal from '../../components/ai/settings/AiSettingsModal';
 import { connectionStatus, isFailing } from '../../components/ai/settings/aiProviderMeta';
 import {
@@ -103,6 +106,8 @@ export default function AiAssistantSetting() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [writeDialog, setWriteDialog] = useState(false);
+  const [savingMode, setSavingMode] = useState(false);
   const [testingId, setTestingId] = useState(null);
 
   const apply = (payload) => {
@@ -147,6 +152,25 @@ export default function AiAssistantSetting() {
       toast.error(errorMessage(err, 'Could not update the assistant'));
     } finally {
       setTogglingAssistant(false);
+    }
+  };
+
+  const saveAccessMode = async (mode) => {
+    setSavingMode(true);
+    try {
+      apply(await saveAiSettings({
+        enabled: settings.enabled,
+        rate_per_min: settings.rate_per_min,
+        rate_per_day: settings.rate_per_day,
+        access_mode: mode,
+        acknowledge_write: mode === 'read_write',
+      }));
+      setWriteDialog(false);
+      toast.success(mode === 'read_write' ? 'Read & write is on. Every send still needs a confirmation.' : 'The assistant is read-only again');
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not change the access mode'));
+    } finally {
+      setSavingMode(false);
     }
   };
 
@@ -306,6 +330,53 @@ export default function AiAssistantSetting() {
                   </div>
                 </section>
 
+                {/* Access mode */}
+                <section className="ui-card">
+                  <div className="ui-card-header">
+                    <h2 className="ui-card-title">Assistant access</h2>
+                    <p className="mt-0.5 text-[12.5px] text-slate-500">Choose whether the assistant only answers questions, or can also send messages and share documents.</p>
+                  </div>
+                  <div className="ui-card-body">
+                    <div role="radiogroup" aria-label="Assistant access" className="grid gap-2 sm:grid-cols-2">
+                      {[
+                        { id: 'read', icon: FiEye, title: 'Read-only', text: 'Answers questions from your data. Never sends or changes anything.', tag: 'Default' },
+                        { id: 'read_write', icon: FiEdit3, title: 'Read & write', text: 'Can also send WhatsApp messages and emails, and share documents and ledgers — only after the user confirms each one.' },
+                      ].map((opt) => {
+                        const active = (settings.access_mode || 'read') === opt.id;
+                        const Icon = opt.icon;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            disabled={savingMode}
+                            onClick={() => {
+                              if (active) return;
+                              if (opt.id === 'read_write') setWriteDialog(true);
+                              else saveAccessMode('read');
+                            }}
+                            className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-60 ${active ? 'border-indigo-500 bg-indigo-50/60' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                          >
+                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}><Icon className="h-4 w-4" /></span>
+                            <span>
+                              <span className="flex items-center gap-1.5">
+                                <span className={`text-[14px] font-semibold ${active ? 'text-indigo-700' : 'text-slate-800'}`}>{opt.title}</span>
+                                {opt.tag && <span className="ui-badge ui-badge-neutral">{opt.tag}</span>}
+                                {active && <span className="ui-badge ui-badge-brand">Active</span>}
+                              </span>
+                              <span className="mt-0.5 block text-[12.5px] text-slate-500">{opt.text}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {settings.access_mode === 'read_write' && (
+                      <p className="mt-3 text-[12.5px] text-slate-500">Each person can only send what their permissions allow (Send Broadcast for messages, Finance Report for ledgers). Claude connectors have their own setting below.</p>
+                    )}
+                  </div>
+                </section>
+
                 {/* Connections */}
                 <section className="ui-card">
                   <div className="ui-card-header flex flex-wrap items-center justify-between gap-2">
@@ -394,7 +465,7 @@ export default function AiAssistantSetting() {
                     <ul className="list-disc space-y-1.5 pl-4">
                       <li>Every question is safety-checked before it reaches any AI provider. Attempts to get system details, code or other offices’ data are refused.</li>
                       <li>Every answer is checked before it is shown; internal IDs and system details are removed.</li>
-                      <li>The assistant only reads data and respects each user’s permissions.</li>
+                      <li>{settings.access_mode === 'read_write' ? 'Read & write is on: the assistant can send messages and share documents, but only after the user confirms each one.' : 'The assistant only reads data and respects each user’s permissions.'}</li>
                       <li>API keys are stored encrypted and never shown again. Only branch admins can manage this page.</li>
                       <li>Questions and the data needed to answer them are sent to the provider that answers.</li>
                       <li>Claude connectors are read-only, use one team member’s permissions, and can be switched off or given a new URL at any time.</li>
@@ -421,6 +492,13 @@ export default function AiAssistantSetting() {
           onSaved={onDialogSaved}
         />
       )}
+
+      <AiWriteModeDialog
+        open={writeDialog}
+        busy={savingMode}
+        onClose={() => setWriteDialog(false)}
+        onConfirm={() => saveAccessMode('read_write')}
+      />
 
       <AiSettingsModal
         open={Boolean(deleteTarget)}
