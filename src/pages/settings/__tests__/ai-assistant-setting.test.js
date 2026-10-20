@@ -7,6 +7,7 @@ import {
   createMcpConnector,
   getMcpConnectors,
   rotateMcpConnector,
+  updateMcpConnector,
   createAiConnection,
   deleteAiConnection,
   getAiSettings,
@@ -167,7 +168,7 @@ test('Claude connector: create with a member, URL shown once with copy and setup
   fireEvent.change(within(dialog).getByLabelText('Access level of'), { target: { value: 'usr_STAFF00001' } });
   expect(within(dialog).queryByText(/usr_/)).not.toBeInTheDocument();
   fireEvent.click(within(dialog).getByRole('button', { name: 'Create connector' }));
-  await waitFor(() => expect(createMcpConnector).toHaveBeenCalledWith({ label: 'Claude — Sourav', runAs: 'usr_STAFF00001' }));
+  await waitFor(() => expect(createMcpConnector).toHaveBeenCalledWith({ label: 'Claude — Sourav', runAs: 'usr_STAFF00001', accessMode: 'read', acknowledgeWrite: false }));
 
   const urlDialog = await screen.findByRole('dialog', { name: 'Your connector URL' });
   expect(within(urlDialog).getByLabelText('Connector URL')).toHaveValue(SECRET_URL);
@@ -185,6 +186,49 @@ test('Claude connector: create with a member, URL shown once with copy and setup
   fireEvent.click(within(confirm).getByRole('button', { name: 'Regenerate' }));
   await waitFor(() => expect(rotateMcpConnector).toHaveBeenCalledWith('m1'));
   expect(await screen.findByDisplayValue(`${SECRET_URL}X`)).toBeInTheDocument();
+});
+
+test('Claude connector can be created as read & write only after ticking the confirmation', async () => {
+  const saved = { id: 'm2', label: '', token_hint: '…bcde', run_as: 'usr_BOSS000001', run_as_name: 'Office Boss', enabled: true, access_mode: 'read_write', last_used_at: null };
+  createMcpConnector.mockResolvedValue({ ...mcpPayload([saved]), id: 'm2', url: SECRET_URL });
+  renderPage();
+  const card = (await screen.findByRole('heading', { name: /Claude connector/ })).closest('section');
+  await within(card).findByText(/No connectors yet/);
+  fireEvent.click(within(card).getByRole('button', { name: /Create connector/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Create Claude connector' });
+  const access = within(dialog).getByRole('radiogroup', { name: 'Access' });
+  expect(within(access).getByRole('radio', { name: /Read-only/ })).toHaveAttribute('aria-checked', 'true');
+
+  fireEvent.click(within(access).getByRole('radio', { name: /Read & write/ }));
+  expect(dialog).toHaveTextContent(/Send WhatsApp messages/);
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Create connector' }));
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(/Tick the confirmation/);
+  expect(createMcpConnector).not.toHaveBeenCalled();
+
+  fireEvent.click(within(dialog).getByRole('checkbox'));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Create connector' }));
+  await waitFor(() => expect(createMcpConnector).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'read_write', acknowledgeWrite: true })));
+  const urlDialog = await screen.findByRole('dialog', { name: 'Your connector URL' });
+  expect(urlDialog).toHaveTextContent(/approve before anything goes out/);
+});
+
+test('each connector has a Read-only / Read & write switch; read & write asks for confirmation first', async () => {
+  const c = { id: 'm1', label: 'Claude — Sourav', token_hint: '…bcde', run_as: 'usr_STAFF00001', run_as_name: 'Staff One', enabled: true, access_mode: 'read', last_used_at: null };
+  getMcpConnectors.mockResolvedValue(mcpPayload([c]));
+  updateMcpConnector.mockImplementation(async (id, body) => mcpPayload([{ ...c, access_mode: body.accessMode }]));
+  renderPage();
+  const toggle = await screen.findByRole('radiogroup', { name: 'Access of Claude — Sourav' });
+  fireEvent.click(within(toggle).getByRole('radio', { name: /Read & write/ }));
+  const dialog = await screen.findByRole('dialog', { name: 'Turn on read & write?' });
+  expect(dialog).toHaveTextContent(/Claude asks before every send/);
+  expect(updateMcpConnector).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole('checkbox'));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Turn on read & write' }));
+  await waitFor(() => expect(updateMcpConnector).toHaveBeenCalledWith('m1', { accessMode: 'read_write', acknowledgeWrite: true }));
+  await waitFor(() => expect(within(screen.getByRole('radiogroup', { name: 'Access of Claude — Sourav' })).getByRole('radio', { name: /Read & write/ })).toHaveAttribute('aria-checked', 'true'));
+
+  fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Access of Claude — Sourav' })).getByRole('radio', { name: /Read-only/ }));
+  await waitFor(() => expect(updateMcpConnector).toHaveBeenLastCalledWith('m1', { accessMode: 'read', acknowledgeWrite: false }));
 });
 
 test('Claude connector warns when the server is not reachable from the internet', async () => {

@@ -234,8 +234,11 @@ export async function getMcpConnectors() {
 }
 
 /** Returns `{ url, ...list }` — the secret URL is only ever returned here and by rotate. */
-export async function createMcpConnector({ label, runAs }) {
-  const res = await axios.post(`${API_BASE_URL}/ai/mcp-connectors`, { ...(label ? { label } : {}), run_as: runAs }, { headers: getHeaders() });
+export async function createMcpConnector({ label, runAs, accessMode, acknowledgeWrite }) {
+  const body = { ...(label ? { label } : {}), run_as: runAs };
+  if (accessMode) body.access_mode = accessMode;
+  if (acknowledgeWrite) body.acknowledge_write = true;
+  const res = await axios.post(`${API_BASE_URL}/ai/mcp-connectors`, body, { headers: getHeaders() });
   return res.data?.data;
 }
 

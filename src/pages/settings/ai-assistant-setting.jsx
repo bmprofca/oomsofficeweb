@@ -334,7 +334,7 @@ export default function AiAssistantSetting() {
                 <section className="ui-card">
                   <div className="ui-card-header">
                     <h2 className="ui-card-title">Assistant access</h2>
-                    <p className="mt-0.5 text-[12.5px] text-slate-500">Choose whether the assistant only answers questions, or can also send messages and share documents.</p>
+                    <p className="mt-0.5 text-[12.5px] text-slate-500">Choose whether Ask AI in OOMS only answers questions, or can also send messages and share documents. Each Claude connector has its own access setting below.</p>
                   </div>
                   <div className="ui-card-body">
                     <div role="radiogroup" aria-label="Assistant access" className="grid gap-2 sm:grid-cols-2">

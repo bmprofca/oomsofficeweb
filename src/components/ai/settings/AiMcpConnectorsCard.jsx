@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { FiAlertTriangle, FiCheck, FiCopy, FiEdit2, FiLink, FiPlus, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
+import { FiAlertTriangle, FiCheck, FiCopy, FiEdit2, FiEdit3, FiEye, FiLink, FiPlus, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
 import AiSettingsModal from './AiSettingsModal';
-import AiWriteModeDialog from './AiWriteModeDialog';
+import AiWriteModeDialog, { WRITE_ACTIONS } from './AiWriteModeDialog';
 import { relativeTime } from './aiProviderMeta';
 import {
   createMcpConnector,
@@ -30,13 +30,47 @@ function Switch({ checked, onChange, disabled, label }) {
   );
 }
 
+const ACCESS_OPTIONS = [
+  { id: 'read', icon: FiEye, title: 'Read-only', text: 'Claude can look up tasks, attendance, balances and reports. Nothing is sent.' },
+  { id: 'read_write', icon: FiEdit3, title: 'Read & write', text: 'Claude can also send WhatsApp messages and emails, and share documents and ledgers, after you approve each one in Claude.' },
+];
+
+/** Compact Read-only | Read & write switch shown on each connector. */
+function AccessToggle({ value, onChange, disabled, name }) {
+  return (
+    <div role="radiogroup" aria-label={`Access of ${name}`} className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+      {ACCESS_OPTIONS.map((opt) => {
+        const active = value === opt.id;
+        const Icon = opt.icon;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => !active && onChange(opt.id)}
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-60 ${
+              active ? (opt.id === 'read_write' ? 'bg-amber-500 text-white shadow-sm' : 'bg-white text-slate-800 shadow-sm') : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" /> {opt.title}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const memberLabel = (m) => `${m.name}${m.role === 'admin' ? ' (admin)' : m.designation ? ` (${m.designation})` : ''}`;
 
-/** Create / edit: name + whose permissions the connector uses. */
+/** Create / edit: name, whose permissions the connector uses, and read-only or read & write. */
 function ConnectorDialog({ open, connector, members, onClose, onSaved }) {
   const isEdit = Boolean(connector);
   const [label, setLabel] = useState('');
   const [runAs, setRunAs] = useState('');
+  const [accessMode, setAccessMode] = useState('read');
+  const [agreed, setAgreed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,6 +78,8 @@ function ConnectorDialog({ open, connector, members, onClose, onSaved }) {
     if (!open) return;
     setLabel(connector?.label || '');
     setRunAs(connector?.run_as || members[0]?.username || '');
+    setAccessMode(connector?.access_mode === 'read_write' ? 'read_write' : 'read');
+    setAgreed(false);
     setError('');
   }, [open, connector, members]);
 
@@ -53,12 +89,22 @@ function ConnectorDialog({ open, connector, members, onClose, onSaved }) {
       setError('Choose a team member.');
       return;
     }
+    // Turning read & write on (new connector, or an existing read-only one) needs the acknowledgement.
+    const needsAck = accessMode === 'read_write' && connector?.access_mode !== 'read_write';
+    if (needsAck && !agreed) {
+      setError('Tick the confirmation to allow read & write.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
       const data = isEdit
-        ? await updateMcpConnector(connector.id, { label: label.trim(), runAs })
-        : await createMcpConnector({ label: label.trim(), runAs });
+        ? await updateMcpConnector(connector.id, {
+          label: label.trim(),
+          runAs,
+          ...(accessMode !== (connector.access_mode || 'read') ? { accessMode, acknowledgeWrite: needsAck } : {}),
+        })
+        : await createMcpConnector({ label: label.trim(), runAs, accessMode, acknowledgeWrite: needsAck });
       onSaved(data, isEdit ? 'updated' : 'created');
     } catch (err) {
       setError(errorMessage(err, 'Could not save the connector.'));
@@ -74,7 +120,7 @@ function ConnectorDialog({ open, connector, members, onClose, onSaved }) {
       busy={saving}
       labelledBy="mcp-connector-title"
       title={isEdit ? 'Edit connector' : 'Create Claude connector'}
-      subtitle="Lets Claude read this branch’s data with one team member’s permissions."
+      subtitle="Lets Claude use this branch’s data with one team member’s permissions."
       icon={<span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><FiLink className="h-4 w-4" /></span>}
       footer={(
         <>
@@ -99,6 +145,44 @@ function ConnectorDialog({ open, connector, members, onClose, onSaved }) {
           </select>
           <p className="ui-help">Claude sees exactly what this person can see in OOMS (tasks, finance, reports). Choose the person who will use the connector.</p>
         </div>
+        <div>
+          <p className="ui-label" id="mcp-access-label">Access</p>
+          <div role="radiogroup" aria-labelledby="mcp-access-label" className="grid gap-2 sm:grid-cols-2">
+            {ACCESS_OPTIONS.map((opt) => {
+              const active = accessMode === opt.id;
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setAccessMode(opt.id)}
+                  className={`flex items-start gap-2.5 rounded-xl border p-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${active ? 'border-indigo-500 bg-indigo-50/60' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                >
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}><Icon className="h-4 w-4" /></span>
+                  <span>
+                    <span className={`block text-[13.5px] font-semibold ${active ? 'text-indigo-700' : 'text-slate-800'}`}>{opt.title}{opt.id === 'read' && <span className="ui-badge ui-badge-neutral ml-1.5">Default</span>}</span>
+                    <span className="mt-0.5 block text-[12px] leading-snug text-slate-500">{opt.text}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {accessMode === 'read_write' && connector?.access_mode !== 'read_write' && (
+            <div className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5 text-[12.5px] text-amber-900">
+              <p className="font-semibold">Claude will be able to:</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                {WRITE_ACTIONS.map((a) => <li key={a.title}>{a.title}</li>)}
+              </ul>
+              <p className="mt-1.5">Nothing is sent until the person using Claude approves it. Only to this office’s own clients and team, following this person’s permissions. Every send is logged.</p>
+              <label className="mt-2 flex items-start gap-2 text-[12.5px] text-amber-950">
+                <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                I understand that messages and documents will be sent in my office’s name after approval in Claude.
+              </label>
+            </div>
+          )}
+        </div>
         {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</p>}
       </form>
     </AiSettingsModal>
@@ -106,7 +190,7 @@ function ConnectorDialog({ open, connector, members, onClose, onSaved }) {
 }
 
 /** Shows the secret URL once, with copy and the steps for Claude. */
-function UrlDialog({ open, url, isPublic, onClose }) {
+function UrlDialog({ open, url, isPublic, writable, onClose }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (open) setCopied(false);
@@ -153,11 +237,12 @@ function UrlDialog({ open, url, isPublic, onClose }) {
             <li>Click <strong>Add custom connector</strong>.</li>
             <li>Name it <strong>OOMS</strong>, paste the URL above and click <strong>Add</strong>. No sign-in is needed.</li>
             <li>In a chat, switch the OOMS connector on from the tools menu and ask, for example, “Show my pending tasks”.</li>
+            {writable && <li>This connector is read &amp; write: ask, for example, “Email Asish that his documents are received”. Claude shows what will be sent and asks you to approve before anything goes out.</li>}
           </ol>
           <p className="mt-2 text-[12.5px] text-slate-500">On a Claude Team or Enterprise plan, an organisation owner adds custom connectors.</p>
         </div>
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[12.5px]">
-          Treat this URL like a password: anyone who has it can read this branch’s data with the chosen person’s access. If it leaks, use <strong>Regenerate URL</strong>.
+          Treat this URL like a password: anyone who has it can use this branch’s data with the chosen person’s access. If it leaks, use <strong>Regenerate URL</strong>.
         </p>
       </div>
     </AiSettingsModal>
@@ -166,7 +251,8 @@ function UrlDialog({ open, url, isPublic, onClose }) {
 
 /**
  * Settings → AI Assistant → "Claude connector (MCP)": secret URLs that let Claude (or any
- * MCP client) read this branch's data through the same read-only tools as Ask AI.
+ * MCP client) use this branch's data through the same tools as Ask AI. Read-only by default;
+ * read & write per connector (send/share after approval in Claude).
  */
 export default function AiMcpConnectorsCard() {
   const [data, setData] = useState(null);
@@ -182,7 +268,9 @@ export default function AiMcpConnectorsCard() {
     try {
       setData(await updateMcpConnector(c.id, { accessMode: mode, acknowledgeWrite: mode === 'read_write' }));
       setWriteTarget(null);
-      toast.success(mode === 'read_write' ? `${nameOf(c)} can now send after approval in Claude` : `${nameOf(c)} is read-only again`);
+      toast.success(mode === 'read_write'
+        ? `${nameOf(c)} can now send after approval in Claude. If Claude doesn’t show the send tools yet, start a new chat or reconnect OOMS in Claude’s Connectors settings.`
+        : `${nameOf(c)} is read-only again`, { duration: 6000 });
     } catch (err) {
       toast.error(errorMessage(err, 'Could not change the connector access'));
     } finally {
@@ -209,7 +297,7 @@ export default function AiMcpConnectorsCard() {
   const onSaved = (payload, kind) => {
     setData((d) => ({ ...d, ...payload }));
     setDialog({ open: false, connector: null });
-    if (payload?.url) setReveal({ open: true, url: payload.url });
+    if (payload?.url) setReveal({ open: true, url: payload.url, writable: payload.connectors?.find((c) => c.id === payload.id)?.access_mode === 'read_write' });
     else toast.success(kind === 'updated' ? 'Connector updated' : 'Connector saved');
   };
 
@@ -250,7 +338,7 @@ export default function AiMcpConnectorsCard() {
       <div className="ui-card-header flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="ui-card-title flex items-center gap-2"><FiLink className="h-4 w-4 text-slate-500" /> Claude connector (MCP)</h2>
-          <p className="mt-0.5 text-[12.5px] text-slate-500">Use OOMS data inside Claude: add a connector URL in Claude → Settings → Connectors. Read-only.</p>
+          <p className="mt-0.5 text-[12.5px] text-slate-500">Use OOMS inside Claude: add a connector URL in Claude → Settings → Connectors. Each connector is read-only unless you allow read &amp; write.</p>
         </div>
         <div className="flex items-center gap-2">
           {data && <span className="text-[12px] text-slate-400">{connectors.length} of {max}</span>}
@@ -288,9 +376,6 @@ export default function AiMcpConnectorsCard() {
                         <span className={c.enabled ? (c.last_used_at ? 'ui-badge ui-badge-success' : 'ui-badge ui-badge-neutral') : 'ui-badge ui-badge-neutral'}>
                           {!c.enabled ? 'Off' : c.last_used_at ? 'Connected' : 'Not used yet'}
                         </span>
-                        <span className={c.access_mode === 'read_write' ? 'ui-badge ui-badge-warning' : 'ui-badge ui-badge-neutral'}>
-                          {c.access_mode === 'read_write' ? 'Read & write' : 'Read-only'}
-                        </span>
                       </div>
                       <p className="mt-0.5 truncate text-[12.5px] text-slate-500">
                         Access of <span className="font-medium text-slate-700">{c.run_as_name || 'a team member'}</span>
@@ -301,14 +386,14 @@ export default function AiMcpConnectorsCard() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-1">
-                    <button
-                      type="button"
-                      className="ui-btn ui-btn-ghost ui-btn-sm"
-                      onClick={() => (c.access_mode === 'read_write' ? setMode(c, 'read') : setWriteTarget(c))}
-                      disabled={busyId === c.id}
-                    >
-                      {c.access_mode === 'read_write' ? 'Make read-only' : 'Allow read & write'}
-                    </button>
+                    <span className="mr-1">
+                      <AccessToggle
+                        name={nameOf(c)}
+                        value={c.access_mode === 'read_write' ? 'read_write' : 'read'}
+                        disabled={busyId === c.id}
+                        onChange={(mode) => (mode === 'read_write' ? setWriteTarget(c) : setMode(c, 'read'))}
+                      />
+                    </span>
                     <button type="button" className="ui-btn ui-btn-secondary ui-btn-sm" onClick={() => setConfirm({ kind: 'rotate', connector: c })} disabled={busyId === c.id}>
                       <FiRefreshCw className="h-3.5 w-3.5" /> Regenerate URL
                     </button>
@@ -348,7 +433,7 @@ export default function AiMcpConnectorsCard() {
         onClose={() => setWriteTarget(null)}
         onConfirm={() => setMode(writeTarget, 'read_write')}
       />
-      <UrlDialog open={reveal.open} url={reveal.url} isPublic={Boolean(data?.public)} onClose={() => setReveal({ open: false, url: '' })} />
+      <UrlDialog open={reveal.open} url={reveal.url} writable={reveal.writable} isPublic={Boolean(data?.public)} onClose={() => setReveal({ open: false, url: '' })} />
       <AiSettingsModal
         open={Boolean(confirm)}
         onClose={() => setConfirm(null)}
