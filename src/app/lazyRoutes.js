@@ -73,6 +73,7 @@ export const ViewStaff = lazyWithRetry(() => import('../pages/staff-display'));
 export const ViewStaffProfile = lazyWithRetry(() => import('../pages/staff-profile'));
 export const StaffAttendance = lazyWithRetry(() => import('../pages/staff-attendance'));
 export const StaffReport = lazyWithRetry(() => import('../pages/staff-report'));
+export const ExecutiveSummary = lazyWithRetry(() => import('../pages/executive-summary'));
 export const OfficeAssistance = lazyWithRetry(() => import('../pages/office-assistance'));
 export const ViewDSCRegister = lazyWithRetry(() => import('../pages/office-assistance/dsc-report'));
 export const ViewFileIndex = lazyWithRetry(() => import('../pages/office-assistance/file-index'));

@@ -79,6 +79,7 @@ export const SOFTWARE_MODULES = [
   { title: "Staff", path: "/staff/view", group: "Staff", keywords: "team employee" },
   { title: "Attendance", path: "/staff/attendance", group: "Staff", keywords: "punch leave" },
   { title: "Team Report", path: "/staff/team-report", group: "Staff", keywords: "report" },
+  { title: "Executive Summary", path: "/reports/executive-summary", group: "Reports", keywords: "admin report sales collections expenses debtors tasks", adminOnly: true },
   { title: "Team Report Details", path: "/staff/team-report-details", group: "Staff", keywords: "report details" },
   { title: "Staff List", path: "/settings/staff-list", group: "Staff", keywords: "settings staff" },
 

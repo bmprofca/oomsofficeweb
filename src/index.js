@@ -54,6 +54,7 @@ import {
   ViewStaffProfile,
   StaffAttendance,
   StaffReport,
+  ExecutiveSummary,
   OfficeAssistance,
   ViewDSCRegister,
   ViewFileIndex,
@@ -683,6 +684,12 @@ root.render(
             <Route path="/staff/team-report" element={
               <ProtectedRoute>
                 <StaffReport />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/reports/executive-summary" element={
+              <ProtectedRoute>
+                <ExecutiveSummary />
               </ProtectedRoute>
             } />
 

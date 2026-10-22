@@ -55,6 +55,15 @@ const isMac =
   /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
 const SHORTCUT_LABEL = isMac ? "⌘K" : "Ctrl K";
 
+function isActiveBranchAdmin() {
+  try {
+    const branchId = localStorage.getItem('branch_id');
+    const branches = JSON.parse(localStorage.getItem('user_branches') || '[]');
+    const branch = Array.isArray(branches) && branches.find((item) => String(item.branch_id) === String(branchId));
+    return String(branch?.role || (branch?.owned ? 'admin' : localStorage.getItem('branch_role') || '')).toLowerCase() === 'admin';
+  } catch (_) { return String(localStorage.getItem('branch_role') || '').toLowerCase() === 'admin'; }
+}
+
 function readRecent() {
   try {
     const raw = window.localStorage.getItem(RECENT_KEY);
@@ -274,7 +283,7 @@ export default function HeaderGlobalSearch() {
   }, [debouncedQuery, open]);
 
   const modules = useMemo(
-    () => filterSoftwareModules(query, trimmed ? 8 : 8),
+    () => filterSoftwareModules(query, trimmed ? 8 : 8).filter((module) => !module.adminOnly || isActiveBranchAdmin()),
     [query, trimmed],
   );
 

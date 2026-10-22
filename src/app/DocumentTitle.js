@@ -46,6 +46,7 @@ const EXACT_TITLES = {
   '/staff/view': 'Staff',
   '/staff/attendance': 'Attendance',
   '/staff/team-report': 'Team Report',
+  '/reports/executive-summary': 'Executive Summary',
   '/staff/team-report-details': 'Team Report Details',
   '/office-assistance': 'Office Assistance',
   '/office-assistance/dsc-report': 'DSC Register',

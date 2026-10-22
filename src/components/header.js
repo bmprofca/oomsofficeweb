@@ -1010,6 +1010,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   };
 
   const menuSections = useMemo(() => {
+    const branchAdmin = isStoredBranchAdmin();
     const sections = [
       {
         label: 'Overview',
@@ -1082,6 +1083,12 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
           },
         ],
       },
+      ...(branchAdmin ? [{
+        label: 'Reports',
+        items: [
+          { key: 'executive-summary', title: 'Executive Summary', icon: <FiFileText size={17} />, path: '/reports/executive-summary' },
+        ],
+      }] : []),
       {
         label: 'Communication',
         items: [
