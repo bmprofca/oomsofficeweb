@@ -4,10 +4,11 @@ import {
     FiPlus,
     FiEdit,
     FiEye,
-    FiTrash2,
-    FiSettings
+    FiTrash2
 } from 'react-icons/fi';
 import { AnimatePresence, motion } from 'framer-motion';
+import API_BASE_URL from '../utils/api-controller';
+import getHeaders from '../utils/get-headers';
 
 const LedgerGroup = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -22,6 +23,8 @@ const LedgerGroup = () => {
     const [formData, setFormData] = useState({
         group_name: '',
         parent_group: '',
+        group_type: 'asset',
+        normal_balance: 'debit',
         values: ''
     });
     
@@ -29,20 +32,53 @@ const LedgerGroup = () => {
         group_id: '',
         group_name: '',
         parent_group: '',
+        group_type: 'asset',
+        normal_balance: 'debit',
         values: ''
     });
 
-    // Parent group options
-    const [parentGroups] = useState([
-        { value: '', name: 'None (Primary Group)' },
-        { value: 'capital_liabilities', name: 'Capital & Liabilities' },
-        { value: 'assets', name: 'Assets' },
-        { value: 'income', name: 'Income' },
-        { value: 'expenses', name: 'Expenses' }
-    ]);
+    const [ledgerGroups, setLedgerGroups] = useState([]);
+    const [parentGroups, setParentGroups] = useState([]);
+    const [loadError, setLoadError] = useState('');
 
-    // Mock ledger groups data with values
-    const [ledgerGroups, setLedgerGroups] = useState([
+    useEffect(() => {
+        let active = true;
+        const loadGroups = async () => {
+            setLoading(true);
+            try {
+                const headers = getHeaders();
+                if (!headers) throw new Error('Your session has expired. Please sign in again.');
+                const response = await fetch(`${API_BASE_URL}/ledger-groups/list`, { headers });
+                const result = await response.json().catch(() => null);
+                if (!response.ok || !result?.success) throw new Error(result?.message || 'Failed to load ledger groups');
+                const rows = Array.isArray(result.data) ? result.data : [];
+                if (active) {
+                    setLedgerGroups(rows.map((row, index) => ({
+                        ...row,
+                        group_id: row.ledger_group_id,
+                        group_name: row.name,
+                        parent_group: row.parent_group_id || '',
+                        values: row.normal_balance || '—',
+                        serial: String(index + 1),
+                    })));
+                    setParentGroups([
+                        { value: '', name: 'None (Primary Group)' },
+                        ...rows.map((row) => ({ value: row.ledger_group_id, name: row.name })),
+                    ]);
+                    setLoadError('');
+                }
+            } catch (error) {
+                if (active) setLoadError(error.message || 'Failed to load ledger groups');
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        loadGroups();
+        return () => { active = false; };
+    }, []);
+
+    /* Server-owned ledger groups; no fallback/mock rows are used. */
+    /*
         // A. Capital & Liabilities
         { group_id: '1', serial: 'A', group_name: 'Capital & Liabilities', parent_group: '', values: '₹15,00,000.00' },
         { group_id: '2', serial: '1', group_name: 'Partners\' Capital Account', parent_group: 'capital_liabilities', values: '₹8,50,000.00' },
@@ -88,7 +124,7 @@ const LedgerGroup = () => {
         { group_id: '36', serial: '32', group_name: 'Depreciation & Amortization', parent_group: 'expenses', values: '₹45,000.00' },
         { group_id: '37', serial: '33', group_name: 'Finance Costs / Interest Paid', parent_group: 'expenses', values: '₹35,000.00' },
         { group_id: '38', serial: '34', group_name: 'Other Expenses', parent_group: 'expenses', values: '₹25,000.00' }
-    ]);
+    ]); */
 
     // Handle form input changes
     const handleInputChange = (e) => {
@@ -107,8 +143,113 @@ const LedgerGroup = () => {
         }));
     };
 
-    // Handle create ledger group
+    const parseApiResponse = async (response, fallbackMessage) => {
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) throw new Error(result?.message || fallbackMessage);
+        return result;
+    };
+
     const handleCreateLedgerGroup = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const headers = getHeaders();
+            if (!headers) throw new Error('Your session has expired. Please sign in again.');
+            const response = await fetch(`${API_BASE_URL}/ledger-groups/create`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    name: formData.group_name,
+                    parent_group_id: formData.parent_group || null,
+                    group_type: formData.group_type,
+                    normal_balance: formData.normal_balance,
+                }),
+            });
+            const result = await parseApiResponse(response, 'Failed to create ledger group');
+            const row = result.data;
+            const newGroup = {
+                ...row,
+                group_id: row.ledger_group_id,
+                group_name: row.name,
+                parent_group: row.parent_group_id || '',
+                values: row.normal_balance || '—',
+                serial: String(ledgerGroups.length + 1),
+            };
+            setLedgerGroups(prev => [...prev, newGroup]);
+            setParentGroups(prev => [...prev, { value: row.ledger_group_id, name: row.name }]);
+            setFormData({ group_name: '', parent_group: '', group_type: 'asset', normal_balance: 'debit', values: '' });
+            setShowAddModal(false);
+            setLoadError('');
+        } catch (error) {
+            setLoadError(error.message || 'Failed to create ledger group');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEditLedgerGroup = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const headers = getHeaders();
+            if (!headers) throw new Error('Your session has expired. Please sign in again.');
+            const response = await fetch(`${API_BASE_URL}/ledger-groups/update/${encodeURIComponent(editFormData.group_id)}`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                    name: editFormData.group_name,
+                    parent_group_id: editFormData.parent_group || null,
+                    group_type: editFormData.group_type,
+                    normal_balance: editFormData.normal_balance,
+                }),
+            });
+            const result = await parseApiResponse(response, 'Failed to update ledger group');
+            const row = result.data;
+            setLedgerGroups(prev => prev.map(group => group.group_id === editFormData.group_id ? {
+                ...group,
+                ...row,
+                group_id: row.ledger_group_id,
+                group_name: row.name,
+                parent_group: row.parent_group_id || '',
+                values: row.normal_balance || '—',
+            } : group));
+            setParentGroups(prev => prev.map(parent => parent.value === row.ledger_group_id ? { ...parent, name: row.name } : parent));
+            setShowEditModal(false);
+            setLoadError('');
+        } catch (error) {
+            setLoadError(error.message || 'Failed to update ledger group');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!groupToDelete) return;
+        setLoading(true);
+        try {
+            const headers = getHeaders();
+            if (!headers) throw new Error('Your session has expired. Please sign in again.');
+            const response = await fetch(`${API_BASE_URL}/ledger-groups/delete/${encodeURIComponent(groupToDelete.group_id)}`, {
+                method: 'DELETE',
+                headers,
+            });
+            await parseApiResponse(response, 'Failed to delete ledger group');
+            setLedgerGroups(prev => prev.filter(group => group.group_id !== groupToDelete.group_id));
+            setParentGroups(prev => prev.filter(parent => parent.value !== groupToDelete.group_id));
+            setShowDeleteModal(false);
+            setGroupToDelete(null);
+            setLoadError('');
+        } catch (error) {
+            setLoadError(error.message || 'Failed to delete ledger group');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Legacy mock handlers retained below only as historical reference.
+    /*
+    // Handle create ledger group
+    const handleCreateLedgerGroupMock = async (e) => {
         e.preventDefault();
         setLoading(true);
 
@@ -136,7 +277,7 @@ const LedgerGroup = () => {
     };
 
     // Handle edit ledger group
-    const handleEditLedgerGroup = async (e) => {
+    const handleEditLedgerGroupMock = async (e) => {
         e.preventDefault();
         setLoading(true);
 
@@ -162,7 +303,7 @@ const LedgerGroup = () => {
     };
 
     // Handle delete confirmation
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirmMock = async () => {
         setLoading(true);
 
         // Simulate API call
@@ -177,12 +318,16 @@ const LedgerGroup = () => {
         }, 1000);
     };
 
+    */
+
     // Handle edit button click
     const handleEditClick = (group) => {
         setEditFormData({
             group_id: group.group_id,
             group_name: group.group_name,
             parent_group: group.parent_group,
+            group_type: group.group_type || 'asset',
+            normal_balance: group.normal_balance || 'debit',
             values: group.values
         });
         setShowEditModal(true);
@@ -244,6 +389,12 @@ const LedgerGroup = () => {
                                 </div>
                             </div>
 
+                            {loadError && (
+                                <div role="alert" className="mx-4 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                    {loadError}
+                                </div>
+                            )}
+
                             {/* Table */}
                             <div className="overflow-x-auto p-2">
                                 <table className="w-full text-sm table-bordered table-hover">
@@ -257,7 +408,13 @@ const LedgerGroup = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {ledgerGroups.map((group, index) => (
+                                        {loading && ledgerGroups.length === 0 && (
+                                            <tr><td colSpan="5" className="p-6 text-center text-slate-500">Loading ledger groups…</td></tr>
+                                        )}
+                                        {!loading && ledgerGroups.length === 0 && (
+                                            <tr><td colSpan="5" className="p-6 text-center text-slate-500">No ledger groups found.</td></tr>
+                                        )}
+                                        {ledgerGroups.map((group) => (
                                             <tr
                                                 key={group.group_id}
                                                 className={`border-b border-slate-100 hover:bg-slate-50 ${
@@ -331,6 +488,33 @@ const LedgerGroup = () => {
                                     className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                     required
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Group Type</label>
+                                <select
+                                    name="group_type"
+                                    value={formData.group_type}
+                                    onChange={handleInputChange}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white"
+                                >
+                                    <option value="asset">Asset</option>
+                                    <option value="liability">Liability</option>
+                                    <option value="equity">Equity</option>
+                                    <option value="income">Income</option>
+                                    <option value="expense">Expense</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Normal Balance</label>
+                                <select
+                                    name="normal_balance"
+                                    value={formData.normal_balance}
+                                    onChange={handleInputChange}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white"
+                                >
+                                    <option value="debit">Debit</option>
+                                    <option value="credit">Credit</option>
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Parent Group</label>
@@ -407,6 +591,33 @@ const LedgerGroup = () => {
                                     className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500"
                                     required
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Group Type</label>
+                                <select
+                                    name="group_type"
+                                    value={editFormData.group_type}
+                                    onChange={handleEditInputChange}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white"
+                                >
+                                    <option value="asset">Asset</option>
+                                    <option value="liability">Liability</option>
+                                    <option value="equity">Equity</option>
+                                    <option value="income">Income</option>
+                                    <option value="expense">Expense</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Normal Balance</label>
+                                <select
+                                    name="normal_balance"
+                                    value={editFormData.normal_balance}
+                                    onChange={handleEditInputChange}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 bg-white"
+                                >
+                                    <option value="debit">Debit</option>
+                                    <option value="credit">Credit</option>
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Parent Group</label>

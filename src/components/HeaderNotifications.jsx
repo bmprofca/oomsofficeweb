@@ -100,15 +100,27 @@ export default function HeaderNotifications({
     try {
       const headers = await getHeaders();
       if (!headers) return;
-      const res = await fetch(`${API_BASE_URL}/task/notifications?limit=20`, {
-        headers,
-      });
-      const result = await res.json();
-      if (!result?.success) return;
-      const payload = result.data || {};
-      setUnreadCount(Number(payload.unread_count ?? payload.count) || 0);
-      setTotal(Number(payload.total) || 0);
-      setItems(Array.isArray(payload.notifications) ? payload.notifications : []);
+      const [listResponse, countResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/notifications?limit=20&include_read=true`, { headers }),
+        fetch(`${API_BASE_URL}/notifications/unread-count`, { headers }),
+      ]);
+      const result = await listResponse.json();
+      const countResult = await countResponse.json().catch(() => null);
+      if (!listResponse.ok || !result?.success) return;
+      const rows = Array.isArray(result.data) ? result.data : [];
+      const mapped = rows.map((row) => ({
+        ...row,
+        id: row.notification_id,
+        message: row.body,
+        type: row.category,
+        is_read: Boolean(row.is_read || row.read_at),
+        created_at: row.create_date,
+        path: row.data?.path || null,
+        task_id: row.data?.task_id || null,
+      }));
+      setUnreadCount(Number(countResult?.data?.unread_count) || mapped.filter((row) => !row.is_read).length);
+      setTotal(Number(result.pagination?.total) || mapped.length);
+      setItems(mapped);
     } catch (error) {
       console.error("Failed to fetch notifications", error);
     } finally {
@@ -119,7 +131,7 @@ export default function HeaderNotifications({
   const postNotificationAction = useCallback(async (path, body) => {
     const headers = await getHeaders();
     if (!headers) return false;
-    const res = await fetch(`${API_BASE_URL}/task/notifications/${path}`, {
+    const res = await fetch(`${API_BASE_URL}/notifications/${path}`, {
       method: "POST",
       headers: {
         ...headers,

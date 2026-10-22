@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FiRepeat, FiFileText, FiClipboard, FiSettings, FiCheck, FiBell, FiCalendar, FiClock, FiTrendingUp, FiZap, FiAlertCircle,  FiActivity, FiRefreshCw, FiDatabase, FiMail, FiShield, FiBarChart2 } from 'react-icons/fi';
+import API_BASE_URL from '../utils/api-controller';
+import getHeaders from '../utils/get-headers';
 
 const AutomationTab = () => {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
     const [automationSettings, setAutomationSettings] = useState({
         recurringTasks: true,
         autoBilling: false,
@@ -19,11 +24,67 @@ const AutomationTab = () => {
     });
 
     const handleAutomationChange = (setting) => {
-        setAutomationSettings(prev => ({
-            ...prev,
-            [setting]: !prev[setting]
-        }));
+        const next = {
+            ...automationSettings,
+            [setting]: !automationSettings[setting],
+        };
+        setAutomationSettings(next);
+        saveAutomationSettings(next);
     };
+
+    const saveAutomationSettings = async (policies) => {
+        setSaving(true);
+        setError('');
+        try {
+            const headers = getHeaders();
+            if (!headers) throw new Error('Your session has expired. Please sign in again.');
+            const response = await fetch(`${API_BASE_URL}/automation-policies`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({ scope_type: 'branch', policies }),
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result?.success) {
+                throw new Error(result?.message || 'Failed to save automation policies');
+            }
+            if (result?.data?.policies) setAutomationSettings(result.data.policies);
+        } catch (saveError) {
+            setError(saveError.message || 'Failed to save automation policies');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const toggleAllAutomations = (enable) => {
+        const next = {};
+        automationFeatures.forEach(feature => {
+            next[feature.key] = enable;
+        });
+        setAutomationSettings(next);
+        saveAutomationSettings(next);
+    };
+
+    useEffect(() => {
+        let active = true;
+        const loadPolicies = async () => {
+            try {
+                const headers = getHeaders();
+                if (!headers) throw new Error('Your session has expired. Please sign in again.');
+                const response = await fetch(`${API_BASE_URL}/automation-policies?scope_type=branch`, { headers });
+                const result = await response.json().catch(() => null);
+                if (!response.ok || !result?.success) {
+                    throw new Error(result?.message || 'Failed to load automation policies');
+                }
+                if (active && result?.data?.policies) setAutomationSettings(result.data.policies);
+            } catch (loadError) {
+                if (active) setError(loadError.message || 'Failed to load automation policies');
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        loadPolicies();
+        return () => { active = false; };
+    }, []);
 
     const automationFeatures = [
         {
@@ -185,14 +246,6 @@ const AutomationTab = () => {
         }
     };
 
-    const toggleAllAutomations = (enable) => {
-        const newSettings = {};
-        automationFeatures.forEach(feature => {
-            newSettings[feature.key] = enable;
-        });
-        setAutomationSettings(newSettings);
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -211,6 +264,7 @@ const AutomationTab = () => {
                 <div className="flex items-center gap-3">
                     <motion.button
                         onClick={() => toggleAllAutomations(false)}
+                        disabled={loading || saving}
                         className="px-5 py-2.5 bg-gray-500 text-white rounded-xl hover:shadow-lg hover:shadow-gray-500/25 transition-all duration-300 font-semibold"
                         whileHover={{ scale: 1.02, y: -2 }}
                     >
@@ -218,6 +272,7 @@ const AutomationTab = () => {
                     </motion.button>
                     <motion.button
                         onClick={() => toggleAllAutomations(true)}
+                        disabled={loading || saving}
                         className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
                         whileHover={{ scale: 1.02, y: -2 }}
                     >
@@ -225,6 +280,13 @@ const AutomationTab = () => {
                     </motion.button>
                 </div>
             </div>
+
+            {error && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                    {error}
+                </div>
+            )}
+            {saving && <div className="mb-4 text-xs text-slate-500" role="status">Saving automation policies…</div>}
 
             {/* Stats Dashboard */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
