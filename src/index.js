@@ -55,6 +55,7 @@ import {
   StaffAttendance,
   StaffReport,
   ExecutiveSummary,
+  AutomationCenter,
   OfficeAssistance,
   ViewDSCRegister,
   ViewFileIndex,
@@ -692,6 +693,17 @@ root.render(
             <Route path="/reports/executive-summary" element={
               <ProtectedRoute>
                 <ExecutiveSummary />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/automations" element={
+              <ProtectedRoute>
+                <AutomationCenter />
+              </ProtectedRoute>
+            } />
+            <Route path="/automations/:policyKey" element={
+              <ProtectedRoute>
+                <AutomationCenter />
               </ProtectedRoute>
             } />
 

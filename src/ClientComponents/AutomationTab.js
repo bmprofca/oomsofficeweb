@@ -3,8 +3,11 @@ import { motion } from 'framer-motion';
 import { FiRepeat, FiFileText, FiClipboard, FiSettings, FiCheck, FiBell, FiCalendar, FiClock, FiTrendingUp, FiZap, FiAlertCircle,  FiActivity, FiRefreshCw, FiDatabase, FiMail, FiShield, FiBarChart2 } from 'react-icons/fi';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
+import { useUserPermissions } from '../utils/permission-helper';
 
-const AutomationTab = () => {
+const AutomationTab = ({ clientUsername }) => {
+    const { check } = useUserPermissions();
+    const canManage = check('automation_manage');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -41,7 +44,7 @@ const AutomationTab = () => {
             const response = await fetch(`${API_BASE_URL}/automation-policies`, {
                 method: 'PUT',
                 headers,
-                body: JSON.stringify({ scope_type: 'branch', policies }),
+                body: JSON.stringify({ scope_type: 'client', scope_id: clientUsername, policies }),
             });
             const result = await response.json().catch(() => null);
             if (!response.ok || !result?.success) {
@@ -70,7 +73,8 @@ const AutomationTab = () => {
             try {
                 const headers = getHeaders();
                 if (!headers) throw new Error('Your session has expired. Please sign in again.');
-                const response = await fetch(`${API_BASE_URL}/automation-policies?scope_type=branch`, { headers });
+                const query = new URLSearchParams({ scope_type: 'client', scope_id: clientUsername });
+                const response = await fetch(`${API_BASE_URL}/automation-policies?${query}`, { headers });
                 const result = await response.json().catch(() => null);
                 if (!response.ok || !result?.success) {
                     throw new Error(result?.message || 'Failed to load automation policies');
@@ -84,7 +88,7 @@ const AutomationTab = () => {
         };
         loadPolicies();
         return () => { active = false; };
-    }, []);
+    }, [clientUsername]);
 
     const automationFeatures = [
         {
@@ -264,7 +268,7 @@ const AutomationTab = () => {
                 <div className="flex items-center gap-3">
                     <motion.button
                         onClick={() => toggleAllAutomations(false)}
-                        disabled={loading || saving}
+                        disabled={!canManage || loading || saving}
                         className="px-5 py-2.5 bg-gray-500 text-white rounded-xl hover:shadow-lg hover:shadow-gray-500/25 transition-all duration-300 font-semibold"
                         whileHover={{ scale: 1.02, y: -2 }}
                     >
@@ -272,7 +276,7 @@ const AutomationTab = () => {
                     </motion.button>
                     <motion.button
                         onClick={() => toggleAllAutomations(true)}
-                        disabled={loading || saving}
+                        disabled={!canManage || loading || saving}
                         className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
                         whileHover={{ scale: 1.02, y: -2 }}
                     >
@@ -287,6 +291,7 @@ const AutomationTab = () => {
                 </div>
             )}
             {saving && <div className="mb-4 text-xs text-slate-500" role="status">Saving automation policies…</div>}
+            {!canManage && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">You can view these client automation settings, but do not have permission to change them.</div>}
 
             {/* Stats Dashboard */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -412,17 +417,27 @@ const AutomationTab = () => {
                                     </div>
                                     
                                     <motion.div
-                                        className={`relative w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-all duration-300 ${
+                                        role="switch"
+                                        aria-checked={isActive}
+                                        aria-disabled={!canManage || saving}
+                                        tabIndex={canManage && !saving ? 0 : -1}
+                                        className={`relative w-14 h-8 flex items-center rounded-full p-1 transition-all duration-300 ${
                                             isActive 
-                                                ? 'bg-green-500 justify-end' 
+                                                ? 'bg-indigo-600 justify-end'
                                                 : 'bg-gray-400 justify-start'
-                                        }`}
-                                        onClick={() => handleAutomationChange(feature.key)}
+                                        } ${canManage && !saving ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+                                        onClick={() => canManage && !saving && handleAutomationChange(feature.key)}
+                                        onKeyDown={(event) => {
+                                            if (canManage && !saving && (event.key === 'Enter' || event.key === ' ')) {
+                                                event.preventDefault();
+                                                handleAutomationChange(feature.key);
+                                            }
+                                        }}
                                     >
                                         <div className="w-6 h-6 bg-white rounded-full shadow-md"></div>
                                         {isActive && (
                                             <div className="absolute -right-1 -top-1">
-                                                <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                                <div className="w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center">
                                                     <FiCheck className="w-3 h-3 text-white" />
                                                 </div>
                                             </div>

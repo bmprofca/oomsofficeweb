@@ -13,11 +13,13 @@ import {
   FiLock,
   FiPhoneCall,
   FiSearch,
+  FiSettings,
   FiUserCheck,
   FiUsers,
   FiTrash2,
 } from "react-icons/fi";
 import { Header, Sidebar } from "../components/header";
+import { useUserPermissions } from "../utils/permission-helper";
 
 const OFFICE_MODULES = [
   {
@@ -119,6 +121,17 @@ const OFFICE_MODULES = [
     iconColor: "text-lime-600",
     hover: "border-lime-100 bg-lime-50 hover:border-lime-300 hover:bg-lime-100/70 hover:shadow-md",
   },
+  {
+    title: "Automation Center",
+    description: "Automation options and enabled clients",
+    icon: FiSettings,
+    link: "/automations",
+    absolute: true,
+    iconBg: "bg-white ring-1 ring-indigo-200",
+    iconColor: "text-indigo-600",
+    hover: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
+    permission: "setting_view_edit",
+  },
 ];
 
 function ModuleCard({ module, index, onNavigate }) {
@@ -131,7 +144,7 @@ function ModuleCard({ module, index, onNavigate }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.24), duration: 0.2 }}
       whileHover={{ y: -1 }}
-      onClick={() => onNavigate(module.link)}
+      onClick={() => onNavigate(module.link, module.absolute)}
       className={`group flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${module.hover}`}
     >
       <span
@@ -156,6 +169,7 @@ function ModuleCard({ module, index, onNavigate }) {
 
 const OfficeAssistance = () => {
   const navigate = useNavigate();
+  const { check } = useUserPermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
     const saved = localStorage.getItem("sidebarMinimized");
@@ -165,13 +179,16 @@ const OfficeAssistance = () => {
 
   const filteredModules = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return OFFICE_MODULES;
-    return OFFICE_MODULES.filter(
+    const availableModules = OFFICE_MODULES.filter(
+      (mod) => !mod.permission || check(mod.permission),
+    );
+    if (!q) return availableModules;
+    return availableModules.filter(
       (mod) =>
         mod.title.toLowerCase().includes(q) ||
         mod.description.toLowerCase().includes(q),
     );
-  }, [searchTerm]);
+  }, [check, searchTerm]);
 
   useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
@@ -184,7 +201,7 @@ const OfficeAssistance = () => {
     };
   }, [mobileMenuOpen]);
 
-  const handleNavigate = (link) => navigate(`.${link}`);
+  const handleNavigate = (link, absolute = false) => navigate(absolute ? link : `.${link}`);
 
   return (
     <div className="app-page">
