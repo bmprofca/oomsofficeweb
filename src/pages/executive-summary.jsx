@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FiAlertCircle, FiBarChart2, FiCalendar, FiChevronDown, FiDownload, FiMail, FiRefreshCw, FiSave, FiSettings } from 'react-icons/fi';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FiActivity, FiAlertCircle, FiBarChart2, FiCalendar, FiChevronDown, FiDollarSign, FiDownload, FiMail, FiPieChart, FiRefreshCw, FiSave, FiSettings } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Header, Sidebar } from '../components/header';
 import { DatePickerField } from '../components/PortalDatePicker';
 import executiveSummaryService from '../services/executiveSummaryService';
@@ -35,6 +36,57 @@ function isAdmin() {
 const money = (value) => Number(value || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 const number = (value) => Number(value || 0).toLocaleString('en-IN');
 const digitsOnly = (value) => value.replace(/\D/g, '');
+const CHART_COLORS = ['#4f46e5', '#0f766e', '#ea580c', '#c026d3', '#0891b2', '#ca8a04', '#be123c', '#7c3aed'];
+const formatCompactCurrency = (value) => {
+  const amount = Number(value) || 0;
+  if (Math.abs(amount) >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
+  if (Math.abs(amount) >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+  if (Math.abs(amount) >= 1000) return `₹${(amount / 1000).toFixed(1)}k`;
+  return `₹${number(amount)}`;
+};
+
+function ChartTooltip({ active, payload, label, currency = false }) {
+  if (!active || !payload?.length) return null;
+  const rows = payload.filter((item) => Number(item.value) !== 0);
+  if (!rows.length) return null;
+  return <div className="min-w-44 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">
+    {label && <p className="mb-2 max-w-56 truncate text-xs font-semibold text-slate-800">{label}</p>}
+    <div className="space-y-1.5">
+      {rows.map((item) => <div key={item.dataKey} className="flex items-center justify-between gap-5 text-xs">
+        <span className="flex min-w-0 items-center gap-2 text-slate-500"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.color || item.payload?.fill }} /><span className="truncate">{item.name}</span></span>
+        <span className="shrink-0 font-semibold tabular-nums text-slate-800">{currency ? money(item.value) : number(item.value)}</span>
+      </div>)}
+    </div>
+  </div>;
+}
+
+function mergeStaffMetrics(sections, metrics) {
+  const rows = new Map();
+  metrics.forEach(([sectionKey, sourceKey, targetKey]) => {
+    (sections?.[sectionKey]?.rows || []).forEach((source) => {
+      const key = source.username || source.staff_username || source.staff_name || 'unassigned';
+      const row = rows.get(key) || { staff_name: source.staff_name || 'Unassigned' };
+      row[targetKey] = (row[targetKey] || 0) + (sourceKey ? Number(source[sourceKey]) || 0 : 1);
+      rows.set(key, row);
+    });
+  });
+  return [...rows.values()];
+}
+
+function chartTopRows(rows, keys) {
+  const sorted = [...rows].sort((first, second) =>
+    keys.reduce((total, key) => total + (second[key] || 0) - (first[key] || 0), 0)
+  );
+  if (sorted.length <= 10) return sorted;
+  const remaining = sorted.slice(9);
+  return [
+    ...sorted.slice(0, 9),
+    {
+      staff_name: `Others (${remaining.length})`,
+      ...Object.fromEntries(keys.map((key) => [key, remaining.reduce((sum, row) => sum + (row[key] || 0), 0)])),
+    },
+  ];
+}
 
 function SectionTable({ sectionKey, section }) {
   const rows = section?.rows || [];
@@ -107,6 +159,7 @@ export default function ExecutiveSummary() {
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const actionInProgressRef = useRef(false);
   const [error, setError] = useState(null);
   const admin = useMemo(isAdmin, []);
 
@@ -135,11 +188,47 @@ export default function ExecutiveSummary() {
     if (!/^\d+$/.test(String(filters.inactivity_days)) || Number(filters.inactivity_days) < 0) return toast.error('Inactivity days must be a non-negative number.');
     load(filters);
   };
+  const actionInProgress = sending || downloading;
   const downloadPdf = async () => {
+    if (actionInProgressRef.current) return;
+    actionInProgressRef.current = true;
     setDownloading(true);
-    try { const blob = await executiveSummaryService.downloadPdf(filters); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `executive-summary-${filters.from_date}-to-${filters.to_date}.pdf`; anchor.click(); URL.revokeObjectURL(url); toast.success('PDF downloaded.'); } catch (requestError) { toast.error(requestError.message); } finally { setDownloading(false); }
+    const toastId = toast.loading('Preparing your PDF. This may take a little while; please wait.');
+    const slowNotice = window.setTimeout(() => toast.loading('Still preparing your PDF. Larger reports can take longer; please keep waiting.', { id: toastId }), 8000);
+    try {
+      const blob = await executiveSummaryService.downloadPdf(filters);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `executive-summary-${filters.from_date}-to-${filters.to_date}.pdf`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('PDF downloaded.', { id: toastId });
+    } catch (requestError) {
+      toast.error(requestError.message, { id: toastId });
+    } finally {
+      window.clearTimeout(slowNotice);
+      actionInProgressRef.current = false;
+      setDownloading(false);
+    }
   };
-  const sendNow = async () => { setSending(true); try { await executiveSummaryService.sendNow({ from_date: filters.from_date, to_date: filters.to_date }); toast.success('Executive Summary email sent.'); } catch (requestError) { toast.error(requestError.message); } finally { setSending(false); } };
+  const sendNow = async () => {
+    if (actionInProgressRef.current) return;
+    actionInProgressRef.current = true;
+    setSending(true);
+    const toastId = toast.loading('Generating the report and sending your email. This may take a little while; please wait.');
+    const slowNotice = window.setTimeout(() => toast.loading('Still working on your email. Larger reports can take longer; please keep waiting.', { id: toastId }), 8000);
+    try {
+      await executiveSummaryService.sendNow({ from_date: filters.from_date, to_date: filters.to_date });
+      toast.success('Executive Summary email sent.', { id: toastId });
+    } catch (requestError) {
+      toast.error(requestError.message, { id: toastId });
+    } finally {
+      window.clearTimeout(slowNotice);
+      actionInProgressRef.current = false;
+      setSending(false);
+    }
+  };
   const saveConfig = async () => {
     if (![draft.send_hour, draft.send_minute, draft.inactivity_days].every((value) => /^\d+$/.test(String(value)))) {
       return toast.error('Enter valid numeric values for the schedule and inactivity settings.');
@@ -164,6 +253,22 @@ export default function ExecutiveSummary() {
 
   const totals = report?.totals || {};
   const cards = [['tasks_completed', 'Completed tasks', totals.tasks_completed, 'count'], ['new_tasks', 'New tasks', totals.new_tasks, 'count'], ['sales', 'Sales', totals.sales, 'money'], ['collections', 'Collections', totals.collections, 'money'], ['expenses', 'Expenses', totals.expenses, 'money'], ['unpaid_debtors', 'Unpaid debtors', totals.unpaid_debtors, 'count'], ['due_tasks', 'Due tasks', totals.due_tasks, 'count'], ['clients_without_service', 'No recent service', totals.clients_without_service, 'count']];
+  const activityData = chartTopRows(mergeStaffMetrics(report?.sections, [
+    ['tasks_completed', 'completed_count', 'completed'],
+    ['new_tasks', 'new_task_count', 'new_tasks'],
+    ['due_tasks', null, 'due_tasks'],
+  ]), ['completed', 'new_tasks', 'due_tasks']);
+  const financialData = chartTopRows(mergeStaffMetrics(report?.sections, [
+    ['sales', 'sale_amount', 'sales'],
+    ['collections', 'collection_amount', 'collections'],
+    ['expenses', 'expense_amount', 'expenses'],
+  ]), ['sales', 'collections', 'expenses']);
+  const portfolioData = [
+    { name: 'Unpaid debtors', value: Number(totals.unpaid_debtors) || 0 },
+    { name: 'Due tasks', value: Number(totals.due_tasks) || 0 },
+    { name: 'No recent service', value: Number(totals.clients_without_service) || 0 },
+  ];
+  const portfolioTotal = portfolioData.reduce((sum, item) => sum + item.value, 0);
   return <div className="app-page min-h-screen bg-slate-50"><Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} /><Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} /><main className={`pt-16 transition-all ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}><div className="mx-auto max-w-[1600px] space-y-5 p-4 sm:p-6">
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -178,8 +283,8 @@ export default function ExecutiveSummary() {
           ))}
         </div>
         <button type="button" className="ui-btn ui-btn-secondary inline-flex shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap" onClick={() => load(filters)} disabled={loading}><FiRefreshCw className="h-4 w-4 shrink-0" /><span>Refresh</span></button>
-        <button type="button" className="ui-btn ui-btn-secondary inline-flex shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap" onClick={downloadPdf} disabled={downloading || !report}><FiDownload className="h-4 w-4 shrink-0" /><span>{downloading ? 'Preparing…' : 'Download PDF'}</span></button>
-        <button type="button" className="ui-btn ui-btn-primary inline-flex shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap" onClick={sendNow} disabled={sending || !report}><FiMail className="h-4 w-4 shrink-0" /><span>{sending ? 'Sending…' : 'Send now'}</span></button>
+        <button type="button" className="ui-btn ui-btn-secondary inline-flex shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap" onClick={downloadPdf} disabled={actionInProgress || !report}><FiDownload className="h-4 w-4 shrink-0" /><span>{downloading ? 'Preparing…' : 'Download PDF'}</span></button>
+        <button type="button" className="ui-btn ui-btn-primary inline-flex shrink-0 flex-row items-center justify-center gap-2 whitespace-nowrap" onClick={sendNow} disabled={actionInProgress || !report}><FiMail className="h-4 w-4 shrink-0" /><span>{sending ? 'Sending…' : 'Send now'}</span></button>
       </div>
     </div>
     {activeTab === 'report' && <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -199,7 +304,81 @@ export default function ExecutiveSummary() {
     </section>}
     {error ? <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><span>{error.message || 'Unable to load report.'}</span><button className="btn-secondary" onClick={() => load(filters)}>Retry</button></div> : null}
     {activeTab === 'report' && <section className="grid grid-cols-2 gap-3 md:grid-cols-4">{cards.map(([key, label, value, type]) => <div key={key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-2 text-xl font-bold text-slate-900">{type === 'money' ? money(value) : number(value)}</p></div>)}</section>}
-    {activeTab === 'report' && (loading ? <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm"><FiRefreshCw className="mb-4 h-8 w-8 animate-spin text-indigo-600" aria-hidden="true" /><h2 className="text-base font-semibold text-slate-800">Generating your Executive Summary</h2><p className="mt-2 max-w-md text-sm leading-6 text-slate-500">We’re gathering the report data now. This can take a few minutes, especially for larger date ranges. Please keep this page open.</p></div> : <div className="grid gap-5"><div className="space-y-5">{Object.entries(SECTION_LABELS).map(([key, label]) => {
+    {activeTab === 'report' && report && <section className="grid min-w-0 gap-4 xl:grid-cols-2">
+      <article className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-indigo-50/60 p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><FiActivity size={19} /></span>
+            <div className="min-w-0"><h2 className="text-sm font-bold text-slate-900">Staff activity</h2><p className="mt-1 text-xs text-slate-500">Work completed, created, and due by staff</p></div>
+          </div>
+          <span className="shrink-0 rounded-full border border-indigo-100 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">Top performers</span>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2" aria-label="Activity chart legend">
+          {[['Completed', CHART_COLORS[0]], ['New tasks', CHART_COLORS[1]], ['Due tasks', CHART_COLORS[2]]].map(([label, color]) => <span key={label} className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />{label}</span>)}
+        </div>
+        <div className="mt-2 h-[300px] rounded-xl bg-white/65 p-2 sm:h-[340px]">
+          {activityData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={activityData} layout="vertical" margin={{ top: 8, right: 12, bottom: 4, left: 4 }} barCategoryGap="24%">
+            <CartesianGrid stroke="#e9edf5" strokeDasharray="3 5" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} allowDecimals={false} />
+            <YAxis type="category" dataKey="staff_name" width={100} tick={{ fontSize: 10, fill: '#475569' }} tickLine={false} axisLine={false} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: '#eef2ff', radius: 6 }} />
+            <Bar dataKey="completed" name="Completed" fill={CHART_COLORS[0]} radius={[0, 5, 5, 0]} maxBarSize={14} />
+            <Bar dataKey="new_tasks" name="New tasks" fill={CHART_COLORS[1]} radius={[0, 5, 5, 0]} maxBarSize={14} />
+            <Bar dataKey="due_tasks" name="Due tasks" fill={CHART_COLORS[2]} radius={[0, 5, 5, 0]} maxBarSize={14} />
+          </BarChart></ResponsiveContainer> : <p className="flex h-full items-center justify-center text-sm text-slate-500">No activity data for this period.</p>}
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400">Showing up to 9 staff members; remaining staff are grouped as Others.</p>
+      </article>
+      <article className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-emerald-50/60 p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><FiDollarSign size={19} /></span>
+            <div className="min-w-0"><h2 className="text-sm font-bold text-slate-900">Financial performance</h2><p className="mt-1 text-xs text-slate-500">Compare sales, collections, and expenses</p></div>
+          </div>
+          <span className="shrink-0 rounded-full border border-emerald-100 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">By staff</span>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2" aria-label="Financial chart legend">
+          {[['Sales', CHART_COLORS[0]], ['Collections', CHART_COLORS[1]], ['Expenses', CHART_COLORS[2]]].map(([label, color]) => <span key={label} className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />{label}</span>)}
+        </div>
+        <div className="mt-2 h-[300px] rounded-xl bg-white/65 p-2 sm:h-[340px]">
+          {financialData.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={financialData} layout="vertical" margin={{ top: 8, right: 12, bottom: 4, left: 4 }} barCategoryGap="24%">
+            <CartesianGrid stroke="#e9edf5" strokeDasharray="3 5" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} tickFormatter={formatCompactCurrency} />
+            <YAxis type="category" dataKey="staff_name" width={100} tick={{ fontSize: 10, fill: '#475569' }} tickLine={false} axisLine={false} />
+            <Tooltip content={<ChartTooltip currency />} cursor={{ fill: '#ecfdf5', radius: 6 }} />
+            <Bar dataKey="sales" name="Sales" fill={CHART_COLORS[0]} radius={[0, 5, 5, 0]} maxBarSize={14} />
+            <Bar dataKey="collections" name="Collections" fill={CHART_COLORS[1]} radius={[0, 5, 5, 0]} maxBarSize={14} />
+            <Bar dataKey="expenses" name="Expenses" fill={CHART_COLORS[2]} radius={[0, 5, 5, 0]} maxBarSize={14} />
+          </BarChart></ResponsiveContainer> : <p className="flex h-full items-center justify-center text-sm text-slate-500">No financial data for this period.</p>}
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400">Showing up to 9 staff members; remaining staff are grouped as Others.</p>
+      </article>
+      <article className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-amber-50/60 p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5 xl:col-span-2">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><FiPieChart size={19} /></span>
+          <div className="min-w-0"><h2 className="text-sm font-bold text-slate-900">Client &amp; task follow-up</h2><p className="mt-1 text-xs text-slate-500">At-a-glance view of outstanding follow-up items</p></div>
+        </div>
+        {portfolioData.some((item) => item.value > 0) ? <div className="mt-3 grid items-center gap-2 sm:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)]">
+          <div className="mx-auto h-56 w-full max-w-[300px]">
+            <ResponsiveContainer width="100%" height="100%"><PieChart>
+              <Pie data={portfolioData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={58} outerRadius={88} paddingAngle={4} stroke="none">
+                {portfolioData.map((item, index) => <Cell key={item.name} fill={CHART_COLORS[index]} />)}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+              <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" className="fill-slate-800 text-2xl font-bold">{number(portfolioTotal)}</text>
+              <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" className="fill-slate-400 text-[10px] font-medium">TOTAL ITEMS</text>
+            </PieChart></ResponsiveContainer>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-1">
+            {portfolioData.map((item, index) => <div key={item.name} className="flex items-center justify-between gap-4 rounded-xl border border-white bg-white/80 px-4 py-3 shadow-sm">
+              <span className="flex min-w-0 items-center gap-3 text-sm font-medium text-slate-600"><span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS[index] }} /><span className="truncate">{item.name}</span></span>
+              <span className="shrink-0 text-right"><span className="block text-base font-bold tabular-nums text-slate-900">{number(item.value)}</span><span className="text-[10px] text-slate-400">{portfolioTotal ? `${Math.round(item.value / portfolioTotal * 100)}% of total` : '0% of total'}</span></span>
+            </div>)}
+          </div>
+        </div> : <p className="flex min-h-48 items-center justify-center text-sm text-slate-500">No follow-up items for this period.</p>}
+      </article>
+    </section>}
+    {activeTab === 'report' && (loading ? <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm"><FiRefreshCw className="mb-4 h-8 w-8 animate-spin text-indigo-600" aria-hidden="true" /><h2 className="text-base font-semibold text-slate-800">Generating your Executive Summary</h2><p className="mt-2 max-w-md text-sm leading-6 text-slate-500">We’re gathering the report data now. Larger date ranges may take longer to process.</p></div> : <div className="grid gap-5"><div className="space-y-5">{Object.entries(SECTION_LABELS).map(([key, label]) => {
       const isCollapsed = collapsedSections.has(key);
       return <section key={key} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between gap-3 px-4 py-3"><h2 className="text-sm font-semibold text-slate-800">{label}</h2><div className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">{number(report?.sections?.[key]?.total_count || 0)}</span><button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1" onClick={() => setCollapsedSections((current) => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; })} aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${label}`} aria-expanded={!isCollapsed} aria-controls={`summary-section-${key}`}><FiChevronDown className={`h-4 w-4 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} /></button></div></div><div id={`summary-section-${key}`} className="border-t border-slate-100 p-4" hidden={isCollapsed}><SectionTable sectionKey={key} section={report?.sections?.[key]} /></div></section>;
     })}</div></div>)}
