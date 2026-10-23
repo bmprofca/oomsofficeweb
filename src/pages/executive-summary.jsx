@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Header, Sidebar } from '../components/header';
 import { DatePickerField } from '../components/PortalDatePicker';
+import { resolveBranchRole } from '../services/branchSetupService';
 import executiveSummaryService from '../services/executiveSummaryService';
 
 const SECTION_LABELS = {
@@ -28,9 +29,13 @@ function isAdmin() {
   try {
     const branchId = localStorage.getItem('branch_id');
     const branches = JSON.parse(localStorage.getItem('user_branches') || '[]');
-    const branch = Array.isArray(branches) && branches.find((item) => String(item.branch_id) === String(branchId));
-    return String(branch?.role || (branch?.owned ? 'admin' : localStorage.getItem('branch_role') || '')).toLowerCase() === 'admin';
-  } catch (_) { return String(localStorage.getItem('branch_role') || '').toLowerCase() === 'admin'; }
+    const branch = Array.isArray(branches) && branches.find((item) => String(item.branch_id || item.id) === String(branchId));
+    if (branch) return resolveBranchRole(branch) === 'admin';
+  } catch (error) {
+    console.error('Failed to resolve Executive Summary branch role', error);
+  }
+  const role = String(localStorage.getItem('branch_role') || '').trim().toLowerCase();
+  return localStorage.getItem('branch_owned') === 'true' || role === 'admin' || role === 'owner';
 }
 
 const money = (value) => Number(value || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });

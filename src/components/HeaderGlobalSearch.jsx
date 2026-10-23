@@ -28,6 +28,7 @@ import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { filterSoftwareModules } from "../data/softwareModules";
+import { resolveBranchRole } from "../services/branchSetupService";
 
 /**
  * Global search — command palette.
@@ -59,9 +60,13 @@ function isActiveBranchAdmin() {
   try {
     const branchId = localStorage.getItem('branch_id');
     const branches = JSON.parse(localStorage.getItem('user_branches') || '[]');
-    const branch = Array.isArray(branches) && branches.find((item) => String(item.branch_id) === String(branchId));
-    return String(branch?.role || (branch?.owned ? 'admin' : localStorage.getItem('branch_role') || '')).toLowerCase() === 'admin';
-  } catch (_) { return String(localStorage.getItem('branch_role') || '').toLowerCase() === 'admin'; }
+    const branch = Array.isArray(branches) && branches.find((item) => String(item.branch_id || item.id) === String(branchId));
+    if (branch) return resolveBranchRole(branch) === 'admin';
+  } catch (error) {
+    console.error('Failed to resolve branch admin role for global search', error);
+  }
+  const role = String(localStorage.getItem('branch_role') || '').trim().toLowerCase();
+  return localStorage.getItem('branch_owned') === 'true' || role === 'admin' || role === 'owner';
 }
 
 function readRecent() {

@@ -16,8 +16,9 @@ export function getAuthHeaders({ skipBranch = false } = {}) {
 
 export function resolveBranchRole(branch) {
     if (!branch) return 'staff';
-    if (branch.role) return branch.role;
-    return branch.owned ? 'admin' : 'staff';
+    const role = String(branch.role || '').trim().toLowerCase();
+    if (branch.owned || role === 'admin' || role === 'owner') return 'admin';
+    return role || 'staff';
 }
 
 export function formatBranchRoleLabel(branchOrRole) {

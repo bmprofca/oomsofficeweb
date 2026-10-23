@@ -39,7 +39,7 @@ function isStoredBranchAdmin() {
     const branchesJson = localStorage.getItem('user_branches');
     const branches = branchesJson ? JSON.parse(branchesJson) : [];
     const activeBranch = Array.isArray(branches)
-      ? branches.find((branch) => String(branch.branch_id) === String(branchId))
+      ? branches.find((branch) => String(branch.branch_id || branch.id) === String(branchId))
       : null;
     if (activeBranch) {
       return resolveBranchRole(activeBranch) === 'admin';
@@ -47,7 +47,8 @@ function isStoredBranchAdmin() {
   } catch (error) {
     console.error('Failed to resolve branch admin role', error);
   }
-  return String(localStorage.getItem('branch_role') || '').toLowerCase() === 'admin';
+  const role = String(localStorage.getItem('branch_role') || '').trim().toLowerCase();
+  return localStorage.getItem('branch_owned') === 'true' || role === 'admin' || role === 'owner';
 }
 
 // ==========================================
