@@ -395,7 +395,9 @@ root.render(
           <Routes>
             {/* Public Routes — Login is eagerly loaded (no Suspense spinner) */}
             <Route path="/login" element={
-              <Login />
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
             } />
 
             <Route path="/register" element={
