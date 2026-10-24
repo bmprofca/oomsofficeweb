@@ -31,6 +31,7 @@ import {
   Dashboard,
   Register,
   BranchSetup,
+  GoogleCalendarSettings,
   InvitationRequest,
   TaskDisplay,
   ViewClients,
@@ -1075,6 +1076,12 @@ root.render(
             <Route path="/settings/branch-setting" element={
               <ProtectedRoute>
                 <BranchSettings />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/settings/google-calendar" element={
+              <ProtectedRoute>
+                <GoogleCalendarSettings />
               </ProtectedRoute>
             } />
 

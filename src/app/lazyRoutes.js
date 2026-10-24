@@ -50,6 +50,7 @@ export const PageNotFound = lazyWithRetry(() => import('../pages/error/page-not-
 export const Dashboard = lazyWithRetry(() => import('../pages/dashboard'));
 export const Register = lazyWithRetry(() => import('../pages/register'));
 export const BranchSetup = lazyWithRetry(() => import('../pages/branch-setup'));
+export const GoogleCalendarSettings = lazyWithRetry(() => import('../pages/settings/google-calendar'));
 export const InvitationRequest = lazyWithRetry(() => import('../pages/public/InvitationRequest'));
 export const TaskDisplay = lazyWithRetry(() => import('../pages/task-display'));
 export const ViewClients = lazyWithRetry(() => import('../pages/client-view'));
