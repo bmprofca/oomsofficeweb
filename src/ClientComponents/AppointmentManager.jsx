@@ -216,9 +216,29 @@ const AppointmentManager = ({ clientUsername, clientName, mine = false }) => {
         </div>
         <div className="flex flex-wrap gap-2">
           {!clientUsername ? (
-            <button type="button" onClick={() => setIncomingOnly((value) => !value)} className={`rounded-lg border px-3 py-2 text-sm ${incomingOnly ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>
-              {incomingOnly ? "Incoming to me" : "All accessible"}
-            </button>
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="Appointment view">
+              {[
+                { label: "All appointments", value: false },
+                { label: "For me", value: true },
+              ].map((tab) => {
+                const active = incomingOnly === tab.value;
+                return (
+                  <button
+                    key={tab.label}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => {
+                      setPage(1);
+                      setIncomingOnly(tab.value);
+                    }}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${active ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           ) : null}
           <button type="button" onClick={load} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" aria-label="Refresh appointments">
             <FiRefreshCw />
@@ -242,28 +262,49 @@ const AppointmentManager = ({ clientUsername, clientName, mine = false }) => {
       {loading ? <p className="p-5 text-sm text-slate-500">Loading appointments…</p> : appointments.length === 0 ? (
         <div className="p-8 text-center text-sm text-slate-500">No upcoming appointments found.</div>
       ) : (
-        <div className="divide-y divide-slate-100">
-          {appointments.map((appointment) => (
-            <article key={appointment.appointment_id} className="flex flex-col gap-3 p-4 md:flex-row md:items-start md:justify-between">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-slate-900">{appointment.client_name}</h3>
-                <p className="mt-1 text-sm text-slate-600">{displayDate(appointment.start_at, appointment.timezone)} – {displayDate(appointment.end_at, appointment.timezone)}</p>
-                <p className="mt-1 text-xs text-slate-500">Attendees: {(appointment.attendees || []).map((item) => item.attendee_name).join(", ") || "None"}</p>
-                {appointment.notes ? <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{appointment.notes}</p> : null}
-                <p className={`mt-2 text-xs font-medium ${appointment.calendar_sync_status === "synced" ? "text-emerald-700" : "text-amber-700"}`}>
-                  Google Calendar: {appointment.calendar_sync_status}
-                  {appointment.calendar_sync_error ? ` — ${appointment.calendar_sync_error}` : ""}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                {appointment.calendar_sync_status === "failed" || appointment.calendar_sync_status === "pending" ? (
-                  <button type="button" onClick={() => retrySync(appointment)} className="rounded-lg border border-amber-200 px-3 py-2 text-sm text-amber-800 hover:bg-amber-50">Retry calendar</button>
-                ) : null}
-                <button type="button" onClick={() => openEdit(appointment)} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" aria-label="Edit appointment"><FiEdit2 /></button>
-                <button type="button" onClick={() => cancel(appointment)} className="rounded-lg border border-rose-200 p-2 text-rose-600 hover:bg-rose-50" aria-label="Cancel appointment"><FiTrash2 /></button>
-              </div>
-            </article>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th scope="col" className="px-4 py-3 font-semibold">Client</th>
+                <th scope="col" className="px-4 py-3 font-semibold">Date &amp; time</th>
+                <th scope="col" className="px-4 py-3 font-semibold">Attendees</th>
+                <th scope="col" className="px-4 py-3 font-semibold">Notes</th>
+                <th scope="col" className="px-4 py-3 font-semibold">Google Calendar</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {appointments.map((appointment) => (
+                <tr key={appointment.appointment_id} className="align-top hover:bg-slate-50/70">
+                  <td className="px-4 py-4 font-semibold text-slate-900">{appointment.client_name}</td>
+                  <td className="whitespace-nowrap px-4 py-4 text-slate-600">
+                    <div>{displayDate(appointment.start_at, appointment.timezone)}</div>
+                    <div className="mt-1 text-xs text-slate-500">to {displayDate(appointment.end_at, appointment.timezone)}</div>
+                  </td>
+                  <td className="max-w-56 px-4 py-4 text-slate-600">
+                    {(appointment.attendees || []).map((item) => item.attendee_name).join(", ") || "None"}
+                  </td>
+                  <td className="max-w-64 whitespace-pre-wrap break-words px-4 py-4 text-slate-600">{appointment.notes || "—"}</td>
+                  <td className="px-4 py-4">
+                    <div className={`font-medium ${appointment.calendar_sync_status === "synced" ? "text-emerald-700" : "text-amber-700"}`}>
+                      {appointment.calendar_sync_status || "Unknown"}
+                    </div>
+                    {appointment.calendar_sync_error ? <p className="mt-1 max-w-56 text-xs text-amber-700">{appointment.calendar_sync_error}</p> : null}
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex justify-end gap-2">
+                      {appointment.calendar_sync_status === "failed" || appointment.calendar_sync_status === "pending" ? (
+                        <button type="button" onClick={() => retrySync(appointment)} className="rounded-lg border border-amber-200 px-3 py-2 text-sm text-amber-800 hover:bg-amber-50">Retry calendar</button>
+                      ) : null}
+                      <button type="button" onClick={() => openEdit(appointment)} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-100" aria-label={`Edit appointment with ${appointment.client_name}`}><FiEdit2 /></button>
+                      <button type="button" onClick={() => cancel(appointment)} className="rounded-lg border border-rose-200 p-2 text-rose-600 hover:bg-rose-50" aria-label={`Cancel appointment with ${appointment.client_name}`}><FiTrash2 /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       {!loading && pagination.total_pages > 1 ? (
