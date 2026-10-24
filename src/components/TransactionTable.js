@@ -173,11 +173,14 @@ function getParticularsDisplay(transaction) {
             </div>
         );
     }
-    if (transaction.create_by && particular?.type) {
+    // Opposite party of this ledger row (e.g. the client/expense a journal adjusts against).
+    const partyName = particular?.type && (particular?.details?.name || particular?.details?.username);
+    if (partyName) {
+        const partySub = particular.details.email || particular.details.mobile || '';
         return (
             <div className="flex flex-col min-w-0">
-                <div className="font-medium text-slate-800">{transaction.create_by.name || 'Company'}</div>
-                <div className="text-xs text-slate-500">{transaction.create_by.email || ''}</div>
+                <div className="font-medium text-slate-800">{partyName}</div>
+                {partySub ? <div className="text-xs text-slate-500">{partySub}</div> : null}
                 {remark && (
                     <div className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
                         {remark}
