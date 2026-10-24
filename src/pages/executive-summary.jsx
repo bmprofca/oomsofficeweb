@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiActivity, FiAlertCircle, FiBarChart2, FiCalendar, FiCheck, FiCheckCircle, FiChevronDown, FiClock, FiCreditCard, FiDollarSign, FiDownload, FiFileText, FiList, FiMail, FiPieChart, FiPlus, FiPlusCircle, FiRefreshCw, FiSave, FiSearch, FiSettings, FiTrash2, FiUsers } from 'react-icons/fi';
+import { FiActivity, FiAlertCircle, FiBarChart2, FiCalendar, FiCheck, FiCheckCircle, FiChevronDown, FiClock, FiCreditCard, FiDollarSign, FiDownload, FiFileText, FiFilter, FiList, FiMail, FiPieChart, FiPlus, FiPlusCircle, FiRefreshCw, FiSave, FiSettings, FiTrash2, FiUsers, FiX } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Header, Sidebar } from '../components/header';
@@ -321,7 +321,8 @@ export default function ExecutiveSummary() {
   const [collapsedSections, setCollapsedSections] = useState(() => new Set(Object.keys(SECTION_LABELS)));
   const [activeTab, setActiveTab] = useState('report');
   const [preset, setPreset] = useState('previous_month');
-  const [filters, setFilters] = useState(() => ({ ...previousPeriod('previous_month'), inactivity_days: 30, staff_username: '', search: '' }));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState(() => ({ ...previousPeriod('previous_month'), inactivity_days: 30, staff_username: '' }));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -329,6 +330,15 @@ export default function ExecutiveSummary() {
   const actionInProgressRef = useRef(false);
   const [error, setError] = useState(null);
   const admin = useMemo(isAdmin, []);
+
+  useEffect(() => {
+    if (!filtersOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setFiltersOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [filtersOpen]);
 
   const load = useCallback(async (nextFilters = filters) => {
     setLoading(true); setError(null);
@@ -354,6 +364,7 @@ export default function ExecutiveSummary() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(filters.from_date) || !/^\d{4}-\d{2}-\d{2}$/.test(filters.to_date) || filters.from_date > filters.to_date) return toast.error('Choose a valid date range.');
     if (!/^\d+$/.test(String(filters.inactivity_days)) || Number(filters.inactivity_days) < 0) return toast.error('Inactivity days must be a non-negative number.');
     load(filters);
+    setFiltersOpen(false);
   };
   const actionInProgress = sending || downloading;
   const downloadPdf = async () => {
@@ -468,20 +479,54 @@ export default function ExecutiveSummary() {
       </div>
     </Card>
 
-    {activeTab === 'report' && <Card className="p-5 sm:p-6">
-      <CardHeader icon={FiCalendar} title="Reporting period" subtitle={`${presetTitle} · ${formatDateLabel(filters.from_date)} – ${formatDateLabel(filters.to_date)}`} />
-      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
-        <div><FieldLabel>Quick range</FieldLabel><Segmented size="sm" options={[['previous_week', 'Previous week'], ['previous_month', 'Previous month'], ['custom', 'Custom']]} value={preset} onChange={applyPreset} /></div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div><FieldLabel>From</FieldLabel><DatePickerField value={filters.from_date} onChange={(value) => { setPreset('custom'); updateFilter('from_date', value); }} hideTabs showResetButton={false} placeholder="Select start date" buttonClassName="ui-input w-full" /></div>
-          <div><FieldLabel>To</FieldLabel><DatePickerField value={filters.to_date} onChange={(value) => { setPreset('custom'); updateFilter('to_date', value); }} hideTabs showResetButton={false} placeholder="Select end date" buttonClassName="ui-input w-full" /></div>
+    {activeTab === 'report' && <Card className="p-4 sm:px-5 sm:py-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader icon={FiCalendar} title="Reporting period" subtitle={`${presetTitle} · ${formatDateLabel(filters.from_date)} – ${formatDateLabel(filters.to_date)}`} />
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            aria-controls="executive-summary-filters"
+            onClick={() => setFiltersOpen(true)}
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-[#1552D4] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <FiFilter aria-hidden="true" />
+            Filters
+          </button>
         </div>
       </div>
-      <div className="mt-4 grid items-end gap-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto]">
-        <div><FieldLabel htmlFor="es-filter-inactivity">Inactivity days</FieldLabel><div className="relative"><input id="es-filter-inactivity" type="text" inputMode="numeric" pattern="[0-9]*" value={filters.inactivity_days} onChange={(event) => updateFilter('inactivity_days', digitsOnly(event.target.value))} className="ui-input w-full pr-12" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">days</span></div></div>
-        <div><FieldLabel htmlFor="es-filter-search">Search</FieldLabel><div className="relative"><FiSearch className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400" /><input id="es-filter-search" value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} className="ui-input w-full" style={{ paddingLeft: '2.25rem' }} placeholder="Search rows" /></div></div>
-        <button type="button" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#1552D4] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0F3FA8] disabled:opacity-60" onClick={apply} disabled={loading}>{loading ? <FiRefreshCw className="animate-spin" /> : <FiBarChart2 />} Apply filters</button>
-      </div>
+      {filtersOpen && <div className="fixed inset-0 z-[12000] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm" onClick={() => setFiltersOpen(false)}>
+        <section id="executive-summary-filters" role="dialog" aria-modal="true" aria-labelledby="executive-summary-filters-title" className="my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <IconWell icon={FiCalendar} />
+              <div>
+                <h2 id="executive-summary-filters-title" className="text-base font-bold text-slate-900">Report filters</h2>
+                <p className="mt-0.5 text-xs text-slate-500">{presetTitle} · {formatDateLabel(filters.from_date)} – {formatDateLabel(filters.to_date)}</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Close filters">
+              <FiX />
+            </button>
+          </div>
+          <div className="space-y-5 p-5">
+            <div><FieldLabel>Quick range</FieldLabel><Segmented size="sm" options={[['previous_week', 'Previous week'], ['previous_month', 'Previous month'], ['custom', 'Custom']]} value={preset} onChange={applyPreset} /></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div><FieldLabel>From</FieldLabel><DatePickerField value={filters.from_date} onChange={(value) => { setPreset('custom'); updateFilter('from_date', value); }} hideTabs showResetButton={false} placeholder="Select start date" buttonClassName="ui-input w-full" /></div>
+              <div><FieldLabel>To</FieldLabel><DatePickerField value={filters.to_date} onChange={(value) => { setPreset('custom'); updateFilter('to_date', value); }} hideTabs showResetButton={false} placeholder="Select end date" buttonClassName="ui-input w-full" /></div>
+            </div>
+            <div className="max-w-xs">
+              <FieldLabel htmlFor="es-filter-inactivity">Inactivity days</FieldLabel>
+              <div className="relative"><input id="es-filter-inactivity" type="text" inputMode="numeric" pattern="[0-9]*" value={filters.inactivity_days} onChange={(event) => updateFilter('inactivity_days', digitsOnly(event.target.value))} className="ui-input w-full pr-12" /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">days</span></div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4">
+            <button type="button" className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50" onClick={() => setFiltersOpen(false)}>Cancel</button>
+            <button type="button" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1552D4] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#0F3FA8] disabled:opacity-60" onClick={apply} disabled={loading}>{loading ? <FiRefreshCw className="animate-spin" /> : <FiBarChart2 />} Apply filters</button>
+          </div>
+        </section>
+      </div>}
     </Card>}
 
     {error ? <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><span className="flex items-center gap-2"><FiAlertCircle /> {error.message || 'Unable to load report.'}</span><button type="button" className="rounded-lg bg-white px-3 py-1.5 font-semibold text-[#1552D4] shadow-sm hover:bg-blue-50" onClick={() => load(filters)}>Retry</button></div> : null}
