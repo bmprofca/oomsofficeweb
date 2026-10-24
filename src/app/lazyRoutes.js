@@ -76,6 +76,7 @@ export const StaffReport = lazyWithRetry(() => import('../pages/staff-report'));
 export const ExecutiveSummary = lazyWithRetry(() => import('../pages/executive-summary'));
 export const AutomationCenter = lazyWithRetry(() => import('../pages/automation-center'));
 export const OfficeAssistance = lazyWithRetry(() => import('../pages/office-assistance'));
+export const Appointments = lazyWithRetry(() => import('../pages/office-assistance/appointments'));
 export const ViewDSCRegister = lazyWithRetry(() => import('../pages/office-assistance/dsc-report'));
 export const ViewFileIndex = lazyWithRetry(() => import('../pages/office-assistance/file-index'));
 export const PasswordGroups = lazyWithRetry(() => import('../pages/office-assistance/password-group'));

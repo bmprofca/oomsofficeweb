@@ -64,6 +64,7 @@ import RecurringTab from "../ClientComponents/RecurringTab";
 import DocumentsTab from "../ClientComponents/DocumentsTab";
 import ChattingTab from "../ClientComponents/ChattingTab";
 import AutomationTab from "../ClientComponents/AutomationTab";
+import AppointmentManager from "../ClientComponents/AppointmentManager";
 import ClientPaymentReminderModal from "../components/Modals/ClientPaymentReminderModal";
 import { ClickToCallButton } from "../components/Call/ClickToCall";
 import { InAppVoiceCallButton } from "../components/Call/InAppVoiceCall";
@@ -1722,6 +1723,7 @@ const ClientProfile = () => {
     { id: "documents", name: "Documents", icon: FiArchive },
     { id: "chatting", name: "Chatting", icon: FiMessageSquare },
     { id: "automation", name: "Automation", icon: FiSettings },
+    { id: "appointments", name: "Appointments", icon: FiCalendar },
   ];
 
   // Persist sidebar minimized state
@@ -1783,6 +1785,7 @@ const ClientProfile = () => {
       documents: "documents",
       chatting: "chatting",
       automation: "automation",
+      appointments: "appointments",
     };
 
     const componentKey = tabMap[tab] || "basic";
@@ -1830,6 +1833,7 @@ const ClientProfile = () => {
       ),
       chatting: <ChattingTab clientData={clientData} loading={loading} />,
       automation: <AutomationTab clientUsername={username} />,
+      appointments: <AppointmentManager clientUsername={username} clientName={clientData.name} />,
     };
 
     return tabComponents[componentKey] || tabComponents["basic"];

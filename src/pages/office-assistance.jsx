@@ -17,11 +17,21 @@ import {
   FiUserCheck,
   FiUsers,
   FiTrash2,
+  FiCalendar,
 } from "react-icons/fi";
 import { Header, Sidebar } from "../components/header";
 import { useUserPermissions } from "../utils/permission-helper";
 
 const OFFICE_MODULES = [
+  {
+    title: "Appointments",
+    description: "Schedule and manage client meetings",
+    icon: FiCalendar,
+    link: "/appointments",
+    iconBg: "bg-white ring-1 ring-indigo-200",
+    iconColor: "text-indigo-600",
+    hover: "border-indigo-100 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/70 hover:shadow-md",
+  },
   {
     title: "DSC Register",
     description: "Digital signature certificates",

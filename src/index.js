@@ -57,6 +57,7 @@ import {
   ExecutiveSummary,
   AutomationCenter,
   OfficeAssistance,
+  Appointments,
   ViewDSCRegister,
   ViewFileIndex,
   PasswordGroups,
@@ -713,6 +714,11 @@ root.render(
             <Route path="/office-assistance" element={
               <ProtectedRoute>
                 <OfficeAssistance />
+              </ProtectedRoute>
+            } />
+            <Route path="/office-assistance/appointments" element={
+              <ProtectedRoute>
+                <Appointments />
               </ProtectedRoute>
             } />
 
