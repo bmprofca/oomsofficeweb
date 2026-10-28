@@ -26,6 +26,7 @@ const Modal = ({
     className = '',
     bodyClassName = '',
     compactHeader = false,
+    centered = false,
     zIndexClass = 'z-[10050]',
 }) => {
     const [portalMounted, setPortalMounted] = useState(Boolean(isOpen));
@@ -68,7 +69,7 @@ const Modal = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.18 }}
-                    className={`fixed inset-0 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none ${zIndexClass}`}
+                    className={`fixed inset-0 flex ${centered ? 'items-center' : 'items-start'} justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none ${zIndexClass}`}
                 >
                     <motion.button
                         type="button"
@@ -89,7 +90,7 @@ const Modal = ({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.96, y: 8 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className={`relative z-[1] pointer-events-auto my-2 sm:my-4 flex w-full ${SIZE_CLASS[size] || SIZE_CLASS.md} max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ${className}`.trim()}
+                        className={`relative z-[1] pointer-events-auto ${centered ? 'my-0' : 'my-2 sm:my-4'} flex w-full ${SIZE_CLASS[size] || SIZE_CLASS.md} max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ${className}`.trim()}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className={`flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 ${compactHeader ? 'py-2.5' : 'py-4'}`}>

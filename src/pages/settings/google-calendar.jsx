@@ -123,13 +123,13 @@ const GoogleCalendarSettings = () => {
                   Google Calendar ID
                   <input
                     value={calendarId}
-                    onChange={(event) => setCalendarId(event.target.value)}
+                    readOnly
                     maxLength={255}
                     placeholder="primary"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-normal text-slate-600"
                     required
                   />
-                  <span className="mt-1 block text-xs font-normal text-slate-500">Use “primary” for the account's main calendar. Connecting again replaces this branch's active calendar for new appointments.</span>
+                  <span className="mt-1 block text-xs font-normal text-slate-500">This branch uses its primary Google Calendar. Connecting again replaces its active calendar for new appointments.</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button type="submit" disabled={loading || connecting} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
