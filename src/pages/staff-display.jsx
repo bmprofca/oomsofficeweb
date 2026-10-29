@@ -18,6 +18,7 @@ import getHeaders from "../utils/get-headers";
 import BASE_URL from "../utils/api-controller";
 import toast from 'react-hot-toast';
 import AddStaffModal from '../components/Modals/AddStaffModal';
+import AddStaffOtpModal from '../components/Modals/AddStaffOtpModal';
 import StaffStatusOtpModal from '../components/Modals/StaffStatusOtpModal';
 import ConfirmActionModal from '../components/ConfirmActionModal';
 import TablePagination from '../components/TablePagination';
@@ -366,6 +367,8 @@ const ViewStaff = () => {
 
     // Modal states
     const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
+    const [isAddStaffOtpModalOpen, setIsAddStaffOtpModalOpen] = useState(false);
+    const [staffLookupMobile, setStaffLookupMobile] = useState('');
     const [isEditStaffModalOpen, setIsEditStaffModalOpen] = useState(false);
     const [isDeleteStaffModalOpen, setIsDeleteStaffModalOpen] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState(null);
@@ -928,14 +931,25 @@ const ViewStaff = () => {
                                             {totalItems} staff member{totalItems === 1 ? '' : 's'} total
                                     </p>
                                 </div>
-                                        <motion.button
-                                        type="button"
+                                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                          <motion.button
+                                            type="button"
                                             onClick={() => setIsAddStaffModalOpen(true)}
-                                        className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
-                                        >
+                                            className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                                          >
                                             <FiPlus className="w-4 h-4" />
                                             Add Staff
-                                        </motion.button>
+                                          </motion.button>
+                                          <motion.button
+                                            type="button"
+                                            onClick={() => setIsAddStaffOtpModalOpen(true)}
+                                            className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                                            title="Add staff after mobile OTP verification without an invitation"
+                                          >
+                                            <FiPhone className="w-4 h-4" />
+                                            Add with OTP
+                                          </motion.button>
+                                        </div>
                                     </div>
                                 <div className="relative min-w-0">
                                     <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -997,14 +1011,25 @@ const ViewStaff = () => {
                                                     <FiUsers className="w-16 h-16 text-gray-300 mb-4" />
                                                     <p className="text-gray-500 text-sm font-medium mb-1">No staff members found</p>
                                                     <p className="text-gray-400 text-xs mb-6">Try adding a new staff member or adjust your search</p>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setIsAddStaffModalOpen(true)}
-                                                        className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-all duration-200 shadow-sm"
-                                                    >
-                                                        <FiPlus className="w-4 h-4 inline mr-2" />
-                                                        Add New Staff
-                                                    </button>
+                                                    <div className="flex flex-wrap items-center justify-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsAddStaffModalOpen(true)}
+                                                            className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-all duration-200 shadow-sm"
+                                                        >
+                                                            <FiPlus className="w-4 h-4 inline mr-2" />
+                                                            Add New Staff
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsAddStaffOtpModalOpen(true)}
+                                                            className="px-6 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-all duration-200 shadow-sm"
+                                                            title="Add staff after mobile OTP verification without an invitation"
+                                                        >
+                                                            <FiPhone className="w-4 h-4 inline mr-2" />
+                                                            Add with OTP
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1119,7 +1144,30 @@ const ViewStaff = () => {
             {/* Add Staff Modal */}
             <AddStaffModal
                 isOpen={isAddStaffModalOpen}
-                onClose={() => setIsAddStaffModalOpen(false)}
+                initialMobile={staffLookupMobile}
+                onClose={() => {
+                    setIsAddStaffModalOpen(false);
+                    setStaffLookupMobile('');
+                }}
+                onMobileNotFound={(mobile) => {
+                    setIsAddStaffModalOpen(false);
+                    setStaffLookupMobile(mobile);
+                    setIsAddStaffOtpModalOpen(true);
+                }}
+                onSuccess={() => fetchStaffData(searchQuery, currentPage, itemsPerPage)}
+            />
+            <AddStaffOtpModal
+                isOpen={isAddStaffOtpModalOpen}
+                initialMobile={staffLookupMobile}
+                onClose={() => {
+                    setIsAddStaffOtpModalOpen(false);
+                    setStaffLookupMobile('');
+                }}
+                onExistingUser={(mobile) => {
+                    setIsAddStaffOtpModalOpen(false);
+                    setStaffLookupMobile(mobile);
+                    setIsAddStaffModalOpen(true);
+                }}
                 onSuccess={() => fetchStaffData(searchQuery, currentPage, itemsPerPage)}
             />
 

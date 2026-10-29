@@ -73,7 +73,7 @@ const UserFoundSkeleton = () => (
   </div>
 );
 
-export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
+export default function AddStaffModal({ isOpen = false, onClose, onSuccess, initialMobile = '', onMobileNotFound }) {
   const [step, setStep] = useState(1);
   const [lookupMode, setLookupMode] = useState("email");
   const [email, setEmail] = useState("");
@@ -99,6 +99,14 @@ export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
   useEffect(() => {
     if (!isOpen) reset();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && initialMobile) {
+      setLookupMode('mobile');
+      setMobile(String(initialMobile).replace(/\D/g, '').slice(0, 10));
+      setStep(1);
+    }
+  }, [isOpen, initialMobile]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -146,7 +154,13 @@ export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
         toast.error(res.data?.message || "User not found. Check the email or mobile number.");
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Network error. Please try again.");
+      if (lookupMode === "mobile" && err.response?.status === 404 && onMobileNotFound) {
+        toast("No Ooms account was found for this number. Opening OTP verification...");
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        onMobileNotFound(mobileDigits);
+      } else {
+        toast.error(err.response?.data?.message || "Network error. Please try again.");
+      }
     } finally {
       setFinding(false);
     }
@@ -155,6 +169,13 @@ export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
   const handleAddStaff = async (e) => {
     e?.preventDefault();
     if (!userDetails?.username) return;
+    if (userDetails.already_assigned) {
+      toast(userDetails.is_accepted
+        ? "This staff member is already active in this branch."
+        : "A staff invitation for this user is already pending.");
+      onClose?.();
+      return;
+    }
     if (!designation) {
       toast.error("Please select a designation");
       return;
@@ -315,9 +336,15 @@ export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
                         <FiUserCheck className="h-5 w-5 text-emerald-600" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="m-0 mb-1 text-sm font-semibold text-emerald-800">User Found</h4>
+                        <h4 className="m-0 mb-1 text-sm font-semibold text-emerald-800">
+                          {userDetails?.already_assigned ? "Staff Already in Branch" : "User Found"}
+                        </h4>
                         <p className="m-0 mb-3 text-xs text-emerald-600">
-                          User details fetched successfully. Please add designation below.
+                          {userDetails?.already_assigned
+                            ? (userDetails.is_accepted
+                              ? "This user is already an active staff member in this branch."
+                              : "A staff invitation for this user is already pending.")
+                            : "User details fetched successfully. Please add designation below."}
                         </p>
                         <div className="grid grid-cols-1 gap-1.5 text-xs">
                           <div>
@@ -344,7 +371,7 @@ export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
                       </div>
                     </div>
                   </div>
-                  <div>
+                  {!userDetails?.already_assigned && <div>
                     <label className="mb-1.5 block text-xs font-semibold text-gray-600">
                       Designation <span className="text-red-500">*</span>
                     </label>
@@ -356,7 +383,7 @@ export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
                       isClearable={false}
                       isDisabled={busy}
                     />
-                  </div>
+                  </div>}
                 </form>
               )}
             </div>
@@ -392,9 +419,10 @@ export default function AddStaffModal({ isOpen = false, onClose, onSuccess }) {
                 <button
                   type="submit"
                   form="add-staff-form"
-                  className="inline-flex min-w-[8.5rem] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                  disabled={userDetails?.already_assigned}
+                  className="inline-flex min-w-[8.5rem] items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {step === 1 ? "Find User" : "Add Staff Member"}
+                  {step === 1 ? "Find User" : userDetails?.already_assigned ? "Already Added" : "Add Staff Member"}
                 </button>
               ) : null}
             </div>

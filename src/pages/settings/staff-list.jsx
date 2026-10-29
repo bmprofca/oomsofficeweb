@@ -21,6 +21,7 @@ import AnimatedCheckbox from '../../components/AnimatedCheckbox';
 import CustomSelect from '../../components/CustomSelect';
 import EmailActionMenu from '../broadcast/email/EmailActionMenu';
 import AddStaffModal from '../../components/Modals/AddStaffModal';
+import AddStaffOtpModal from '../../components/Modals/AddStaffOtpModal';
 import StaffStatusOtpModal from '../../components/Modals/StaffStatusOtpModal';
 import ConfirmActionModal from '../../components/ConfirmActionModal';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
@@ -113,6 +114,8 @@ const StaffList = () => {
     const [bulkPermissionRole, setBulkPermissionRole] = useState('');
     const [bulkAssigning, setBulkAssigning] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showOtpCreateModal, setShowOtpCreateModal] = useState(false);
+    const [staffLookupMobile, setStaffLookupMobile] = useState('');
     const [showPermissionModal, setShowPermissionModal] = useState(false);
     const [selectedStaffMember, setSelectedStaffMember] = useState(null);    
     const [permissionsView, setPermissionsView] = useState({ open: false, staff: null, perms: [] });
@@ -782,6 +785,17 @@ const StaffList = () => {
                                             <span className="hidden min-[400px]:inline">Add Staff</span>
                                             <span className="min-[400px]:hidden">Add</span>
                                         </motion.button>
+                                        <motion.button
+                                            type="button"
+                                            onClick={() => setShowOtpCreateModal(true)}
+                                            className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            title="Add staff after mobile OTP verification without an invitation"
+                                        >
+                                            <FiPhone className="w-4 h-4" />
+                                            <span>Add with OTP</span>
+                                        </motion.button>
                                     </div>
 
                                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1047,7 +1061,30 @@ const StaffList = () => {
 
             <AddStaffModal
                 isOpen={showCreateModal}
-                onClose={() => setShowCreateModal(false)}
+                initialMobile={staffLookupMobile}
+                onClose={() => {
+                    setShowCreateModal(false);
+                    setStaffLookupMobile('');
+                }}
+                onMobileNotFound={(mobile) => {
+                    setShowCreateModal(false);
+                    setStaffLookupMobile(mobile);
+                    setShowOtpCreateModal(true);
+                }}
+                onSuccess={fetchStaffData}
+            />
+            <AddStaffOtpModal
+                isOpen={showOtpCreateModal}
+                initialMobile={staffLookupMobile}
+                onClose={() => {
+                    setShowOtpCreateModal(false);
+                    setStaffLookupMobile('');
+                }}
+                onExistingUser={(mobile) => {
+                    setShowOtpCreateModal(false);
+                    setStaffLookupMobile(mobile);
+                    setShowCreateModal(true);
+                }}
                 onSuccess={fetchStaffData}
             />
             <Modal
